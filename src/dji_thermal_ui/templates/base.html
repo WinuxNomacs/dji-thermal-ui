@@ -1,0 +1,34 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if title and title != "Thermal Analyzer" %}{{ title }} · {% endif %}Thermal Analyzer</title>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome/css/all.min.css' %}">
+    {% block styles %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'analyzer.css' %}">
+    <link rel="stylesheet" href="{% static 'app.css' %}">
+    {{ unit|json_script:"ta-unit" }}
+    <script>window.__temperatureUnit = JSON.parse(document.getElementById("ta-unit").textContent);</script>
+</head>
+<body>
+<header class="ta-app-header">
+    <a class="ta-app-name" href="{{ public }}"><i class="fa fa-thermometer-half"></i> Thermal Analyzer</a>
+    <div class="ta-app-settings">
+        <label for="ta-app-unit">Temperatures in</label>
+        <select id="ta-app-unit" class="form-control input-sm" data-api="{{ api }}">
+            <option value="F"{% if unit == "F" %} selected{% endif %}>°F</option>
+            <option value="C"{% if unit == "C" %} selected{% endif %}>°C</option>
+            <option value="K"{% if unit == "K" %} selected{% endif %}>K</option>
+        </select>
+        <span class="ta-app-version" title="dji-thermal-ui's version">{{ version }}</span>
+    </div>
+</header>
+<main class="container-fluid ta-app-main">
+{% block content %}{% endblock %}
+</main>
+<script src="{% static 'app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

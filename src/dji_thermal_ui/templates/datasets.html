@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div id="ta-datasets" class="ta-page" data-api="{{ api }}" data-public="{{ public }}">
+    {% csrf_token %}
+    <div class="ta-header">
+        <h3>Datasets</h3>
+        <div class="ta-header-actions">
+            <input type="search" id="ta-search" class="form-control input-sm" placeholder="Search datasets">
+            <button type="button" class="btn btn-primary btn-sm" id="ta-new"><i class="fa fa-plus"></i> New Dataset</button>
+        </div>
+    </div>
+
+    <div class="ta-message" id="ta-message"></div>
+
+    <table class="table ta-table" id="ta-table" hidden>
+        <thead><tr><th data-sort="name">Name</th><th data-sort="status">Status</th>
+            <th data-sort="files">Files</th><th data-sort="problems">Problems</th>
+            <th data-sort="conversions" title="Conversions ready of all">Conversions</th><th data-sort="size">Size</th>
+            <th data-sort="activity" title="The latest creation, analysis or conversion">Last activity</th>
+            <th data-sort="created">Created</th><th></th></tr></thead>
+        <tbody id="ta-body"></tbody>
+    </table>
+
+    <div class="ta-drop-hint" id="ta-drop-hint" hidden><i class="fa fa-images"></i> Drop the images or their folder to make a new dataset</div>
+
+    <div class="ta-dialog" id="ta-new-dialog" hidden>
+        <div class="ta-dialog-inner theme-secondary">
+            <h4>New thermal dataset</h4>
+            <div class="form-group">
+                <label for="ta-new-name">Name</label>
+                <input type="text" id="ta-new-name" class="form-control input-sm" maxlength="255">
+            </div>
+            <div class="form-group ta-new-source" id="ta-new-source-group">
+                <label class="radio-inline"><input type="radio" name="ta-new-source" value="upload" checked> Upload images</label>
+                <label class="radio-inline"><input type="radio" name="ta-new-source" value="folder"> A folder on this computer</label>
+            </div>
+            <div class="form-group" id="ta-new-upload">
+                <label class="btn btn-default btn-sm ta-pick"><i class="fa fa-images"></i> Choose images
+                    <input type="file" id="ta-new-files" multiple accept=".jpg,.jpeg,image/jpeg" hidden></label>
+                <label class="btn btn-default btn-sm ta-pick"><i class="fa fa-folder-open"></i> Choose a folder
+                    <input type="file" id="ta-new-dir" webkitdirectory hidden></label>
+                <p class="help-block" id="ta-new-chosen">The R-JPEGs of a flight (the _T.JPG files). Visible images can be included: they are listed, not analyzed.</p>
+            </div>
+            <div class="form-group" id="ta-new-folder" hidden>
+                <input type="text" id="ta-new-folder-path" class="form-control input-sm" placeholder="/path/to/flight/images">
+                <p class="help-block">The images are read in place, not copied.</p>
+            </div>
+            <div class="ta-upload-progress" id="ta-new-progress" hidden>
+                <div class="progress"><div class="progress-bar" role="progressbar" style="width: 0%;"></div></div>
+                <span id="ta-new-progress-text"></span>
+            </div>
+            <div class="text-danger" id="ta-new-error"></div>
+            <div class="ta-dialog-actions">
+                <button type="button" class="btn btn-default btn-sm" id="ta-new-cancel">Cancel</button>
+                <button type="button" class="btn btn-default btn-sm" id="ta-new-without" hidden>Analyze without them</button>
+                <button type="button" class="btn btn-primary btn-sm" id="ta-new-retry" hidden>Send them again</button>
+                <button type="button" class="btn btn-primary btn-sm" id="ta-new-create">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'analyzer_core.js' %}"></script>
+<script src="{% static 'datasets.js' %}"></script>
+{% endblock %}

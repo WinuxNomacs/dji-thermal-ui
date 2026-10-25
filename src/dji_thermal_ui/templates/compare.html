@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+{% block styles %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">{% endblock %}
+{% block content %}
+<div id="ta-compare" class="ta-page ta-viewer ta-compare-page" data-api="{{ api }}" data-public="{{ public }}" data-id="{{ conversion.id }}" data-b="{{ other.id }}">
+    {% csrf_token %}
+    <div class="ta-breadcrumb"><a href="{{ public }}conversion/{{ conversion.id }}"><i class="fa fa-arrow-left"></i> {{ dataset.name }} · {{ conversion.name }}</a></div>
+    <div class="ta-header">
+        <div>
+            <h3>Compare</h3>
+            <div class="ta-subtitle">Two mosaics side by side, or their difference.</div>
+        </div>
+        <div class="ta-header-actions">
+            <button type="button" class="btn btn-default btn-sm active" id="ta-compare-link" aria-pressed="true" title="Pan and zoom both panes together"><i class="fa fa-link"></i> Linked</button>
+            <button type="button" class="btn btn-default btn-sm active" id="ta-compare-lock" aria-pressed="true" title="Both panes share one palette and range"><i class="fa fa-lock"></i> Shared palette</button>
+        </div>
+    </div>
+    <div class="ta-status" id="ta-compare-status"></div>
+
+    <div id="ta-compare-main" hidden>
+        <div class="ta-compare-shared" id="ta-compare-shared" data-style="shared" hidden></div>
+        <div class="ta-compare-body" id="ta-compare-body">
+            <div class="ta-compare-pane" id="ta-compare-a" data-pane="a"></div>
+            <div class="ta-compare-split" id="ta-compare-split" role="separator" aria-orientation="vertical" aria-label="Move the split between the panes" tabindex="0"></div>
+            <div class="ta-compare-pane" id="ta-compare-b" data-pane="b"></div>
+        </div>
+    </div>
+</div>
+
+{{ basemaps|json_script:"ta-basemaps" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'analyzer_core.js' %}"></script>
+<script src="{% static 'measure.js' %}"></script>
+<script src="{% static 'viewer.js' %}"></script>
+<script src="{% static 'compare.js' %}"></script>
+{% endblock %}
