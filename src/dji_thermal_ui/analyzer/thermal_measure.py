@@ -236,7 +236,7 @@ def profile_points(line, step):
 
 def grid_values(values, transform, x, y):
     """A grid's values at points (x, y arrays in its units), NaN outside it"""
-    cols, rows = ~transform * (x, y)
+    cols, rows = ~transform @ (x, y)
     cols, rows = np.floor(cols).astype(np.int64), np.floor(rows).astype(np.int64)
     inside = (rows >= 0) & (rows < values.shape[0]) & (cols >= 0) & (cols < values.shape[1])
     out = np.full(len(x), np.nan)
@@ -494,8 +494,8 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
     to_crs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
     to_lonlat = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
     shape, inside, ring = shapes(geometry, to_crs)
-    reach = ring if not ring.empty else inside
-    read = read_mosaic(path, unit, reach.extent)
+    reach = ring if not ring.is_empty else inside
+    read = read_mosaic(path, unit, reach.bounds)
     out = {'kind': geometry['type'], 'reason': None}
     out.update(shape_size(geometry['type'], shape))
     if read is None:
@@ -505,12 +505,12 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
     values = corrected(values, unit, correction)
 
     def locate(row, col):
-        x, y = transform * (col + 0.5, row + 0.5)
+        x, y = transform @ (col + 0.5, row + 0.5)
         return list(to_lonlat.transform(x, y))
 
     out.update(region_stats(values, transform, geometry['type'], inside, ring, isotherm, locate))
     if geometry['type'] == 'Point':
-        col, row = ~transform * (shape.x, shape.y)
+        col, row = ~transform @ (shape.x, shape.y)
         row, col = int(math.floor(row)), int(math.floor(col))
         inside_grid = 0 <= row < values.shape[0] and 0 <= col < values.shape[1]
         out['value'] = float(values[row, col]) if inside_grid and np.isfinite(values[row, col]) else None

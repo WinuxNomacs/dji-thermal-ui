@@ -1,0 +1,476 @@
+"""Measuring the mosaics and the frames through the API: spots, lines, areas, isotherms, corrections, the images'
+adjustments, and the saved measurements and their exports (ported from LuxODM's
+app/tests/test_thermal_analyzer_plugin.py, commit a2a81052, without its sharing and its pages; the exports are in
+the app's unit)"""
+
+import csv
+import io
+import json
+import os
+from types import SimpleNamespace
+from unittest import mock
+
+import numpy as np
+import pytest
+from PIL import Image
+
+from dji_thermal_ui.analyzer import thermal_measure as measuring
+from dji_thermal_ui.analyzer import thermal_mosaics as mosaics
+from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalMeasurement
+from dji_thermal_ui.analyzer.raster.thermal_correction import corrected_array
+from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, analysed, converted, fake_measure, fake_process,
+                         mosaic_lonlat, mosaic_square, mosaic_temperature, mosaic_tile, uploaded)
+
+
+def csv_rows(client, c):
+    res = client.get("{}/{}/measurements.csv".format(CONVERSIONS, c.id))
+    return list(csv.DictReader(io.StringIO(res.content.decode())))
+
+
+def test_spots_lines_and_areas_measure_the_mosaics_and_their_surroundings(api):
+    c, _ = converted(api)
+    url = "{}/{}/measure".format(CONVERSIONS, c.id)
+    res = api.post(url, {'target': 'as_converted', 'geometry': mosaic_square(32, 16, 48, 32),
+                         'isotherm': 'above,{}'.format(mosaic_temperature(39.5))}, format='json')
+    assert res.status_code == 200, res.data
+    assert not res.data['approximate']
+    r = res.data['result']
+    assert (r['kind'], r['valid_pixels'], r['reason']) == ('Polygon', 256, None)
+    assert r['mean'] == pytest.approx(mosaic_temperature(39.5), abs=1e-3)
+    assert r['min'] == pytest.approx(mosaic_temperature(32), abs=1e-3)
+    assert r['max'] == pytest.approx(mosaic_temperature(47), abs=1e-3)
+    assert r['area'] == pytest.approx((15.6 * 0.05) ** 2, abs=1e-3)
+    # The hottest pixel: the east edge's (the first of its column)
+    assert r['max_location'] == pytest.approx(mosaic_lonlat(47.5, 16.5), abs=1e-7)
+    # Half of it is above its mean; the surroundings are a ring around it, its ΔT their difference
+    assert r['isotherm'] == {'pixels': 128, 'share': 0.5}
+    assert r['delta_t'] == pytest.approx(r['mean'] - r['surroundings'], abs=1e-6)
+    assert sum(r['histogram'][0]) == 256
+    # The harmonized mosaic is half a degree warmer
+    h = api.post(url, {'target': 'harmonized', 'geometry': mosaic_square(32, 16, 48, 32)}, format='json').data['result']
+    assert h['mean'] - r['mean'] == pytest.approx(0.5, abs=1e-3)
+
+    # A spot: the pixel's own value and the mean of a disc around it; a line: a strip along it
+    spot = api.post(url, {'target': 'as_converted', 'geometry': {'type': 'Point', 'coordinates': mosaic_lonlat(32.5, 32.5)}},
+                    format='json').data['result']
+    assert spot['value'] == pytest.approx(mosaic_temperature(32), abs=1e-3)
+    assert spot['mean'] == pytest.approx(mosaic_temperature(32), abs=0.1)
+    assert spot['valid_pixels'] > 50
+    line = api.post(url, {'target': 'as_converted', 'geometry': {'type': 'LineString', 'coordinates': [
+        mosaic_lonlat(20, 30), mosaic_lonlat(40, 30)]}}, format='json').data['result']
+    assert line['length'] == pytest.approx(1.0, abs=1e-3)
+    assert line['mean'] == pytest.approx(mosaic_temperature(29.5), abs=0.2)
+
+    # All of it: no data and dji-thermal-cli's absolute-zero marker left out
+    whole = api.post(url, {'target': 'as_converted', 'geometry': None}, format='json').data['result']
+    assert (whole['kind'], whole['valid_pixels']) == ('mosaic', 64 * 64 - 64 - 16)
+    assert whole['min'] >= 10
+    assert len(whole['percentiles']) == 2
+
+    far = api.post(url, {'target': 'as_converted', 'geometry': {'type': 'Point', 'coordinates': mosaic_lonlat(500, 500)}},
+                   format='json').data['result']
+    assert (far['valid_pixels'], far['reason']) == (0, 'outside_raster')
+    nodata = api.post(url, {'target': 'as_converted', 'geometry': mosaic_square(0, 0, 8, 8)}, format='json').data['result']
+    assert (nodata['valid_pixels'], nodata['reason']) == (0, 'nodata')
+    for bad in ({'target': 'source_frame', 'geometry': None},
+                {'target': 'as_converted', 'geometry': {'type': 'Polygon', 'coordinates': [[[0, 0], [1, 1]]]}},
+                {'target': 'as_converted', 'geometry': {'type': 'Point', 'coordinates': [200, 0]}},
+                {'target': 'as_converted', 'geometry': None, 'isotherm': 'over,3'},
+                {'target': 'as_converted', 'geometry': None, 'isotherm': 'between,5,1'}):
+        assert api.post(url, bad, format='json').status_code == 400, bad
+
+
+def test_the_mosaics_are_corrected_approximately_for_another_emissivity_or_reflected_temperature(api):
+    c = analysed(converted(api)[0])
+    v = api.get("{}/{}/mosaics".format(CONVERSIONS, c.id)).data
+    # What the mosaics were measured with: the conversion's own, else the flight's (the harmonized one: the
+    # normalization's reflected temperature)
+    assert v['baselines']['as_converted'] == {'emissivity': 0.91, 'reflected_temp': 27.6}
+    assert v['baselines']['harmonized'] == {'emissivity': 0.91, 'reflected_temp': 27.2}
+
+    url = "{}/{}/measure".format(CONVERSIONS, c.id)
+    square = mosaic_square(32, 16, 48, 32)
+    base = api.post(url, {'target': 'as_converted', 'geometry': square}, format='json').data
+    same = api.post(url, {'target': 'as_converted', 'geometry': square,
+                          'parameters': {'emissivity': 0.91, 'reflected_temp': ''}}, format='json').data
+    assert not same['approximate']
+    lower = api.post(url, {'target': 'as_converted', 'geometry': square, 'parameters': {'emissivity': 0.85}},
+                     format='json').data
+    assert lower['approximate']
+    # Below the reflected temperature, a lower emissivity means a colder surface than measured (less of what is
+    # seen is reflected warmth)
+    assert lower['result']['mean'] < base['result']['mean']
+    assert lower['result']['min'] == pytest.approx(
+        float(corrected_array([mosaic_temperature(32)], (0.85, 1, 27.6, 20), (0.91, 1, 27.6, 20))[0]), abs=1e-3)
+    assert api.post(url, {'target': 'as_converted', 'parameters': {'emissivity': 3}}, format='json').status_code == 400
+
+    (z, x, y), (lon, lat) = mosaic_tile()
+    point = "{}/{}/mosaics/as_converted/point".format(CONVERSIONS, c.id)
+    plain = api.get(point, {'lon': lon, 'lat': lat}).data['temperature']
+    corrected = api.get(point, {'lon': lon, 'lat': lat, 'emissivity': '0.85'}).data['temperature']
+    assert corrected < plain
+    tiles = "{}/{}/mosaics/as_converted/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)
+    style = {'color_map': 'gray', 'rescale': '10,30'}
+    assert api.get(tiles, style).content != api.get(tiles, dict(style, emissivity='0.85')).content
+    assert api.get(tiles, dict(style, emissivity='x')).status_code == 400
+
+
+def test_isotherms_keep_the_palette_inside_and_the_rest_grey(api):
+    c, _ = converted(api)
+    (z, x, y), _ = mosaic_tile()
+    tiles = "{}/{}/mosaics/as_converted/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)
+    res = api.get(tiles, {'color_map': 'dji_ironred', 'rescale': '10,30', 'isotherm': 'above,20'})
+    assert res.status_code == 200
+    pixels = [p for p in Image.open(io.BytesIO(res.content)).convert('RGBA').get_flattened_data() if p[3] == 255]
+    grey = [p for p in pixels if p[0] == p[1] == p[2]]
+    coloured = [p for p in pixels if not p[0] == p[1] == p[2]]
+    assert grey and coloured
+    # The palette (blue to red) only above 20 °C: the red half of it
+    assert all(r >= 120 for r, g, b, _ in coloured)
+    assert all(r < 140 for r, g, b, _ in grey)
+    assert api.get(tiles, {'color_map': 'magma', 'rescale': '10,30', 'isotherm': 'above'}).status_code == 400
+
+
+def test_images_are_drawn_with_gamma_equalization_and_sharpening_without_changing_the_temperatures():
+    assert measuring.parse_adjust({}) == {'gamma': 1.0, 'equalize': False, 'sharpen': 0.0}
+    assert measuring.parse_adjust({'gamma': '2', 'equalize': '1', 'sharpen': '1.5'}) == \
+        {'gamma': 2.0, 'equalize': True, 'sharpen': 1.5}
+    for bad in ({'gamma': '0.1'}, {'gamma': 'bright'}, {'sharpen': '6'}, {'equalize': 'yes'}):
+        with pytest.raises(measuring.MeasureError):
+            measuring.parse_adjust(bad)
+
+    # Gamma bends the palette's shares; the range's ends stay where they are
+    assert float(measuring.tone(np.array([15.0]), 10, 20, {'gamma': 2.0})[0]) == pytest.approx(0.5 ** 0.5)
+    assert measuring.curve_shares(10, 20, {'gamma': 2.0})[0::64] == [0.0, 1.0]
+
+    # Equalized, most of the palette goes to where most of the values are, within the range only
+    values = np.concatenate([np.full(900, 10.0), np.linspace(10, 30, 100), [np.nan]])
+    curve = measuring.equalization(measuring.value_histogram(values), 10, 30)
+    assert float(measuring.tone(np.array([11.0]), 10, 30, None, curve)[0]) > 0.9
+    upper = measuring.equalization(measuring.value_histogram(values), 20, 30)
+    assert float(measuring.tone(np.array([25.0]), 20, 30, None, upper)[0]) == pytest.approx(0.5, abs=0.1)
+    assert measuring.equalization(measuring.value_histogram(values), 40, 50) is None
+    assert measuring.value_histogram(np.array([np.nan])) is None
+    # A stray value far off (no data, the sun's reflection) leaves the others spread over the bins still
+    stray = measuring.equalization(measuring.value_histogram(np.append(values, -9999.0)), 20, 30)
+    assert float(measuring.tone(np.array([25.0]), 20, 30, None, stray)[0]) == pytest.approx(0.5, abs=0.1)
+    assert measuring.value_histogram(values, (10, 12))[1][[0, -1]].tolist() == [10, 12]
+
+    # Sharpening steepens an edge, leaves flat areas alone and does not blur in pixels with no data
+    t = np.tile(np.repeat([0.3, 0.7], 6), (12, 1))
+    valid = np.ones_like(t, dtype=bool)
+    valid[:, 11] = False
+    t[:, 11] = 0.0
+    s = measuring.sharpened(t, valid, 1.0, 1.0)
+    assert s[6, 5] < 0.29
+    assert s[6, 6] > 0.71
+    assert s[6, 0] == pytest.approx(0.3, abs=1e-3)
+    assert s[6, 10] == pytest.approx(0.7, abs=1e-2)
+    assert s[6, 11] == 0.0
+    # A margin read around the image for the sharpening is left out of it
+    levels, _ = measuring.colorize(np.full((20, 20), 15.0), np.ones((20, 20), bool), {}, 10, 20,
+                                   adjust={'gamma': 1.0, 'sharpen': 1.0}, margin=3)
+    assert levels.shape == (1, 14, 14)
+
+
+def test_mosaic_tiles_and_frames_are_drawn_adjusted_with_a_curve_for_their_legend(api):
+    c = analysed(converted(api)[0])
+    (z, x, y), _ = mosaic_tile()
+    tiles = "{}/{}/mosaics/as_converted/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)
+    style = {'color_map': 'magma', 'rescale': '0,40'}
+
+    def drawn(**adjust):
+        res = api.get(tiles, dict(style, **adjust))
+        assert res.status_code == 200, adjust
+        return np.asarray(Image.open(io.BytesIO(res.content)).convert('RGBA'))
+
+    plain = drawn()
+    for adjust in ({'gamma': '2'}, {'equalize': '1'}, {'sharpen': '2'}, {'gamma': '0.5', 'equalize': '1', 'sharpen': '1'}):
+        image = drawn(**adjust)
+        # Drawn on the same pixels, with the margin read for the sharpening left out
+        assert image.shape == plain.shape, adjust
+        assert (image[..., 3] == plain[..., 3]).all(), adjust
+    assert not (drawn(gamma='2') == plain).all()
+    assert not (drawn(equalize='1') == plain).all()
+    for bad in ({'gamma': '9'}, {'equalize': '2'}, {'sharpen': '-1'}):
+        assert api.get(tiles, dict(style, **bad)).status_code == 400, bad
+
+    # The mosaic's histogram is kept beside it, and read again rather than the mosaic
+    kept = os.path.join(c.data_dir(), mosaics.VIEWER_DIR, 'histogram-as_converted.json')
+    assert os.path.isfile(kept)
+    measuring.kept_histogram.cache_clear()
+    with mock.patch.object(measuring, 'read_mosaic', wraps=measuring.read_mosaic) as read:
+        drawn(equalize='1', rescale='5,35')
+    assert read.call_count == 0
+
+    # The legend's curve: linear, bent by gamma, or equalized (the fake mosaic's 10 to 30 °C, evenly)
+    curve = "{}/{}/mosaics/as_converted/curve".format(CONVERSIONS, c.id)
+    shares = api.get(curve, {'rescale': '0,40'}).data['shares']
+    assert len(shares) == measuring.CURVE_SAMPLES
+    assert shares[16] == pytest.approx(0.25)
+    assert api.get(curve, {'rescale': '0,40', 'gamma': '2'}).data['shares'][16] == pytest.approx(0.5)
+    equalized = api.get(curve, {'rescale': '0,40', 'equalize': '1'}).data['shares']
+    assert equalized[15] < 0.05
+    assert equalized[49] > 0.95
+    assert equalized[32] == pytest.approx(0.5, abs=0.1)
+    # Corrected as the tiles are: warmer, so less of the range is below 10 °C still
+    warmer = api.get(curve, {'rescale': '0,40', 'equalize': '1', 'emissivity': '0.8'}).data['shares']
+    assert warmer != equalized
+    assert api.get("{}/{}/mosaics/source_frame/curve".format(CONVERSIONS, c.id)).status_code == 404
+    assert api.get(curve, {'rescale': '0,40', 'gamma': '0'}).status_code == 400
+
+    # A frame: its image adjusted, and its curve equalized from its own temperatures (20 to 29 °C, evenly)
+    rel = '100MEDIA/DJI_0002_T.JPG'
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
+        image = api.get("{}/{}/frame/image.png".format(CONVERSIONS, c.id),
+                        dict(style, frame=rel, gamma='1.5', equalize='1', sharpen='1'))
+        assert image.status_code == 200
+        assert Image.open(io.BytesIO(image.content)).size == (10, 8)
+        frame_curve = "{}/{}/frame/curve".format(CONVERSIONS, c.id)
+        shares = api.get(frame_curve, {'frame': rel, 'rescale': '10,40', 'equalize': '1'}).data['shares']
+        assert (shares[0], shares[-1]) == (0.0, 1.0)
+        assert shares[20] < 0.05       # 19.4 °C: below the frame's coldest
+        assert shares[42] > 0.95       # 29.7 °C: above its warmest
+        assert api.get(frame_curve, {'frame': rel, 'rescale': '10,40', 'sharpen': 'x'}).status_code == 400
+
+
+def test_measurements_are_saved_listed_exported_renamed_and_deleted(api):
+    c, _ = converted(api)
+    api.put(PREFERENCES, {'unit': 'C'}, format='json')
+    url = "{}/{}/measurements".format(CONVERSIONS, c.id)
+    area = {'name': ' Warm corner ', 'target': 'harmonized', 'geometry': mosaic_square(32, 16, 48, 32),
+            'isotherm': 'above,22'}
+    res = api.post(url, area, format='json')
+    assert res.status_code == 201, res.data
+    m = res.data
+    assert (m['name'], m['target']) == ('Warm corner', 'harmonized')
+    assert m['geometry']['type'] == 'Polygon'
+    assert m['values']['result']['mean'] == pytest.approx(mosaic_temperature(39.5) + 0.5, abs=1e-3)
+    assert m['values']['isotherm'] == 'above,22'
+    assert api.post(url, dict(area, name=""), format='json').status_code == 400
+    assert api.post(url, dict(area, geometry=None), format='json').status_code == 400
+
+    assert [x['name'] for x in api.get(url).data['measurements']] == ['Warm corner']
+    assert api.get(url, {'target': 'as_converted'}).data['measurements'] == []
+
+    res = api.get("{}/{}/measurements.csv".format(CONVERSIONS, c.id))
+    assert res['Content-Type'] == 'text/csv; charset=utf-8'
+    assert '-measurements.csv' in res['Content-Disposition']
+    rows = list(csv.DictReader(io.StringIO(res.content.decode())))
+    assert (rows[0]['Name'], rows[0]['Measured on'], rows[0]['Shape'], rows[0]['Isotherm share'],
+            rows[0]['Length / area unit']) == ('Warm corner', 'Harmonized mosaic', 'Polygon', '0.6875', 'm')
+    assert float(rows[0]['Mean']) == round(mosaic_temperature(39.5) + 0.5, 3)
+    assert (rows[0]['Unit'], rows[0]['Isotherm']) == ('C', 'above,22')
+
+    # The same as GeoJSON, with their shapes; one measured on a frame has no place on the map
+    ThermalMeasurement.objects.create(conversion=c, name="Spot", target='frame', frame='100MEDIA/DJI_0001_T.JPG',
+                                      geometry={'type': 'Point', 'coordinates': [3, 2]}, values={})
+    res = api.get("{}/{}/measurements.geojson".format(CONVERSIONS, c.id))
+    assert res['Content-Type'] == 'application/geo+json; charset=utf-8'
+    assert '-measurements.geojson' in res['Content-Disposition']
+    geo = json.loads(res.content)
+    assert (geo['type'], len(geo['features'])) == ('FeatureCollection', 1)
+    feature = geo['features'][0]
+    assert feature['geometry'] == m['geometry']
+    assert (feature['properties']['name'], feature['properties']['target'], feature['properties']['unit'],
+            feature['properties']['isotherm_share']) == ('Warm corner', 'Harmonized mosaic', 'C', 0.6875)
+    assert feature['properties']['mean'] == float(rows[0]['Mean'])
+    assert 'geometry' not in feature['properties']
+    ThermalMeasurement.objects.filter(target='frame').delete()
+
+    # In the app's unit: the temperatures converted, the differences scaled
+    api.put(PREFERENCES, {'unit': 'F'}, format='json')
+    rows_f = csv_rows(api, c)
+    assert (rows_f[0]['Unit'], rows_f[0]['Isotherm']) == ('F', 'above,71.6')
+    assert float(rows_f[0]['Mean']) == pytest.approx(float(rows[0]['Mean']) * 1.8 + 32, abs=0.01)
+    assert float(rows_f[0]['Std dev']) == pytest.approx(float(rows[0]['Std dev']) * 1.8, abs=0.01)
+
+    detail = "{}/{}".format(url, m['id'])
+    assert api.patch(detail, {'name': 'Roof edge'}, format='json').data['name'] == 'Roof edge'
+
+    assert api.delete(detail).status_code == 204
+    assert not ThermalMeasurement.objects.filter(pk=m['id']).exists()
+    # Deleted with their conversion
+    api.post(url, area, format='json')
+    api.delete("{}/{}".format(CONVERSIONS, c.id))
+    assert not ThermalMeasurement.objects.exists()
+
+
+def test_lines_have_a_temperature_profile_with_the_frames_it_crosses(api):
+    c, _ = converted(api)
+    api.put(PREFERENCES, {'unit': 'C'}, format='json')
+    url = "{}/{}/measure".format(CONVERSIONS, c.id)
+    line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(20.5, 30.5), mosaic_lonlat(40.5, 30.5)]}
+    p = api.post(url, {'target': 'as_converted', 'geometry': line}, format='json').data['result']['profile']
+    # Sampled every pixel (5 cm) along its metre, each sample the temperature of the pixel it falls in
+    assert len(p['distance']) in (20, 21)
+    assert len(p['values']) == len(p['distance'])
+    assert p['distance'][-1] == pytest.approx(1.0, abs=1e-3)
+    assert p['values'][0] == pytest.approx(mosaic_temperature(20), abs=1e-3)
+    assert p['values'][-1] == pytest.approx(mosaic_temperature(40), abs=1e-3)
+    assert p['points'][0][0] == pytest.approx(line['coordinates'][0][0], abs=1e-7)
+    # The frames the mosaic took them from: frame 0 west of the middle, frame 1 east of it
+    assert (p['frames'][0], p['frames'][-1]) == ('100MEDIA/DJI_0001_T.JPG', '100MEDIA/DJI_0002_T.JPG')
+    # On the harmonized mosaic too, half a degree warmer
+    h = api.post(url, {'target': 'harmonized', 'geometry': line}, format='json').data['result']['profile']
+    assert h['values'][0] - p['values'][0] == pytest.approx(0.5, abs=1e-3)
+    assert h['frames'] == p['frames']
+    # Through no data: None there
+    corner = {'type': 'LineString', 'coordinates': [mosaic_lonlat(2.5, 4.5), mosaic_lonlat(12.5, 4.5)]}
+    q = api.post(url, {'target': 'as_converted', 'geometry': corner}, format='json').data['result']['profile']
+    assert (q['values'][0], q['frames'][0]) == (None, None)
+    assert q['values'][-1] == pytest.approx(mosaic_temperature(12), abs=1e-3)
+    # Spots and areas have none
+    area = api.post(url, {'target': 'as_converted', 'geometry': mosaic_square(32, 16, 48, 32)}, format='json')
+    assert 'profile' not in area.data['result']
+
+    # Saved: in the CSV, a row per sample after the line's own, where it is in the Geometry column; not in the GeoJSON
+    saved = api.post("{}/{}/measurements".format(CONVERSIONS, c.id),
+                     {'name': 'Across', 'target': 'as_converted', 'geometry': line}, format='json')
+    assert saved.status_code == 201, saved.data
+    rows = csv_rows(api, c)
+    assert [r['Shape'] for r in rows] == ['LineString'] + ['profile'] * len(p['distance'])
+    first, last = rows[1], rows[-1]
+    assert (first['Name'], first['Distance'], first['Source frame'], first['Mean']) == \
+        ('Across', '0.0', '100MEDIA/DJI_0001_T.JPG', '')
+    assert float(first['Temperature']) == round(mosaic_temperature(20), 3)
+    assert (last['Source frame'], last['Length / area unit']) == ('100MEDIA/DJI_0002_T.JPG', 'm')
+    assert json.loads(first['Geometry'])['type'] == 'Point'
+    geo = json.loads(api.get("{}/{}/measurements.geojson".format(CONVERSIONS, c.id)).content)
+    assert [f['geometry']['type'] for f in geo['features']] == ['LineString']
+
+
+def test_areas_drawn_as_a_box_or_a_circle_are_saved_as_such(api):
+    c, _ = converted(api)
+    url = "{}/{}/measurements".format(CONVERSIONS, c.id)
+    box = {'name': 'Box', 'target': 'as_converted', 'geometry': mosaic_square(32, 16, 48, 32), 'shape': {'kind': 'box'}}
+    res = api.post(url, box, format='json')
+    assert res.status_code == 201, res.data
+    assert res.data['values']['shape'] == {'kind': 'box'}
+    circle = dict(box, name='Circle', shape={'kind': 'circle', 'center': mosaic_lonlat(40, 24), 'radius': 0.3})
+    res = api.post(url, circle, format='json')
+    assert res.status_code == 201, res.data
+    assert (res.data['values']['shape']['kind'], res.data['values']['shape']['radius']) == ('circle', 0.3)
+    assert sorted(r['Shape'] for r in csv_rows(api, c)) == ['box', 'circle']
+    line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(20, 30), mosaic_lonlat(40, 30)]}
+    for bad in (dict(box, shape={'kind': 'star'}), dict(box, geometry=line),
+                dict(circle, shape={'kind': 'circle', 'center': mosaic_lonlat(40, 24), 'radius': 0}),
+                dict(circle, shape={'kind': 'circle', 'center': [400, 0], 'radius': 1})):
+        assert api.post(url, bad, format='json').status_code == 400, bad
+
+
+def test_a_saved_measurement_is_measured_again_with_other_parameters(api):
+    c = analysed(converted(api)[0])
+    url = "{}/{}/measurements".format(CONVERSIONS, c.id)
+    m = api.post(url, {'name': 'Warm', 'target': 'as_converted', 'geometry': mosaic_square(32, 16, 48, 32),
+                       'isotherm': 'above,22', 'shape': {'kind': 'box'}}, format='json').data
+    detail = "{}/{}".format(url, m['id'])
+    res = api.patch(detail, {'parameters': {'emissivity': 0.85}}, format='json')
+    assert res.status_code == 200, res.data
+    v = res.data['values']
+    assert (res.data['name'], res.data['parameters']) == ('Warm', {'emissivity': 0.85})
+    assert v['approximate']
+    assert v['result']['mean'] < m['values']['result']['mean']
+    # The isotherm and how it was drawn are kept
+    assert (v['isotherm'], v['shape']) == ('above,22', {'kind': 'box'})
+    assert 'isotherm' in v['result']
+    # Back to the conversion's own
+    v = api.patch(detail, {'parameters': {}}, format='json').data['values']
+    assert not v['approximate']
+    assert v['result']['mean'] == pytest.approx(m['values']['result']['mean'], abs=1e-6)
+    assert api.patch(detail, {'parameters': {'emissivity': 3}}, format='json').status_code == 400
+    assert api.patch(detail, {}, format='json').status_code == 400
+    assert ThermalMeasurement.objects.get(pk=m['id']).parameters == {}
+
+    # On a frame, measured again by dji-thermal-cli, the line's profile too
+    rel = '100MEDIA/DJI_0002_T.JPG'
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
+        f = api.post(url, {'name': 'Row', 'target': 'frame', 'frame': rel, 'geometry': {
+            'type': 'LineString', 'coordinates': [[0.5, 3.5], [9.5, 3.5]]}}, format='json').data
+        p = f['values']['result']['profile']
+        assert (p['distance'], p['values']) == ([float(i) for i in range(10)], [float(20 + i) for i in range(10)])
+        assert (p['points'][1], 'frames' in p) == ([1.5, 3.5], False)
+        assert 'changed' not in f['values']
+        res = api.patch("{}/{}".format(url, f['id']), {'parameters': {'emissivity': 0.93}}, format='json')
+        assert res.status_code == 200, res.data
+        changed = res.data['values']['changed']['profile']['values']
+        assert changed[0] - p['values'][0] == pytest.approx(2.0, abs=1e-4)
+        rows = csv_rows(api, c)
+    row = [r for r in rows if r['Name'] == 'Row (parameters changed)']
+    assert (row[0]['Shape'], len(row), row[1]['Length / area unit']) == ('LineString', 11, 'px')
+
+
+def test_frames_are_measured_as_converted_and_again_with_parameters_changed(api):
+    c = analysed(converted(api)[0])
+    frames = api.get("{}/{}/frames".format(CONVERSIONS, c.id)).data
+    assert [(f['path'], f['mosaic'], f['converted']) for f in frames['frames']] == \
+        [('100MEDIA/DJI_0001_T.JPG', 0, True), ('100MEDIA/DJI_0002_T.JPG', 1, True)]
+    assert frames['frames'][0]['recorded']['lrf'] == 21.4
+    # Where they were taken, for the frame page's map
+    assert (frames['frames'][0]['lat'], frames['frames'][0]['lon']) == (42.1, -88.07)
+    assert (frames['unit'], frames['normalized'], frames['default_palette']) == ('C', False, 'dji_ironred')
+
+    rel = '100MEDIA/DJI_0002_T.JPG'
+    frame = "{}/{}/frame".format(CONVERSIONS, c.id)
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure) as measure:
+        info = api.get(frame, {'frame': rel}).data
+        assert (info['width'], info['height'], info['distance_source']) == (10, 8, 'rangefinder')
+        # The no-data marker is left out
+        assert (info['stats']['valid_pixels'], info['stats']['min']) == (79, 20.0)
+        assert 'changed' not in info
+        changed = api.get(frame, {'frame': rel, 'emissivity': '0.95'}).data
+        assert changed['changed']['stats']['min'] - changed['stats']['min'] == pytest.approx(4.0, abs=1e-4)
+        assert changed['changed']['params']['emissivity'] == pytest.approx(0.95)
+        assert measure.call_args.args[1].emissivity == pytest.approx(0.95)
+
+        point = api.get(frame + "/point", {'frame': rel, 'x': '3.5', 'y': '2.5', 'emissivity': '0.95'}).data
+        assert (point['temperature'], point['inside']) == (23.0, True)
+        assert point['changed'] == pytest.approx(27.0, abs=1e-4)
+        assert api.get(frame + "/point", {'frame': rel, 'x': 0, 'y': 0}).data['temperature'] is None
+
+        # A 3 x 2 px area, measured as converted and again
+        res = api.post("{}/{}/measure".format(CONVERSIONS, c.id), {
+            'target': 'frame', 'frame': rel, 'parameters': {'emissivity': 0.93, 'humidity': ''},
+            'geometry': {'type': 'Polygon', 'coordinates': [[[4.2, 2.2], [6.8, 2.2], [6.8, 3.8], [4.2, 3.8]]]}},
+            format='json')
+        assert res.status_code == 200, res.data
+        assert (res.data['result']['valid_pixels'], res.data['result']['mean']) == (6, 25.0)
+        assert res.data['changed']['mean'] == pytest.approx(27.0, abs=1e-4)
+        assert res.data['result']['max_location'] == [6.5, 2.5]
+
+        image = api.get(frame + "/image.png", {'frame': rel, 'color_map': 'magma', 'rescale': '20,30',
+                                               'isotherm': 'above,25'})
+        assert (image.status_code, image['Content-Type']) == (200, 'image/png')
+        assert Image.open(io.BytesIO(image.content)).size == (10, 8)
+
+        for bad in ({'frame': '../../../etc/passwd'}, {'frame': 'nope.JPG'}, {'frame': rel, 'emissivity': '7'},
+                    {'frame': rel, 'distance': 'far'}):
+            assert api.get(frame, bad).status_code == 400, bad
+    # Measured once per frame and settings: the page asks for the same one again for every image and value
+    calls = measure.call_count
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure) as again:
+        api.get(frame, {'frame': rel})
+    assert again.call_count == 0
+    assert calls > 0
+
+
+def test_a_normalized_conversions_frames_are_measured_as_it_converted_them(api):
+    def process(path, output_dir, **kw):
+        report = fake_process(path, output_dir, **kw)
+        report.normalization = SimpleNamespace(ambient_c=25.0, reflected_c=26.0, frames=2, without_offset=0,
+                                               offsets_c={report.results[1].src: 0.75})
+        return report
+
+    d = uploaded(api)
+    with mock.patch('dji_thermal_cli.api.process', side_effect=process):
+        res = api.post("{}/{}/conversions".format(DATASETS, d.id), {'settings': {'normalize': True, 'mosaics': False}},
+                       format='json')
+    c = analysed(ThermalConversion.objects.get(pk=res.data['id']))
+    assert [f['offset_c'] for f in c.results['files']] == [None, 0.75]
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure) as measure:
+        info = api.get("{}/{}/frame".format(CONVERSIONS, c.id), {'frame': '100MEDIA/DJI_0002_T.JPG'}).data
+    # The flight's normalized ambient and reflected temperatures, and the frame's offset subtracted
+    assert (measure.call_args.args[1].ambient_temp, measure.call_args.args[1].reflected_temp) == (25.0, 26.0)
+    assert (info['offset'], info['offset_known']) == (0.75, True)
+    assert info['stats']['min'] == pytest.approx(20 - 0.75, abs=1e-4)
+    assert info['stats']['max'] == pytest.approx(28 - 0.75, abs=1e-4)
