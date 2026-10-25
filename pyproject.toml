@@ -24,6 +24,10 @@ dji-thermal-ui = "dji_thermal_ui.cli:main"
 requires = ["uv_build>=0.12.5,<0.14.0"]
 build-backend = "uv_build"
 
+[tool.uv.build-backend]
+# the scripts' Jest tests stay out of the wheel
+wheel-exclude = ["**/__tests__"]
+
 [dependency-groups]
 dev = [
     "pytest==9.1.1",

@@ -46,9 +46,13 @@ def test_the_server_serves_the_home_page(threaded_jobs):
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     try:
-        status, body = get("http://%s:%d/" % (cli.HOST, int(server.effective_port)))
+        url = "http://%s:%d/" % (cli.HOST, int(server.effective_port))
+        status, body = get(url)
         assert status == 200
         assert b"Thermal Analyzer" in body
+        status, body = get(url + "static/vendor/leaflet/leaflet.css")
+        assert status == 200
+        assert b".leaflet-container" in body
     finally:
         server.close()
 
