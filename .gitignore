@@ -223,3 +223,8 @@ __marimo__/
 new.md
 # Local test data
 ignored/
+# Personal editor and Claude settings
+.vscode/
+.claude/settings.local.json
+# Jest, jsdom, ESLint and leaflet for the tests (npm ci)
+node_modules/
