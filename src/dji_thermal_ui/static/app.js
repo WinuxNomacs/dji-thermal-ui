@@ -12,13 +12,15 @@
             .then(function (res) { if (!res.ok) throw new Error("the unit was not saved: " + res.status); });
     }
 
-    function init(doc) {
+    function init(doc, fetchFn, reload) {
         var select = doc.getElementById("ta-app-unit");
         if (!select) return;
+        fetchFn = fetchFn || root.fetch.bind(root);
+        reload = reload || function () { root.location.reload(); };
         select.addEventListener("change", function () {
             select.disabled = true;
-            saveUnit(root.fetch.bind(root), select.getAttribute("data-api"), csrfToken(doc), select.value)
-                .then(function () { root.location.reload(); },
+            saveUnit(fetchFn, select.getAttribute("data-api"), csrfToken(doc), select.value)
+                .then(function () { reload(); },
                       function () { select.disabled = false; select.value = root.__temperatureUnit; });
         });
     }
