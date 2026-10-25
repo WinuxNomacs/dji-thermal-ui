@@ -126,6 +126,19 @@ Everything the user does in the plugin today, except the ODM task:
     wheels for CPython 3.12–3.15 on manylinux x86_64 and win_amd64.
   - The jobs go through `jobs.submit(fn, pk, run_id)` (the shape of `run_function_async`), and `jobs.alive(run_id)`
     replaces `job_gone`.
+  - Planned 2026-10-25:
+    - **Pins:** rio-tiler 9.4.12, rasterio 1.5.2, numpy 2.5.4, scipy 1.18.1, pyproj 3.8.0, shapely 2.2.0,
+      affine 3.0.1, zipstream-ng 1.9.3 and pillow 13.0.0, all with cp312 wheels for Linux and Windows. The plugin
+      used rio-tiler 5: the reads, `render`, `apply_cmap` and colour-map registration are fixed where 9 changed.
+    - **`analyzer/raster/`:** only the tiler functions `api.py` imports, `point_values`, the custom colour maps,
+      `raster_stats`, `thermal_correction` and `path_traversal_check`, each with WebODM's notice.
+      `tile_code_fingerprint` hashes the copied modules.
+    - **Measurements:** the three functions `thermal_measure` uses from `app/measurements.py`, on shapely in place
+      of Django's GEOS, which needs GEOS and GDAL on the system.
+    - **Downloads:** `analyzer/downloads.py` with zipstream-ng.
+    - **Tests:** the helpers' pure-function tests are ported, and their Task-endpoint tests dropped (the mosaic tile,
+      point and curve tests cover that code). The project, permission, quota, storage (WebODM's storage page) and
+      `thermal_task` tests are dropped. The "off the plan" test stays.
 - **A3, the front end:**
   - The templates on the app's own layout, the scripts and CSS, the task panel removed, and the Jest tests ported.
   - The whole flow checked live in a headless browser: a folder dataset, the analysis, a conversion, its mosaics,
@@ -149,6 +162,10 @@ Everything the user does in the plugin today, except the ODM task:
   conversions re-run; measurements saved in LuxODM stay there.
 - **Tooling:** set up in a fresh VS Code session opened on this repo, standalone from LuxODM's environment
   (A1 planning, 2026-10-25). The list is in "Tooling" below.
+- **Permission fields:** `can_change` and `can_delete` are dropped from the API in A2, and the scripts' checks of
+  them go in A3 (A2 planning, 2026-10-25).
+- **Temperature unit:** an app-wide `unit` in the preferences row, °F by default (A2 planning, 2026-10-25). In
+  LuxODM it was the user's profile setting.
 
 ## Tooling (set up 2026-10-25, in A1)
 
