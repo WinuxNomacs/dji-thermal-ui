@@ -29,3 +29,18 @@ def threaded_jobs(settings):
     jobs.start()
     yield jobs
     jobs.join()
+
+
+@pytest.fixture
+def api(db):
+    """A client of the API"""
+    from rest_framework.test import APIClient
+    return APIClient()
+
+
+@pytest.fixture(autouse=True)
+def fresh_measurements():
+    """Measurements are cached by file and settings: each test starts with none"""
+    from dji_thermal_ui.analyzer import thermal_measure
+    thermal_measure.measured.cache_clear()
+    thermal_measure.kept_histogram.cache_clear()
