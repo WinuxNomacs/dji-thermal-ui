@@ -9,8 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next** (planned 2026-10-25: option A, the Thermal Analyzer standing alone)
-1. **A1: the skeleton.** The project, settings, data folder, models, job runner, and the test and lint setup.
-   (Standalone)
+1. **A1: the skeleton.** The tooling first (Tooling), then the project, settings, data folder, models, job
+   runner, and the test and lint setup. Designed 2026-10-25. (Standalone)
 2. **A2: the back end.** The plugin's API and `thermal_*` modules ported, with the WebODM helpers they use, and
    their tests. (Standalone)
 3. **A3: the front end.** The pages, scripts and Jest tests ported, and the whole flow checked live on real data.
@@ -120,13 +120,30 @@ Everything the user does in the plugin today, except the ODM task:
 
 ### Phase details
 
-- **A1, the skeleton:**
-  - `pyproject.toml` (uv_build, exact pins), `uv.lock`, the LICENSE (AGPL-3.0), and the settings with the data
-    folder.
-  - The three models and their initial migration, the delete signals, and the job runner.
-  - The CLI, serving an empty page.
-  - pytest, ruff, Jest and ESLint, each running on a first test.
-  - Tests: the runner (queue, progress, cancel, "interrupted" on start) and the data folder.
+- **A1, the skeleton** (designed 2026-10-25; the tooling below is set up first):
+  - **Project:** `pyproject.toml` (uv_build, `requires-python >=3.12`, ruff configured like dji-thermal-cli's),
+    `uv.lock`, and the LICENSE (AGPL-3.0). Exact pins from PyPI's current releases at build time: Django, Django
+    REST Framework, waitress, platformdirs, and dji-thermal-cli 1.4.0. rasterio, rio-tiler and numpy come in A2 with
+    the code that uses them. Before pinning, check that rasterio has wheels for 3.12–3.14 on Linux and Windows.
+  - **Settings and data folder:** platformdirs' `user_data_dir("dji-thermal-ui")` (`~/.local/share/dji-thermal-ui`,
+    `%LOCALAPPDATA%\dji-thermal-ui`), or `--data-dir`. It holds `db.sqlite3`, `secret_key` (made on first start)
+    and `datasets/`. SQLite in WAL mode with a busy timeout, since the worker thread writes progress while waitress
+    threads read.
+  - **Models:** `ThermalDataset`, `ThermalConversion` and `ThermalMeasurement` from the plugin, without `project`,
+    `created_by`, `tasks` and `celery_task_id`. A `Preferences` singleton row replaces `UserDataStore`. The delete
+    signals, and one initial migration.
+  - **Job runner (`analyzer/jobs.py`):** one daemon worker thread on a queue, one job at a time.
+    `submit(fn, pk, run_id)` keeps `run_function_async`'s call shape, so A2 swaps it line for line. Cancel and delete
+    keep working by changing `run_id`. On start, rows left analyzing, converting or building mosaics are marked
+    failed with "interrupted". The runner knows which jobs are alive itself (replaces `job_gone`). Tests run jobs
+    inline (eager), as WebODM's tests do with Celery.
+  - **CLI:** `dji-thermal-ui [--data-dir D] [--port 8765] [--no-browser]` runs migrations, starts the runner, and
+    serves with waitress on 127.0.0.1. A busy port is reported and the command exits. An empty home page for now.
+  - **Tests:** the data folder, the secret key kept across starts, the runner (order, progress, cancel,
+    "interrupted" on start), the CLI. `package.json` with Jest, jsdom and ESLint (the plugin's config), each running
+    a first test.
+  - **Windows risk, checked in A1:** dji-thermal-cli starting its own processes (spawn) from a server thread. A small
+    job is run through the runner on Windows from WSL before A2 depends on it.
 - **A2, the back end:**
   - The `thermal_*` modules and `api.py` ported, with the WebODM helpers copied.
   - The project, permission, task and quota code removed.
@@ -150,6 +167,33 @@ Everything the user does in the plugin today, except the ODM task:
   code is fixed where they changed.
 - **CI:** in A4, tests on push (Linux and Windows), like dji-thermal-cli's `ci.yml`. A release workflow comes once
   a PyPI release is wanted.
+- **LuxODM's data:** not imported (A1 planning, 2026-10-25). Datasets are added again from their folders and
+  conversions re-run; measurements saved in LuxODM stay there.
+- **Tooling:** set up in a fresh VS Code session opened on this repo, standalone from LuxODM's environment
+  (A1 planning, 2026-10-25). The list is in "Tooling" below.
+
+## Tooling (set up at the start of A1)
+
+Set up in a VS Code session opened on this repo, separate from LuxODM's. Each item is proposed, approved, set up
+and then verified (see the user's rules). Personal settings stay in uncommitted files.
+
+- **Python:** uv makes `.venv` with `uv sync` once `pyproject.toml` exists. Develop on Python 3.12, the floor, as
+  `.python-version`. CI tests 3.12–3.14.
+- **VS Code (local `.vscode/settings.json`, uncommitted):** the interpreter at `.venv`, pytest as the test runner,
+  ruff as the Python linter with the project's config (not as a formatter: the ported code keeps its layout), and
+  ESLint with the root `eslint.config.*`.
+  Extensions needed: Python, Pylance, Ruff (`charliermarsh.ruff`), ESLint.
+- **Node:** `npm ci` for Jest, jsdom, ESLint and leaflet (tests only), pinned in `package-lock.json`.
+- **Browser checks (A3):** the Playwright MCP, added to this project in local scope (`claude mcp add --scope
+  local`), headless Chromium, against `http://127.0.0.1:8765`. It needs no login.
+- **Claude permissions (`.claude/settings.local.json`, uncommitted):** `uv sync`, `uv run pytest`, `uv run ruff`,
+  `uv run dji-thermal-ui`, `npx jest`, `npm run -s lint`, and `git` status, diff, log and branch, without a prompt
+  each time.
+- **Windows:** the Windows check runs from WSL with Windows' own git and uv, on a clone on C:, as dji-thermal-cli's
+  release check does.
+- **`.gitignore`:** add `.vscode/`, `.claude/settings.local.json` and `node_modules/` (`.venv` and `ignored/` are
+  already there).
+- **Test data:** dataset 6's frames copied out of LuxODM's Docker volume into `ignored/` (gitignored).
 
 ## Facelift (option B)
 

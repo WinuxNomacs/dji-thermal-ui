@@ -44,3 +44,4 @@ machine. Keep it short; edit in place.
 - `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1 and opens the browser).
 - `uv run pytest`, `uv run ruff check`.
 - `npm ci`, then `npx jest` and `npm run -s lint`.
+- The tooling to set up (IDE, Node, browser checks, Windows) is listed under "Tooling" in `upcoming-changes.md`.
