@@ -36,8 +36,9 @@ machine. Keep it short; edit in place.
   `jobs.submit(fn, pk, run_id)`. Each job writes its progress to its row, and is cancelled cooperatively through its
   `run_id`. Tests run jobs inline unless they use the `threaded_jobs` fixture.
 - **API:** DRF with no users: `csrf.CsrfCheck` only enforces CSRF.
-- **Front end:** plain ES5 scripts in the UMD pattern with Leaflet 1.3.1, as in the plugin. Leaflet is vendored
-  into `static/vendor/leaflet/` from `node_modules`, so the wheel needs no npm. The app serves its own static files.
+- **Front end:** plain ES5 scripts in the UMD pattern with Leaflet 1.3.1, as in the plugin, on stock Bootstrap 3.4.1
+  and Font Awesome Free 5.15.4. These are vendored into `static/vendor/` from `node_modules`, with their licences,
+  so the wheel needs no npm. The pages extend `templates/base.html` (header, unit, version). The app serves its own static files.
 - **Tests:** pytest with pytest-django (`tests/`, settings `tests.settings`, which use a temporary data folder),
   Jest with jsdom (`static/__tests__/`, kept out of the wheel), ruff, and ESLint. All of them run on the host.
 

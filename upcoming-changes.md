@@ -9,9 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next** (planned 2026-10-25: option A, the Thermal Analyzer standing alone)
-1. **A3: the front end.** The pages, scripts and Jest tests ported, and the whole flow checked live on real data.
-   (Standalone)
-2. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
+1. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
 
 **Then**
 1. **B: the facelift.** Planned once A stands alone. (Facelift)
@@ -116,38 +114,6 @@ Everything the user does in the plugin today, except the ODM task:
 
 ### Phase details
 
-- **A3, the front end** (planned 2026-10-25), on branch `a3-frontend`:
-  - **The look:** stock Bootstrap 3.4.1 CSS and Font Awesome Free 5.15.4 (woff2 only), from npm, pinned, vendored
-    with their licences into `static/vendor/` like Leaflet. The scripts' Bootstrap classes and icons work as they
-    are. A small `app.css` holds the header and the few colours WebODM's theme gave. Light only.
-  - **The layout:** `templates/base.html` has a header with the app's name (a link to the datasets), the unit
-    (°F, °C, K: `PUT /api/preferences {unit}`, then the page reloads) and the version. The five pages extend it
-    and keep the plugin's markup, less what is dropped.
-  - **The pages** (`analyzer/views.py`): `/`, `/dataset/<id>`, `/conversion/<id>`, `/conversion/<id>/frame` and
-    `/conversion/<id>/compare?b=<id>`, each `ensure_csrf_cookie`. They are 404 for an unknown id. Compare takes any
-    two conversions. `data-api` is `/api/` and `data-public` is `/`. The scripts and CSS load from `{% static %}`,
-    and Leaflet from `vendor/leaflet/`. A1's placeholder `home.html` goes.
-  - **The scripts and CSS:** the plugin's `analyzer_core`, `datasets`, `dataset`, `conversions`, `measure`,
-    `viewer`, `frame` and `compare` scripts, and `analyzer.css`, copied into `static/`. These go:
-    - the task panel, the task links and the preset saving (`ctx.nodes`, `ctx.presets` and `ctx.dashboard`);
-    - the checks of `can_change` and `can_delete`;
-    - the project column, filter and choice;
-    - the sharing line, "created by", and the admin-only folder source (now always offered);
-    - the LuxODM wording ("tasks made from its conversions are kept", "of the project").
-    The WebODM plan tab and "Use the WebODM plan's settings" stay.
-  - **Tests:**
-    - Jest: the plugin's `analyzer.test.js`, without the task-panel, project, sharing and permission cases.
-    - pytest: `tests/test_pages.py` checks each page renders with the CSRF cookie, an unknown id is a 404, compare
-      works across two datasets, and the static files are served.
-  - **The live check:** the whole flow in headless Chromium (Playwright MCP) against the real server on a scratch
-    data folder, with the 220 M4T frames as a folder dataset:
-    - the dataset made and analyzed, a conversion, and its mosaics;
-    - the viewer: tabs, palette and range, the readout, the measurement tools, a saved measurement, CSV and
-      GeoJSON, the PNG export;
-    - a frame, with changed parameters;
-    - compare, side by side and as the difference;
-    - the unit switched, preferences saved and reset, the zip download, and deleting the dataset.
-    Screenshots are looked at. The scratch data folder is deleted afterwards.
 - **A4, packaging:**
   - The README (install, run, what it does, where the data lives) and CHANGELOG 0.1.0.
   - Release checks: a wheel built and installed into a fresh venv, then run.
@@ -207,6 +173,8 @@ COGs, and `ol/source/Google` for the Map Tiles API.
 - **Google Map Tiles:** the deployment holds the key (decided 2026-10-25). For a locally installed app, a key it
   holds is effectively public. The plan is to proxy tiles through the local server, ship without a key, and read
   it from the config, with a quota. Check first whether Google's terms allow proxying.
+- **Esri's satellite layer past its highest zoom** shows "Map data not yet available" tiles under a mosaic zoomed
+  in closely (seen in A3's live check). Setting the layer's `maxNativeZoom` would stretch its last level instead.
 
 ## Integration
 
@@ -230,3 +198,11 @@ COGs, and `ol/source/Google` for the Map Tiles API.
   `tests/test_raster_*.py` and `tests/test_thermal_correction.py`, and `tests/test_flight.py` on real frames.
   Checked live on the 220 M4T frames: a folder dataset analyzed, converted, made into mosaics (209 frames), then
   points, tiles, a measured and saved area, its CSV and GeoJSON, and the download.
+- **A3: the front end** (2026-10-25). Stock Bootstrap 3.4.1 and Font Awesome Free 5.15.4 vendored with their
+  licences in `static/vendor/`; the header and the unit in `templates/base.html` and `static/app.js`/`app.css`; the
+  five pages (`analyzer/views.py`, `templates/`); the plugin's scripts and `analyzer.css` in `static/`, without
+  projects, sharing, permissions or the task panel. Tests: `static/__tests__/` (Jest) and `tests/test_pages.py`.
+  Checked live in headless Chromium on the 220 M4T frames: the dataset made, analyzed and deleted; the defaults
+  saved and reset; a conversion, its mosaics and the zip; the viewer's tabs, palette, readout, a box measured and
+  saved, its CSV, GeoJSON and the PNG export; a frame with a changed distance; compare as the difference; the unit
+  switched. No console errors and no failed requests.
