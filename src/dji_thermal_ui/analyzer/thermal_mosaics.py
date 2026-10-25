@@ -63,17 +63,21 @@ def band_stats(values):
     return {'min': float(v.min()), 'max': float(v.max()), 'percentiles': [low, high]}
 
 
+def open_raster(path):
+    """rio-tiler's Reader of a mosaic. The mosaics have no overviews, which only matters to the tiles of very large
+    ones: rio-tiler's warning about it is not shown"""
+    from rio_tiler.errors import NoOverviewWarning
+    from rio_tiler.io import Reader
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', NoOverviewWarning)
+        return Reader(path)
+
+
 def raster_info(path, unit):
     """Where a mosaic is (lon/lat bounds, zooms) and the range of its temperature and view angle bands"""
     import numpy as np
     from rio_tiler.constants import WGS84_CRS
-    from rio_tiler.errors import NoOverviewWarning
-    from rio_tiler.io import Reader
-    # The mosaics have no overviews, which only matters to the tiles of very large ones
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', NoOverviewWarning)
-        src = Reader(path)
-    with src:
+    with open_raster(path) as src:
         west, south, east, north = src.get_geographic_bounds(WGS84_CRS)
         info = {'bounds': [west, south, east, north], 'minzoom': src.minzoom, 'maxzoom': src.maxzoom}
         temperature = src.dataset.read(1)
