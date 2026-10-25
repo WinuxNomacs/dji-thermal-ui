@@ -26,22 +26,25 @@ machine. Keep it short; edit in place.
 - dji-thermal-cli is the user's own package (`~/gitrepos/python/dji-thermal-cli` on their machine). A change it
   needs is made and released there first, then pinned here.
 
-## Stack (planned in upcoming-changes.md, phase A; update this section as it is built)
+## Stack
 
-- **Back end:** Python 3.12+, Django and Django REST Framework, SQLite, managed with uv. The package is
-  `src/dji_thermal_ui`, and the `dji-thermal-ui` command serves it with waitress and opens the browser.
-- **Data:** the database and the datasets live in a data folder: the platformdirs user data folder, or
-  `--data-dir`.
-- **Jobs:** analyses, conversions and mosaics run in a local job runner, not Celery. Each job writes its progress
-  to its row, and is cancelled cooperatively through its `run_id`.
+- **Back end:** Python 3.12+, Django and Django REST Framework, SQLite in WAL mode, managed with uv. The package is
+  `src/dji_thermal_ui`, and the `dji-thermal-ui` command (`cli.py`) serves it with waitress and opens the browser.
+- **Data:** the database, the secret key and the datasets live in a data folder: the platformdirs user data folder,
+  `--data-dir`, or `DJI_THERMAL_UI_DATA_DIR` (`datadir.py`). A dataset's files are in `datasets/<id>/`.
+- **Jobs:** analyses, conversions and mosaics run in a local job runner (`analyzer/jobs.py`), not Celery:
+  `jobs.submit(fn, pk, run_id)`. Each job writes its progress to its row, and is cancelled cooperatively through its
+  `run_id`. Tests run jobs inline unless they use the `threaded_jobs` fixture.
+- **API:** DRF with no users: `csrf.CsrfCheck` only enforces CSRF.
 - **Front end:** plain ES5 scripts in the UMD pattern with Leaflet 1.3.1, as in the plugin. Leaflet is vendored
-  into the static files, so the wheel needs no npm.
-- **Tests:** pytest with pytest-django, Jest (jsdom) for the scripts, ruff, and ESLint. All of them run on the
-  host.
+  into `static/vendor/leaflet/` from `node_modules`, so the wheel needs no npm. The app serves its own static files.
+- **Tests:** pytest with pytest-django (`tests/`, settings `tests.settings`, which use a temporary data folder),
+  Jest with jsdom (`static/__tests__/`, kept out of the wheel), ruff, and ESLint. All of them run on the host.
 
-## Commands (planned; update as they are built)
+## Commands
 
-- `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1 and opens the browser).
-- `uv run pytest`, `uv run ruff check`.
+- `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1:8765 and opens the browser; `--data-dir`, `--port`,
+  `--no-browser`).
+- `uv run pytest`, `uv run ruff check`. Set `DJI_THERMAL_FLIGHT_DIR` to a folder of one flight's R-JPEGs to run
+  the `flight` tests too.
 - `npm ci`, then `npx jest` and `npm run -s lint`.
-- The tooling to set up (IDE, Node, browser checks, Windows) is listed under "Tooling" in `upcoming-changes.md`.

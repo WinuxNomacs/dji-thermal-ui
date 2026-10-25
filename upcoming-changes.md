@@ -9,13 +9,11 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next** (planned 2026-10-25: option A, the Thermal Analyzer standing alone)
-1. **A1: the skeleton.** The tooling first (Tooling), then the project, settings, data folder, models, job
-   runner, and the test and lint setup. Designed 2026-10-25. (Standalone)
-2. **A2: the back end.** The plugin's API and `thermal_*` modules ported, with the WebODM helpers they use, and
+1. **A2: the back end.** The plugin's API and `thermal_*` modules ported, with the WebODM helpers they use, and
    their tests. (Standalone)
-3. **A3: the front end.** The pages, scripts and Jest tests ported, and the whole flow checked live on real data.
+2. **A3: the front end.** The pages, scripts and Jest tests ported, and the whole flow checked live on real data.
    (Standalone)
-4. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
+3. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
 
 **Then**
 1. **B: the facelift.** Planned once A stands alone. (Facelift)
@@ -120,34 +118,14 @@ Everything the user does in the plugin today, except the ODM task:
 
 ### Phase details
 
-- **A1, the skeleton** (designed 2026-10-25; the tooling below is set up first):
-  - **Project:** `pyproject.toml` (uv_build, `requires-python >=3.12`, ruff configured like dji-thermal-cli's),
-    `uv.lock`, and the LICENSE (AGPL-3.0). Exact pins from PyPI's current releases at build time: Django, Django
-    REST Framework, waitress, platformdirs, and dji-thermal-cli 1.4.0. rasterio, rio-tiler and numpy come in A2 with
-    the code that uses them. Before pinning, check that rasterio has wheels for 3.12–3.14 on Linux and Windows.
-  - **Settings and data folder:** platformdirs' `user_data_dir("dji-thermal-ui")` (`~/.local/share/dji-thermal-ui`,
-    `%LOCALAPPDATA%\dji-thermal-ui`), or `--data-dir`. It holds `db.sqlite3`, `secret_key` (made on first start)
-    and `datasets/`. SQLite in WAL mode with a busy timeout, since the worker thread writes progress while waitress
-    threads read.
-  - **Models:** `ThermalDataset`, `ThermalConversion` and `ThermalMeasurement` from the plugin, without `project`,
-    `created_by`, `tasks` and `celery_task_id`. A `Preferences` singleton row replaces `UserDataStore`. The delete
-    signals, and one initial migration.
-  - **Job runner (`analyzer/jobs.py`):** one daemon worker thread on a queue, one job at a time.
-    `submit(fn, pk, run_id)` keeps `run_function_async`'s call shape, so A2 swaps it line for line. Cancel and delete
-    keep working by changing `run_id`. On start, rows left analyzing, converting or building mosaics are marked
-    failed with "interrupted". The runner knows which jobs are alive itself (replaces `job_gone`). Tests run jobs
-    inline (eager), as WebODM's tests do with Celery.
-  - **CLI:** `dji-thermal-ui [--data-dir D] [--port 8765] [--no-browser]` runs migrations, starts the runner, and
-    serves with waitress on 127.0.0.1. A busy port is reported and the command exits. An empty home page for now.
-  - **Tests:** the data folder, the secret key kept across starts, the runner (order, progress, cancel,
-    "interrupted" on start), the CLI. `package.json` with Jest, jsdom and ESLint (the plugin's config), each running
-    a first test.
-  - **Windows risk, checked in A1:** dji-thermal-cli starting its own processes (spawn) from a server thread. A small
-    job is run through the runner on Windows from WSL before A2 depends on it.
 - **A2, the back end:**
   - The `thermal_*` modules and `api.py` ported, with the WebODM helpers copied.
   - The project, permission, task and quota code removed.
   - The Python tests ported, and the API exercised with the fixture conversion.
+  - rasterio, rio-tiler and numpy pinned at PyPI's current releases. Checked in A1 (2026-10-25): rasterio 1.5.2 has
+    wheels for CPython 3.12–3.15 on manylinux x86_64 and win_amd64.
+  - The jobs go through `jobs.submit(fn, pk, run_id)` (the shape of `run_function_async`), and `jobs.alive(run_id)`
+    replaces `job_gone`.
 - **A3, the front end:**
   - The templates on the app's own layout, the scripts and CSS, the task panel removed, and the Jest tests ported.
   - The whole flow checked live in a headless browser: a folder dataset, the analysis, a conversion, its mosaics,
@@ -172,7 +150,7 @@ Everything the user does in the plugin today, except the ODM task:
 - **Tooling:** set up in a fresh VS Code session opened on this repo, standalone from LuxODM's environment
   (A1 planning, 2026-10-25). The list is in "Tooling" below.
 
-## Tooling (set up at the start of A1)
+## Tooling (set up 2026-10-25, in A1)
 
 Set up in a VS Code session opened on this repo, separate from LuxODM's. Each item is proposed, approved, set up
 and then verified (see the user's rules). Personal settings stay in uncommitted files.
@@ -214,4 +192,9 @@ COGs, and `ol/source/Google` for the Map Tiles API.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
-Nothing yet.
+- **A1: the skeleton** (2026-10-25). The tooling (above), then the package in `src/dji_thermal_ui/`: the data
+  folder and secret key (`datadir.py`), settings with SQLite in WAL mode, the three models and `Preferences`
+  (`analyzer/models.py`, one initial migration), the job runner (`analyzer/jobs.py`), DRF's CSRF check without users
+  (`csrf.py`), and the command (`cli.py`). Leaflet 1.3.1 is vendored in `static/vendor/leaflet/`. Tests: `tests/`
+  (pytest; the `flight` test needs `DJI_THERMAL_FLIGHT_DIR`) and `static/__tests__/` (Jest), both passing on Linux
+  and on Windows, where dji-thermal-cli's worker processes start fine from the runner's thread.
