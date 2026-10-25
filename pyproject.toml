@@ -1,0 +1,59 @@
+[project]
+name = "dji-thermal-ui"
+version = "0.0.0"
+description = "A web app on your own computer to analyze, convert, mosaic and measure DJI thermal datasets with dji-thermal-cli"
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Winxu Nomacs", email = "16427666+WinuxNomacs@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "dji-thermal-cli==1.4.0",
+    "django==6.1.2",
+    "djangorestframework==3.18.3",
+    "platformdirs==4.13.5",
+    "waitress==3.0.2",
+]
+
+[project.scripts]
+dji-thermal-ui = "dji_thermal_ui.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# the scripts' Jest tests stay out of the wheel
+wheel-exclude = ["**/__tests__"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-django==4.14.0",
+    "ruff==0.17.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+filterwarnings = ["error"]
+addopts = ["--strict-markers"]
+markers = [
+    "flight: needs the R-JPEGs of one flight (DJI_THERMAL_FLIGHT_DIR)",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+# bugs, not style: the code ported from the plugin keeps its layout
+select = ["F", "E9", "PLE", "B"]
+ignore = [
+    "B008",   # call in a default argument: used for immutable defaults
+    "B905",   # zip() without strict=
+    "B023",   # closure over a loop variable: every such closure is called within its iteration
+]
