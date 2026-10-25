@@ -116,13 +116,38 @@ Everything the user does in the plugin today, except the ODM task:
 
 ### Phase details
 
-- **A3, the front end:**
-  - The templates on the app's own layout, the scripts and CSS, the task panel removed, and the Jest tests ported.
-  - The page sets the CSRF cookie (`ensure_csrf_cookie`): the API refuses unsafe requests without it, and the
-    placeholder home page of A1 sets none.
-  - The whole flow checked live in a headless browser: a folder dataset, the analysis, a conversion, its mosaics,
-    the viewer, a frame, measurements, the exports, compare, and the downloads. Whatever the check made is deleted
-    afterwards.
+- **A3, the front end** (planned 2026-10-25), on branch `a3-frontend`:
+  - **The look:** stock Bootstrap 3.4.1 CSS and Font Awesome Free 5.15.4 (woff2 only), from npm, pinned, vendored
+    with their licences into `static/vendor/` like Leaflet. The scripts' Bootstrap classes and icons work as they
+    are. A small `app.css` holds the header and the few colours WebODM's theme gave. Light only.
+  - **The layout:** `templates/base.html` has a header with the app's name (a link to the datasets), the unit
+    (°F, °C, K: `PUT /api/preferences {unit}`, then the page reloads) and the version. The five pages extend it
+    and keep the plugin's markup, less what is dropped.
+  - **The pages** (`analyzer/views.py`): `/`, `/dataset/<id>`, `/conversion/<id>`, `/conversion/<id>/frame` and
+    `/conversion/<id>/compare?b=<id>`, each `ensure_csrf_cookie`. They are 404 for an unknown id. Compare takes any
+    two conversions. `data-api` is `/api/` and `data-public` is `/`. The scripts and CSS load from `{% static %}`,
+    and Leaflet from `vendor/leaflet/`. A1's placeholder `home.html` goes.
+  - **The scripts and CSS:** the plugin's `analyzer_core`, `datasets`, `dataset`, `conversions`, `measure`,
+    `viewer`, `frame` and `compare` scripts, and `analyzer.css`, copied into `static/`. These go:
+    - the task panel, the task links and the preset saving (`ctx.nodes`, `ctx.presets` and `ctx.dashboard`);
+    - the checks of `can_change` and `can_delete`;
+    - the project column, filter and choice;
+    - the sharing line, "created by", and the admin-only folder source (now always offered);
+    - the LuxODM wording ("tasks made from its conversions are kept", "of the project").
+    The WebODM plan tab and "Use the WebODM plan's settings" stay.
+  - **Tests:**
+    - Jest: the plugin's `analyzer.test.js`, without the task-panel, project, sharing and permission cases.
+    - pytest: `tests/test_pages.py` checks each page renders with the CSRF cookie, an unknown id is a 404, compare
+      works across two datasets, and the static files are served.
+  - **The live check:** the whole flow in headless Chromium (Playwright MCP) against the real server on a scratch
+    data folder, with the 220 M4T frames as a folder dataset:
+    - the dataset made and analyzed, a conversion, and its mosaics;
+    - the viewer: tabs, palette and range, the readout, the measurement tools, a saved measurement, CSV and
+      GeoJSON, the PNG export;
+    - a frame, with changed parameters;
+    - compare, side by side and as the difference;
+    - the unit switched, preferences saved and reset, the zip download, and deleting the dataset.
+    Screenshots are looked at. The scratch data folder is deleted afterwards.
 - **A4, packaging:**
   - The README (install, run, what it does, where the data lives) and CHANGELOG 0.1.0.
   - Release checks: a wheel built and installed into a fresh venv, then run.
@@ -145,6 +170,9 @@ Everything the user does in the plugin today, except the ODM task:
   them go in A3 (A2 planning, 2026-10-25).
 - **Temperature unit:** an app-wide `unit` in the preferences row, °F by default (A2 planning, 2026-10-25). In
   LuxODM it was the user's profile setting.
+- **The look until B:** stock Bootstrap 3.4.1 and Font Awesome Free 5.15.4, vendored, rather than copying WebODM's
+  bootswatch theme or writing CSS of our own. Light only: the dark mode comes with the facelift (A3 planning,
+  2026-10-25).
 
 ## Tooling (set up 2026-10-25, in A1)
 
