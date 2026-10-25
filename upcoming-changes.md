@@ -139,14 +139,17 @@ Everything the user does in the plugin today, except the ODM task:
 - **A4, packaging:**
   - The README (install, run, what it does, where the data lives) and CHANGELOG 0.1.0.
   - Release checks: a wheel built and installed into a fresh venv, then run.
-  - CI and the release workflow if chosen (below). The version is 0.1.0, on a `release/0.1.0` branch.
+  - CI: tests on push, on Linux and Windows. The version is 0.1.0, on a `release/0.1.0` branch.
 
-### Open decisions (the user's)
+### Decisions (2026-10-25)
 
-- **Platforms:** Linux only, or Windows too. dji-thermal-cli supports Windows, and rasterio's wheels ship GDAL.
-- **Distribution:** PyPI (`uvx dji-thermal-ui` or pipx), Docker, or both.
-- **Dependency versions:** current releases, or LuxODM's (rio-tiler 5.0.3, rasterio 1.3.10, numpy 1.26.2).
-- **CI:** tests on push, as dji-thermal-cli's `ci.yml` does, and a release workflow later or not at all.
+- **Platforms:** Linux and Windows. The tests run on both, and the Windows check is done from WSL as for
+  dji-thermal-cli.
+- **Distribution:** PyPI (`uvx dji-thermal-ui` or pipx), released the way dji-thermal-cli is.
+- **Dependency versions:** current releases (rio-tiler, rasterio, numpy 2, Django), pinned exactly. The ported
+  code is fixed where they changed.
+- **CI:** in A4, tests on push (Linux and Windows), like dji-thermal-cli's `ci.yml`. A release workflow comes once
+  a PyPI release is wanted.
 
 ## Facelift (option B)
 
