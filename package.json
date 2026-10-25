@@ -9,10 +9,14 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
-    "roots": ["<rootDir>/src/dji_thermal_ui/static/__tests__"]
+    "roots": [
+      "<rootDir>/src/dji_thermal_ui/static/__tests__"
+    ]
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@fortawesome/fontawesome-free": "5.15.4",
+    "bootstrap": "3.4.1",
     "eslint": "10.13.0",
     "globals": "17.13.0",
     "jest": "30.5.2",

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+{% block styles %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">{% endblock %}
+{% block content %}
+<div id="ta-viewer" class="ta-page ta-viewer" data-api="{{ api }}" data-public="{{ public }}" data-id="{{ conversion.id }}">
+    {% csrf_token %}
+    <div class="ta-breadcrumb"><a href="{{ public }}dataset/{{ dataset.id }}#convert"><i class="fa fa-arrow-left"></i> {{ dataset.name }}</a></div>
+    <div class="ta-header">
+        <div>
+            <h3 id="ta-viewer-name">{{ conversion.name }}</h3>
+            <div class="ta-subtitle" id="ta-viewer-subtitle"></div>
+        </div>
+        <div class="ta-header-actions">
+            <a class="btn btn-default btn-sm" id="ta-viewer-frames" href="#" hidden><i class="fa fa-image"></i> Frames</a>
+            <a class="btn btn-default btn-sm" id="ta-viewer-compare" href="{{ public }}conversion/{{ conversion.id }}/compare" hidden title="This mosaic beside another mosaic, or their difference"><i class="fa fa-columns"></i> Compare with…</a>
+            <button type="button" class="btn btn-default btn-sm" id="ta-viewer-png" hidden title="The mosaic as shown, with its saved measurements and colour scale (the basemap is left out)"><i class="fa fa-download"></i> Export PNG</button>
+            <button type="button" class="btn btn-default btn-sm" id="ta-viewer-build" hidden><i class="fa fa-th"></i> Build mosaics</button>
+            <button type="button" class="btn btn-default btn-sm" id="ta-viewer-cancel" hidden><i class="fa fa-stop"></i> Cancel</button>
+        </div>
+    </div>
+    <div class="ta-status" id="ta-viewer-status"></div>
+
+    <div id="ta-viewer-main" hidden>
+        <ul class="nav nav-tabs ta-tabs" id="ta-viewer-tabs"></ul>
+        <div class="ta-viewer-body">
+            <div class="ta-viewer-map" id="ta-viewer-map"></div>
+            <div class="ta-viewer-panel">
+                <div id="ta-viewer-controls"></div>
+                <details class="ta-section" open data-section="image" id="ta-viewer-image-section">
+                    <summary><h5>Image</h5></summary>
+                    <div id="ta-viewer-image"></div>
+                </details>
+                <details class="ta-section" open data-section="cursor">
+                    <summary><h5>Under the cursor</h5></summary>
+                    <div class="ta-viewer-readout" id="ta-viewer-readout"><span class="ta-message">Move the cursor over the mosaic.</span></div>
+                </details>
+                <div id="ta-viewer-analysis">
+                    <details class="ta-section" open data-section="measure">
+                        <summary><h5>Measure</h5></summary>
+                        <div id="ta-viewer-tools"></div>
+                        <div id="ta-viewer-result"></div>
+                        <div class="ta-measure-save" id="ta-measure-save" hidden>
+                            <div class="ta-inline">
+                                <input type="text" class="form-control input-sm" id="ta-measure-name" maxlength="255" placeholder="Name">
+                                <button type="button" class="btn btn-primary btn-sm" id="ta-measure-save-btn"><i class="fa fa-save"></i> Save</button>
+                            </div>
+                            <div class="text-danger" id="ta-measure-error"></div>
+                        </div>
+                    </details>
+                    <details class="ta-section" open data-section="isotherm">
+                        <summary><h5>Isotherm</h5></summary>
+                        <div id="ta-viewer-isotherm"></div>
+                    </details>
+                    <details class="ta-section" open data-section="parameters">
+                        <summary><h5>Parameters</h5></summary>
+                        <div id="ta-viewer-correction"></div>
+                    </details>
+                    <details class="ta-section" open data-section="whole">
+                        <summary><h5>This mosaic</h5></summary>
+                        <div id="ta-viewer-whole"></div>
+                    </details>
+                </div>
+                <details class="ta-section" open data-section="saved">
+                    <summary><h5 class="ta-measurements-head"><span>Saved measurements</span> <span class="ta-measurements-exports"><a class="btn btn-default btn-xs" id="ta-viewer-csv" href="{{ api }}conversions/{{ conversion.id }}/measurements.csv" hidden><i class="fa fa-download"></i> CSV</a><a class="btn btn-default btn-xs" id="ta-viewer-geojson" href="{{ api }}conversions/{{ conversion.id }}/measurements.geojson" title="The measurements on the mosaics, with their shapes, for a GIS" hidden><i class="fa fa-download"></i> GeoJSON</a></span></h5></summary>
+                    <div id="ta-viewer-measurements"></div>
+                </details>
+                <details class="ta-section" open data-section="report">
+                    <summary><h5>The mosaic</h5></summary>
+                    <div id="ta-viewer-report"></div>
+                </details>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ basemaps|json_script:"ta-basemaps" }}
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'analyzer_core.js' %}"></script>
+<script src="{% static 'measure.js' %}"></script>
+<script src="{% static 'viewer.js' %}"></script>
+{% endblock %}

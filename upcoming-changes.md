@@ -9,9 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next** (planned 2026-10-25: option A, the Thermal Analyzer standing alone)
-1. **A3: the front end.** The pages, scripts and Jest tests ported, and the whole flow checked live on real data.
-   (Standalone)
-2. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
+1. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
 
 **Then**
 1. **B: the facelift.** Planned once A stands alone. (Facelift)
@@ -116,13 +114,6 @@ Everything the user does in the plugin today, except the ODM task:
 
 ### Phase details
 
-- **A3, the front end:**
-  - The templates on the app's own layout, the scripts and CSS, the task panel removed, and the Jest tests ported.
-  - The page sets the CSRF cookie (`ensure_csrf_cookie`): the API refuses unsafe requests without it, and the
-    placeholder home page of A1 sets none.
-  - The whole flow checked live in a headless browser: a folder dataset, the analysis, a conversion, its mosaics,
-    the viewer, a frame, measurements, the exports, compare, and the downloads. Whatever the check made is deleted
-    afterwards.
 - **A4, packaging:**
   - The README (install, run, what it does, where the data lives) and CHANGELOG 0.1.0.
   - Release checks: a wheel built and installed into a fresh venv, then run.
@@ -145,6 +136,9 @@ Everything the user does in the plugin today, except the ODM task:
   them go in A3 (A2 planning, 2026-10-25).
 - **Temperature unit:** an app-wide `unit` in the preferences row, °F by default (A2 planning, 2026-10-25). In
   LuxODM it was the user's profile setting.
+- **The look until B:** stock Bootstrap 3.4.1 and Font Awesome Free 5.15.4, vendored, rather than copying WebODM's
+  bootswatch theme or writing CSS of our own. Light only: the dark mode comes with the facelift (A3 planning,
+  2026-10-25).
 
 ## Tooling (set up 2026-10-25, in A1)
 
@@ -179,6 +173,8 @@ COGs, and `ol/source/Google` for the Map Tiles API.
 - **Google Map Tiles:** the deployment holds the key (decided 2026-10-25). For a locally installed app, a key it
   holds is effectively public. The plan is to proxy tiles through the local server, ship without a key, and read
   it from the config, with a quota. Check first whether Google's terms allow proxying.
+- **Esri's satellite layer past its highest zoom** shows "Map data not yet available" tiles under a mosaic zoomed
+  in closely (seen in A3's live check). Setting the layer's `maxNativeZoom` would stretch its last level instead.
 
 ## Integration
 
@@ -202,3 +198,11 @@ COGs, and `ol/source/Google` for the Map Tiles API.
   `tests/test_raster_*.py` and `tests/test_thermal_correction.py`, and `tests/test_flight.py` on real frames.
   Checked live on the 220 M4T frames: a folder dataset analyzed, converted, made into mosaics (209 frames), then
   points, tiles, a measured and saved area, its CSV and GeoJSON, and the download.
+- **A3: the front end** (2026-10-25). Stock Bootstrap 3.4.1 and Font Awesome Free 5.15.4 vendored with their
+  licences in `static/vendor/`; the header and the unit in `templates/base.html` and `static/app.js`/`app.css`; the
+  five pages (`analyzer/views.py`, `templates/`); the plugin's scripts and `analyzer.css` in `static/`, without
+  projects, sharing, permissions or the task panel. Tests: `static/__tests__/` (Jest) and `tests/test_pages.py`.
+  Checked live in headless Chromium on the 220 M4T frames: the dataset made, analyzed and deleted; the defaults
+  saved and reset; a conversion, its mosaics and the zip; the viewer's tabs, palette, readout, a box measured and
+  saved, its CSV, GeoJSON and the PNG export; a frame with a changed distance; compare as the difference; the unit
+  switched. No console errors and no failed requests.
