@@ -1,4 +1,5 @@
-"""The app's pages: each is served with the CSRF cookie the scripts send back, and an unknown id is a 404"""
+"""The app's pages: each is served with the CSRF cookie the scripts send back, and the scripts and styles they load are
+served; an unknown id is a 404"""
 
 import re
 
@@ -66,3 +67,18 @@ def test_the_pages_show_temperatures_in_the_apps_unit(client):
     assert re.search(r'id="ta-unit" type="application/json">"K"<', html)
     assert '<option value="K" selected>' in html
 
+
+
+
+
+def test_every_script_and_stylesheet_a_page_loads_is_served(client):
+    c = conversion(dataset())
+    urls = set()
+    for page in ["/", "/dataset/%d" % c.dataset.id, "/conversion/%d" % c.id, "/conversion/%d/frame" % c.id,
+                 "/conversion/%d/compare" % c.id]:
+        urls.update(re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode()))
+    assert len(urls) >= 13
+    for url in sorted(urls):
+        res = client.get(url)
+        assert res.status_code == 200, url
+        res.close()
