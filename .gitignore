@@ -218,3 +218,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Requests waiting to be planned (see CLAUDE.md)
+new.md
+# Local test data
+ignored/
