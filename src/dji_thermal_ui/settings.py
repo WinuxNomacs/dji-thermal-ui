@@ -106,3 +106,6 @@ BASEMAPS = [
 
 # Jobs run inline instead of on the runner's thread (the tests set it)
 THERMAL_JOBS_EAGER = False
+
+# The worker processes dji-thermal-cli starts for an analysis, a conversion or a mosaic (None: its own default)
+THERMAL_PROCESSES = None

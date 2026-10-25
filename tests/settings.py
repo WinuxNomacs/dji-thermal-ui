@@ -16,3 +16,4 @@ from dji_thermal_ui.settings import DATA_DIR, DATABASES  # noqa: E402
 DATABASES["default"]["TEST"] = {"NAME": str(DATA_DIR / "test.sqlite3")}
 
 THERMAL_JOBS_EAGER = True
+THERMAL_PROCESSES = 1
