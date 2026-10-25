@@ -99,6 +99,8 @@ def test_conversions_build_their_mosaics_which_the_viewer_tiles_and_reads(api):
     # Where in that frame the point was read from
     assert p['frame_pixel'] == [132, 232]
     assert api.get(point.format('as_converted'), {'lon': 0, 'lat': 0}).data['reason'] == 'outside_raster'
+    corner = api.get(point.format('as_converted'), dict(zip(('lon', 'lat'), mosaic_lonlat(2.5, 2.5)))).data
+    assert (corner['valid'], corner['temperature'], corner['reason']) == (False, None, 'nodata')
     assert api.get(point.format('as_converted'), {'lon': 'x'}).status_code == 400
     # A mosaic built before dji-thermal-cli 1.4.0 has no frame pixel bands
     raster = os.path.join(c.data_dir(), c.mosaics['kinds']['harmonized']['raster'])
