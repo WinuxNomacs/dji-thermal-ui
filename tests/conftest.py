@@ -44,3 +44,12 @@ def fresh_measurements():
     from dji_thermal_ui.analyzer import thermal_measure
     thermal_measure.measured.cache_clear()
     thermal_measure.kept_histogram.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def empty_datasets_folder(settings):
+    """Ids come back after each test's rollback, so a test's dataset folders are removed after it"""
+    yield
+    import shutil
+    for p in Path(settings.DATASETS_DIR).iterdir():
+        shutil.rmtree(p) if p.is_dir() else p.unlink()
