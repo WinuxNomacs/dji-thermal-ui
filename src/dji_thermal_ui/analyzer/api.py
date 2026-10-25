@@ -885,7 +885,7 @@ class MosaicFootprintView(DatasetView):
             scale = max(1.0, max(src.width, src.height) / float(FOOTPRINT_SIZE))
             shape = (max(1, int(round(src.height / scale))), max(1, int(round(src.width / scale))))
             values = src.read(band, out_shape=shape, resampling=Resampling.nearest, masked=True)
-            transform = src.transform * src.transform.scale(src.width / float(shape[1]), src.height / float(shape[0]))
+            transform = src.transform @ src.transform.scale(src.width / float(shape[1]), src.height / float(shape[0]))
             crs = src.crs
         inside = (np.round(values.filled(-1)) == index).astype(np.uint8)
         geometries = [warp.transform_geom(crs, 'EPSG:4326', g, precision=7)

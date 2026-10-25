@@ -231,3 +231,14 @@ def converted(client, settings=None):
         res = client.post("{}/{}/conversions".format(DATASETS, d.id), {'settings': settings or {}}, format='json')
     assert res.status_code == 201, res.data
     return ThermalConversion.objects.get(pk=res.data['id']), make
+
+
+def analysed(c, pitches=(-90.0, -45.0)):
+    """The conversion's dataset as analysed: its two uploads thermal frames, the second oblique"""
+    rows = [{'path': '100MEDIA/DJI_000{}_T.JPG'.format(i + 1), 'kind': 'thermal', 'pitch': p, 'emissivity': 0.91,
+             'reflection': 27.6, 'ambient': 27.6, 'humidity': 50.0, 'lrf': 21.4, 'time': '2026:10:12 18:29:5{}'.format(i),
+             'lat': 42.1, 'lon': -88.07 + i * 0.0001}
+            for i, p in enumerate(pitches)]
+    ThermalDataset.objects.filter(pk=c.dataset_id).update(analysis={'files': rows})
+    c.refresh_from_db()
+    return c
