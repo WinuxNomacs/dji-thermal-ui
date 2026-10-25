@@ -1,0 +1,675 @@
+"""
+A conversion's radiometric analysis (the viewer and the frame page): the temperatures of a spot, a line or an area,
+their difference with the surroundings (as raster/measurements.py finds it), histograms and
+isotherms, on its mosaics and on single frames.
+
+Frames are measured by dji-thermal-cli (api.measure) when they are asked for, as the conversion converted them, or with
+some measurement parameters changed (exact: the SDK measures again). The mosaics can be corrected for another
+emissivity and reflected temperature with LuxODM's thermal correction model (raster/thermal_correction.py):
+an approximation, since the SDK is not run again.
+
+All temperatures are in the conversion's unit. Used by the API, in the web process.
+"""
+import json
+import math
+import os
+import tempfile
+from functools import lru_cache
+
+import numpy as np
+
+from . import thermal_conversion, thermal_mosaics
+
+PERCENTILES = (2, 98)
+HISTOGRAM_BINS = 64
+MAX_VERTICES = 1000
+MAX_SAMPLES = 1000          # a line's profile: sampled at the grid's pixel spacing, at most this many times
+SHAPE_KINDS = ('box', 'circle')     # areas drawn by dragging, measured as their polygon
+ISOTHERM_MODES = ('above', 'below', 'between')
+# The measurement parameters a frame can be measured again with (Settings fields: temperatures in the unit)
+CHANGES = ('distance', 'humidity', 'emissivity', 'reflected_temp', 'ambient_temp')
+# What the mosaics' approximate correction changes
+CORRECTIONS = ('emissivity', 'reflected_temp')
+# On a frame, in pixels: a spot's disc, a line's strip and the surroundings (on a mosaic: app/measurements' metres)
+FRAME_SHAPES = {'point_radius': 1.5, 'line_half_width': 1.0, 'ring_min': 3.0, 'ring_max': 10.0}
+FRAME_CACHE = 16            # frames measured kept in memory (about 1.3 MB each for the M4T's 640 × 512)
+# How temperatures are drawn (display only): gamma on the palette's shares, an unsharp mask's amount and its radius
+# (a Gaussian's sigma, in the raster's own pixels), the histogram equalization reads and the legend's samples
+GAMMA_LIMITS = (0.2, 5.0)
+SHARPEN_LIMITS = (0.0, 5.0)
+SHARPEN_RADIUS = 1.0
+EQUALIZE_BINS = 1024
+EQUALIZE_SPAN = (0.1, 99.9)     # the percentiles a mosaic's histogram spans: its outliers would empty all its bins but one
+CURVE_SAMPLES = 65
+
+
+class MeasureError(ValueError):
+    """Something asked is not valid (the message is for the user)"""
+
+
+# --- units ---------------------------------------------------------------------------------------------------------
+
+def to_celsius(v, unit):
+    return {'F': lambda x: (x - 32.0) / 1.8, 'K': lambda x: x - 273.15}.get(unit, lambda x: x)(v)
+
+
+def from_celsius(v, unit):
+    return {'F': lambda x: x * 1.8 + 32.0, 'K': lambda x: x + 273.15}.get(unit, lambda x: x)(v)
+
+
+def difference_in(unit, celsius):
+    """A temperature difference in Celsius, in the unit"""
+    return celsius * 1.8 if unit == 'F' else celsius
+
+
+def number(value, name):
+    try:
+        return thermal_conversion.number(value)
+    except (TypeError, ValueError):
+        raise MeasureError("{} is not a number".format(name)) from None
+
+
+# --- what is asked -------------------------------------------------------------------------------------------------
+
+def parse_isotherm(value):
+    """
+    "above,T", "below,T" or "between,A,B" as (mode, low, high): the values above low, below high or between both;
+    None when value is empty
+    """
+    if value is None or value == "":
+        return None
+    parts = str(value).split(',')
+    mode = parts[0]
+    if mode not in ISOTHERM_MODES or len(parts) != (3 if mode == 'between' else 2):
+        raise MeasureError("The isotherm is above,T or below,T or between,A,B")
+    values = [number(p, "The isotherm's temperature") for p in parts[1:]]
+    if mode == 'above':
+        return mode, values[0], None
+    if mode == 'below':
+        return mode, None, values[0]
+    if not values[1] > values[0]:
+        raise MeasureError("The isotherm's second temperature must be above the first")
+    return mode, values[0], values[1]
+
+
+def isotherm_mask(values, isotherm):
+    """Where values (an array, NaN = no data) are in the isotherm"""
+    _mode, low, high = isotherm
+    with np.errstate(invalid='ignore'):
+        inside = np.isfinite(values)
+        if low is not None:
+            inside &= values >= low
+        if high is not None:
+            inside &= values <= high
+    return inside
+
+
+def check_geometry(geometry, lonlat=True):
+    """A GeoJSON Point, LineString or Polygon (lon/lat, or a frame's pixel x/y), checked; its polygon closed"""
+    if isinstance(geometry, dict) and geometry.get('type') == 'Feature':
+        geometry = geometry.get('geometry')
+    if not isinstance(geometry, dict) or geometry.get('type') not in ('Point', 'LineString', 'Polygon'):
+        raise MeasureError("The geometry is a point, a line or a polygon")
+    kind, coords = geometry['type'], geometry.get('coordinates')
+
+    def position(c):
+        if not isinstance(c, (list, tuple)) or len(c) < 2:
+            raise MeasureError("Invalid coordinates") from None
+        x, y = number(c[0], "A coordinate"), number(c[1], "A coordinate")
+        if lonlat and not (-180 <= x <= 180 and -90 <= y <= 90):
+            raise MeasureError("Coordinates out of range")
+        return [x, y]
+
+    try:
+        if kind == 'Point':
+            return {'type': kind, 'coordinates': position(coords)}
+        if kind == 'LineString':
+            line = [position(c) for c in coords]
+            if len(line) < 2 or len(line) > MAX_VERTICES:
+                raise MeasureError("A line has 2 to {} points".format(MAX_VERTICES))
+            return {'type': kind, 'coordinates': line}
+        ring = [position(c) for c in coords[0]]
+    except TypeError:
+        raise MeasureError("Invalid coordinates") from None
+    if ring and ring[0] != ring[-1]:
+        ring.append(ring[0])
+    if len(ring) < 4 or len(ring) > MAX_VERTICES:
+        raise MeasureError("An area has 3 to {} corners".format(MAX_VERTICES))
+    return {'type': kind, 'coordinates': [ring]}
+
+
+def check_shape(shape, geometry, lonlat=True):
+    """
+    How an area was drawn when it was not clicked corner by corner: {kind: box} or {kind: circle, center, radius}
+    (the radius in metres on a mosaic, in pixels on a frame), checked; None for none
+    """
+    if shape is None or shape == "":
+        return None
+    if not isinstance(shape, dict) or shape.get('kind') not in SHAPE_KINDS:
+        raise MeasureError("The shape is a box or a circle")
+    if geometry is None or geometry['type'] != 'Polygon':
+        raise MeasureError("A box or a circle is an area")
+    if shape['kind'] == 'box':
+        return {'kind': 'box'}
+    center = check_geometry({'type': 'Point', 'coordinates': shape.get('center')}, lonlat)['coordinates']
+    radius = number(shape.get('radius'), "The circle's radius")
+    if not radius > 0:
+        raise MeasureError("The circle's radius must be above zero")
+    return {'kind': 'circle', 'center': center, 'radius': radius}
+
+
+# --- statistics ----------------------------------------------------------------------------------------------------
+
+def shapes(geometry, to_crs=None, sizes=None):
+    """(the shape, what it measures, its surroundings) as shapely geometries in the grid's units"""
+    from .raster.measurements import inside_and_ring, projected
+    shape = projected(geometry, to_crs)
+    if not shape.is_valid:
+        shape = shape.buffer(0)
+    inside, ring = inside_and_ring(geometry['type'], shape, **(sizes or {}))
+    return shape, inside, ring
+
+
+def shape_size(geometry_type, shape):
+    if geometry_type == 'Polygon':
+        return {'area': shape.area, 'perimeter': shape.length}
+    if geometry_type == 'LineString':
+        return {'length': shape.length}
+    return {}
+
+
+def region_mask(geom, out_shape, transform):
+    """The pixels of a grid a shapely polygon touches (outline pixels included, as the tiler's region statistics)"""
+    from rasterio.features import geometry_mask
+    if geom.is_empty:
+        return np.zeros(out_shape, dtype=bool)
+    return geometry_mask([geom], out_shape=out_shape, transform=transform, all_touched=True,
+                         invert=True)
+
+
+def value_stats(values, isotherm=None):
+    """min / max / mean / std / median, the PERCENTILES, a histogram and the valid pixels of an array's finite
+    values (as the tiler's region_band_stats), with the isotherm's share of them"""
+    from .raster.stats import region_band_stats
+    finite = np.isfinite(values)
+    stats = region_band_stats(np.ma.masked_array(values, mask=~finite), percentiles=PERCENTILES, bins=HISTOGRAM_BINS)
+    stats.pop('total_pixels', None)     # of the grid read, which says nothing about the shape
+    if isotherm is not None:
+        n = int(isotherm_mask(values, isotherm).sum())
+        stats['isotherm'] = {'pixels': n, 'share': n / stats['valid_pixels'] if stats['valid_pixels'] else None}
+    return stats
+
+
+def region_stats(values, transform, geometry_type, inside, ring, isotherm=None, locate=None):
+    """
+    What a shape measures on a grid of values (NaN = no data): the statistics inside it, where its extremes are
+    (locate(row, col) -> coordinates), the surroundings' mean and the difference with them (ΔT, of the means)
+    """
+    mask = region_mask(inside, values.shape, transform)
+    inner = np.where(mask, values, np.nan)
+    out = value_stats(inner, isotherm)
+    out['surroundings'] = out['delta_t'] = None
+    if out['valid_pixels'] == 0:
+        return out
+    if locate is not None:
+        filled = np.where(np.isfinite(inner), inner, np.nan)
+        out['min_location'] = locate(*np.unravel_index(np.nanargmin(filled), filled.shape))
+        out['max_location'] = locate(*np.unravel_index(np.nanargmax(filled), filled.shape))
+    around = values[region_mask(ring, values.shape, transform) & ~mask]
+    around = around[np.isfinite(around)]
+    if around.size:
+        out['surroundings'] = float(around.mean())
+        out['delta_t'] = out['mean'] - out['surroundings']
+    return out
+
+
+def profile_points(line, step):
+    """Where a line (shapely, in the grid's units) is sampled: every step from its start to its end, at most MAX_SAMPLES
+    times. Returns (distances, x, y) arrays."""
+    coords = np.asarray(line.coords, dtype=np.float64)
+    along = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(coords[:, :2], axis=0).T))])
+    length = float(along[-1])
+    n = max(2, min(MAX_SAMPLES, int(math.floor(length / step)) + 1)) if step > 0 else 2
+    distances = np.linspace(0.0, length, n)
+    return distances, np.interp(distances, along, coords[:, 0]), np.interp(distances, along, coords[:, 1])
+
+
+def grid_values(values, transform, x, y):
+    """A grid's values at points (x, y arrays in its units), NaN outside it"""
+    cols, rows = ~transform @ (x, y)
+    cols, rows = np.floor(cols).astype(np.int64), np.floor(rows).astype(np.int64)
+    inside = (rows >= 0) & (rows < values.shape[0]) & (cols >= 0) & (cols < values.shape[1])
+    out = np.full(len(x), np.nan)
+    out[inside] = values[rows[inside], cols[inside]]
+    return out
+
+
+def no_data(values, unit):
+    """values as float64 with dji-thermal-cli's no-data marker (absolute zero) as NaN"""
+    values = np.asarray(values, dtype=np.float64)
+    with np.errstate(invalid='ignore'):
+        return np.where(values > thermal_mosaics.low_value(unit), values, np.nan)
+
+
+# --- colours -------------------------------------------------------------------------------------------------------
+
+def parse_adjust(params):
+    """
+    The display adjustments a tile or frame image is asked with (gamma, equalize=1, sharpen), checked:
+    {gamma, equalize, sharpen}, none by default. They change how temperatures are drawn, never the temperatures.
+    """
+    def ranged(name, label, limits, default):
+        raw = params.get(name)
+        if raw is None or raw == "":
+            return default
+        v = number(raw, label)
+        if not limits[0] <= v <= limits[1]:
+            raise MeasureError("{} is from {:g} to {:g}".format(label, *limits))
+        return v
+
+    equalize = params.get('equalize') or '0'
+    if equalize not in ('0', '1'):
+        raise MeasureError("equalize is 1 or 0")
+    return {'gamma': ranged('gamma', "Gamma", GAMMA_LIMITS, 1.0), 'equalize': equalize == '1',
+            'sharpen': ranged('sharpen', "Sharpening", SHARPEN_LIMITS, 0.0)}
+
+
+def value_histogram(values, span=None):
+    """
+    The EQUALIZE_BINS histogram ((counts, edges)) of an array's finite values within span (low, high; by default its
+    EQUALIZE_SPAN percentiles), or None when there are none
+    """
+    v = values[np.isfinite(values)]
+    if span is None and v.size:
+        span = tuple(float(p) for p in np.percentile(v, EQUALIZE_SPAN))
+    if not v.size or span[1] < span[0]:
+        return None
+    counts, edges = np.histogram(v, bins=EQUALIZE_BINS, range=span)
+    return (counts, edges) if counts.any() else None
+
+
+def equalization(histogram, low, high):
+    """
+    Histogram equalization over low..high: (temperatures, shares) to interpolate a temperature's share of the palette
+    from (the share of the histogram's values within the range below it), or None when none of them are in it
+    """
+    if histogram is None:
+        return None
+    counts, edges = np.asarray(histogram[0], dtype=np.float64), np.asarray(histogram[1], dtype=np.float64)
+    left, right = np.clip(edges[:-1], low, high), np.clip(edges[1:], low, high)
+    width = edges[1:] - edges[:-1]
+    # a bin's values taken as spread evenly over it: the part of it within the range counts
+    inside = counts * np.where(width > 0, (right - left) / np.where(width > 0, width, 1), 0)
+    total = inside.sum()
+    if not total > 0:
+        return None
+    temperatures = np.concatenate([[low], right, [high]])
+    shares = np.concatenate([[0.0], np.cumsum(inside) / total, [1.0]])
+    return temperatures, shares
+
+
+def tone(values, low, high, adjust=None, curve=None):
+    """Values' shares of the palette (0..1) over low..high: linear, or along curve (equalization), then gamma"""
+    if curve is not None:
+        t = np.interp(values, curve[0], curve[1])
+    else:
+        t = (np.asarray(values, dtype=np.float64) - low) / (high - low)
+    t = np.clip(t, 0.0, 1.0)
+    gamma = (adjust or {}).get('gamma', 1.0)
+    return t ** (1.0 / gamma) if gamma != 1.0 else t
+
+
+def sharpened(t, valid, amount, sigma):
+    """An unsharp mask of shares t (sigma in pixels), the pixels with no data left out of the blur"""
+    from scipy.ndimage import gaussian_filter
+    weight = gaussian_filter(valid.astype(np.float64), sigma, mode='nearest')
+    blurred = gaussian_filter(np.where(valid, t, 0.0), sigma, mode='nearest') / np.where(weight > 0, weight, 1.0)
+    return np.clip(np.where(valid, t + amount * (t - blurred), t), 0.0, 1.0)
+
+
+def curve_shares(low, high, adjust=None, curve=None):
+    """The palette's share at CURVE_SAMPLES temperatures evenly across low..high, for the legend's gradient"""
+    return [float(t) for t in tone(np.linspace(low, high, CURVE_SAMPLES), low, high, adjust, curve)]
+
+
+def colorize(values, valid, cmap, low, high, isotherm=None, adjust=None, curve=None, sigma=SHARPEN_RADIUS, margin=0):
+    """
+    The levels (0-255 over low..high, adjusted: see tone and sharpened) of values and the colour map to draw them
+    with; with an isotherm, RGB bands instead: the isotherm's pixels in the colour map, the rest in grey. A margin
+    of pixels around values (read for the sharpening) is left out. Returns (uint8 bands, colour map or None).
+    """
+    t = tone(np.where(valid, values, low), low, high, adjust, curve)
+    amount = (adjust or {}).get('sharpen') or 0.0
+    if amount > 0:
+        t = sharpened(t, valid, amount, sigma)
+    if margin:
+        crop = (slice(margin, -margin), slice(margin, -margin))
+        t, values, valid = t[crop], values[crop], valid[crop]
+    levels = np.rint(t * 255).astype(np.uint8)
+    if isotherm is None:
+        return levels[np.newaxis], cmap
+    lut = np.zeros((256, 3), dtype=np.uint8)
+    for i, c in cmap.items():
+        lut[int(i)] = c[:3]
+    inside = isotherm_mask(np.where(valid, values, np.nan), isotherm)
+    rgb = np.where(inside[..., np.newaxis], lut[levels], np.repeat(levels[..., np.newaxis], 3, axis=-1))
+    return np.moveaxis(rgb, -1, 0).astype(np.uint8), None
+
+
+# --- the mosaics ---------------------------------------------------------------------------------------------------
+
+def median(values):
+    v = [x for x in values if isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)]
+    return float(np.median(v)) if v else None
+
+
+def mosaic_baseline(conversion, kind):
+    """The emissivity and reflected temperature (in the unit) a mosaic was measured with: the conversion's, else the
+    normalization's (harmonized), else the flight's median of the frames' recorded values"""
+    options = conversion.options or {}
+    unit = options.get('unit') or 'C'
+    rows = [r for r in ((conversion.dataset.analysis or {}).get('files') or []) if r.get('kind') == 'thermal']
+    emissivity = options.get('emissivity')
+    if emissivity is None:
+        emissivity = median(r.get('emissivity') for r in rows)
+    reflected = options.get('reflected_temp')
+    if reflected is None:
+        norm = (((conversion.mosaics or {}).get('kinds') or {}).get(kind) or {}).get('normalization')
+        if norm and norm[1] is not None:
+            reflected = from_celsius(norm[1], unit)
+        else:
+            r = median(row.get('reflection') for row in rows)
+            reflected = from_celsius(r, unit) if r is not None else None
+    return {'emissivity': emissivity if emissivity is not None else 1.0,
+            'reflected_temp': reflected if reflected is not None else from_celsius(20.0, unit)}
+
+
+def mosaic_correction(conversion, kind, raw):
+    """
+    The thermal correction ((params, baseline), as parse_correction gives them) of a mosaic for the emissivity and
+    reflected temperature asked ({field: value}, blank keeps the mosaic's), or None when nothing changes
+    """
+    from .raster.thermal_correction import is_identity
+    unit = (conversion.options or {}).get('unit') or 'C'
+    base = mosaic_baseline(conversion, kind)
+    wanted = dict(base)
+    for field in CORRECTIONS:
+        value = (raw or {}).get(field)
+        if not thermal_conversion.blank(value):
+            wanted[field] = number(value, field.replace('_', ' ').capitalize())
+    low, high = thermal_conversion.LIMITS['emissivity']
+    if not low <= wanted['emissivity'] <= high:
+        raise MeasureError("The emissivity is between {:g} and {:g}".format(low, high))
+    reflected = to_celsius(wanted['reflected_temp'], unit)
+    if not -100 <= reflected <= 1000:
+        raise MeasureError("The reflected temperature is between -100 and 1000 °C")
+    # Transmission 1 (what the M4T reports at mapping distances): the atmosphere's temperature then doesn't matter
+    params = (wanted['emissivity'], 1.0, reflected, 20.0)
+    baseline = (base['emissivity'], 1.0, to_celsius(base['reflected_temp'], unit), 20.0)
+    return None if is_identity(params, baseline) else (params, baseline)
+
+
+def corrected(values, unit, correction):
+    """values (in the unit) corrected, or as they are"""
+    if correction is None:
+        return values
+    from .raster.thermal_correction import corrected_array
+    return from_celsius(corrected_array(to_celsius(values, unit), *correction), unit)
+
+
+def read_mosaic(path, unit, bounds=None):
+    """
+    A mosaic's temperatures (NaN = no data) within bounds (in its CRS; all of it without) and their grid:
+    (values, transform, crs), or None when bounds miss it
+    """
+    import rasterio
+    from rasterio.windows import Window, from_bounds
+    with rasterio.open(path) as ds:
+        full = Window(0, 0, ds.width, ds.height)
+        window = full
+        if bounds is not None:
+            w = from_bounds(*bounds, transform=ds.transform)
+            col, row = math.floor(w.col_off), math.floor(w.row_off)
+            window = Window(col, row, math.ceil(w.col_off + w.width) - col, math.ceil(w.row_off + w.height) - row)
+            try:
+                window = window.intersection(full)
+            except Exception:       # rasterio's WindowError: they don't intersect
+                return None
+            if window.width <= 0 or window.height <= 0:
+                return None
+        values = ds.read(1, window=window).astype(np.float64)
+        return no_data(values, unit), ds.window_transform(window), ds.crs
+
+
+def mosaic_histogram(path, unit, kept):
+    """
+    A mosaic's EQUALIZE_BINS histogram of its temperatures as measured (see value_histogram), kept in the file kept
+    for the raster's version (it is read whole once)
+    """
+    st = os.stat(path)
+    return kept_histogram(path, unit, kept, (st.st_ino, st.st_size, st.st_mtime_ns))
+
+
+@lru_cache(maxsize=16)
+def kept_histogram(path, unit, kept, version):
+    key = [list(version), unit, EQUALIZE_BINS, list(EQUALIZE_SPAN)]
+    try:
+        with open(kept) as f:
+            found = json.load(f)
+        if found.get('key') == key:
+            return (np.array(found['counts']), np.array(found['edges'])) if found.get('counts') is not None else None
+    except (OSError, ValueError, AttributeError):
+        pass
+    histogram = value_histogram(read_mosaic(path, unit)[0])
+    os.makedirs(os.path.dirname(kept), exist_ok=True)
+    fd, temporary = tempfile.mkstemp(dir=os.path.dirname(kept), suffix='.tmp')
+    with os.fdopen(fd, 'w') as f:
+        json.dump({'key': key, 'counts': histogram[0].tolist() if histogram else None,
+                   'edges': histogram[1].tolist() if histogram else None}, f)
+    os.replace(temporary, kept)
+    return histogram
+
+
+def corrected_histogram(histogram, unit, correction):
+    """A histogram of temperatures as measured, of the corrected ones (the correction keeps their order)"""
+    if histogram is None or correction is None:
+        return histogram
+    return histogram[0], corrected(np.asarray(histogram[1], dtype=np.float64), unit, correction)
+
+
+def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=None):
+    """
+    What a geometry (lon/lat) measures on a mosaic, or the whole mosaic's statistics without one. A line also gets
+    its profile; frames ((path, band, names): the source frame raster) adds each sample's source frame to it.
+    """
+    import rasterio
+    from pyproj import Transformer
+
+    if geometry is None:
+        values, _t, _c = read_mosaic(path, unit)
+        return dict(value_stats(corrected(values, unit, correction), isotherm), kind='mosaic')
+
+    with rasterio.open(path) as ds:
+        crs = ds.crs
+    to_crs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+    to_lonlat = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    shape, inside, ring = shapes(geometry, to_crs)
+    reach = ring if not ring.is_empty else inside
+    read = read_mosaic(path, unit, reach.bounds)
+    out = {'kind': geometry['type'], 'reason': None}
+    out.update(shape_size(geometry['type'], shape))
+    if read is None:
+        out.update(valid_pixels=0, reason='outside_raster')
+        return out
+    values, transform, _crs = read
+    values = corrected(values, unit, correction)
+
+    def locate(row, col):
+        x, y = transform @ (col + 0.5, row + 0.5)
+        return list(to_lonlat.transform(x, y))
+
+    out.update(region_stats(values, transform, geometry['type'], inside, ring, isotherm, locate))
+    if geometry['type'] == 'Point':
+        col, row = ~transform @ (shape.x, shape.y)
+        row, col = int(math.floor(row)), int(math.floor(col))
+        inside_grid = 0 <= row < values.shape[0] and 0 <= col < values.shape[1]
+        out['value'] = float(values[row, col]) if inside_grid and np.isfinite(values[row, col]) else None
+    if geometry['type'] == 'LineString':
+        distances, x, y = profile_points(shape, abs(transform.a))
+        temperatures = grid_values(values, transform, x, y)
+        lon, lat = to_lonlat.transform(x, y)
+        out['profile'] = {'distance': distances.tolist(), 'values': temperatures.tolist(),
+                          'points': [[float(a), float(b)] for a, b in zip(lon, lat)]}
+        if frames is not None:
+            out['profile']['frames'] = source_frames(frames, x, y, np.isfinite(temperatures))
+    if out['valid_pixels'] == 0:
+        out['reason'] = 'nodata'
+    return out
+
+
+def source_frames(frames, x, y, valid):
+    """The source frames' names at points (in the raster's CRS) where valid, else None"""
+    import rasterio
+    path, band, names = frames
+    with rasterio.open(path) as ds:
+        found = [v[0] for v in ds.sample(zip(x, y), indexes=band)]
+    out = []
+    for value, ok in zip(found, valid):
+        i = int(round(float(value))) if ok and np.isfinite(value) else -1
+        out.append(names[i] if 0 <= i < len(names) else None)
+    return out
+
+
+# --- frames --------------------------------------------------------------------------------------------------------
+
+def frame_rows(conversion):
+    """The dataset's thermal frames as its analysis lists them, oblique ones included: [row]"""
+    return [r for r in ((conversion.dataset.analysis or {}).get('files') or []) if r.get('kind') == 'thermal']
+
+
+def frame_list(conversion):
+    """The frames a conversion's frame page offers: [{path, pitch, time, lat, lon, converted, mosaic (index or None)}]"""
+    converted = {f['path']: f for f in ((conversion.results or {}).get('files') or [])}
+    in_mosaic = {name: i for i, name in enumerate((conversion.mosaics or {}).get('frames') or [])}
+    return [{'path': r['path'], 'pitch': r.get('pitch'), 'time': r.get('time') or "",
+             'lat': r.get('lat'), 'lon': r.get('lon'),
+             'converted': bool((converted.get(r['path']) or {}).get('ok')),
+             'mosaic': in_mosaic.get(r['path'])} for r in frame_rows(conversion)]
+
+
+def frame_file(conversion, rel):
+    """The full path of one of the conversion's frames (one its dataset's analysis lists), or MeasureError"""
+    from .raster.security import path_traversal_check
+    if not rel or rel not in {r['path'] for r in frame_rows(conversion)}:
+        raise MeasureError("Not a frame of this dataset")
+    root = conversion.dataset.images_dir()
+    path = os.path.join(root, rel)
+    try:
+        path_traversal_check(path, root)
+    except Exception:
+        raise MeasureError("Not a frame of this dataset") from None
+    if not os.path.isfile(path):
+        raise MeasureError("The frame is not there any more")
+    return path
+
+
+def parse_changes(raw):
+    """The measurement parameters asked to change ({field: value}, blanks left out), checked as the Convert form's"""
+    changes = {}
+    for field in CHANGES:
+        value = (raw or {}).get(field)
+        if not thermal_conversion.blank(value):
+            changes[field] = value
+    if not changes:
+        return {}
+    checked, errors = thermal_conversion.parse_settings(changes)
+    errors = {k: v for k, v in errors.items() if k in CHANGES}
+    if errors:
+        field, message = next(iter(errors.items()))
+        raise MeasureError("{}: {}".format(field.replace('_', ' ').capitalize(), message))
+    return {field: checked[field] for field in changes}
+
+
+def frame_settings(conversion, changes=None):
+    """
+    The conversion's settings for measuring a frame as it converted them, with the changes: a normalized
+    conversion's frames take the normalization's ambient and reflected temperatures (unless given)
+    """
+    options = dict(conversion.options or {})
+    unit = options.get('unit') or 'C'
+    norm = (conversion.results or {}).get('normalization')
+    if options.get('normalize') and norm:
+        for field, key in (('ambient_temp', 'ambient_c'), ('reflected_temp', 'reflected_c')):
+            if options.get(field) is None and norm.get(key) is not None:
+                options[field] = from_celsius(norm[key], unit)
+    options.update(changes or {})
+    settings, errors = thermal_conversion.parse_settings(options)
+    if errors:
+        raise MeasureError(next(iter(errors.values())))
+    return settings
+
+
+def frame_offset(conversion, rel):
+    """The offset (in the unit) a normalized conversion subtracted from a frame: (offset, known)"""
+    if not (conversion.options or {}).get('normalize'):
+        return 0.0, True
+    for f in (conversion.results or {}).get('files') or []:
+        if f.get('path') == rel and f.get('offset_c') is not None:
+            return difference_in((conversion.options or {}).get('unit') or 'C', f['offset_c']), True
+    return 0.0, False
+
+
+@lru_cache(maxsize=FRAME_CACHE)
+def measured(path, mtime, settings_items):
+    """dji-thermal-cli's measurement of a frame (cached: the page asks for it again for every image and value)"""
+    from dji_thermal_cli import api
+    settings = dict(settings_items)
+    m = api.measure(path, thermal_conversion.api_arguments(settings)['settings'], settings['unit'])
+    values = no_data(m.temperature, settings['unit'])
+    values.setflags(write=False)
+    return values, dict(m.params), m.distance_source, list(m.notes)
+
+
+def measure_frame(conversion, rel, changes=None):
+    """
+    A frame's temperatures as the conversion converted it (with the changes, if any): {values, params,
+    distance_source, notes, offset, offset_known, settings}. Raises MeasureError for a frame it can't measure.
+    """
+    path = frame_file(conversion, rel)
+    settings = frame_settings(conversion, changes)
+    items = tuple(sorted((k, tuple(v) if isinstance(v, list) else v) for k, v in settings.items()))
+    try:
+        values, params, source, notes = measured(path, os.stat(path).st_mtime_ns, items)
+    except MeasureError:
+        raise
+    except Exception as e:
+        raise MeasureError("dji-thermal-cli could not measure the frame: {}".format(e)) from e
+    offset, known = frame_offset(conversion, rel)
+    if offset:
+        values = values - offset
+    return {'values': values, 'params': params, 'distance_source': source, 'notes': notes, 'offset': offset,
+            'offset_known': known, 'settings': {f: settings[f] for f in CHANGES}}
+
+
+def frame_measure(values, geometry, isotherm=None):
+    """What a geometry (pixel x/y) measures on a frame's values, or the whole frame's statistics without one"""
+    from affine import Affine
+    if geometry is None:
+        return dict(value_stats(values, isotherm), kind='frame')
+    shape, inside, ring = shapes(geometry, sizes=FRAME_SHAPES)
+    out = {'kind': geometry['type'], 'reason': None}
+    out.update(shape_size(geometry['type'], shape))
+    out.update(region_stats(values, Affine.identity(), geometry['type'], inside, ring, isotherm,
+                            lambda row, col: [col + 0.5, row + 0.5]))
+    if geometry['type'] == 'Point':
+        row, col = int(math.floor(shape.y)), int(math.floor(shape.x))
+        inside_grid = 0 <= row < values.shape[0] and 0 <= col < values.shape[1]
+        out['value'] = float(values[row, col]) if inside_grid and np.isfinite(values[row, col]) else None
+    if geometry['type'] == 'LineString':
+        distances, x, y = profile_points(shape, 1.0)
+        out['profile'] = {'distance': distances.tolist(),
+                          'values': grid_values(values, Affine.identity(), x, y).tolist(),
+                          'points': [[float(a), float(b)] for a, b in zip(x, y)]}
+    if out['valid_pixels'] == 0:
+        out['reason'] = 'nodata'
+    return out

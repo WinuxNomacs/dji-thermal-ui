@@ -10,11 +10,20 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "dji-thermal-cli==1.4.0",
+    "affine==3.0.1",
     "django==6.1.2",
     "djangorestframework==3.18.3",
+    "dji-thermal-cli==1.4.0",
+    "numpy==2.5.4",
+    "pillow==13.0.0",
     "platformdirs==4.13.5",
+    "pyproj==3.8.0",
+    "rasterio==1.5.2",
+    "rio-tiler==9.4.12",
+    "scipy==1.18.1",
+    "shapely==2.2.0",
     "waitress==3.0.2",
+    "zipstream-ng==1.9.3",
 ]
 
 [project.scripts]

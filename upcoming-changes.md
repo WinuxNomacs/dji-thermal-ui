@@ -9,11 +9,9 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next** (planned 2026-10-25: option A, the Thermal Analyzer standing alone)
-1. **A2: the back end.** The plugin's API and `thermal_*` modules ported, with the WebODM helpers they use, and
-   their tests. (Standalone)
-2. **A3: the front end.** The pages, scripts and Jest tests ported, and the whole flow checked live on real data.
+1. **A3: the front end.** The pages, scripts and Jest tests ported, and the whole flow checked live on real data.
    (Standalone)
-3. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
+2. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
 
 **Then**
 1. **B: the facelift.** Planned once A stands alone. (Facelift)
@@ -118,16 +116,10 @@ Everything the user does in the plugin today, except the ODM task:
 
 ### Phase details
 
-- **A2, the back end:**
-  - The `thermal_*` modules and `api.py` ported, with the WebODM helpers copied.
-  - The project, permission, task and quota code removed.
-  - The Python tests ported, and the API exercised with the fixture conversion.
-  - rasterio, rio-tiler and numpy pinned at PyPI's current releases. Checked in A1 (2026-10-25): rasterio 1.5.2 has
-    wheels for CPython 3.12–3.15 on manylinux x86_64 and win_amd64.
-  - The jobs go through `jobs.submit(fn, pk, run_id)` (the shape of `run_function_async`), and `jobs.alive(run_id)`
-    replaces `job_gone`.
 - **A3, the front end:**
   - The templates on the app's own layout, the scripts and CSS, the task panel removed, and the Jest tests ported.
+  - The page sets the CSRF cookie (`ensure_csrf_cookie`): the API refuses unsafe requests without it, and the
+    placeholder home page of A1 sets none.
   - The whole flow checked live in a headless browser: a folder dataset, the analysis, a conversion, its mosaics,
     the viewer, a frame, measurements, the exports, compare, and the downloads. Whatever the check made is deleted
     afterwards.
@@ -149,6 +141,10 @@ Everything the user does in the plugin today, except the ODM task:
   conversions re-run; measurements saved in LuxODM stay there.
 - **Tooling:** set up in a fresh VS Code session opened on this repo, standalone from LuxODM's environment
   (A1 planning, 2026-10-25). The list is in "Tooling" below.
+- **Permission fields:** `can_change` and `can_delete` are dropped from the API in A2, and the scripts' checks of
+  them go in A3 (A2 planning, 2026-10-25).
+- **Temperature unit:** an app-wide `unit` in the preferences row, °F by default (A2 planning, 2026-10-25). In
+  LuxODM it was the user's profile setting.
 
 ## Tooling (set up 2026-10-25, in A1)
 
@@ -198,3 +194,11 @@ COGs, and `ol/source/Google` for the Map Tiles API.
   (`csrf.py`), and the command (`cli.py`). Leaflet 1.3.1 is vendored in `static/vendor/leaflet/`. Tests: `tests/`
   (pytest; the `flight` test needs `DJI_THERMAL_FLIGHT_DIR`) and `static/__tests__/` (Jest), both passing on Linux
   and on Windows, where dji-thermal-cli's worker processes start fine from the runner's thread.
+- **A2: the back end** (2026-10-25). The plugin's API (`analyzer/api.py`, `analyzer/urls.py`, under `/api/`) and its
+  `thermal_*` modules, without projects, permissions, quota or the ODM task; downloads with zipstream-ng
+  (`analyzer/downloads.py`); WebODM's tiler, colour maps, statistics, correction, path check and the measurement
+  functions (on shapely, not GEOS) copied into `analyzer/raster/` with their notices. Temperatures are in the app's
+  unit, °F by default, in the preferences. Tests: `tests/test_api_*.py` (the plugin's API tests on fakes),
+  `tests/test_raster_*.py` and `tests/test_thermal_correction.py`, and `tests/test_flight.py` on real frames.
+  Checked live on the 220 M4T frames: a folder dataset analyzed, converted, made into mosaics (209 frames), then
+  points, tiles, a measured and saved area, its CSV and GeoJSON, and the download.
