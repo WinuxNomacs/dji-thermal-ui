@@ -55,7 +55,7 @@ class ThermalDataset(models.Model):
     class Meta:
         verbose_name = _("Thermal dataset")
         verbose_name_plural = _("Thermal datasets")
-        ordering = ('-created_at',)
+        ordering = ('-created_at', '-id')        # rows made in the same clock tick (Windows) newest first too
 
     def __str__(self):
         return self.name
@@ -145,7 +145,7 @@ class ThermalConversion(models.Model):
     class Meta:
         verbose_name = _("Thermal conversion")
         verbose_name_plural = _("Thermal conversions")
-        ordering = ('-created_at',)
+        ordering = ('-created_at', '-id')        # rows made in the same clock tick (Windows) newest first too
 
     def __str__(self):
         return self.name

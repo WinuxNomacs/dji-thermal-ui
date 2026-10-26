@@ -18,7 +18,7 @@ from pathlib import Path
 
 from django.conf import settings as django_settings
 
-from .thermal_analysis import Canceled, clean, PROGRESS_INTERVAL
+from .thermal_analysis import Canceled, clean, relative, PROGRESS_INTERVAL
 from .thermal_conversion import api_arguments, mosaic_stage, stage_fraction, stage_key
 
 # The mosaics built: (kind, normalized)
@@ -184,8 +184,8 @@ def build(conversion, run):
         if not frames:
             frames = [row.get('file', '') for row in sorted(m.frames, key=lambda r: r.get('index', 0))]
         kinds[kind] = dict(raster_info(str(tif), unit), **{
-            'raster': os.path.relpath(str(tif), out_dir),
-            'files': sorted(os.path.relpath(os.path.join(kind_dir, f), out_dir) for f in os.listdir(kind_dir)),
+            'raster': relative(tif, out_dir),
+            'files': sorted(relative(os.path.join(kind_dir, f), out_dir) for f in os.listdir(kind_dir)),
             'frames': report.frames, 'oblique': report.oblique, 'unusable': report.unusable,
             'not_thermal': report.not_thermal, 'gsd_m': m.grid.gsd, 'width': m.grid.width, 'height': m.grid.height,
             'palette': report.palette, 'preview_range_c': list(report.preview_range_c),

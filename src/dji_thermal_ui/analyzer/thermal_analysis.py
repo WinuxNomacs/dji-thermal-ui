@@ -31,12 +31,12 @@ def clean(value):
 
 
 def relative(path, root):
-    """A file's path within the dataset, so the rows stay the same wherever its folder is"""
+    """A file's path within the dataset, with / on every system, so the rows stay the same wherever its folder is"""
     try:
         rel = os.path.relpath(str(path), root)
-    except ValueError:
+    except ValueError:                             # on another drive
         return os.path.basename(str(path))
-    return os.path.basename(str(path)) if rel.startswith('..') else rel
+    return os.path.basename(str(path)) if rel.startswith('..') else rel.replace(os.sep, '/')
 
 
 def rounded(v, digits):
