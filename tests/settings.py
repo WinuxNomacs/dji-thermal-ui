@@ -4,6 +4,7 @@ import atexit
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
 _data = tempfile.mkdtemp(prefix="dji-thermal-ui-tests-")
 atexit.register(shutil.rmtree, _data, ignore_errors=True)
@@ -17,3 +18,6 @@ DATABASES["default"]["TEST"] = {"NAME": str(DATA_DIR / "test.sqlite3")}
 
 THERMAL_JOBS_EAGER = True
 THERMAL_PROCESSES = 1
+
+# The pages load their scripts through a stub of the front end's build: the tests need no `npm run build`
+VITE_MANIFEST = Path(__file__).parent / "data" / "vite-manifest.json"

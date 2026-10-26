@@ -25,7 +25,7 @@ def conversion_or_404(conversion_id):
 
 @ensure_csrf_cookie
 def datasets_list(request):
-    return page(request, "datasets.html", title="Thermal Analyzer")
+    return page(request, "datasets.html", title="Thermal Analyzer", entry="datasets")
 
 
 @ensure_csrf_cookie

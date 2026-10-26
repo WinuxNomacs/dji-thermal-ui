@@ -1,5 +1,9 @@
 // What the tests share: a fake server, responses, and events
+import {options} from "preact";
 import {vi} from "vitest";
+
+// Effects run with the promises settled by ticks(), not after the next paint (which jsdom never makes)
+options.requestAnimationFrame = (f) => { queueMicrotask(f); };
 
 export const jsonResponse = (data: unknown, ok = true) =>
     Promise.resolve({ok, status: ok ? 200 : 400, json: () => Promise.resolve(data)} as Response);
