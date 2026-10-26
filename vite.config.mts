@@ -6,7 +6,7 @@ import path from "node:path";
 import preact from "@preact/preset-vite";
 import {defineConfig, type Plugin} from "vitest/config";
 
-const FRONTEND = path.resolve(__dirname, "frontend");
+const FRONTEND = path.resolve(import.meta.dirname, "frontend");
 const PAGES = path.join(FRONTEND, "src/pages");
 
 // Each page's entry: frontend/src/pages/<name>.tsx
@@ -49,9 +49,9 @@ export default defineConfig({
     base: "/static/dist/",
     plugins: [preact(), licences()],
     build: {
-        outDir: path.resolve(__dirname, "src/dji_thermal_ui/static/dist"),
+        outDir: path.resolve(import.meta.dirname, "src/dji_thermal_ui/static/dist"),
         emptyOutDir: true,
-        manifest: true,
+        manifest: "manifest.json",     // not in .vite/: the wheel leaves hidden folders out
         rollupOptions: {input: entries()},
     },
     test: {

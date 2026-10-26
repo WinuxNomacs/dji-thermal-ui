@@ -1,0 +1,6 @@
+{
+  "src/pages/datasets.tsx": {"file": "assets/datasets-a1.js", "src": "src/pages/datasets.tsx", "isEntry": true,
+                             "imports": ["_shared-b2.js"], "css": ["assets/datasets-c3.css"]},
+  "_shared-b2.js": {"file": "assets/shared-b2.js", "imports": ["_leaflet-d4.js"], "css": ["assets/shared-e5.css"]},
+  "_leaflet-d4.js": {"file": "assets/leaflet-d4.js", "css": ["assets/shared-e5.css"]}
+}

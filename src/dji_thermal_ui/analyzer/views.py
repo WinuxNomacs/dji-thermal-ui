@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from .._version import __version__
-from .api import app_unit
+from .api import app_theme, app_unit
 from .models import ThermalConversion, ThermalDataset
 
 API = "/api/"
@@ -15,7 +15,7 @@ PUBLIC = "/"
 
 
 def page(request, template, **context):
-    return render(request, template, dict(context, api=API, public=PUBLIC, unit=app_unit(),
+    return render(request, template, dict(context, api=API, public=PUBLIC, unit=app_unit(), theme=app_theme(),
                                                  version=__version__))
 
 

@@ -109,3 +109,6 @@ THERMAL_JOBS_EAGER = False
 
 # The worker processes dji-thermal-cli starts for an analysis, a conversion or a mosaic (None: its own default)
 THERMAL_PROCESSES = None
+
+# The front end's build (npm run build): its manifest says which files each page loads
+VITE_MANIFEST = STATIC_DIR / "dist" / "manifest.json"

@@ -9,12 +9,12 @@ export default [
               "src/dji_thermal_ui/static/dist/"]},
     {
         // The pages and their tests, in TypeScript
-        files: ["frontend/**/*.{ts,tsx}", "vite.config.ts"],
+        files: ["frontend/**/*.{ts,tsx}", "vite.config.mts"],
         ...js.configs.recommended,
     },
-    ...tseslint.configs.recommended.map((c) => ({...c, files: ["frontend/**/*.{ts,tsx}", "vite.config.ts"]})),
+    ...tseslint.configs.recommended.map((c) => ({...c, files: ["frontend/**/*.{ts,tsx}", "vite.config.mts"]})),
     {
-        files: ["frontend/**/*.{ts,tsx}", "vite.config.ts"],
+        files: ["frontend/**/*.{ts,tsx}", "vite.config.mts"],
         languageOptions: {globals: {...globals.browser, ...globals.node}},
         rules: {"@typescript-eslint/no-unused-vars": ["error", {argsIgnorePattern: "^_", caughtErrors: "none"}]},
     },

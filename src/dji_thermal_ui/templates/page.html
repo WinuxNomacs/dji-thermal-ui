@@ -1,0 +1,20 @@
+{% load vite %}<!DOCTYPE html>
+<html lang="en"{% if theme != "system" %} data-theme="{{ theme }}"{% endif %}>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{% if title and title != "Thermal Analyzer" %}{{ title }} · {% endif %}Thermal Analyzer</title>
+    {% if theme == "system" %}<script>
+        // The computer's light or dark, before the page paints
+        if (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches)
+            document.documentElement.setAttribute("data-theme", "dark");
+    </script>{% endif %}
+    {% vite_entry entry %}
+</head>
+<body>
+<div id="app" data-page="{{ entry }}" data-api="{{ api }}" data-public="{{ public }}" data-unit="{{ unit }}"
+     data-theme-choice="{{ theme }}" data-version="{{ version }}"{% block data %}{% endblock %}></div>
+{% block json %}{% endblock %}
+</body>
+</html>
