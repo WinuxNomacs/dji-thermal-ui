@@ -79,3 +79,9 @@ export const Sliders = (p: Props) => (
 export const Grid = (p: Props) => (
     <Icon {...p}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
         <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></Icon>);
+export const Crosshairs = (p: Props) => (
+    <Icon {...p}><circle cx="12" cy="12" r="8"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/></Icon>);
+export const Minus = (p: Props) => (<Icon {...p}><path d="M5 12h14"/></Icon>);
+export const Polygon = (p: Props) => (<Icon {...p}><path d="M12 3l9 7-4 10H7L3 10z"/></Icon>);
+export const Square = (p: Props) => (<Icon {...p}><rect x="4" y="4" width="16" height="16"/></Icon>);
+export const Circle = (p: Props) => (<Icon {...p}><circle cx="12" cy="12" r="9"/></Icon>);
