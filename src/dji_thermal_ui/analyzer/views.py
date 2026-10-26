@@ -31,7 +31,7 @@ def datasets_list(request):
 @ensure_csrf_cookie
 def dataset_page(request, dataset_id):
     dataset = get_object_or_404(ThermalDataset, pk=dataset_id)
-    return page(request, "dataset.html", title=dataset.name, dataset=dataset)
+    return page(request, "dataset.html", title=dataset.name, dataset=dataset, entry="dataset")
 
 
 @ensure_csrf_cookie

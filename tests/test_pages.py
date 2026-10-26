@@ -22,7 +22,7 @@ def conversion(d, name="Conversion 1"):
 def test_each_page_is_served_with_the_csrf_cookie(client):
     d = dataset()
     c = conversion(d)
-    for url, page_id in [("/", "app"), ("/dataset/%d" % d.id, "ta-dataset"),
+    for url, page_id in [("/", "app"), ("/dataset/%d" % d.id, "app"),
                          ("/conversion/%d" % c.id, "ta-viewer"), ("/conversion/%d/frame" % c.id, "ta-frame"),
                          ("/conversion/%d/compare" % c.id, "ta-compare")]:
         client.cookies.clear()
@@ -61,18 +61,20 @@ def test_the_pages_show_temperatures_in_the_apps_unit(client):
     from rest_framework.test import APIClient
     d = dataset()
     assert 'data-unit="F"' in client.get("/").content.decode()
-    assert re.search(r'id="ta-unit" type="application/json">"F"<', client.get("/dataset/%d" % d.id).content.decode())
+    assert 'data-unit="F"' in client.get("/dataset/%d" % d.id).content.decode()
     APIClient().put(PREFERENCES, {'unit': 'K'}, format='json')
     assert 'data-unit="K"' in client.get("/").content.decode()
-    html = client.get("/dataset/%d" % d.id).content.decode()
-    assert re.search(r'id="ta-unit" type="application/json">"K"<', html)
-    assert '<option value="K" selected>' in html
+    assert 'data-unit="K"' in client.get("/dataset/%d" % d.id).content.decode()
 
 
 def test_a_rebuilt_page_loads_its_built_script_with_its_settings(client):
     html = client.get("/").content.decode()
     assert '<div id="app" data-page="datasets" data-api="/api/" data-public="/" data-unit="F"' in html
     assert '<script type="module" src="/static/dist/assets/datasets-a1.js"></script>' in html
+    d = dataset()
+    html = client.get("/dataset/%d" % d.id).content.decode()
+    assert '<div id="app" data-page="dataset" data-api="/api/"' in html and 'data-id="%d"' % d.id in html
+    assert '<script type="module" src="/static/dist/assets/dataset-f6.js"></script>' in html
 
 
 def test_every_script_and_stylesheet_a_page_loads_is_served(client):
