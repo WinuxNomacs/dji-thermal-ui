@@ -8,11 +8,11 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next** (planned 2026-10-25: option A, the Thermal Analyzer standing alone)
-1. **A4: packaging.** The command, README, CHANGELOG, release checks, and CI if chosen. (Standalone)
+**Up next**
+1. **B: the facelift.** To be planned: A stands alone. (Facelift)
 
 **Then**
-1. **B: the facelift.** Planned once A stands alone. (Facelift)
+- Nothing yet: B is planned first.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -112,31 +112,6 @@ Everything the user does in the plugin today, except the ODM task:
 - **Live data for checks:** dataset 6's 220 M4T frames copied out of LuxODM's Docker volume with `docker cp` into a
   gitignored `ignored/` folder (as dji-thermal-cli does), and added as a folder dataset.
 
-### Phase details
-
-- **A4, packaging:**
-  - The README (install, run, what it does, where the data lives) and CHANGELOG 0.1.0.
-  - Release checks: a wheel built and installed into a fresh venv, then run.
-  - CI: tests on push, on Linux and Windows. The version is 0.1.0, on a `release/0.1.0` branch.
-  - **Design (A4 planning, 2026-10-25; nothing left to decide):**
-    - **The distributions:** the vendored libraries' licences listed in `license-files`, and the Jest tests left
-      out of the sdist as well as the wheel. `scripts/check_dist.py` (as dji-thermal-cli's) allows only the
-      package's files, its static files, templates and licences.
-    - **The smoke check:** `scripts/smoke.py` starts the installed command with `--no-browser` on a free port and
-      a temporary data folder. It fetches the datasets page, a vendored file and the preferences API, then stops
-      it. It runs locally and in CI on the built wheel, on Python 3.12 and 3.14.
-    - **CI (`.github/workflows/ci.yml`, as dji-thermal-cli's, actions pinned by commit):**
-      - lint: ruff, plus ESLint with `npm ci`.
-      - pytest on Linux and Windows, with Python 3.12 and 3.14.
-      - Jest.
-      - build: `check_dist` and `twine check`.
-      - smoke: the wheel on Linux and Windows.
-      A push runs it and publishes nothing.
-    - **Docs:** the README (what it does, install, run, data folder, development) and a CHANGELOG in Keep a
-      Changelog form. `RELEASING.md` and a release workflow come when a PyPI release is wanted.
-    - **The release branch:** `release/0.1.0` sets the version, runs `uv lock`, dates the changelog, and runs the
-      release checks on Linux and on Windows from WSL.
-
 ### Decisions (2026-10-25)
 
 - **Platforms:** Linux and Windows. The tests run on both, and the Windows check is done from WSL as for
@@ -183,7 +158,7 @@ and then verified (see the user's rules). Personal settings stay in uncommitted 
 
 ## Facelift (option B)
 
-Planned once A stands alone. The idea so far is TypeScript, Vite and OpenLayers, with WebGL colouring of float32
+Planned next, now that A stands alone. The idea so far is TypeScript, Vite and OpenLayers, with WebGL colouring of float32
 COGs, and `ol/source/Google` for the Map Tiles API.
 
 ## Basemaps
@@ -224,3 +199,13 @@ COGs, and `ol/source/Google` for the Map Tiles API.
   saved and reset; a conversion, its mosaics and the zip; the viewer's tabs, palette, readout, a box measured and
   saved, its CSV, GeoJSON and the PNG export; a frame with a changed distance; compare as the difference; the unit
   switched. No console errors and no failed requests.
+- **A4: packaging, release 0.1.0** (2026-10-25). The README and `CHANGELOG.md`; the vendored licences in
+  `license-files`; `scripts/check_dist.py` (only the package's own files in the wheel and sdist) and
+  `scripts/smoke.py` (the installed command started on a free port and a temporary data folder, its pages and API
+  fetched, then the whole process tree stopped); CI in `.github/workflows/ci.yml` (ruff and ESLint, pytest on Linux
+  and Windows with Python 3.12 and 3.14, Jest, the build checks, the smoke check of the wheel on both systems),
+  publishing nothing. The Windows run found paths stored and zipped with `\` and rows made in the same clock tick
+  listed in either order; both fixed on their own branch (`relative()` gives `/`, ordering by `-created_at, -id`).
+  `release/0.1.0` sets the version and dates the changelog. Release checks passed on Linux (check_dist, twine,
+  smoke on 3.12 and 3.14, ruff, 141 Jest, ESLint, 124 pytest) and on Windows from WSL (124 pytest, the wheel built,
+  smoke on 3.12 and 3.14).

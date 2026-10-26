@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-25
+
 The first release: the Thermal Analyzer from LuxODM's `thermal-analyzer` plugin (0.15.0), as a standalone app.
 
 - The `dji-thermal-ui` command serves the app on 127.0.0.1 and opens the browser (`--data-dir`, `--port`,
