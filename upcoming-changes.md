@@ -9,10 +9,12 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **B: the facelift.** To be planned: A stands alone. (Facelift)
+1. **B1: the pages rebuilt.** TypeScript, Preact and Vite, a look of the app's own, light and dark; the server's
+   PNG tiles and Leaflet stay. Release 0.2.0. (Facelift)
 
 **Then**
-- Nothing yet: B is planned first.
+1. **B2: the viewer on OpenLayers**, colouring the float32 mosaics in the browser with WebGL. Planned in detail
+   once B1 is done. (Facelift)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -24,7 +26,7 @@ its title.
 
 Requested 2026-10-25: the Thermal Analyzer lives on as a standalone application. LuxODM's plugin will go away.
 Interactive work with ODM goes through the LuxODM/WebODM API. A moves the analyzer over, keeping everything it
-does that doesn't need LuxODM/WebODM. B (the facelift) is planned once it stands alone.
+does that doesn't need LuxODM/WebODM. B (the facelift) follows, planned in "Facelift" below.
 
 **Source:** LuxODM at a2a81052 (plugin 0.15.0, 53 Django tests, 143 Jest tests):
 - **The plugin:** `coreplugins/thermal-analyzer/`, with `api.py`, `thermal_conversion.py`, `thermal_mosaics.py`,
@@ -158,8 +160,59 @@ and then verified (see the user's rules). Personal settings stay in uncommitted 
 
 ## Facelift (option B)
 
-Planned next, now that A stands alone. The idea so far is TypeScript, Vite and OpenLayers, with WebGL colouring of float32
-COGs, and `ol/source/Google` for the Map Tiles API.
+Planned 2026-10-26. The front end (about 6,200 lines of ES5 scripts on Leaflet 1.3.1, Bootstrap 3 and Font
+Awesome 5) is rebuilt in two stages, each released on its own.
+
+### Decisions (2026-10-26)
+
+- **Staged:** B1 rebuilds the pages and their look, keeping the API, the server's PNG tiles and Leaflet. B2 then
+  moves the viewer to OpenLayers with WebGL colouring.
+- **Preact**, in TypeScript, with Vite. No Bootstrap: a stylesheet of the app's own, with CSS variables.
+- **Theme:** follows the system's light or dark setting, with a switch in the header that overrides it, saved in
+  the preferences.
+- **Packaging:** the front end is built at release (`npm ci`, `npm run build`, then `uv build`), in CI and in the
+  release checks. The built files are not committed. Building the wheel needs Node; installing it does not.
+
+### B1: the pages rebuilt
+
+- **Source:** `frontend/` at the root (TypeScript, Preact components, the stylesheet), one Vite entry per page.
+  The five pages and their URLs stay. Django still renders each page's shell from `templates/` and mounts its
+  entry, with the API root and ids in `data-` attributes as today. A small template tag reads Vite's
+  `manifest.json` for the hashed file names.
+- **Build:** Vite writes `src/dji_thermal_ui/static/dist/` (gitignored), which the app serves and the wheel ships.
+  For development, `npm run build -- --watch` beside `uv run dji-thermal-ui`.
+- **What moves over:** everything the A3 scripts do, page by page (datasets, dataset, viewer, frame, compare),
+  with the same API calls. `analyzer_core.js`'s pure functions become typed modules first, with their tests.
+- **Map:** Leaflet stays for B1, upgraded to 1.9.4 with `@types/leaflet`; B2 replaces it.
+- **Look:** the app's own CSS: a header, panels and forms, light and dark tokens as CSS variables. The theme is
+  set on `<html>` before the page paints, from the preferences or else `prefers-color-scheme`. Icons are inline
+  SVG. Bootstrap and Font Awesome are dropped from `static/vendor/`, `license-files` and `check_dist.py`.
+- **Preferences:** a `theme` setting (`system`, `light` or `dark`) beside `unit`.
+- **Tests:** Vitest with jsdom and Testing Library replaces Jest. The behaviour the 141 Jest tests cover is
+  ported. ESLint uses typescript-eslint, and `tsc --noEmit` runs with the lint. pytest's page tests run against
+  a stub manifest, so they do not need a build.
+- **Packaging:** CI's lint, test and build jobs build the front end first. `check_dist.py` requires the manifest
+  and the entries. A third-party licence file for the bundle (Preact, Leaflet) is generated at build and shipped.
+  To check in B1: that the sdist carries the built files although they are gitignored, so a wheel built from it
+  needs no Node.
+- **Versions (npm, 2026-10-26), pinned exactly:** preact 11.0.2, @preact/signals 2.11.3, vite 8.3.5,
+  @preact/preset-vite 2.10.6, typescript 6.0.3 (typescript-eslint 8.72.0 supports up to 6.0, so not 7),
+  vitest 5.0.5, jsdom 30.1.3, @testing-library/preact 3.2.6, leaflet 1.9.4, @types/leaflet 1.9.22, eslint
+  10.13.0.
+- **Live check:** A3's walk-through in headless Chromium on the 220 M4T frames, in light and in dark, and on
+  Windows from WSL with the smoke check.
+- **Release:** 0.2.0.
+
+### B2: the viewer on OpenLayers (to plan after B1)
+
+- OpenLayers (10.11.0 today) with a WebGL tile layer reading the float32 mosaics, so the palette, range, gamma
+  and brightness/contrast change without new tiles. `ol/source/Google` later serves the Map Tiles (Basemaps).
+- **Open questions:**
+  - The mosaics have no overviews (`thermal_mosaics.py`). Serving them as COGs means a change in dji-thermal-cli,
+    made and released there first.
+  - Equalization needs the histogram, and sharpening needs neighbouring pixels: these may stay on the server or
+    need a custom shader.
+  - Do point readouts and measurements stay on the server's API?
 
 ## Basemaps
 
