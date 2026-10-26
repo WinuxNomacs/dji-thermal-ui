@@ -4,11 +4,28 @@ version = "0.0.0"
 description = "A web app on your own computer to analyze, convert, mosaic and measure DJI thermal datasets with dji-thermal-cli"
 readme = "README.md"
 license = "AGPL-3.0-only"
-license-files = ["LICENSE"]
+# the vendored scripts' and styles' own licences ship with them, and are listed here too
+license-files = ["LICENSE", "src/dji_thermal_ui/static/vendor/*/LICENSE*"]
 authors = [
     { name = "Winxu Nomacs", email = "16427666+WinuxNomacs@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
+keywords = ["dji", "thermal", "r-jpeg", "radiometric", "mosaic", "infrared", "drone"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: GIS",
+]
 dependencies = [
     "affine==3.0.1",
     "django==6.1.2",
@@ -26,6 +43,10 @@ dependencies = [
     "zipstream-ng==1.9.3",
 ]
 
+[project.urls]
+Repository = "https://github.com/WinuxNomacs/dji-thermal-ui"
+Changelog = "https://github.com/WinuxNomacs/dji-thermal-ui/blob/main/CHANGELOG.md"
+
 [project.scripts]
 dji-thermal-ui = "dji_thermal_ui.cli:main"
 
@@ -34,7 +55,8 @@ requires = ["uv_build>=0.12.5,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-# the scripts' Jest tests stay out of the wheel
+# the scripts' Jest tests stay out of the wheel and the sdist
+source-exclude = ["**/__tests__"]
 wheel-exclude = ["**/__tests__"]
 
 [dependency-groups]

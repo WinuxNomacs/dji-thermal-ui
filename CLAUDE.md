@@ -17,8 +17,9 @@ machine. Keep it short; edit in place.
 
 ## Rules for this repository
 
-- **Never push and never tag.** No workflow publishes anything yet. When a release workflow is added, this line
-  says what a push or a `v*` tag publishes.
+- **Never push and never tag.** A push runs CI (`.github/workflows/ci.yml`: lint, tests on Linux and Windows, the
+  build checks and a smoke check of the wheel) and publishes nothing. No workflow publishes yet; when a release
+  workflow is added, this line says what a push or a `v*` tag publishes.
 - **Licence: AGPL-3.0-only.** The code comes from LuxODM/WebODM (AGPL-3.0) and uses dji-thermal-cli (AGPL-3.0). A
   file copied from WebODM keeps its copyright notice, and its header says where it came from.
 - Work is planned in `upcoming-changes.md`. New requests arrive in `new.md` (untracked).
@@ -49,3 +50,6 @@ machine. Keep it short; edit in place.
 - `uv run pytest`, `uv run ruff check`. Set `DJI_THERMAL_FLIGHT_DIR` to a folder of one flight's R-JPEGs to run
   the `flight` tests too.
 - `npm ci`, then `npx jest` and `npm run -s lint`.
+- Release checks: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
+  `uvx twine@7.0.0 check --strict dist/*`, then `uv run --no-project python scripts/smoke.py uvx --from <wheel>
+  dji-thermal-ui` (the installed command serving its pages). The changelog is `CHANGELOG.md` (Keep a Changelog).

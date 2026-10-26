@@ -118,6 +118,24 @@ Everything the user does in the plugin today, except the ODM task:
   - The README (install, run, what it does, where the data lives) and CHANGELOG 0.1.0.
   - Release checks: a wheel built and installed into a fresh venv, then run.
   - CI: tests on push, on Linux and Windows. The version is 0.1.0, on a `release/0.1.0` branch.
+  - **Design (A4 planning, 2026-10-25; nothing left to decide):**
+    - **The distributions:** the vendored libraries' licences listed in `license-files`, and the Jest tests left
+      out of the sdist as well as the wheel. `scripts/check_dist.py` (as dji-thermal-cli's) allows only the
+      package's files, its static files, templates and licences.
+    - **The smoke check:** `scripts/smoke.py` starts the installed command with `--no-browser` on a free port and
+      a temporary data folder. It fetches the datasets page, a vendored file and the preferences API, then stops
+      it. It runs locally and in CI on the built wheel, on Python 3.12 and 3.14.
+    - **CI (`.github/workflows/ci.yml`, as dji-thermal-cli's, actions pinned by commit):**
+      - lint: ruff, plus ESLint with `npm ci`.
+      - pytest on Linux and Windows, with Python 3.12 and 3.14.
+      - Jest.
+      - build: `check_dist` and `twine check`.
+      - smoke: the wheel on Linux and Windows.
+      A push runs it and publishes nothing.
+    - **Docs:** the README (what it does, install, run, data folder, development) and a CHANGELOG in Keep a
+      Changelog form. `RELEASING.md` and a release workflow come when a PyPI release is wanted.
+    - **The release branch:** `release/0.1.0` sets the version, runs `uv lock`, dates the changelog, and runs the
+      release checks on Linux and on Windows from WSL.
 
 ### Decisions (2026-10-25)
 
