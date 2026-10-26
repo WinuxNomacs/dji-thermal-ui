@@ -479,7 +479,7 @@ class ConversionDownloadView(DatasetView):
             for f in sorted(filenames):
                 full = os.path.join(dirpath, f)
                 if not os.path.islink(full):
-                    zs.add_path(full, os.path.relpath(full, out_dir))
+                    zs.add_path(full, thermal_analysis.relative(full, out_dir))
         name = download_name("{}-{}".format(conversion.dataset.name, conversion.name)) + ".zip"
         return download_file_stream(request, zs, 'attachment', download_filename=name)
 
