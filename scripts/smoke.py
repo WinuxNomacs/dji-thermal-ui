@@ -34,6 +34,15 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
+def stop(proc: subprocess.Popen) -> None:
+    """Stop the command and what it started. On Windows terminate() stops only the first process (uv), and the
+    server it started would keep running and hold the output pipe open."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+    else:
+        proc.terminate()
+
+
 def check(base: str) -> list[str]:
     """What the running app gets wrong, if anything"""
     problems = []
@@ -83,7 +92,7 @@ def main(argv: list[str]) -> int:
                 time.sleep(0.5)
         problems = check(base)
     finally:
-        proc.terminate()
+        stop(proc)
         try:
             output = proc.communicate(timeout=TIMEOUT)[0]
         except subprocess.TimeoutExpired:
