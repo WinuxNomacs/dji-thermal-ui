@@ -81,7 +81,8 @@ LOGGING = {
     "loggers": {"dji_thermal_ui": {"handlers": ["console"], "level": "INFO"}},
 }
 
-# The basemaps under the mosaics (Google Map Tiles come later)
+# The basemaps under the mosaics (Mapbox's satellite imagery is added to them when there is a token: analyzer/basemaps.py).
+# tilemap: Esri's service saying which tiles exist, so that a level with none there is not drawn
 BASEMAPS = [
     {
         "default": True,
@@ -90,6 +91,7 @@ BASEMAPS = [
         "label": "ESRI Satellite",
         "attribution": "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, "
                        "Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+        "tilemap": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tilemap",
         "maxzoom": 21,
         "minzoom": 0,
     },
@@ -103,6 +105,10 @@ BASEMAPS = [
         "minzoom": 0,
     },
 ]
+
+# Where MAPBOX_API_TOKEN is looked for when it is not in the environment: a .env file in the folder the app is
+# started from, then in the data folder
+MAPBOX_ENV_FILES = [Path.cwd() / ".env", DATA_DIR / ".env"]
 
 # Jobs run inline instead of on the runner's thread (the tests set it)
 THERMAL_JOBS_EAGER = False

@@ -9,6 +9,8 @@ from pathlib import Path
 _data = tempfile.mkdtemp(prefix="dji-thermal-ui-tests-")
 atexit.register(shutil.rmtree, _data, ignore_errors=True)
 os.environ["DJI_THERMAL_UI_DATA_DIR"] = _data
+# The tests never see a Mapbox token of the user's: none from the environment, and .env only in their data folder
+os.environ.pop("MAPBOX_API_TOKEN", None)
 
 from dji_thermal_ui.settings import *  # noqa: E402,F403
 from dji_thermal_ui.settings import DATA_DIR, DATABASES  # noqa: E402
@@ -21,3 +23,5 @@ THERMAL_PROCESSES = 1
 
 # The pages load their scripts through a stub of the front end's build: the tests need no `npm run build`
 VITE_MANIFEST = Path(__file__).parent / "data" / "vite-manifest.json"
+
+MAPBOX_ENV_FILES = [Path(_data) / ".env"]
