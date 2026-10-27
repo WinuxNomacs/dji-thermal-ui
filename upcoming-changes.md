@@ -9,8 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **B3: the basemaps**: Google's satellite tiles under the mosaics with the user's own key, and Esri's satellite
-   layer stretched past the levels it has where the mosaic is. (Basemaps)
+1. **B3: the basemaps**: Mapbox's satellite tiles under the mosaics with the user's own token, and Esri's
+   satellite layer stretched past the levels it has where the mosaic is. (Basemaps)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -67,7 +67,7 @@ Everything the user does in the plugin today, except the ODM task:
 | `app.raster_utils.ZOOM_EXTRA_LEVELS`, `app/raster_stats.py`, `app/measurements.py`, `app/thermal_correction.py`, `app.security.path_traversal_check` | Copied, with WebODM's notice, and their tests too |
 | `download_file_response`, `download_file_stream` (`app.api.tasks`) | A small streaming-download helper |
 | `UserDataStore` (preferences) | A single preferences row |
-| `Basemap.get_cached_basemaps()` | A list in the settings: OpenStreetMap and a satellite layer (Google comes later) |
+| `Basemap.get_cached_basemaps()` | A list in the settings: OpenStreetMap and a satellite layer (Mapbox comes in B3) |
 | `run_function_async` and Celery, `TestSafeAsyncResult` | The job runner (below) |
 | `<project dir>/thermal/<id>` | `<data folder>/datasets/<id>`, with conversions under it as before |
 | Migrations 0067–0071 and 0073 | One fresh initial migration |
@@ -208,7 +208,7 @@ Planned 2026-10-27.
   to OpenLayers too, so Leaflet is dropped.
 - **Map:** OpenLayers 10.11.0 (released 2026-10-04) replaces Leaflet on the viewer, compare and frame pages: the
   basemaps (XYZ and WMS) and their switch, the scale bar, the legend, drawing measurements, the outlines and the
-  PNG export. `ol/source/Google` later serves the Map Tiles (Basemaps).
+  PNG export. Mapbox's satellite tiles come in B3 (Basemaps).
 - **Data tiles, not COGs:** the server sends float32 tiles (raw little-endian, -1e30 where there is no data, as
   WebGL cannot test for NaN, with the same ETags) of what is drawn today: a mosaic tab's values read with rio-tiler (nearest pixel), temperatures
   corrected for the emissivity and reflected temperature asked; the difference of two conversions; a frame's
@@ -240,36 +240,44 @@ Planned 2026-10-27.
 
 ### B3: the basemaps
 
-Planned 2026-10-27.
+Planned 2026-10-27, changed the same day from Google to Mapbox.
 
 - **Decisions (2026-10-27):** this replaces the note of 2026-10-25 (a key the deployment holds, tiles proxied
   through the server, the app counting a quota). That note was written for LuxODM's shared server. Here there is
-  one user on their own computer, with their own key:
-  - the browser fetches Google's tiles directly, with no proxy;
-  - the key is entered in the app and saved in the preferences;
-  - Esri's layer gets a maximum zoom for each area;
-  - the app counts no usage: Google Cloud's own caps limit it.
-- **Google's terms (read 2026-10-27, Map Tiles API policies):**
-  - Content must not be pre-fetched, stored or cached, apart from honouring the responses' `Cache-Control`.
-  - Offline use is not allowed.
-  - The Google Maps logo, or "Google Maps" where there is no room, and the `copyright` attribution of the area in
-    view stay visible, and nothing covers them. The mosaics may lie over the tiles.
-  - The terms say nothing about proxying, which no longer matters here.
-  - Since 8 July 2025, accounts billed at an address in the EEA no longer get some Map Tiles content (the README
-    says so).
-- **Google Satellite:** `ol/source/Google` (OpenLayers 10.11.0) with `mapType: "satellite"` and the key. It creates
-  and renews the session, and reads each view's attribution from `tile/v1/viewport`.
-  - Shown as "Google Satellite" in the basemap switch when a key is saved.
-  - The Google logo is a map control at the bottom left while the layer is shown. The logo is Google's file,
-    unmodified, kept beside the other static files.
-  - If the session cannot be made (a wrong key, the API not enabled, billing), the switch says why, and the map
-    goes back to the previous basemap.
-- **The key:** "Google Satellite: add a key…" in the basemap switch opens a small form to paste the key, which
-  links to Google's page on getting one.
-  - The key is saved as the `google_maps_key` preference (`PUT /api/preferences`), never in the code or a
-    settings file, and reaches the map pages in their JSON.
-  - The same form changes or removes it.
-  - It is the user's own key, used only by their own browser, as the terms expect.
+  one user on their own computer, with their own token:
+  - Mapbox, not Google: Google needs a Cloud project with billing before any tile is served. Each user makes their
+    own Mapbox account and token. Alternatives looked at: MapTiler and Stadia (free plans non-commercial only),
+    Esri's Location Platform (more steps to sign up), Bing (retired), Azure (billing). OpenStreetMap and MapLibre
+    have no imagery.
+  - The browser fetches Mapbox's tiles directly, with no proxy.
+  - The token is entered in the app and saved in the preferences. A `MAPBOX_API_TOKEN` in the environment or in a
+    `.env` file is used too, for whoever sets the app up (the order is below).
+  - Esri's layer gets a maximum zoom for each area.
+  - The app counts no usage: the Mapbox account's own free tier limits it.
+- **Mapbox's terms:** Mapbox's tiles need the Mapbox wordmark and the text attribution ("© Mapbox © OpenStreetMap",
+  "Improve this map", and "© Maxar" for the imagery) to stay visible while they are shown. The mosaics may lie over
+  the tiles. The first build step checks the current wording and the free tier on mapbox.com, since the sources
+  disagree on the raster allowance (200,000 or 750,000 tiles a month). Without a card on the account only trial
+  limits apply; the README says so.
+- **Mapbox Satellite:** an XYZ layer on the Raster Tiles API
+  (`https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=…`), up to zoom 22.
+  - Shown as "Mapbox Satellite" in the basemap switch when a token is known.
+  - The wordmark is a map control at the bottom left and the attribution goes in the attribution control, while
+    the layer is shown. The wordmark is Mapbox's file, unmodified, kept beside the other static files.
+  - If its tiles are refused (401 for a wrong token, 403 for one restricted to other URLs, 429 past the limits),
+    the switch says why, and the map goes back to the previous basemap.
+- **The token:** "Mapbox Satellite: add a token…" in the basemap switch opens a small form to paste the token,
+  which links to Mapbox's page on making one.
+  - Saved as the `mapbox_token` preference (`PUT /api/preferences`), never in the code or a committed file, and
+    reaches the map pages in their JSON. The same form changes or removes it.
+  - Only a public token (`pk.`) is accepted. A secret one (`sk.`) is refused, since the browser shows it to anyone
+    looking.
+  - `MAPBOX_API_TOKEN` is read from the environment, or from a `.env` file in the folder the app is started from or
+    in the data folder (only that line is read; no new dependency). `.env` is in `.gitignore`.
+  - Which one is used: the token saved in the app, else `MAPBOX_API_TOKEN`. The form says when the token in use
+    comes from `MAPBOX_API_TOKEN`, and removing the saved one goes back to it.
+  - Tests never read the real `.env` or environment token: the test settings clear `MAPBOX_API_TOKEN` and point the
+    `.env` lookup at the temporary folder.
 - **Esri past its levels:** Esri's satellite imagery goes as deep as zoom 21 in some places and only to 17–19 in
   others. Past that, it serves "Map data not yet available" tiles.
   - The layer asks Esri's tilemap service (`MapServer/tilemap/{z}/{row}/{col}/{w}/{h}`) which tiles exist around
@@ -277,21 +285,21 @@ Planned 2026-10-27.
   - Where tiles are missing, the deepest level that exists is stretched (the tile grid's lower levels).
   - First check when building: the endpoint and its answer. Esri's server returned 502s on 2026-10-27.
   - If the tilemap cannot be used, the layer stops at zoom 19 and is stretched past it.
-  - Google gets the same treatment, from the viewport's `maxZoomRects`, if its tiles show the same problem.
-- **Usage limits:** none in the app. The README says to restrict the key to the Map Tiles API (and to
-  `127.0.0.1`/`localhost` referrers), and to set a daily quota in the Google Cloud console.
+  - Mapbox gets the same stretching past its deepest level if its tiles show the same problem.
+- **Usage limits:** none in the app. The README says to make a public token with only the default public scopes,
+  restricted to `http://127.0.0.1` and `http://localhost` URLs.
 - **Tests:**
   - Vitest:
-    - the basemaps listed with and without a key;
-    - the key form saving, changing and removing the key;
-    - the switch going back when the session fails (the session request stubbed);
+    - the basemaps listed with and without a token;
+    - the token form saving, changing and removing the token, and saying when it comes from `MAPBOX_API_TOKEN`;
+    - the switch going back when the tiles are refused (the tile request stubbed);
     - the tilemap's answer turned into the levels each tile has.
-  - pytest: the preference saved, removed and passed to the pages, and an empty or overlong key refused.
+  - pytest: the preference saved, removed and passed to the pages; an empty, overlong or secret token refused;
+    `MAPBOX_API_TOKEN` from the environment and from `.env`, and the saved token winning over it.
 - **Live check:** the viewer and compare pages on the 220 M4T frames, in light and in dark.
   - Esri zoomed in past its levels, with no placeholder tiles.
-  - Google with a key the user provides for the check (asked for, never looked for). The logo and attribution are
-    shown, and a wrong key is reported.
-  - The key is removed again afterwards if it was saved only for the check.
+  - Mapbox with the user's token from `.env` (given by the user for this; never printed or copied). The wordmark
+    and attribution are shown, and a wrong token saved in the form is reported, then removed.
 - **Release:** 0.4.0 (a feature).
 
 ## Integration
