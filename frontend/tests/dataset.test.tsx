@@ -526,9 +526,10 @@ describe("the Convert tab", () => {
     });
 
     it("saves the settings as the defaults, and resets them", async () => {
-        const saved = {...PREFERENCES, settings: {...DEFAULTS, emissivity: 0.95}, saved: true};
+        // as the API answers: the settings only, not what can be chosen
+        const saved = {settings: {...DEFAULTS, emissivity: 0.95}, saved: true};
         const fetchFn = routes({...DETAIL, conversions: []}, {["PUT " + API + "preferences"]: saved,
-                                                              ["DELETE " + API + "preferences"]: PREFERENCES});
+                                                              ["DELETE " + API + "preferences"]: {settings: DEFAULTS, saved: false}});
         page(fetchFn);
         await ticks();
         type(field("emissivity"), "0.95");
@@ -545,6 +546,7 @@ describe("the Convert tab", () => {
         expect(calls(fetchFn)).toContain("DELETE " + API + "preferences");
         expect(field("emissivity").value).toBe("");
         expect($(".convert-message")!.textContent).toBe("Back to dji-thermal-cli's defaults.");
+        expect($(".convert-settings")!.textContent).toContain("temp_c");    // the products are still offered
     });
 
     it("fills the form from a link's conversion and changes, its temperatures in the user's unit", async () => {

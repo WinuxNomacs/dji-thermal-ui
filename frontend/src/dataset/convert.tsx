@@ -336,9 +336,9 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         if (!await ask("Reset defaults", "Go back to dji-thermal-cli's defaults? Your saved defaults are forgotten.", "Reset")) return;
         const r = await readJson<Meta>(await sendJson(api + "preferences", "DELETE"));
         if (!r.ok) return say(errorText(r.data, "Could not reset your defaults."), "text-danger");
-        setMeta(r.data);
+        setMeta({...meta!, ...r.data});     // the reply is the settings only, as when saving
         setPlan(null);
-        fill(r.data.settings, r.data);
+        fill(r.data.settings);
         say("Back to dji-thermal-cli's defaults.");
     }
 
