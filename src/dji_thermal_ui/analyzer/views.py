@@ -37,8 +37,8 @@ def dataset_page(request, dataset_id):
 @ensure_csrf_cookie
 def viewer_page(request, conversion_id):
     conversion = conversion_or_404(conversion_id)
-    return page(request, "viewer.html", title=conversion.name, conversion=conversion, dataset=conversion.dataset,
-                basemaps=settings.BASEMAPS)
+    return page(request, "viewer.html", title=conversion.name, entry="viewer", conversion=conversion,
+                dataset=conversion.dataset, basemaps=settings.BASEMAPS)
 
 
 @ensure_csrf_cookie

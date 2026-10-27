@@ -149,8 +149,9 @@ export function Readout({point, unit, frameUrl, pinned, onFollow}: {point: Maybe
         return (<><span class="message">{point && point.reason === "outside_raster" ? "Outside the mosaic." : "No data here."}</span>
             {follow}</>);
     }
-    const rows: [string, string][] = [["Temperature", point.temperature === null || point.temperature === undefined ? "no data" :
-        temp(point.temperature, unit)]];
+    // A frame a link asked for has no temperature: only its name
+    const rows: [string, string][] = "temperature" in point ? [["Temperature", point.temperature === null ||
+        point.temperature === undefined ? "no data" : temp(point.temperature, unit)]] : [];
     if (point.frame !== null && point.frame !== undefined) rows.push(["Frame", point.frame]);
     if (point.frame_pixel) rows.push(["Frame pixel", "x " + point.frame_pixel[0] + ", y " + point.frame_pixel[1]]);
     if (point.view_angle !== null && point.view_angle !== undefined) rows.push(["View angle", formatNumber(point.view_angle, 1, "°")]);
@@ -238,7 +239,7 @@ export function MosaicStatus({v}: {v: {status: string; mosaic_status: string; mo
         return <div class="status text-muted" id="status">The images are being converted: the mosaics are built next.</div>;
     }
     if (v.mosaic_status === "building") {
-        const pct = Math.round(v.mosaic_progress || 0);
+        const pct = Math.round((v.mosaic_progress || 0) * 100);
         return (<div class="status" id="status">
             <div class="progress"><div class="progress-bar" style={{width: Math.max(pct, 3) + "%"}}/></div>
             {v.label}

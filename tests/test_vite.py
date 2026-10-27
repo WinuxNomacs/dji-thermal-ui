@@ -30,5 +30,5 @@ def test_a_missing_build_or_entry_says_what_to_do(settings, tmp_path):
     with pytest.raises(ManifestError, match="npm run build"):
         render("datasets")
     settings.VITE_MANIFEST = STUB
-    with pytest.raises(ManifestError, match="src/pages/viewer.tsx"):
-        render("viewer")
+    with pytest.raises(ManifestError, match="src/pages/nowhere.tsx"):
+        render("nowhere")

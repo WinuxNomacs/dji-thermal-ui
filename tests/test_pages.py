@@ -23,7 +23,7 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
     d = dataset()
     c = conversion(d)
     for url, page_id in [("/", "app"), ("/dataset/%d" % d.id, "app"),
-                         ("/conversion/%d" % c.id, "ta-viewer"), ("/conversion/%d/frame" % c.id, "ta-frame"),
+                         ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "ta-frame"),
                          ("/conversion/%d/compare" % c.id, "ta-compare")]:
         client.cookies.clear()
         res = client.get(url)
