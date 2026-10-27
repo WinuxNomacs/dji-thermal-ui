@@ -52,8 +52,10 @@ def get_colormap_encoded_values(cmap):
     encoded_values = []
     for rgba in values:
         # Pack R, G, B, A (each 0-255) into a 32-bit integer
-        # Format: 0xRRGGBBAA (R in most significant byte)
-        encoded = (rgba[0] << 24) | (rgba[1] << 16) | (rgba[2] << 8) | rgba[3]
+        # Format: 0xRRGGBBAA (R in most significant byte). rio-tiler's own colour maps hold numpy uint8s, which would
+        # overflow when shifted: Python ints first
+        r, g, b, a = (int(v) for v in rgba)
+        encoded = (r << 24) | (g << 16) | (b << 8) | a
         encoded_values.append(encoded)
 
     return encoded_values
