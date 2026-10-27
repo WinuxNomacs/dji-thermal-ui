@@ -6,6 +6,7 @@ import type ImageTile from "ol/ImageTile";
 import type OlMap from "ol/Map";
 import type Tile from "ol/Tile";
 import TileState from "ol/TileState";
+import Attribution from "ol/control/Attribution";
 import Control from "ol/control/Control";
 import TileLayer from "ol/layer/Tile";
 import {toLonLat} from "ol/proj";
@@ -128,7 +129,7 @@ function basemapLayer(bm: Basemap, refused: (status: number) => void): TileLayer
             params: {LAYERS: bm.layers || "0", STYLES: bm.styles || "default", FORMAT: bm.format || "image/png", VERSION: "1.1.1"}})});
     }
     if (bm.type === "mapbox") {
-        return new TileLayer({source: new XYZ({...opts, attributions: mapboxAttributions, attributionsCollapsible: false,
+        return new TileLayer({source: new XYZ({...opts, attributions: mapboxAttributions,
                                                url: mapboxUrl(bm, mapbox.token), tileSize: 512,
                                                tileLoadFunction: (tile, src) => loadMapboxTile(tile, src, refused)})});
     }
@@ -200,12 +201,17 @@ export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
         map.addControl(new Control({element: logo}));
     }
 
+    // Mapbox's attribution stays open while its imagery is shown (the control would look at the hidden layers too)
+    const attribution = map.getControls().getArray().find((c) => c instanceof Attribution) as Attribution | undefined;
+
     let shown = -1, previous = -1;
     function show(i: number) {
         if (i !== shown) previous = shown;
         shown = i;
         layers.forEach((l, j) => l.setVisible(j === i));
-        logo.hidden = i < 0 || i !== mapboxAt;
+        const isMapbox = i >= 0 && i === mapboxAt;
+        logo.hidden = !isMapbox;
+        attribution?.setCollapsible(!isMapbox);
         options();
     }
 

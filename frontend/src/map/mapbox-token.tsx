@@ -16,9 +16,8 @@ function Steps({state}: {state: MapboxToken}) {
         <div class="mapbox-help">
             <p>Mapbox's satellite imagery needs a Mapbox account of your own and its access token.</p>
             <ol>
-                <li>Sign up at {link(SIGN_UP, "mapbox.com")}. With a card on the account, Mapbox's free allowance is
-                    750,000 satellite tiles a month, and it charges past that; without one, only its trial limits
-                    apply.</li>
+                <li>Sign up at {link(SIGN_UP, "mapbox.com")}: no card is needed. The free allowance is 200,000 map
+                    tiles a month; Mapbox charges past it only when a card is on the account.</li>
                 <li>Open the {link(TOKENS_PAGE, "Access tokens")} page and copy the <b>Default public token</b>, which
                     starts with <code>pk.</code> (or create a token with the public scopes only). Never use a secret
                     token (<code>sk.</code>).</li>

@@ -13,7 +13,7 @@ const ESRI: Basemap = {label: "ESRI Satellite", url: "https://esri/tile/{z}/{y}/
 const OSM: Basemap = {label: "OpenStreetMap", url: "https://osm/{z}/{x}/{y}.png", maxzoom: 19};
 const mapbox = (token: string | null = null, source: "saved" | "env" | null = token ? "saved" : null,
                 envToken = source === "env"): Basemap =>
-    ({label: "Mapbox Satellite", type: "mapbox", url: "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90",
+    ({label: "Mapbox Satellite", type: "mapbox", url: "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}",
       maxzoom: 22, logo: "/static/vendor/mapbox/mapbox-logo.svg", preferences: "/api/preferences", token,
       token_source: source, env_token: envToken});
 
@@ -61,13 +61,15 @@ describe("the basemap switch", () => {
         document.body.innerHTML = '<div class="page"></div>';
         open([ESRI, OSM, mapbox(TOKEN)]);
         expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "Mapbox Satellite", "None", "Mapbox Satellite: the token…"]);
+        const attribution = () => $(".ol-attribution")!.classList.contains("ol-uncollapsible");
+        expect(attribution()).toBe(false);
         choose("Mapbox Satellite");
-        expect([visible(), logo().hidden]).toEqual([[false, false, true], false]);
+        expect([visible(), logo().hidden, attribution()]).toEqual([[false, false, true], false, true]);
         expect((logo().querySelector("img") as HTMLImageElement).getAttribute("src")).toBe("/static/vendor/mapbox/mapbox-logo.svg");
         const url = (basemapLayers()[2].getSource() as XYZ).getUrls()![0];
-        expect(url).toBe("https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=" + TOKEN);
+        expect(url).toBe("https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=" + TOKEN);
         choose("None");
-        expect([visible(), logo().hidden]).toEqual([[false, false, false], true]);
+        expect([visible(), logo().hidden, attribution()]).toEqual([[false, false, false], true, false]);
     });
 
     it("offers no Mapbox where the page lists none", () => {

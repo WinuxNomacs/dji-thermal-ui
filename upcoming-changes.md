@@ -256,11 +256,12 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
   - The app counts no usage: the Mapbox account's own free tier limits it.
 - **Mapbox's terms (checked 2026-10-27):** Mapbox's tiles need the Mapbox wordmark and the text attribution
   ("© Mapbox", "© OpenStreetMap", "Improve this map" at the place shown, and "© Maxar" for the imagery) while they
-  are shown. The wordmark may be moved to another corner but not styled. The Raster Tiles API's free allowance is
-  750,000 tiles a month (mapbox.com/pricing). Without a card on the account only trial limits apply; the README says
-  so.
-- **Mapbox Satellite:** an XYZ layer on the Raster Tiles API
-  (`https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=…`), up to zoom 22.
+  are shown. The wordmark may be moved to another corner but not styled. Free allowances (mapbox.com/pricing):
+  750,000 tiles a month on the Raster Tiles API, 200,000 on the Static Tiles API.
+- **Mapbox Satellite:** an XYZ layer of 512-pixel tiles of the `satellite-v9` style through the Static Tiles API
+  (`https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}?access_token=…`), up to zoom 22.
+  - The Raster Tiles API (`v4/mapbox.satellite`) was the plan, but on 2026-10-27 it answered the user's account
+    (no card) with 429 and a limit of -1, while the Static Tiles API served the same token.
   - Shown as "Mapbox Satellite" in the basemap switch when a token is known.
   - The wordmark is a map control at the bottom left, above the scale line, and the attribution (not collapsible)
     goes in the attribution control, while the layer is shown. The wordmark is Mapbox's map wordmark, unmodified,

@@ -18,10 +18,12 @@ TOKEN_ENV = 'MAPBOX_API_TOKEN'
 TOKEN_RE = re.compile(r'^pk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$')
 TOKEN_MAX = 500
 
+# Mapbox's satellite style through the Static Tiles API (512-pixel tiles): the Raster Tiles API answered an account
+# without a card with 429 only
 MAPBOX = {
     "type": "mapbox",
     "label": "Mapbox Satellite",
-    "url": "https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90",
+    "url": "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}",
     "maxzoom": 22,
     "minzoom": 0,
 }

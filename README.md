@@ -60,9 +60,9 @@ The switch at the top right of a mosaic's map chooses what is under it:
 
 To get the token:
 
-1. Sign up at [mapbox.com](https://account.mapbox.com/auth/signup/). With a card on the account, Mapbox's free
-   allowance is 750,000 satellite tiles a month (the Raster Tiles API), and it charges past that. Without a card,
-   only its trial limits apply.
+1. Sign up at [mapbox.com](https://account.mapbox.com/auth/signup/): no card is needed. The imagery comes through
+   Mapbox's Static Tiles API, whose free allowance is 200,000 tiles a month; Mapbox charges past it only when a card
+   is on the account.
 2. On the [Access tokens](https://console.mapbox.com/account/access-tokens/) page, copy the **Default public token**
    (it starts with `pk.`), or create a token with the public scopes only. A secret token (`sk.`) is refused: the
    browser sends the token to Mapbox with each tile, so anyone using the page could read it. Mapbox's URL
