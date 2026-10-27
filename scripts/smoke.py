@@ -50,19 +50,23 @@ def check(base: str) -> list[str]:
     problems = []
     status, page = get(base)
     script = re.search(rb'<script type="module" src="/(static/dist/assets/[^"]+\.js)"', page)
-    style = re.search(rb'<link rel="stylesheet" href="/(static/dist/assets/[^"]+\.css)"', page)
-    if not script or not style:
+    styles = re.findall(rb'<link rel="stylesheet" href="/(static/dist/assets/[^"]+\.css)"', page)
+    if not script or not styles:
         return [f"/: status {status}, its built script or stylesheet not found in {page[:500]!r}"]
     expect = [
         ("", b"Thermal Analyzer"),
         (script.group(1).decode(), b"import"),
-        (style.group(1).decode(), b"--accent"),
         ("static/favicon.svg", b"<svg"),
     ]
     for path, needle in expect:
         status, body = get(base + path)
         if status != 200 or needle not in body:
             problems.append(f"/{path}: status {status}, {needle!r} {'found' if needle in body else 'missing'}")
+    # The page's stylesheets (the app's, and the map's on a page with one), the app's among them
+    sheets = [(path.decode(), *get(base + path.decode())) for path in styles]
+    problems += [f"/{path}: status {status}" for path, status, _body in sheets if status != 200]
+    if not any(b"--accent" in body for _path, _status, body in sheets):
+        problems.append(f"the app's stylesheet ('--accent') is not among {[path for path, *_x in sheets]}")
     status, body = get(base + "api/preferences")
     if status != 200 or "unit" not in json.loads(body):
         problems.append(f"/api/preferences: status {status}, {body[:200]!r}")
