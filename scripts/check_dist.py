@@ -17,7 +17,7 @@ from pathlib import Path
 
 PY = r"dji_thermal_ui/(?:[a-z_0-9]+/)*[a-z_0-9]+\.py"
 TEMPLATES = r"dji_thermal_ui/templates/[a-z_]+\.html"
-STATIC = (r"dji_thermal_ui/static/(?:favicon\.svg"
+STATIC = (r"dji_thermal_ui/static/(?:favicon\.svg|vendor/mapbox/(?:mapbox-logo\.svg|LICENSE\.txt)"
           r"|dist/(?:manifest\.json|THIRD-PARTY-LICENSES\.txt|assets/[A-Za-z0-9_.-]+\.(?:js|css|png|svg|woff2)))")
 PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}"
 LICENSES = r"LICENSE"
@@ -34,6 +34,8 @@ REQUIRED = [
     "dji_thermal_ui/static/favicon.svg",
     "dji_thermal_ui/static/dist/manifest.json",
     "dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",        # the licences of what is bundled, beside it
+    "dji_thermal_ui/static/vendor/mapbox/mapbox-logo.svg",       # Mapbox's wordmark, with its licence
+    "dji_thermal_ui/static/vendor/mapbox/LICENSE.txt",
 ]
 # The pages' entries in the build's manifest (frontend/src/pages), each with its files in the distribution
 PAGES = ["datasets", "dataset", "viewer", "frame", "compare"]
