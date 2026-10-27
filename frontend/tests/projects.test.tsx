@@ -39,7 +39,7 @@ afterEach(() => {
 
 function projectsPage(fetchFn: ReturnType<typeof server>, nav = vi.fn()) {
     vi.stubGlobal("fetch", fetchFn);
-    render(<ProjectsPage api={API} publicUrl="/" nav={nav}/>, byId("root"));
+    render(<ProjectsPage api={API} publicUrl="/" basemaps={[]} nav={nav}/>, byId("root"));
     return nav;
 }
 
@@ -87,7 +87,7 @@ describe("the projects page", () => {
         await ticks();
         key(byId("project-name"), "Enter");
         await ticks();
-        expect(body(fetchFn, "POST")).toEqual({name: "Silos", description: "North farm"});
+        expect(body(fetchFn, "POST")).toEqual({name: "Silos", description: "North farm", location: null});
         expect(nav).toHaveBeenCalledWith("/project/3");
     });
 

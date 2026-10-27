@@ -81,6 +81,9 @@ LOGGING = {
     "loggers": {"dji_thermal_ui": {"handlers": ["console"], "level": "INFO"}},
 }
 
+# Where a project's location is searched for (analyzer/places.py)
+NOMINATIM_URL = "https://nominatim.openstreetmap.org"
+
 # The basemaps under the mosaics (Mapbox's satellite imagery is added to them when there is a token: analyzer/basemaps.py).
 # tilemap: Esri's service saying which tiles exist, so that a level with none there is not drawn
 BASEMAPS = [

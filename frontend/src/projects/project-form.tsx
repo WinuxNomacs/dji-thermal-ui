@@ -1,18 +1,22 @@
-// A project's form, to make one or change it: its name and description (its location is kept as it is)
+// A project's form, to make one or change it: its name, description and location (location-field.tsx)
 import {useLayoutEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
-import type {Project} from "./list";
+import type {Basemap} from "../map/map";
+import type {Location, Project} from "./list";
+import {LocationField} from "./location-field";
 
 interface Props {
     api: string;
     project?: Project;                          // the one changed; a new one when left out
+    basemaps: Basemap[];
     onSaved: (p: Project) => void;
     onClose: () => void;
 }
 
-export function ProjectForm({api, project, onSaved, onClose}: Props) {
+export function ProjectForm({api, project, basemaps, onSaved, onClose}: Props) {
     const [name, setName] = useState(project ? project.name : "");
     const [description, setDescription] = useState(project ? project.description : "");
+    const [location, setLocation] = useState<Location | null>(project ? project.location : null);
     const [error, setError] = useState("");
     const [saving, setSaving] = useState(false);
     const nameRef = useRef<HTMLInputElement>(null);
@@ -33,7 +37,7 @@ export function ProjectForm({api, project, onSaved, onClose}: Props) {
         if (!name.trim()) return setError("Give the project a name.");
         setError("");
         setSaving(true);
-        const body = {name: name.trim(), description};
+        const body = {name: name.trim(), description, location: location && {...location, label: location.label.trim()}};
         const r = await readJson<Project>(await sendJson(api + "projects" + (project ? "/" + project.id : ""),
                                                          project ? "PATCH" : "POST", body));
         setSaving(false);
@@ -43,7 +47,7 @@ export function ProjectForm({api, project, onSaved, onClose}: Props) {
 
     return (
         <div class="dialog" id="project-form" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div class="dialog-inner" role="dialog" aria-modal="true" aria-labelledby="project-form-title">
+            <div class="dialog-inner wide" role="dialog" aria-modal="true" aria-labelledby="project-form-title">
                 <h2 id="project-form-title">{project ? "Edit project" : "New project"}</h2>
                 <div class="field">
                     <label for="project-name">Name</label>
@@ -57,6 +61,7 @@ export function ProjectForm({api, project, onSaved, onClose}: Props) {
                               placeholder="The site, what is inspected, who it is for"
                               onInput={(e) => setDescription(e.currentTarget.value)}/>
                 </div>
+                <LocationField api={api} basemaps={basemaps} location={location} onChange={setLocation}/>
                 <div class="error" id="project-error" role="alert">{error}</div>
                 <div class="dialog-actions">
                     <button type="button" class="button default" id="project-cancel" onClick={onClose}>Cancel</button>

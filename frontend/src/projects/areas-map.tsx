@@ -15,7 +15,8 @@ import {type Basemap, fitBounds, hoverTips, lonLatToMap, mosaicMap, pointFeature
 import type {Area, Location} from "./list";
 
 const COLOR = "#00e5ff";
-const PIN = new Style({image: new CircleStyle({radius: 7, stroke: new Stroke({color: "#fff", width: 2}),
+// The project's location
+export const PIN = new Style({image: new CircleStyle({radius: 7, stroke: new Stroke({color: "#fff", width: 2}),
                                                fill: new Fill({color: "#e53935"})})});
 const areaStyle = (name: string) => new Style({
     stroke: new Stroke({color: COLOR, width: 2}), fill: new Fill({color: "rgba(0, 229, 255, 0.12)"}),

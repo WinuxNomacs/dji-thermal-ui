@@ -29,7 +29,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import basemaps, jobs, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from . import basemaps, jobs, places, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .downloads import download_file_response, download_file_stream
 from .models import Preferences, Project, ThermalConversion, ThermalDataset, ThermalMeasurement
 from .raster.security import path_traversal_check
@@ -370,6 +370,29 @@ class ProjectDetailView(DatasetView):
         get_project(pk).delete()
         Project.default()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PlacesView(DatasetView):
+    def get(self, request):
+        """Places for a project's location, from OpenStreetMap: those a text names (?q=), or the one at a point
+        (?lon=&lat=), named in the browser's language"""
+        language = request.headers.get('Accept-Language', '')[:100]
+        try:
+            if 'q' in request.query_params:
+                query = request.query_params['q'].strip()
+                if not query:
+                    raise ValidationError({'q': "Type an address or a place to search for"})
+                if len(query) > places.MAX_QUERY_LENGTH:
+                    raise ValidationError({'q': "That is longer than {} characters".format(places.MAX_QUERY_LENGTH)})
+                found = places.search(query, language)
+            else:
+                lon, lat, _ = location_of({'lon': request.query_params.get('lon'),
+                                           'lat': request.query_params.get('lat')})
+                at = places.reverse(lon, lat, language)
+                found = [at] if at else []
+        except places.PlacesError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response({'places': found, 'service': places.SERVICE, 'attribution': places.ATTRIBUTION})
 
 
 class DatasetListCreateView(DatasetView):
