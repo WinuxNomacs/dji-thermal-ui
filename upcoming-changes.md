@@ -368,6 +368,10 @@ Requested 2026-10-27 (`new.md`) and put before the reports at the user's request
 
 ### C2: the source frames pop-out
 
+- **Decided with the user (2026-10-27):** besides the tool, a saved spot, box, circle or area measurement has a
+  "Source frames" button, so a shape drawn once need not be drawn again; 0.5.0 is released after C2, as planned.
+- **The frame is shown as converted** (the frame page's values) on every tab, coloured with the tab's palette and
+  range, as the compare page's picked point does today.
 - **A "Source frames" tool** on the viewer's As converted, Harmonized and Source frame tabs: a spot (a click) or an
   area (a polygon, as the Area tool draws). On the Source frame tab a click opens it directly, as asked.
 - **The window:** on the page, beside the map (not a browser pop-up), movable and closable. It shows the whole frame,

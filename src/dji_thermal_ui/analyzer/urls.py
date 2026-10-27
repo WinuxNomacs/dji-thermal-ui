@@ -24,6 +24,7 @@ urlpatterns = [
     re_path(C + r'/mosaics/footprint$', api.MosaicFootprintView.as_view()),
     re_path(C + r'/mosaics/(?P<tab>[a-z_]+)/data/' + DATA, api.MosaicDataView.as_view()),
     re_path(C + r'/mosaics/(?P<tab>[a-z_]+)/point$', api.MosaicPointView.as_view()),
+    re_path(C + r'/mosaics/(?P<tab>[a-z_]+)/sources$', api.MosaicSourcesView.as_view()),
     re_path(C + r'/mosaics/(?P<tab>[a-z_]+)/curve$', api.MosaicCurveView.as_view()),
     re_path(C + r'/mosaics/(?P<tab>[a-z_]+)/difference/data/' + DATA, api.MosaicDifferenceDataView.as_view()),
     re_path(C + r'/mosaics/(?P<tab>[a-z_]+)/difference$', api.MosaicDifferenceView.as_view()),
