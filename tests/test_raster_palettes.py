@@ -67,6 +67,14 @@ def test_the_palette_tables_sent_to_the_browser_are_the_gradients():
     np.testing.assert_allclose(rgb, oracle(THERMAL_STOPS["ironbow"]), atol=0.5001)
 
 
+def test_rio_tilers_own_colour_maps_are_sent_as_their_colours():
+    # their tables hold numpy uint8s: the colours were once lost in packing, leaving only the alpha
+    gray, rdbu = tiler.colormap_entries(["gray", "rdbu_r"])
+    assert (gray["color_map"][0], gray["color_map"][255]) == (0x000000FF, 0xFFFFFFFF)
+    rgb = [((v >> 24) & 255, (v >> 16) & 255, (v >> 8) & 255) for v in rdbu["color_map"]]
+    assert rgb[0][2] > rgb[0][0] and rgb[255][0] > rgb[255][2]      # blue below, red above
+
+
 def test_an_unknown_palette_is_a_validation_error():
     with pytest.raises(ValidationError):
         tiler.check_colormap("nope")
