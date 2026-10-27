@@ -2,9 +2,9 @@
 
 COMMAND is how the app is started, such as `dji-thermal-ui` or `uvx --from dist/<wheel> dji-thermal-ui`. It is run
 with --no-browser on a free port and a temporary data folder, which is removed afterwards. The script checks that
---version answers, then that the datasets page, its built script and stylesheet, the icon and the preferences API are
-served, which needs the templates, the built front end, the static files and the migrations to be in the installed
-package. Standard library only.
+--version answers, then that the home page (the projects), its built script and stylesheet, the icon and the
+preferences API are served, which needs the templates, the built front end, the static files and the migrations to be
+in the installed package. Standard library only.
 """
 
 from __future__ import annotations

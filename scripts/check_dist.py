@@ -30,7 +30,7 @@ REQUIRED = [
     "dji_thermal_ui/cli.py",
     "dji_thermal_ui/analyzer/migrations/0001_initial.py",
     "dji_thermal_ui/templates/page.html",
-    "dji_thermal_ui/templates/datasets.html",
+    "dji_thermal_ui/templates/projects.html",
     "dji_thermal_ui/static/favicon.svg",
     "dji_thermal_ui/static/dist/manifest.json",
     "dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",        # the licences of what is bundled, beside it
@@ -38,7 +38,7 @@ REQUIRED = [
     "dji_thermal_ui/static/vendor/mapbox/LICENSE.txt",
 ]
 # The pages' entries in the build's manifest (frontend/src/pages), each with its files in the distribution
-PAGES = ["datasets", "dataset", "viewer", "frame", "compare"]
+PAGES = ["projects", "project", "dataset", "viewer", "frame", "compare", "preferences"]
 MANIFEST = "dji_thermal_ui/static/dist/manifest.json"
 LICENCE_FILES = {"LICENSE"}
 
