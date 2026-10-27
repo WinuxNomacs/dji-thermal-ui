@@ -429,3 +429,13 @@ def test_a_frame_is_sent_as_its_temperatures_measured_again_with_the_changes_ask
         assert warmer[1, 9] > values[1, 9]
         assert api.get(url, {'frame': rel, 'emissivity': 'x'}).status_code == 400
         assert api.get(url, {'frame': 'nope.JPG'}).status_code == 400
+
+
+def test_a_spot_or_area_far_from_the_mosaic_measures_nothing(api):
+    c, _ = converted(api)
+    url = "{}/{}/measure".format(CONVERSIONS, c.id)
+    for geometry in ({'type': 'Point', 'coordinates': [0, 0]},
+                     {'type': 'Polygon', 'coordinates': [[[0, 0], [0.001, 0], [0.001, 0.001], [0, 0]]]}):
+        res = api.post(url, {'target': 'as_converted', 'geometry': geometry}, format='json')
+        assert res.status_code == 200, res.data
+        assert (res.data['result']['valid_pixels'], res.data['result']['reason']) == (0, 'outside_raster')
