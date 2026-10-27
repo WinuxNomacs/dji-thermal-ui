@@ -20,6 +20,12 @@ its title.
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
 2. **D2: the mosaic report**, with its measurements and findings. (Reports)
+3. **E1: projects**: a project (name, description, location) holds datasets; its page lists their datasets, findings
+   and conversions, and compares within it. (Projects)
+4. **E2: a project's location found on the map**: an address or place searched on OpenStreetMap or Mapbox, and the
+   point picked on the map. (Projects)
+5. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
+   datasets and what is under them, and User Preferences (unit, theme, locale). (Projects)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -438,6 +444,59 @@ Planned 2026-10-27, from Later ("a report of a dataset or a mosaic"), after the 
   viewer and in the CSV and GeoJSON too).
 - Tests for both: pytest for the pages and the saved text; Vitest for the sections from the data; a live check
   printing each to PDF with Playwright and looking at the pages.
+
+## Projects
+
+Requested 2026-10-27 (`new.md`):
+- **Projects:** a project contains datasets, and has a name, a description and a location. The location is found by
+  searching OpenStreetMap or Mapbox for an address or a place on the map. Everything about a project's datasets,
+  findings included, is available across the project, so its datasets can be compared with each other.
+- **A navigation pane:** collapsible, on the left, to move between projects, their datasets and what is under them,
+  with User Preferences as an entry: the unit temperatures are shown in (°C, °F, K), the theme (light, dark), and the
+  locale times are shown in, the computer's by default.
+
+### What it builds on
+
+- **Datasets** have no container today: the datasets page lists them all. A dataset's conversions, mosaics,
+  measurements and (after C3) findings hang off the dataset, so a project only has to hold datasets.
+- **The compare page** can already pair any two conversions, from any dataset: within a project it can offer that
+  project's conversions first.
+- **The unit and the theme** are already chosen in the header and saved for the app (`Preferences`); times are shown
+  with the browser's locale (`toLocaleString` in `core/format.ts`). The preferences page gathers these, and adds the
+  locale.
+- **Basemaps** (B3): OpenStreetMap and, with the user's token, Mapbox. Both have a search service (Nominatim, and
+  Mapbox's geocoding), which the location search would call from the browser.
+
+### Proposed phases
+
+- **E1: projects.** A `Project` model (name, description, location as lon/lat with its label, when made), and each
+  dataset in one project. API `/api/projects` (list, create, change, delete). A projects page as the new home, a
+  project page listing its datasets (with their conversions and finding counts) and the project's findings
+  together, and a dataset moved between projects from its page. The compare page lists the project's conversions
+  first.
+- **E2: the location.** On the project's form: a map (the basemaps of B3) with a search box; the results from
+  Nominatim (OpenStreetMap) or Mapbox's geocoding, whichever basemap is shown; a result or a click on the map sets
+  the point. Shown on the project page's map with its datasets' flight areas.
+- **E3: the navigation pane and preferences.** A pane on the left of every page: the projects, under each its
+  datasets, under each its conversions (and their viewer, compare and report pages), collapsible by level and as a
+  whole (kept for the next visit), the current page highlighted. Its last entry is User Preferences, a page with the
+  unit, the theme and the locale (the computer's, or one chosen from a list), applied to every date and time shown.
+- **Tests:** pytest for the model and API (a dataset's project, deleting a project, refused values); Vitest for the
+  pane, the search and the preferences; a live check in the browser, light and dark, at desktop and narrow widths.
+
+### Open decisions
+
+- **Where in the order:** after the findings and the reports (as listed now), or before the reports, so that the
+  reports can show the project.
+- **Datasets made before projects:** put into a first project made for them ("My datasets"), or left without a
+  project, listed on their own.
+- **Deleting a project:** refused while it holds datasets, or deleting its datasets with it.
+- **Searching for places** sends the search text to OpenStreetMap's Nominatim or to Mapbox; the app is otherwise
+  local. Both, or one of them. Nominatim's usage policy allows about one search a second, with no autocomplete.
+- **The location:** a point only, or a point and an outline of the site.
+- **Unit and theme in the header:** kept there as quick switches as well, or only on the preferences page.
+- **Locale:** for dates and times only, or for numbers too (a decimal comma); and whether times are shown in the
+  computer's time zone or the one where the flight was made.
 
 ## Integration
 
