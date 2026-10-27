@@ -165,7 +165,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const values: Values | null = t && tab ? {kind: "tiles", url: dataUrl(api, id, tab, params), bounds: t.bounds || WORLD,
                                               maxZoom: (t.maxzoom || 20) + 1, gutter: DATA_GUTTER,
                                               pixel: rasterPixel(t.bounds, v?.kinds?.[t.kind || ""]?.width)} : null;
-    const colouring = colouringOf(style);
+    const colouring = colouringOf(shown);
 
     // What the map's handlers (set up once) read: this render's values
     const now = useRef({tab, params, current, pinned, drawFor});
@@ -470,8 +470,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         return a.gamma !== 1 || a.equalize ? toneShares(a.gamma) : null;
     }
 
-    // How the mosaic's values are coloured, as the tab's palette, range, adjustments and isotherm are (not those of a
-    // slider being dragged: they are drawn when it is let go)
+    // How the mosaic's values are coloured, as the tab's palette, range, adjustments and isotherm are (a slider's as
+    // it is dragged)
     function colouringOf(s: Style | null): Colouring | null {
         if (!s || !v || !tab) return null;
         if (tab === "source_frame") return {colors: v.frame_colors || [], index: true};
@@ -537,30 +537,28 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         setStyle(reset ? {range: autoRange(), adjust: defaultAdjust()} : {range: autoRange()});
     }
 
-    // The brightness or contrast slider moved: the range follows (its fields and the scale at once, the tiles when
-    // let go)
+    // A slider dragged: the image drawn with its change at once, which is kept when it is let go
+    function dragged(changes: Partial<Style>, done: boolean) {
+        setLive(done ? null : changes);
+        if (done) setStyle(changes);
+    }
+
+    // The brightness or contrast slider moved: the range follows
     function slide(brightness: number, contrast: number, done: boolean) {
         const r = slidRange(autoRange(), brightness, contrast);
         const range: [number, number] = temperature ?
             [typedTemp(Number(rangeFields(r)[0]), unit), typedTemp(Number(rangeFields(r)[1]), unit)] : r;
         setRangeText(null);
         setRangeError("");
-        if (done) {
-            setLive(null);
-            setStyle({range});
-        } else {
-            setLive({range});
-        }
+        dragged({range}, done);
+    }
+
+    function sharpen(value: number, done: boolean) {
+        dragged({adjust: {...style!.adjust, sharpen: value}}, done);
     }
 
     function gamma(slider: string, done: boolean) {
-        const adjust = {...style!.adjust, gamma: sliderGamma(slider)};
-        if (done) {
-            setLive(null);
-            setStyle({adjust});
-        } else {
-            setLive({adjust});
-        }
+        dragged({adjust: {...style!.adjust, gamma: sliderGamma(slider)}}, done);
     }
 
     function changeIsotherm(s: IsothermState, field: string) {
@@ -755,7 +753,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         {tab !== "source_frame" && <Section name="image" title="Image">
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
                                            temperature={temperature} onSlide={slide} onGamma={gamma}
-                                           onSharpen={(sharpen) => setStyle({adjust: {...style!.adjust, sharpen}})}
+                                           onSharpen={sharpen}
                                            onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
                                            onReset={() => auto(true)}/>
                         </Section>}

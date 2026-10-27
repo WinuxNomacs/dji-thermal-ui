@@ -9,9 +9,11 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+1. **F1: live sliders and the scale's ends**: the image redrawn while a slider is dragged, with 5% smaller steps;
+   the colour scale labelled with its range's ends. Released as 0.5.1. (Controls)
+2. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
    severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-2. **C4: findings on the compare page.** (Findings)
+3. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
@@ -528,6 +530,38 @@ Requested 2026-10-27 (`new.md`):
 - **Tests:** pytest for the preference and the flight's offset; Vitest for the pane (levels, collapsing, the current
   page) and the date formatting (locale, offset, fallback); a live check in the browser, light and dark, at desktop
   and narrow widths.
+
+## Controls
+
+Asked in `new.md` (2026-10-27): the image should change while the brightness, contrast, gamma and other sliders are
+dragged, not only when they are let go, and the sliders should be 5% less sensitive; the temperature scale should
+show the minimum and maximum at its ends.
+
+### What it builds on
+
+- The browser colours the tiles since B2 (`frontend/src/map/colour.ts`), so redrawing while dragging needs no request
+  to the server. Today the viewer and frame pages move the range fields and the scale while brightness, contrast or
+  gamma is dragged, and colour the map when the slider is let go; sharpening, and every slider on the compare page,
+  act only when let go.
+- The scale (`ScaleView` in `viewer/panel.tsx`, and the PNG download's legend in `viewer/canvas.ts`) labels round
+  ticks (`scaleTicks` in `viewer/view.ts`), so its ends are labelled only when a tick falls on them.
+
+### Decisions (2026-10-27)
+
+- **Sensitivity:** smaller steps, same reach: each slider's step is 5% smaller, and its ends stay where they are.
+- **The scale's ends:** labelled with the range's ends (the exact values the palette's ends stand for, to 0.1), with
+  the round ticks between them; a tick too close to an end is dropped. On every scale, the download's legend included.
+- **Order:** before C3, then released as 0.5.1.
+
+### F1: live sliders and the scale's ends
+
+- **Live:** brightness, contrast, gamma and sharpening redraw the image while dragged, on the viewer, frame and
+  compare pages; what is kept (the style saved, an equalized tone curve asked of the server) waits until the slider
+  is let go, as today.
+- **Steps:** brightness 0.05 → 0.0475, contrast and gamma 0.1 → 0.095, sharpening 0.5 → 0.475, with the same ends.
+- **Scale:** `scaleTicks` gives the two ends as well as the round ticks between them.
+- **Tests:** Vitest for the ticks (ends, ticks near an end dropped) and the sliders (the image's style changes while
+  dragging); a live check in the browser, light and dark.
 
 ## Integration
 

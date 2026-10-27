@@ -1,6 +1,8 @@
+import WebGLTileLayer from "ol/layer/WebGLTile";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
+import {SLIDERS} from "../src/viewer/view";
 import {type Mosaics, ViewerPage} from "../src/viewer/viewer-page";
 import {calls, click, server, ticks} from "./helpers";
 
@@ -160,6 +162,31 @@ describe("the viewer page", () => {
         change(slider, "0.5");
         await ticks();
         expect(location.search).toContain("min=19&max=25");
+    });
+
+    it("draws the image as a slider is dragged, setting the range without compiling the style again", async () => {
+        const restyled = vi.spyOn(WebGLTileLayer.prototype, "setStyle");
+        const varied = vi.spyOn(WebGLTileLayer.prototype, "updateStyleVariables");
+        await open(server(routes()));
+        click(byId("auto"));
+        await ticks();
+        restyled.mockClear();
+        change($("input[name=brightness]")!, "0.5", "input");
+        await ticks();
+        expect(varied.mock.lastCall![0]).toMatchObject({low: 19, span: 6});
+        expect(restyled).not.toHaveBeenCalled();
+        change($("input[name=gamma]")!, "1", "input");
+        await ticks();
+        expect(restyled).toHaveBeenCalledTimes(1);
+        expect(location.search).not.toContain("gamma");
+        change($("input[name=gamma]")!, "1");
+        await ticks();
+        expect(location.search).toContain("gamma=2");
+        change($("input[name=sharpen]")!, String(SLIDERS.sharpen.step * 3), "input");
+        await ticks();
+        expect((restyled.mock.lastCall![0] as {variables: Record<string, number>}).variables.sharpen).toBeCloseTo(1.36, 2);
+        expect([...document.querySelectorAll(".slider-value")].at(-1)!.textContent).toBe("1.4");
+        vi.restoreAllMocks();
     });
 
     it("starts an isotherm from the top of the range, and measures the whole mosaic again with it", async () => {

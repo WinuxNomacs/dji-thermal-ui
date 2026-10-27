@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The image is redrawn while the brightness, contrast, gamma or sharpening slider is dragged, on the viewer, the
+  frame page and the compare page, rather than when it is let go. The sliders' steps are about 5% finer, with the
+  same ends.
+- The colour scale, and the legend of a PNG export, are labelled with the temperatures at their two ends, with round
+  values between them.
+
 ## [0.5.0] - 2026-10-27
 
 ### Added

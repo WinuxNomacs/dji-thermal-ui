@@ -5,14 +5,14 @@ import {type Maybe} from "../core/format";
 import {convertTemp, userUnit} from "../core/units";
 import {signed, symbol, temp} from "../measure/measure";
 import {type Palette, type Point} from "../viewer/panel";
-import {gammaSlider, parseRange, SHARPEN_MAX, sliderGamma} from "../viewer/view";
+import {gammaSlider, parseRange, sliderGamma, SLIDERS} from "../viewer/view";
 import {type CompareStyle, type DiffStyle} from "./compare";
 
 interface StyleProps {
     style: CompareStyle | DiffStyle;
     palettes: Palette[];
     what: string;                           // what Auto spans: "both mosaics", "this mosaic" or "the difference"
-    onChange: (changes: Partial<CompareStyle> & Partial<DiffStyle>) => void;
+    onChange: (changes: Partial<CompareStyle> & Partial<DiffStyle>, done?: boolean) => void;   // done false: a slider dragged
     onAuto: () => void;
 }
 
@@ -37,6 +37,11 @@ export function StyleBar({style, palettes, what, onChange, onAuto}: StyleProps) 
         onChange({range: r.range});
     };
     const auto = () => { setText(null); setError(""); onAuto(); };
+    // The image's adjustments: drawn as a slider is dragged, kept when it is let go
+    const adjusted = (e: Event, done: boolean) => {
+        const el = e.currentTarget as HTMLInputElement, a = (style as CompareStyle).adjust;
+        onChange({adjust: el.name === "gamma" ? {...a, gamma: sliderGamma(el.value)} : {...a, sharpen: parseFloat(el.value) || 0}}, done);
+    };
     const shown = text || (diff ? [String(style.reach)] : (style as CompareStyle).range.map(String));
     const autoButton = <button type="button" class="button default small" name="auto"
                                title={"The 2nd to 98th percentile of " + what} onClick={auto}>Auto</button>;
@@ -54,15 +59,14 @@ export function StyleBar({style, palettes, what, onChange, onAuto}: StyleProps) 
                        onChange={(e) => typed([shown[0], e.currentTarget.value])}/> {symbol()} {autoButton}
             </span>
             <label class="slider" title="Above 1 brightens the cooler part of the range">Gamma
-                <input type="range" name="gamma" min="-2.3" max="2.3" step="0.1" value={gammaSlider((style as CompareStyle).adjust.gamma)}
-                       onChange={(e) => onChange({adjust: {...(style as CompareStyle).adjust, gamma: sliderGamma(e.currentTarget.value)}})}/>
+                <input type="range" name="gamma" {...SLIDERS.gamma} value={gammaSlider((style as CompareStyle).adjust.gamma)}
+                       onInput={(e) => adjusted(e, false)} onChange={(e) => adjusted(e, true)}/>
             </label>
             <label><input type="checkbox" name="equalize" checked={(style as CompareStyle).adjust.equalize}
                           onChange={(e) => onChange({adjust: {...(style as CompareStyle).adjust, equalize: e.currentTarget.checked}})}/> Equalize</label>
             <label class="slider" title="Brings out edges (an unsharp mask)">Sharpen
-                <input type="range" name="sharpen" min="0" max={SHARPEN_MAX} step="0.5" value={(style as CompareStyle).adjust.sharpen}
-                       onChange={(e) => onChange({adjust: {...(style as CompareStyle).adjust,
-                                                           sharpen: parseFloat(e.currentTarget.value) || 0}})}/>
+                <input type="range" name="sharpen" {...SLIDERS.sharpen} value={(style as CompareStyle).adjust.sharpen}
+                       onInput={(e) => adjusted(e, false)} onChange={(e) => adjusted(e, true)}/>
             </label>
         </>}
         {error && <span class="text-danger">{error}</span>}

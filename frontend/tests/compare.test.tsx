@@ -1,3 +1,4 @@
+import WebGLTileLayer from "ol/layer/WebGLTile";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
@@ -162,6 +163,29 @@ describe("the compare page", () => {
         reach.dispatchEvent(new Event("change", {bubbles: true}));
         await ticks();
         expect(byId("pane-a").querySelector(".text-danger")!.textContent).toBe("The difference shown must be above 0");
+    });
+
+    it("draws both panes as the gamma slider is dragged, asking for the equalized curves once it is let go", async () => {
+        const fetchFn = server(routes());
+        await open(fetchFn, 12);
+        const equalize = $("#shared input[name=equalize]")!;
+        equalize.checked = true;
+        equalize.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks(20);
+        const curves = () => calls(fetchFn).filter((c) => c.includes("/curve")).length;
+        const asked = curves(), restyled = vi.spyOn(WebGLTileLayer.prototype, "setStyle");
+        const gamma = $("#shared input[name=gamma]")!;
+        gamma.value = "1";
+        gamma.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks(20);
+        expect(restyled).toHaveBeenCalledTimes(2);
+        expect(gamma.value).toBe("1");
+        expect(curves()).toBe(asked);
+        gamma.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks(20);
+        expect(calls(fetchFn).filter((c) => c.includes("/curve")).slice(asked).every((c) => c.includes("gamma=2"))).toBe(true);
+        expect(curves()).toBe(asked + 2);
+        vi.restoreAllMocks();
     });
 
     it("says when the mosaics do not overlap", async () => {

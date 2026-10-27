@@ -196,11 +196,14 @@ export class ThermalLayer {
         this.layer.setStyle(this.style());
     }
 
-    // Coloured otherwise: the style compiled again only when it is not the same
+    // Coloured otherwise: the style compiled again only when its expression is not the same, else its variables set
+    // (as a slider dragged changes the range or the sharpening, quickly enough to follow it)
     setColouring(colouring: Colouring) {
-        const before = JSON.stringify(this.colouring);
+        const before = JSON.stringify(colourStyle(this.colouring).color);
         this.colouring = colouring;
-        if (JSON.stringify(colouring) !== before) this.layer.setStyle(this.style());
+        const style = this.style();
+        if (JSON.stringify(style.color) !== before) this.layer.setStyle(style);
+        else this.layer.updateStyleVariables(style.variables);
     }
 
     remove() {

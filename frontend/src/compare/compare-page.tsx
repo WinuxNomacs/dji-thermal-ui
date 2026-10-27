@@ -90,6 +90,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const [picks, setPicks] = useState<Record<PaneName, Pick | null>>({a: null, b: null});
     const [mapsMade, setMapsMade] = useState(false);
     const [curves, setCurves] = useState<Record<string, number[] | null>>({});      // null: it could not be loaded
+    const [live, setLive] = useState<{where: PaneName | "shared"; changes: Partial<CompareStyle>} | null>(null);
 
     const mapEls = {a: useRef<HTMLDivElement>(null), b: useRef<HTMLDivElement>(null)};
     const body = useRef<HTMLDivElement>(null);
@@ -108,6 +109,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const palettes = panes?.a.info.palettes || [];
     const key = panes ? diffKey(panes) : "";
     const styleOf = (n: PaneName): CompareStyle => locked ? shared! : panes![n].style;
+    // As it is drawn: with the change of a slider being dragged
+    const drawnStyle = (where: PaneName | "shared"): CompareStyle => {
+        const s = where === "shared" ? shared! : styleOf(where);
+        return live && live.where === (where === "shared" || locked ? "shared" : where) ? {...s, ...live.changes} : s;
+    };
 
     const get = <T, >(url: string) => fetch(url, {credentials: "same-origin"}).then((res) => readJson<T>(res));
 
@@ -308,16 +314,17 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         return a.gamma !== 1 || a.equalize ? toneShares(a.gamma) : null;
     }
 
+    // (the curve the style kept asked for, while a slider is dragged)
     const mosaicShares = (n: PaneName) => {
-        const p = panes![n], s = styleOf(n);
-        return sharesOf(s.adjust, s.adjust.equalize ? curves[mosaicCurveUrl(api, p.conv, p.tab, s, p.info.unit)] : null);
+        const p = panes![n], s = drawnStyle(n);
+        return sharesOf(s.adjust, s.adjust.equalize ? curves[mosaicCurveUrl(api, p.conv, p.tab, styleOf(n), p.info.unit)] : null);
     };
 
     // What each pane's map shows: its mosaic's values in its style, or the difference's
     function layerOf(n: PaneName): LayerSpec | null {
         const p = panes![n];
         if (!p.diff) {
-            const t = tabEntry(p), s = styleOf(n);
+            const t = tabEntry(p), s = drawnStyle(n);
             if (!t?.bounds) return null;
             return {key: p.conv + ":" + p.tab,
                     values: {kind: "tiles", url: dataUrl(api, p.conv, p.tab), bounds: t.bounds, maxZoom: (t.maxzoom || 20) + 1,
@@ -338,7 +345,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     function scaleOf(n: PaneName): Scale | null {
         const p = panes![n];
         if (!p.diff) {
-            const s = styleOf(n);
+            const s = drawnStyle(n);
             return {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], shown: s.range,
                     shares: mosaicShares(n), caption: tabLabel(p.tab) + ", " + symbol()};
         }
@@ -404,8 +411,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         setPanes((s) => s && {...s, [n]: {...s[n], diff}, ...(diff ? {[other(n)]: {...s[other(n)], diff: false}} : {})});
     }
 
-    // A palette or range changed: the shared one, a pane's own, or a pane's difference's
-    function changeStyle(where: PaneName | "shared", changes: Partial<CompareStyle> & Partial<DiffStyle>) {
+    // A palette or range changed: the shared one, a pane's own, or a pane's difference's; while a slider is dragged
+    // (done false) it is only drawn
+    function changeStyle(where: PaneName | "shared", changes: Partial<CompareStyle> & Partial<DiffStyle>, done = true) {
+        setLive(done ? null : {where, changes});
+        if (!done) return;
         if (where === "shared") return setShared((s) => s && {...s, ...changes});
         const p = panes![where];
         if (p.diff) setPane(where, {diffStyle: {...p.diffStyle!, ...changes}});
@@ -483,8 +493,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             {p && ownStyle && (p.diff ?
                 <StyleBar key={n + ":diff"} style={p.diffStyle!} palettes={d?.palettes || []} what="the difference"
                           onChange={(c) => changeStyle(n, c)} onAuto={() => auto(n)}/> :
-                <StyleBar key={n} style={p.style} palettes={palettes} what="this mosaic"
-                          onChange={(c) => changeStyle(n, c)} onAuto={() => auto(n)}/>)}
+                <StyleBar key={n} style={drawnStyle(n)} palettes={palettes} what="this mosaic"
+                          onChange={(c, done) => changeStyle(n, c, done)} onAuto={() => auto(n)}/>)}
             {note ? <div class="compare-note message">{note}</div> : null}
             {/* Keyed: what comes and goes above it is never taken for it, which would lose its map */}
             <div class="compare-map" key="map" id={"map-" + n} ref={mapEls[n]}/>
@@ -522,8 +532,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             {/* Keyed: the status line coming and going is never taken for it, which would make its maps again */}
             <div class="compare-main" key="main" hidden={!panes}>
                 {sharedShown && <div id="shared">
-                    <StyleBar key="shared" style={shared!} palettes={palettes} what="both mosaics"
-                              onChange={(c) => changeStyle("shared", c)} onAuto={() => auto("shared")}/>
+                    <StyleBar key="shared" style={drawnStyle("shared")} palettes={palettes} what="both mosaics"
+                              onChange={(c, done) => changeStyle("shared", c, done)} onAuto={() => auto("shared")}/>
                 </div>}
                 <div class="compare-body" ref={body}>
                     {paneView("a")}

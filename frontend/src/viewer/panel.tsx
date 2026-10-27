@@ -9,7 +9,7 @@ import {Histogram} from "../measure/charts";
 import {type Measured, symbol, temp} from "../measure/measure";
 import {colorCss, gradientCss, type Scale} from "./canvas";
 import {type Adjust, EMISSIVITY_RANGE, gammaSlider, type Kind, type MosaicTab, reflectedRange, reportRows, scaleTicks,
-        SHARPEN_MAX, TAB_HINTS} from "./view";
+        SLIDERS, TAB_HINTS} from "./view";
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
 
@@ -100,11 +100,12 @@ export function Controls(p: ControlsProps) {
 interface ImageProps {
     adjust: Adjust; brightness: number; contrast: number; temperature: boolean;
     onSlide: (brightness: number, contrast: number, done: boolean) => void;
-    onGamma: (slider: string, done: boolean) => void; onSharpen: (v: number) => void;
+    onGamma: (slider: string, done: boolean) => void; onSharpen: (v: number, done: boolean) => void;
     onTone: (equalize: boolean) => void; onReset: () => void;
 }
 
-// How the image is drawn: brightness and contrast move the range, gamma and the tone curve share out the colours
+// How the image is drawn: brightness and contrast move the range, gamma and the tone curve share out the colours.
+// While a slider is dragged it reports done false (the image redrawn), and true when it is let go (the change kept).
 export function ImageControls(p: ImageProps) {
     const slide = (e: Event, done: boolean) => {
         const el = e.currentTarget as HTMLInputElement, x = parseFloat(el.value);
@@ -113,22 +114,23 @@ export function ImageControls(p: ImageProps) {
     const a = p.adjust;
     return (<>
         <label class="slider" title="Moves the range down (brighter) or up">Brightness
-            <input type="range" name="brightness" min="-1" max="1" step="0.05" value={p.brightness}
+            <input type="range" name="brightness" {...SLIDERS.brightness} value={p.brightness}
                    onInput={(e) => slide(e, false)} onChange={(e) => slide(e, true)}/>
         </label>
         <label class="slider" title="Narrows the range (more contrast) or widens it">Contrast
-            <input type="range" name="contrast" min="-2" max="2" step="0.1" value={p.contrast}
+            <input type="range" name="contrast" {...SLIDERS.contrast} value={p.contrast}
                    onInput={(e) => slide(e, false)} onChange={(e) => slide(e, true)}/>
         </label>
         <label class="slider" title="Above 1 brightens the cooler part of the range">Gamma
-            <input type="range" name="gamma" min="-2.3" max="2.3" step="0.1" value={gammaSlider(a.gamma)}
+            <input type="range" name="gamma" {...SLIDERS.gamma} value={gammaSlider(a.gamma)}
                    onInput={(e) => p.onGamma(e.currentTarget.value, false)} onChange={(e) => p.onGamma(e.currentTarget.value, true)}/>
             <span class="slider-value">{a.gamma.toFixed(2)}</span>
         </label>
         <label class="slider" title="Brings out edges (an unsharp mask)">Sharpening
-            <input type="range" name="sharpen" min="0" max={SHARPEN_MAX} step="0.5" value={a.sharpen}
-                   onChange={(e) => p.onSharpen(parseFloat(e.currentTarget.value) || 0)}/>
-            <span class="slider-value">{a.sharpen}</span>
+            <input type="range" name="sharpen" {...SLIDERS.sharpen} value={a.sharpen}
+                   onInput={(e) => p.onSharpen(parseFloat(e.currentTarget.value) || 0, false)}
+                   onChange={(e) => p.onSharpen(parseFloat(e.currentTarget.value) || 0, true)}/>
+            <span class="slider-value">{formatNumber(a.sharpen, 1)}</span>
         </label>
         <div class="inline">
             <select aria-label="Tone" value={a.equalize ? "equalize" : "linear"}
