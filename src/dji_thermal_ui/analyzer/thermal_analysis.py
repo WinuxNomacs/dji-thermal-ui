@@ -3,14 +3,20 @@ A thermal dataset's analysis: dji-thermal-cli's check (with the WebODM plan) ove
 a compact record: a row per file, the cameras, the problems found and the plan. Runs on the job runner (jobs.py).
 """
 import dataclasses
+import datetime
 import math
 import os
+import re
 import time
+from collections import Counter
 
 from django.conf import settings
 from django.utils import timezone
 
 PROGRESS_INTERVAL = 1.0     # seconds between progress writes (each also checks the run is still wanted)
+ZONE_STEP = 15              # minutes: time zones' offsets are whole quarter hours, the camera's two clocks are not
+MAX_OFFSET = 14 * 60        # minutes: no time zone is further from UTC
+TIME = re.compile(r'^(\d{4})[:-](\d\d)[:-](\d\d)[ T](\d\d):(\d\d):(\d\d(?:\.\d+)?)')
 
 
 class Canceled(Exception):
@@ -66,6 +72,7 @@ def file_row(report, root):
         'width': cam.get('width'),
         'height': cam.get('height'),
         'time': cam.get('capture_time') or "",
+        'utc': cam.get('utc_at_exposure') or "",
         'lat': rounded(geo.get('latitude'), 8),
         'lon': rounded(geo.get('longitude'), 8),
         'alt': rounded(geo.get('relative_altitude_m'), 2),
@@ -194,3 +201,35 @@ def flight_area(analysis):
     if len(hull) < 3:
         return None
     return [list(p) for p in hull + hull[:1]]
+
+
+def recorded_time(text):
+    """A time as a frame records it ("2026:10:22 16:34:57", or "2026-10-22T21:35:16.504449"), without its zone; None
+    when it is not one"""
+    m = TIME.match(str(text or ""))
+    if not m:
+        return None
+    try:
+        whole = datetime.datetime(*(int(g) for g in m.groups()[:5]), int(float(m.group(6))))
+    except ValueError:
+        return None
+    return whole + datetime.timedelta(seconds=float(m.group(6)) % 1)
+
+
+def flight_zone(analysis):
+    """The time zone a dataset was flown in, from its frames' two clocks: the local capture time (EXIF
+    DateTimeOriginal) against DJI's UTCAtExposure, rounded to a quarter hour, the most frames' offset. {'offset':
+    minutes east of UTC} or, when it is not known, {'offset': None, 'reason': why}"""
+    rows = [r for r in (analysis or {}).get('files') or [] if r.get('kind') == 'thermal']
+    if rows and not any('utc' in r for r in rows):
+        return {'offset': None, 'reason': "Analyze the dataset again to find the time zone it was flown in"}
+    offsets = Counter()
+    for r in rows:
+        local, utc = recorded_time(r.get('time')), recorded_time(r.get('utc'))
+        if local and utc:
+            minutes = round((local - utc).total_seconds() / 60 / ZONE_STEP) * ZONE_STEP
+            if abs(minutes) <= MAX_OFFSET:
+                offsets[minutes] += 1
+    if not offsets:
+        return {'offset': None, 'reason': "The images do not record the time zone they were taken in"}
+    return {'offset': offsets.most_common(1)[0][0]}

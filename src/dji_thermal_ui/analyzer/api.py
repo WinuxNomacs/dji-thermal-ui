@@ -39,6 +39,10 @@ UNIT_KEY = 'unit'
 DEFAULT_UNIT = 'F'
 THEME_KEY = 'theme'
 THEMES = ('system', 'light', 'dark')     # system: the computer's own light or dark
+LOCALE_KEY = 'locale'
+# The locales dates and times can be shown in besides the computer's own (""), named by the browser
+LOCALES = ('en-US', 'en-GB', 'en-CA', 'en-AU', 'fr-CA', 'fr-FR', 'de-DE', 'es-ES', 'es-MX', 'it-IT', 'nl-NL',
+           'pt-BR', 'pl-PL', 'sv-SE', 'ja-JP', 'ko-KR', 'zh-CN')
 IMAGE_EXTENSIONS = ('.jpg', '.jpeg')
 MAX_FOLDER_DEPTH = 4    # subfolders kept from an uploaded folder (e.g. thermal/, 100MEDIA/)
 MAX_NAME_LENGTH = 255
@@ -200,6 +204,7 @@ def detail(dataset):
     out = summary(dataset)
     out['project_name'] = dataset.project.name
     out['analysis'] = dataset.analysis or {}
+    out['flight_zone'] = thermal_analysis.flight_zone(dataset.analysis)
     out['conversions'] = [conversion_summary(check_stale(c)) for c in dataset.conversions.all()]
     # What the conversions' settings are compared against, to list what each one changed
     out['defaults'] = defaults()
@@ -255,6 +260,12 @@ def app_theme():
     """The pages' colours (the preferences'), the computer's own when none is saved"""
     theme = Preferences.load().data.get(THEME_KEY)
     return theme if theme in THEMES else THEMES[0]
+
+
+def app_locale():
+    """The locale dates and times are shown in (the preferences'), "" for the computer's own"""
+    locale = Preferences.load().data.get(LOCALE_KEY)
+    return locale if locale in LOCALES else ""
 
 
 def defaults():
@@ -370,6 +381,23 @@ class ProjectDetailView(DatasetView):
         get_project(pk).delete()
         Project.default()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class NavigationView(DatasetView):
+    def get(self, request):
+        """What the navigation pane lists: the projects, their datasets and the datasets' conversions, with what each
+        conversion has to show (its frames once converted, its mosaics once built)"""
+        Project.default()
+        projects = Project.objects.prefetch_related('datasets__conversions')
+        return Response({'projects': [{
+            'id': p.id, 'name': p.name,
+            'datasets': [{
+                'id': d.id, 'name': d.name,
+                'conversions': [{'id': c.id, 'name': c.name, 'frames': c.status == 'ready',
+                                 'mosaics': c.status == 'ready' and c.mosaic_status == 'ready'}
+                                for c in d.conversions.all()],
+            } for d in p.datasets.all()],
+        } for p in projects]})
 
 
 class PlacesView(DatasetView):
@@ -654,6 +682,8 @@ class PreferencesView(DatasetView):
             'units': list(thermal_conversion.UNITS),
             'theme': app_theme(),
             'themes': list(THEMES),
+            'locale': app_locale(),
+            'locales': list(LOCALES),
             'products': thermal_conversion.products(),
             'palettes': thermal_conversion.palettes(),
             'limits': thermal_conversion.LIMITS,
@@ -661,13 +691,14 @@ class PreferencesView(DatasetView):
 
     def put(self, request):
         """Saves settings as the defaults for new conversions, and/or the unit temperatures are shown in, and/or the
-        pages' theme, and/or the Mapbox token (null forgets it)"""
+        pages' theme, and/or the locale of dates and times ("": the computer's), and/or the Mapbox token (null forgets
+        it)"""
         out = {}
-        for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES)):
+        for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES), (LOCALE_KEY, ("",) + LOCALES)):
             if key in request.data:
                 value = request.data.get(key)
                 if value not in choices:
-                    raise ValidationError({key: "One of {}".format(", ".join(choices))})
+                    raise ValidationError({key: "One of {}".format(", ".join(c or '""' for c in choices))})
                 save_preference(key, value)
                 out[key] = value
         if basemaps.TOKEN_KEY in request.data:
@@ -799,6 +830,7 @@ def viewer(conversion):
     out = conversion_summary(conversion)
     out.update({'dataset_name': conversion.dataset.name, 'unit': m.get('unit') or (conversion.options or {}).get('unit'),
                 'flown': [times[0], times[-1]] if times else [],
+                'flight_zone': thermal_analysis.flight_zone(conversion.dataset.analysis),
                 'stripped': bool(m.get('stripped')), 'frames': m.get('frames') or [], 'tabs': tabs,
                 'kinds': {kind: {key: v for key, v in k.items() if key not in ('raster',)} for kind, k in kinds.items()},
                 'palettes': palettes, 'default_palette': default_palette(conversion, palettes) if kinds else None,
@@ -1472,6 +1504,7 @@ class FramesView(DatasetView):
             'dataset_name': conversion.dataset.name,
             'unit': (conversion.options or {}).get('unit') or 'C',
             'normalized': bool((conversion.options or {}).get('normalize')),
+            'flight_zone': thermal_analysis.flight_zone(conversion.dataset.analysis),
             'frames': [dict(f, recorded={k: rows[f['path']].get(k) for k in recorded})
                        for f in thermal_measure.frame_list(conversion)],
             'palettes': palettes, 'default_palette': default_palette(conversion, palettes),
