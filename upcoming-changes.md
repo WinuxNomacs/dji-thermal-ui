@@ -642,4 +642,7 @@ Requested 2026-10-27 (`new.md`):
   page it replaces the Picked point panel. Tests: `tests/test_api_sources.py`, `tests/test_flight.py`,
   `frontend/tests/sources.test.tsx`. Checked live in headless Chromium, light and dark, on the user's data (one frame
   and the rebuild note) and on a copy with its mosaics rebuilt (42 frames for a spot, 112 for a box, the outline in
-  each). No console errors and no failed requests.
+  each). No console errors and no failed requests. Released as 0.5.0 with E1–E3 and C1: the release checks found
+  check_dist and the smoke check still expecting the datasets page E1 replaced, fixed on their own branch. Release
+  checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 198 pytest with the flight tests, 206
+  Vitest, ESLint) and on Windows from WSL (196 pytest from a fresh clone, smoke).
