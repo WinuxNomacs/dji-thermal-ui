@@ -1,11 +1,12 @@
 // The mosaic viewer: a conversion's mosaics on a map (as converted, harmonized, the source frames and the view
 // angles), with their palette, range and image adjustments, the values under the cursor, measuring with the isotherm
-// and the thermal correction, the saved measurements, and the mosaic as a PNG; kept up to date while the mosaics are
-// built. The view (tab, palette, range, adjustments, the frame outlined) is kept in the URL.
+// and the thermal correction, the saved measurements, the source frames of a spot or an area in a window, and the
+// mosaic as a PNG; kept up to date while the mosaics are built. The view (tab, palette, range, adjustments, the frame outlined) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import GeoJSON from "ol/format/GeoJSON";
 import type OlMap from "ol/Map";
 import type VectorSource from "ol/source/Vector";
+import CircleStyle from "ol/style/Circle";
 import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
 import {getDistance} from "ol/sphere";
@@ -15,11 +16,13 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, Grid, Image, Save, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, Grid, Image, Images, Save, Stop} from "../components/icons";
 import {Drawing, drawingKey} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
-        type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
+        type Shape, symbol, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
+import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
+import {SourcesWindow} from "../sources/window";
 import {type Colouring, isothermRange} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer} from "../map/map";
@@ -74,6 +77,11 @@ const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
 const fromCoords = (c: Coords): Coordinate => lonLatToMap(c);
 const WORLD = [-180, -85, 180, 85];
 const FOOTPRINT = new OlStyle({stroke: new Stroke({color: "rgba(255, 255, 255, 0.9)", width: 2})});
+const SOURCES_SHAPE = new OlStyle({stroke: new Stroke({color: "#ffea00", width: 2, lineDash: [6, 4]}),
+                                   image: new CircleStyle({radius: 7, stroke: new Stroke({color: "#ffea00", width: 2})})});
+// The tabs whose spots and areas open their source frames, and the tools that draw them
+const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
+const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
 
 // A tab's palette and range before any is chosen
 function defaultStyle(v: Mosaics, tab: string): Style {
@@ -81,6 +89,10 @@ function defaultStyle(v: Mosaics, tab: string): Style {
     return {palette: group === "view_angle" ? "viridis" : v.default_palette || "",
             range: defaultRange(t, group === "temperature" ? v.unit : undefined), adjust: defaultAdjust()};
 }
+
+// The source frames asked for a spot or an area, on a tab: res undefined while they are asked, null when they could
+// not be
+interface Asked {geometry: Geometry; tab: string; res?: Sources | null; error?: string}
 
 // The same shape measured afresh (on another tab, or with another isotherm or correction)
 const fresh = (c: Current | null, target: string): Current | null => c && {geometry: c.geometry, target, shape: c.shape};
@@ -124,6 +136,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [editing, setEditing] = useState<number | null>(null);
     const [saveName, setSaveName] = useState("");
     const [measureError, setMeasureError] = useState("");
+    const [sources, setSources] = useState<Asked | null>(null);
+    // What the drawing tool on draws for: a measurement, or the source frames
+    const [drawFor, setDrawFor] = useState<"measure" | "sources">("measure");
 
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -134,8 +149,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const legend = useRef<HTMLDivElement | null>(null);
     const drawing = useRef<Drawing | null>(null);
     const footprint = useRef<VectorSource | null>(null);
+    const sourcesShape = useRef<VectorSource | null>(null);
     // Counters: only the answer to the latest question is shown
-    const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0});
+    const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0});
 
     const ready = isReady(v);
     const unit = v?.unit;
@@ -152,8 +168,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const colouring = colouringOf(style);
 
     // What the map's handlers (set up once) read: this render's values
-    const now = useRef({tab, params, current, pinned});
-    now.current = {tab, params, current, pinned};
+    const now = useRef({tab, params, current, pinned, drawFor});
+    now.current = {tab, params, current, pinned, drawFor};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -218,6 +234,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const made = mosaicMap(mapEl.current, basemaps), m = map.current = made.map;
         legend.current = made.legend;
         footprint.current = vectorLayer(m, 5);
+        sourcesShape.current = vectorLayer(m, 9);
         layer.current = new ThermalLayer(m, values, colouring);
         fitBounds(m, t.bounds || WORLD);
 
@@ -235,6 +252,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         drawing.current = new Drawing({
             map: m, toCoords, fromCoords, distance: (a, b) => getDistance(a, b),
             onDone: (geometry, shape) => {
+                if (now.current.drawFor === "sources") {
+                    openSources(geometry);
+                    syncTools();
+                    return;
+                }
                 setCurrent({geometry, target: now.current.tab!, shape});
                 setIndex(null);
                 syncTools();
@@ -244,12 +266,14 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 const points = now.current.current?.res?.result?.profile?.points;
                 showIndex(coords && points ? nearestIndex(points, coords) : null, points);
             },
-            // A click with no tool on keeps the values there (and its frame's link) until the next click
+            // A click with no tool on keeps the values there (and its frame's link) until the next click; on the
+            // Source frame tab it opens the frames that saw it too
             onClick: (at) => {
                 setPinned(true);
                 now.current.pinned = true;
                 clearTimeout(hover.current);
                 readout(at, true);
+                if (now.current.tab === "source_frame") openSources({type: "Point", coordinates: toCoords(at)});
             },
         });
         loadSaved();
@@ -311,6 +335,21 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         else d.clear();
     }, [current, tab, ready]);
 
+    // The source frames asked again on the tab chosen (its spot's temperature is its own), and their spot or area on
+    // the map while the window is open
+    useEffect(() => {
+        if (sources && tab && tab !== sources.tab && SOURCES_TABS.includes(tab)) openSources(sources.geometry);
+    }, [tab]);
+    useEffect(() => {
+        const f = sourcesShape.current;
+        if (!f) return;
+        f.clear();
+        if (!sources) return;
+        const feature = new GeoJSON().readFeature({type: "Feature", geometry: sources.geometry, properties: {}},
+                                                  {featureProjection: "EPSG:3857"});
+        (Array.isArray(feature) ? feature : [feature]).forEach((x) => { x.setStyle(SOURCES_SHAPE); f.addFeature(x); });
+    }, [sources && JSON.stringify(sources.geometry)]);
+
     // The colour scale on the map
     const scale = scaleShown();
     useEffect(() => {
@@ -339,6 +378,39 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 if (pin) outline(r.ok && r.data.valid && r.data.frame || null);
             })
             .catch(() => { if (n === asked.current.point) setPoint(null); });
+    }
+
+    // The frames that saw a spot or an area of the mosaic shown (or, on the View angle tab, of the as converted one)
+    async function openSources(geometry: Geometry) {
+        const n = ++asked.current.sources, at = SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : "as_converted";
+        setSources({geometry, tab: at});
+        // The spot's temperature corrected as the mosaic is
+        const q = extraQuery(now.current.params);
+        try {
+            const r = await readJson<Sources>(await sendJson(sourcesUrl(api, id, at) + (q ? "?" + q.slice(1) : ""),
+                                                             "POST", {geometry}));
+            if (n !== asked.current.sources) return;
+            setSources({geometry, tab: at, res: r.ok ? r.data : null, error: r.ok ? "" : errorText(r.data, "Could not find the frames.")});
+        } catch {
+            if (n === asked.current.sources) setSources({geometry, tab: at, res: null});
+        }
+    }
+
+    function closeSources() {
+        asked.current.sources++;
+        setSources(null);
+    }
+
+    // A drawing tool put on (or away), for a measurement or the source frames
+    function pickTool(x: ReturnType<Drawing["tool"]>, purpose: "measure" | "sources") {
+        if (x) {
+            setDrawFor(purpose);
+            now.current.drawFor = purpose;
+            drawing.current?.start(x);
+        } else {
+            drawing.current?.stop();
+        }
+        syncTools();
     }
 
     // The frame's footprint outlined on the mosaic, what it contributes (null: none); fit: the map moves to it
@@ -405,6 +477,23 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (tab === "source_frame") return {colors: v.frame_colors || [], index: true};
         return {colors: (v.palettes || []).find((p) => p.key === s.palette)?.color_map || [], range: s.range,
                 shares: shares(s.adjust), sharpen: s.adjust.sharpen, isotherm: temperature ? isothermRange(isoValue) : null};
+    }
+
+    // How the source frames are coloured: as the temperature mosaics are (without the isotherm), whichever tab is shown
+    function frameStyle(): Style | null {
+        return v && tab ? (isTemperatureTab(tab) ? style : styles.temperature || defaultStyle(v, "as_converted")) : null;
+    }
+
+    function frameColouring(): Colouring {
+        const s = frameStyle();
+        return s ? {colors: (v?.palettes || []).find((p) => p.key === s.palette)?.color_map || [], range: s.range,
+                    shares: shares(s.adjust), sharpen: s.adjust.sharpen} : {colors: []};
+    }
+
+    function frameCurve(frame: string): string {
+        const s = frameStyle();
+        return s && s.adjust.equalize ? base + "/frame/curve?frame=" + encodeURIComponent(frame) + "&rescale=" + s.range[0] +
+            "," + s.range[1] + adjustQuery(s.adjust) : "";
     }
 
     // The colour scale as the tab's palette and range now are, or null on a tab without one
@@ -670,6 +759,13 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                            onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
                                            onReset={() => auto(true)}/>
                         </Section>}
+                        {SOURCES_TABS.includes(tab!) && <Section name="sources" title="Source frames">
+                            <Toolbar tool={drawFor === "sources" ? tools.tool : null} count={tools.count} tools={SOURCES_TOOLS}
+                                     label="Source frames tools" onTool={(x) => pickTool(x, "sources")}
+                                     onFinish={() => { drawing.current?.finish(); syncTools(); }}/>
+                            <p class="message">{tab === "source_frame" ? "Click the mosaic, or draw a spot or an area, " :
+                                "Draw a spot or an area "}to see every frame that saw it.</p>
+                        </Section>}
                         <Section name="cursor" title="Under the cursor">
                             <div class="readout" id="readout">
                                 <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
@@ -677,8 +773,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         </Section>
                         {temperature && <>
                             <Section name="measure" title="Measure">
-                                <Toolbar tool={tools.tool} count={tools.count}
-                                         onTool={(x) => { if (x) drawing.current?.start(x); else drawing.current?.stop(); syncTools(); }}
+                                <Toolbar tool={drawFor === "measure" ? tools.tool : null} count={tools.count}
+                                         onTool={(x) => pickTool(x, "measure")}
                                          onFinish={() => { drawing.current?.finish(); syncTools(); }}/>
                                 <div id="result">
                                     {!res ? <p class="message">Choose a tool and draw on the mosaic.</p> :
@@ -689,6 +785,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                                     ", isotherm " + isothermText((res.saved.values as {isotherm?: string}).isotherm, unit)}</div>}
                                             <ResultView res={res.res} unit={unit} shape={res.shape} index={index}
                                                         onIndex={(i) => showIndex(i, res.res?.result?.profile?.points)}/>
+                                            {hasSources(res.geometry) &&
+                                                <button type="button" class="button default small" name="sources"
+                                                        title="The frames that saw it, in a window"
+                                                        onClick={() => openSources(res.geometry)}><Images/> Source frames</button>}
                                         </>}
                                 </div>
                                 {res && !res.saved && res.res?.result?.valid_pixels ? <div class="measure-save" id="save">
@@ -730,6 +830,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     </div>}
                 </div>
             </div>
+            {sources && <SourcesWindow name="viewer" anchor={mapEl.current} onClose={closeSources} groups={[{
+                title: "", res: sources.res, error: sources.error, unit, colouring: frameColouring(),
+                values: (f) => base + "/frame/data?frame=" + encodeURIComponent(f),
+                curve: (f) => frameCurve(f), href: (f) => frameUrl + encodeURIComponent(f)}]}/>}
         </div>
     );
 }

@@ -1,12 +1,9 @@
-// The compare page's parts: a palette and range (or the difference's palette and reach), the values of both mosaics
-// under the cursor, and the source frames of a point picked
-import {useEffect, useRef, useState} from "preact/hooks";
-import {Image} from "../components/icons";
-import {readJson} from "../core/api";
+// The compare page's parts: a palette and range (or the difference's palette and reach), and the values of both
+// mosaics under the cursor
+import {useState} from "preact/hooks";
 import {type Maybe} from "../core/format";
 import {convertTemp, userUnit} from "../core/units";
 import {signed, symbol, temp} from "../measure/measure";
-import {type Colouring, colourValues, readValues} from "../map/colour";
 import {type Palette, type Point} from "../viewer/panel";
 import {gammaSlider, parseRange, SHARPEN_MAX, sliderGamma} from "../viewer/view";
 import {type CompareStyle, type DiffStyle} from "./compare";
@@ -86,74 +83,4 @@ export function DifferenceReadout({a, b, aUnit, bUnit}: {a: Maybe<Point>; b: May
     return (<table class="table values"><tbody>
         {rows.map(([k, v]) => <tr key={k}><th>{k}</th><td>{v}</td></tr>)}
     </tbody></table>);
-}
-
-// A source frame of the point picked: its values coloured as its pane's are (curve: the URL of its tone curve with
-// equalization, else ""), with the pixel marked, its temperature and a link to it
-export interface PickedFrame {
-    title: string; point: Maybe<Point>; unit: unknown; values: string; colouring: Colouring; curve: string; href: string;
-}
-
-const get = (url: string) => fetch(url, {credentials: "same-origin"});
-
-function FrameImage({f, alt, pixel}: {f: PickedFrame; alt: string; pixel: Maybe<[number, number]>}) {
-    const [drawn, setDrawn] = useState<{values: Float32Array; width: number; height: number} | null>(null);
-    const [curve, setCurve] = useState<number[] | null>(null);
-    const canvas = useRef<HTMLCanvasElement>(null);
-    const size = drawn && [drawn.width, drawn.height];
-
-    useEffect(() => {
-        let live = true;
-        setDrawn(null);
-        get(f.values).then(readValues).then((d) => { if (live) setDrawn(d); }, () => { /* the frame is not drawn then */ });
-        return () => { live = false; };
-    }, [f.values]);
-    useEffect(() => {
-        let live = true;
-        setCurve(null);
-        if (f.curve) get(f.curve).then((res) => readJson<{shares?: number[]}>(res))
-            .then((r) => { if (live && r.ok) setCurve(r.data.shares || null); }, () => { /* toned by gamma alone then */ });
-        return () => { live = false; };
-    }, [f.curve]);
-    useEffect(() => {
-        const ctx = drawn && canvas.current?.getContext("2d");
-        if (!drawn || !ctx) return;
-        const rgba = colourValues(drawn.values, drawn.width, drawn.height, {...f.colouring, shares: curve || f.colouring.shares});
-        ctx.putImageData(new ImageData(rgba as Uint8ClampedArray<ArrayBuffer>, drawn.width, drawn.height), 0, 0);
-    }, [drawn, curve, JSON.stringify(f.colouring)]);
-
-    return (<div class="compare-frame-image">
-        <canvas ref={canvas} role="img" aria-label={alt} data-values={f.values} width={size ? size[0] : 0}
-                height={size ? size[1] : 0}/>
-        {pixel && size && size[0] > 0 && size[1] > 0 && <span class="compare-mark" style={{
-            left: ((pixel[0] + 0.5) / size[0] * 100).toFixed(2) + "%", top: ((pixel[1] + 0.5) / size[1] * 100).toFixed(2) + "%"}}/>}
-    </div>);
-}
-
-function Frame({f}: {f: PickedFrame}) {
-    const p = f.point;
-    let body;
-    if (!p || !p.valid) body = <p class="message">{p && p.reason === "outside_raster" ? "Outside the mosaic." : "No data here."}</p>;
-    else if (!p.frame) body = <p class="message">No frame is known for this point.</p>;
-    else {
-        body = (<>
-            <FrameImage f={f} alt={p.frame} pixel={p.frame_pixel}/>
-            <table class="table values"><tbody>
-                <tr><th>Temperature</th><td>{p.temperature === null || p.temperature === undefined ? "no data" : temp(p.temperature, f.unit)}</td></tr>
-                <tr><th>Frame</th><td>{p.frame}</td></tr>
-            </tbody></table>
-            {!p.frame_pixel && <p class="message">The pixel is not marked: build this conversion's mosaics again to know it.</p>}
-            <a class="button default small" href={f.href}><Image/> Open this frame</a>
-        </>);
-    }
-    return <div class="compare-frame"><div class="compare-frame-title">{f.title}</div>{body}</div>;
-}
-
-// The point picked in a pane: its mosaic's source frame, or A's and B's for the difference
-export function Picked({frames, onClose}: {frames: PickedFrame[]; onClose: () => void}) {
-    return (<div class="compare-pick">
-        <div class="compare-pick-head"><strong>Picked point</strong>
-            <button type="button" class="close" name="close" title="Close" aria-label="Close" onClick={onClose}>×</button></div>
-        <div class="compare-frames">{frames.map((f, i) => <Frame key={i} f={f}/>)}</div>
-    </div>);
 }

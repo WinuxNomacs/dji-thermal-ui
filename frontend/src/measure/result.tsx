@@ -15,13 +15,15 @@ interface ToolbarProps {
     count: number;                      // the points drawn so far
     onTool: (t: Tool | null) => void;   // a tool picked (null: the one on put away)
     onFinish: () => void;
+    tools?: [Tool, string][];           // the tools offered: all of them unless given
+    label?: string;
 }
 
 // The tools, with the one on marked and its hint, and Finish for a line or an area
-export function Toolbar({tool, count, onTool, onFinish}: ToolbarProps) {
+export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "Measuring tools"}: ToolbarProps) {
     return (<div class="measure-toolbar">
-        <div class="button-group tools" role="group" aria-label="Measuring tools">
-            {TOOLS.map(([t, label]) => {
+        <div class="button-group tools" role="group" aria-label={label}>
+            {tools.map(([t, label]) => {
                 const ToolIcon = TOOL_ICONS[t];
                 return (<button key={t} type="button" class={"button default small" + (tool === t ? " active" : "")}
                                 data-tool={t} aria-pressed={tool === t} title={label}

@@ -25,9 +25,16 @@ All notable changes are recorded here. The format follows
 - A flight's capture times are shown in the time where it was flown, labelled with its time zone, found from each
   frame's local capture time and DJI's UTC time of exposure (now kept by the analysis). A dataset analyzed before
   says to analyze it again; one whose images do not record both times says the time zone is unknown.
+- Source frames: a window over the viewer showing every frame that saw a spot or an area of the mosaic, the one the
+  mosaic used first, with its time and view angle, and the spot marked or the area outlined in the frame. It opens
+  from the Source frames tool, a click on the Source frame tab, or a spot or area measurement's "Source frames"
+  button; it is moved by its title, and ← and → step through the frames. The API is
+  `POST …/mosaics/<tab>/sources`. Mosaics built before list only the frames they used, and say to build them again.
 
 ### Changed
 
+- The compare page's Picked point panel is replaced by the source frames window, with A's and B's frames for a
+  difference.
 - Compare lists the conversions of the project first, and names the project of the others.
 - dji-thermal-cli 1.5.0: a mosaic built now keeps how each of its frames saw the ground, for the source frames
   pop-out to come. Mosaics built before keep working.
