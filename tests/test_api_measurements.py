@@ -474,3 +474,21 @@ def test_a_normalized_conversions_frames_are_measured_as_it_converted_them(api):
     assert (info['offset'], info['offset_known']) == (0.75, True)
     assert info['stats']['min'] == pytest.approx(20 - 0.75, abs=1e-4)
     assert info['stats']['max'] == pytest.approx(28 - 0.75, abs=1e-4)
+
+
+def test_a_frame_is_sent_as_its_temperatures_measured_again_with_the_changes_asked(api):
+    from dji_thermal_ui.analyzer import api as api_module
+    c = analysed(converted(api)[0])
+    rel = '100MEDIA/DJI_0002_T.JPG'
+    url = "{}/{}/frame/data".format(CONVERSIONS, c.id)
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
+        res = api.get(url, {'frame': rel})
+        assert (res.status_code, res['Content-Type']) == (200, 'application/octet-stream')
+        values = np.frombuffer(res.content, dtype='<f4').reshape(8, 10)
+        # Row by row, with no data where dji-thermal-cli marked none (its top left pixel)
+        assert values[0, 0] == np.float32(api_module.NO_DATA)
+        assert (values[0, 1], values[1, 9]) == (21, 29)
+        warmer = np.frombuffer(api.get(url, {'frame': rel, 'emissivity': '0.95'}).content, dtype='<f4').reshape(8, 10)
+        assert warmer[1, 9] > values[1, 9]
+        assert api.get(url, {'frame': rel, 'emissivity': 'x'}).status_code == 400
+        assert api.get(url, {'frame': 'nope.JPG'}).status_code == 400

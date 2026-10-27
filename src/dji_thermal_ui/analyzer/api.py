@@ -545,6 +545,11 @@ HISTOGRAM_FILE = 'histogram-{}.json'    # a mosaic tab's histogram for the equal
 # A tile's unsharp mask, in its pixels: far out, a raster pixel is less than one; close in, many
 MIN_SHARPEN_SIGMA = 0.5
 MAX_SHARPEN_SIGMA = 16.0
+# The values the browser colours (data tiles): float32, this where there is no data (WebGL cannot test for NaN), with
+# DATA_GUTTER pixels around a mosaic's tile for the browser's sharpening to read past its edges
+DATA_TILE_SIZE = 256
+DATA_GUTTER = 8
+NO_DATA = -1e30
 
 
 @lru_cache(maxsize=None)
@@ -705,6 +710,52 @@ def sharpening_reach(src, x, y, z, tilesize):
     return sigma, int(math.ceil(3 * sigma))
 
 
+def read_tile(src, x, y, z, band, margin=0, tilesize=256):
+    """A tile of one band of a mosaic (float64) and where it has data, with margin pixels around it, or 404. A
+    buffered read samples its pixels a little differently, so the tile's own are as an unbuffered read gives them."""
+    from rio_tiler.errors import TileOutsideBounds
+    from .raster.tiler import ZOOM_EXTRA_LEVELS, get_zoom_safe
+    if not src.tile_exists(tile_x=x, tile_y=y, tile_z=z):
+        raise NotFound()
+    minzoom, maxzoom = get_zoom_safe(src)
+    if z < minzoom - ZOOM_EXTRA_LEVELS or z > maxzoom + ZOOM_EXTRA_LEVELS:
+        raise NotFound()
+    read = dict(indexes=(band,), tilesize=tilesize, resampling_method='nearest', reproject_method='nearest')
+    try:
+        tile = src.tile(x, y, z, **read)
+        data, valid = np.asarray(tile.data[0], dtype=np.float64), tile.mask > 0
+        if margin:
+            around = src.tile(x, y, z, buffer=margin, **read)
+            inner = (slice(margin, -margin), slice(margin, -margin))
+            data, valid = np.asarray(around.data[0], dtype=np.float64), around.mask > 0
+            data[inner], valid[inner] = tile.data[0], tile.mask > 0
+    except TileOutsideBounds:
+        raise NotFound() from None
+    return data, valid
+
+
+def data_response(values, valid, etag, cache='private, no-cache'):
+    """Values as the browser colours them: float32 little-endian, row by row, NO_DATA where there are none"""
+    from django.http import HttpResponse
+    valid = valid & np.isfinite(values)
+    res = HttpResponse(np.where(valid, values, NO_DATA).astype('<f4').tobytes(), content_type='application/octet-stream')
+    if etag:
+        res['ETag'] = etag
+    res['Cache-Control'] = cache
+    return res
+
+
+def mosaic_values(conversion, tab, band, data, valid, correction):
+    """A mosaic tile's values as drawn: temperatures without dji-thermal-cli's no-data marker, corrected"""
+    valid = valid & np.isfinite(data)
+    if band != 1:
+        return data, valid
+    unit = mosaic_unit(conversion)
+    valid &= data > thermal_mosaics.low_value(unit)
+    data = thermal_measure.corrected(np.where(valid, data, np.nan), unit, correction)
+    return data, valid & np.isfinite(data)
+
+
 def mosaic_raster(conversion, tab):
     """(path, band) a tab reads, or 404"""
     found = thermal_mosaics.tab_raster(conversion.data_dir(), conversion.mosaics or {}, tab)
@@ -815,6 +866,37 @@ class MosaicTileView(DatasetView):
                                                     margin)
         content = render_tile(levels, mask, driver, colormap=cmap, **options)
         return tile_response(content, ext, etag)
+
+
+def mosaic_etag(request, conversion, tab, path, band):
+    """A mosaic tile's ETag: its raster, the palettes kept beside it and the baseline a correction is relative to
+    (which the dataset's analysis can change)"""
+    from .raster.tiler import raster_etag
+    palettes_file = os.path.join(conversion.data_dir(), thermal_mosaics.VIEWER_DIR, thermal_mosaics.PALETTES_FILE)
+    baseline = thermal_measure.mosaic_baseline(conversion, tab) if band == 1 else ''
+    return raster_etag(request, path, viewer_code_fingerprint(),
+                       os.stat(palettes_file).st_mtime_ns if os.path.isfile(palettes_file) else '',
+                       json.dumps(baseline, sort_keys=True))
+
+
+class MosaicDataView(DatasetView):
+    def get(self, request, pk, tab, z, x, y):
+        """
+        A data tile of a mosaic tab (see data_response), DATA_TILE_SIZE pixels across with DATA_GUTTER around it:
+        temperatures (corrected with emissivity and reflected_temp: see mosaic_correction), view angles, or the
+        index of each pixel's source frame. Values are never interpolated (nearest pixel).
+        """
+        from .raster.tiler import not_modified
+        conversion = get_conversion(pk)
+        path, band = mosaic_raster(conversion, tab)
+        etag = mosaic_etag(request, conversion, tab, path, band)
+        cached = not_modified(request, etag)
+        if cached is not None:
+            return cached
+        correction = mosaic_correction(request, conversion, tab) if band == 1 else None
+        with thermal_mosaics.open_raster(path) as src:
+            data, valid = read_tile(src, int(x), int(y), int(z), band, DATA_GUTTER, DATA_TILE_SIZE)
+        return data_response(*mosaic_values(conversion, tab, band, data, valid, correction), etag)
 
 
 class MosaicCurveView(DatasetView):
@@ -1019,6 +1101,35 @@ class MosaicDifferenceTileView(DatasetView):
         levels, cmap = thermal_measure.colorize(data, valid, cmap, low, high)
         content = render_tile(levels, mask, driver, colormap=cmap, **options)
         return tile_response(content, ext, etag)
+
+
+class MosaicDifferenceDataView(DatasetView):
+    def get(self, request, pk, tab, z, x, y):
+        """A data tile (see data_response) of the difference between a temperature tab and another conversion's (b,
+        b_tab: see compared_with), as MosaicDifferenceTileView takes it, DATA_TILE_SIZE pixels across"""
+        from rio_tiler.errors import TileOutsideBounds
+        from .raster.tiler import not_modified, raster_etag
+        conversion = get_conversion(pk)
+        path = temperature_raster(conversion, tab)
+        other, other_tab, other_path = compared_with(request, conversion)
+        z, x, y = int(z), int(x), int(y)
+        st = os.stat(other_path)
+        etag = raster_etag(request, path, viewer_code_fingerprint(), other_path, st.st_ino, st.st_size,
+                           st.st_mtime_ns, mosaic_unit(other))
+        cached = not_modified(request, etag)
+        if cached is not None:
+            return cached
+        with thermal_mosaics.open_raster(path) as src:
+            a, a_valid = read_tile(src, x, y, z, 1, tilesize=DATA_TILE_SIZE)
+        with thermal_mosaics.open_raster(other_path) as src:
+            try:
+                b = src.tile(x, y, z, indexes=(1,), tilesize=DATA_TILE_SIZE, resampling_method='nearest',
+                             reproject_method='nearest')
+                b_data, b_valid = b.data[0], b.mask > 0
+            except TileOutsideBounds:
+                b_data, b_valid = np.zeros_like(a), np.zeros(a.shape, dtype=bool)
+        data = difference(a, a_valid, mosaic_unit(conversion), b_data, b_valid, mosaic_unit(other))
+        return data_response(data, np.isfinite(data), etag)
 
 
 class MosaicDifferenceView(DatasetView):
@@ -1409,6 +1520,16 @@ class FrameImageView(DatasetView):
         response = HttpResponse(content, content_type="image/{}".format(ext))
         response['Cache-Control'] = 'private, max-age=600'
         return response
+
+
+class FrameDataView(DatasetView):
+    def get(self, request, pk):
+        """A frame's temperatures (see data_response; its width and height are the frame's), measured again with the
+        parameters given"""
+        conversion = get_conversion(pk)
+        rel = request.query_params.get('frame') or ""
+        values = frame_measured(conversion, rel, changes_of(request.query_params))['values']
+        return data_response(values, np.isfinite(values), None, 'private, max-age=600')
 
 
 class FrameCurveView(DatasetView):

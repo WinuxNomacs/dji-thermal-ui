@@ -408,3 +408,95 @@ def test_two_mosaics_are_compared_as_their_difference_in_the_first_ones_unit(api
     assert api.get(tiles.format('source_frame'), {'b': a.id, 'rescale': '0,1'}).status_code == 404
     assert api.get(difference.format('as_converted'), {'b': a.id, 'b_tab': 'view_angle'}).status_code == 404
     assert api.get(difference.format('as_converted'), {'b': 99999}).status_code == 404
+
+
+def data_tile(res, size):
+    """A data tile's values (size x size), NaN where it has none"""
+    import numpy as np
+    from dji_thermal_ui.analyzer import api as api_module
+    assert (res.status_code, res['Content-Type']) == (200, 'application/octet-stream')
+    values = np.frombuffer(res.content, dtype='<f4').reshape(size, size).astype(np.float64)
+    return np.where(values == np.float32(api_module.NO_DATA), np.nan, values)
+
+
+def test_mosaics_are_sent_as_data_tiles_with_a_gutter_for_the_browser_to_colour(api):
+    import numpy as np
+    from dji_thermal_ui.analyzer import api as api_module
+    c, _ = converted(api)
+    size = api_module.DATA_TILE_SIZE + 2 * api_module.DATA_GUTTER
+    g = api_module.DATA_GUTTER
+    (z, x, y), _ = mosaic_tile()
+    data = "{}/{}/mosaics/{{}}/data/{}/{}/{}".format(CONVERSIONS, c.id, z, x, y)
+
+    # Temperatures, with no data around the mosaic, in its corner and where dji-thermal-cli marked none
+    res = api.get(data.format('as_converted'))
+    t = data_tile(res, size)
+    shown = t[np.isfinite(t)]
+    assert shown.size and np.isnan(t).any()
+    assert shown.min() >= 10 and shown.max() <= 30
+    # The tile's own pixels are what an unbuffered read gives (nearest pixel)
+    raster = os.path.join(c.data_dir(), c.mosaics['kinds']['as_converted']['raster'])
+    with mosaics.open_raster(raster) as src:
+        plain = src.tile(x, y, z, indexes=(1,), tilesize=256, resampling_method='nearest', reproject_method='nearest')
+    expected = np.where((plain.mask > 0) & (plain.data[0] > -272), plain.data[0], np.nan)
+    np.testing.assert_allclose(t[g:-g, g:-g], expected, rtol=1e-6)
+
+    # The other tabs: each pixel's source frame, and its view angle
+    frames = data_tile(api.get(data.format('source_frame')), size)
+    assert set(np.unique(frames[np.isfinite(frames)])) == {0.0, 1.0}
+    angles = data_tile(api.get(data.format('view_angle')), size)
+    assert set(np.unique(angles[np.isfinite(angles)])) == {4.0}
+
+    # Corrected for the emissivity asked: a lower one makes what is warmer than the reflected temperature warmer
+    # still; a bad one is refused
+    warmer = data_tile(api.get(data.format('as_converted'), {'emissivity': '0.8'}), size)
+    assert np.array_equal(np.isnan(warmer), np.isnan(t))
+    assert np.nanmax(warmer) > np.nanmax(t)
+    assert api.get(data.format('as_converted'), {'emissivity': '2'}).status_code == 400
+
+    # Cached until it changes, and only where there is a mosaic
+    assert api.get(data.format('as_converted'), HTTP_IF_NONE_MATCH=res['ETag']).status_code == 304
+    assert api.get(data.format('as_converted'), {'emissivity': '0.8'}, HTTP_IF_NONE_MATCH=res['ETag']).status_code == 200
+    assert api.get(data.format('nope')).status_code == 404
+    assert api.get("{}/{}/mosaics/as_converted/data/5/1/1".format(CONVERSIONS, c.id)).status_code == 404
+
+
+def test_a_data_tiles_gutter_holds_its_neighbours_pixels(api):
+    import numpy as np
+    from dji_thermal_ui.analyzer import api as api_module
+    c, _ = converted(api)
+    size, g = api_module.DATA_TILE_SIZE + 2 * api_module.DATA_GUTTER, api_module.DATA_GUTTER
+    # Zoomed in so far that the mosaic spans tiles: the gutter on the east is the next tile's west edge
+    (z, x, y), _ = mosaic_tile(24)
+    data = "{}/{}/mosaics/view_angle/data/{}/{{}}/{}".format(CONVERSIONS, c.id, z, y)
+    here, east = data_tile(api.get(data.format(x)), size), data_tile(api.get(data.format(x + 1)), size)
+    assert np.isfinite(here[g:-g, -g:]).any()
+    assert np.array_equal(np.isfinite(here[g:-g, -g:]), np.isfinite(east[g:-g, g:2 * g]))
+
+
+def test_a_difference_is_sent_as_data_tiles_in_the_first_mosaics_unit(api):
+    import numpy as np
+    from dji_thermal_ui.analyzer import api as api_module
+    a, _ = converted(api)
+    b, _ = converted(api, {'unit': 'F'})
+    (z, x, y), _ = mosaic_tile()
+    data = "{}/{}/mosaics/{{}}/difference/data/{}/{}/{}".format(CONVERSIONS, a.id, z, x, y)
+    size = api_module.DATA_TILE_SIZE
+
+    same = data_tile(api.get(data.format('as_converted'), {'b': a.id}), size)
+    assert np.isfinite(same).any()
+    assert (same[np.isfinite(same)] == 0).all()
+    # B, 50 °F (10 °C) everywhere, over the east half of A: A - B in °C there, no data elsewhere
+    write_flat_mosaic(b, 50.0, 1.6)
+    res = api.get(data.format('as_converted'), {'b': b.id})
+    shifted = data_tile(res, size)
+    d = shifted[np.isfinite(shifted)]
+    assert 0 < d.size < np.isfinite(same).sum() * 0.6
+    assert d.min() == pytest.approx(mosaic_temperature(32) - 10, abs=0.4)
+    assert d.max() == pytest.approx(20, abs=0.4)
+
+    assert api.get(data.format('as_converted'), {'b': b.id}, HTTP_IF_NONE_MATCH=res['ETag']).status_code == 304
+    write_flat_mosaic(b, 50.0, 10)
+    assert api.get(data.format('as_converted'), {'b': b.id}, HTTP_IF_NONE_MATCH=res['ETag']).status_code == 200
+    assert api.get(data.format('as_converted'), {'b': 'x'}).status_code == 400
+    assert api.get(data.format('source_frame'), {'b': a.id}).status_code == 404
