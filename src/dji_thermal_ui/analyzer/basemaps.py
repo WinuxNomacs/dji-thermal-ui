@@ -86,7 +86,9 @@ def mapbox_state():
     return {'token': token, 'token_source': source, 'env_token': source == 'env' or env_token() is not None}
 
 
-def page_basemaps():
-    """The basemaps a map page offers: the settings' and Mapbox's (shown in the switch once it has a token)"""
-    mapbox = dict(MAPBOX, logo=static("vendor/mapbox/mapbox-logo.svg"), **mapbox_state())
+def page_basemaps(api):
+    """The basemaps a map page offers: the settings' and Mapbox's (shown in the switch once it has a token), with
+    where its token is saved (api: the API's URL)"""
+    mapbox = dict(MAPBOX, logo=static("vendor/mapbox/mapbox-logo.svg"), preferences=api + "preferences",
+                  **mapbox_state())
     return list(settings.BASEMAPS) + [mapbox]

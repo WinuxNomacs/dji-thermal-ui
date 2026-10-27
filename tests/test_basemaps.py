@@ -90,7 +90,7 @@ def test_the_map_pages_get_the_basemaps_with_mapbox_and_its_token(api, env_file)
         assert listed[0]['tilemap'].endswith("/World_Imagery/MapServer/tilemap")
         mapbox = listed[-1]
         assert (mapbox['type'], mapbox['token'], mapbox['token_source']) == ("mapbox", None, None)
-        assert mapbox['logo'] == "/static/vendor/mapbox/mapbox-logo.svg"
+        assert (mapbox['logo'], mapbox['preferences']) == ("/static/vendor/mapbox/mapbox-logo.svg", "/api/preferences")
     api.put(PREFERENCES, {'mapbox_token': TOKEN}, format='json')
     assert page_basemaps(c.id)[-1]['token'] == TOKEN
 
