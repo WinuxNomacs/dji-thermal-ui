@@ -210,8 +210,8 @@ Planned 2026-10-27.
 - **Map:** OpenLayers 10.11.0 (released 2026-10-04) replaces Leaflet on the viewer, compare and frame pages: the
   basemaps (XYZ and WMS) and their switch, the scale bar, the legend, drawing measurements, the outlines and the
   PNG export. `ol/source/Google` later serves the Map Tiles (Basemaps).
-- **Data tiles, not COGs:** the server sends float32 tiles (raw little-endian, NaN where there is no data, with
-  the same ETags) of what is drawn today: a mosaic tab's values read with rio-tiler (nearest pixel), temperatures
+- **Data tiles, not COGs:** the server sends float32 tiles (raw little-endian, -1e30 where there is no data, as
+  WebGL cannot test for NaN, with the same ETags) of what is drawn today: a mosaic tab's values read with rio-tiler (nearest pixel), temperatures
   corrected for the emissivity and reflected temperature asked; the difference of two conversions; a frame's
   temperatures as measured (with its changes). So the mosaics stay as dji-thermal-cli writes them (strip-laid,
   five float32 bands, no overviews) and need no change there.
@@ -230,6 +230,10 @@ Planned 2026-10-27.
   has no WebGL); the data tiles in pytest (shape, gutter, no data, correction, difference, ETag). The look is
   checked in headless Chromium (software WebGL), compared side by side with 0.2.0's server-drawn tiles.
 - **Live check:** A3's walk-through on the 220 M4T frames, in light and in dark, and the Windows check.
+  Done 2026-10-27: the viewer, compare (side by side, linked, and the difference of the as converted and harmonized
+  mosaics) and frame pages draw in headless Chromium with software WebGL, with no errors; hovering, the isotherm,
+  sharpening and the frame locator work. The look matches 0.2.0's, Esri's missing tiles included (see Basemaps).
+  pytest passes on Windows from a clone of the branch.
 - **Release:** 0.3.0.
 
 ## Basemaps
