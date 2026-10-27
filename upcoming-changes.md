@@ -9,11 +9,9 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
-   on the viewer and the compare page; the Source frame tab opens it on a click. (Findings)
-2. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+1. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
    severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-3. **C4: findings on the compare page.** (Findings)
+2. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
@@ -368,6 +366,11 @@ Requested 2026-10-27 (`new.md`) and put before the reports at the user's request
 
 ### C2: the source frames pop-out
 
+- **Built** (2026-10-27): see Done.
+- **Decided with the user (2026-10-27):** besides the tool, a saved spot, box, circle or area measurement has a
+  "Source frames" button, so a shape drawn once need not be drawn again; 0.5.0 is released after C2, as planned.
+- **The frame is shown as converted** (the frame page's values) on every tab, coloured with the tab's palette and
+  range, as the compare page's picked point does today.
 - **A "Source frames" tool** on the viewer's As converted, Harmonized and Source frame tabs: a spot (a click) or an
   area (a polygon, as the Area tool draws). On the Source frame tab a click opens it directly, as asked.
 - **The window:** on the page, beside the map (not a browser pop-up), movable and closable. It shows the whole frame,
@@ -630,3 +633,13 @@ Requested 2026-10-27 (`new.md`):
   `read_frame_models` and `FrameModels`; its model reproduces the mosaic's own sampling for 99.6% of pixels on the
   220 M4T frames), and pinned here in `pyproject.toml` and `uv.lock`. Test: `tests/test_flight.py` reads a mosaic's
   frame models back and finds its centre in a frame.
+- **C2: the source frames pop-out** (2026-10-27). `POST …/mosaics/<tab>/sources` (`analyzer/thermal_sources.py`,
+  `MosaicSourcesView` in `analyzer/api.py`): a spot's frames with its pixel in each, or an area's with the share each
+  saw, the share the mosaic took from it and the area's outline in its pixels, from the frame models; a mosaic built
+  before 1.5.0 lists only the frames it used. The window (`frontend/src/sources/`): moved by its title and kept
+  there, ←/→ and Esc, the frame coloured as the mosaic, a list for each mosaic of a difference. On the viewer: a
+  Source frames tool, a click on the Source frame tab, and a button under a spot or area measurement; on the compare
+  page it replaces the Picked point panel. Tests: `tests/test_api_sources.py`, `tests/test_flight.py`,
+  `frontend/tests/sources.test.tsx`. Checked live in headless Chromium, light and dark, on the user's data (one frame
+  and the rebuild note) and on a copy with its mosaics rebuilt (42 frames for a spot, 112 for a box, the outline in
+  each). No console errors and no failed requests.

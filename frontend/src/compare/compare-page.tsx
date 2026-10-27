@@ -1,6 +1,6 @@
 // Two mosaics side by side: each pane shows a conversion's temperature mosaic, or the difference of pane A's and pane
 // B's (A − B), with pan and zoom linked, the cursor marked in the other pane, one palette and range shared (or each
-// pane's own), the split between the panes moved, and the source frame of a point picked in a pane, below its map.
+// pane's own), the split between the panes moved, and the source frames of a point picked in a pane, in a window.
 // The view (the mosaics, the difference, the split) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
@@ -14,7 +14,7 @@ import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
-import {readJson} from "../core/api";
+import {readJson, sendJson} from "../core/api";
 import {type Maybe} from "../core/format";
 import {ArrowLeft, Crosshairs, Link, Lock, Unlink, Unlock} from "../components/icons";
 import {symbol} from "../measure/measure";
@@ -28,7 +28,9 @@ import {type Mosaics} from "../viewer/viewer-page";
 import {autoRange, autoReach, clampSplit, type Comparable, type CompareStyle, compareQuery, type DiffInfo, differenceDataUrl,
         differenceUrl, type DiffStyle, firstTab, frameCurveUrl, frameDataUrl, mosaicCurveUrl, mosaicGroups, NO_OVERLAP,
         type PaneName, rangeIn, reachIn, readCompare, SPLIT_LIMITS, SPLIT_STEP} from "./compare";
-import {DifferenceReadout, Picked, type PickedFrame, StyleBar} from "./pane";
+import {type Sources, sourcesUrl} from "../sources/sources";
+import {type SourceGroup, SourcesWindow} from "../sources/window";
+import {DifferenceReadout, StyleBar} from "./pane";
 
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
 const CURSOR = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2})})});
@@ -41,8 +43,9 @@ const NAMES: PaneName[] = ["a", "b"];
 interface PaneState {conv: number; tab: string; info: Mosaics; diff: boolean; style: CompareStyle; diffStyle: DiffStyle | null}
 type Panes = Record<PaneName, PaneState>;
 
-// A point picked in a pane, and what each mosaic it reads has there
-interface Pick {at: Coordinate; frames: {pane: PaneName; conv: number; unit: unknown; point: Maybe<Point>}[]}
+// A point picked in a pane, and the frames that saw it in each mosaic it reads (res undefined while they are asked,
+// null when they could not be)
+interface Pick {at: Coordinate; mosaics: {pane: PaneName; conv: number; unit: unknown; res?: Sources | null}[]}
 
 // A pane's map and what is on it: the cursor of the other pane, and the point picked
 interface PaneMap {
@@ -219,6 +222,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         });
     }
 
+    function sourcesOf(p: PaneState, at: Coordinate): Promise<Sources | null> {
+        return sendJson(sourcesUrl(api, p.conv, p.tab), "POST", {geometry: {type: "Point", coordinates: mapToLonLat(at)}})
+            .then((res) => readJson<Sources>(res)).then((r) => r.ok ? r.data : null, () => null);
+    }
+
     // The source frames at a point of the pane: its mosaic's, or A's and B's for the difference
     function pick(n: PaneName, at: Coordinate) {
         const p = now.current.panes, pm = maps.current[n];
@@ -228,10 +236,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         pm.marker = pointFeature(at);
         pm.marker.setStyle(PICKED);
         pm.marks.addFeature(pm.marker);
-        Promise.all(which.map((x) => pointOf(p[x], at))).then((points) => {
+        const mosaics = which.map((x) => ({pane: x, conv: p[x].conv, unit: p[x].info.unit}));
+        setPicks((s) => ({...s, [n]: {at, mosaics}}));
+        Promise.all(which.map((x) => sourcesOf(p[x], at))).then((found) => {
             if (asking_ !== asked.current[n]) return;
-            setPicks((s) => ({...s, [n]: {at, frames: points.map((point, i) => ({
-                pane: which[i], conv: p[which[i]].conv, unit: p[which[i]].info.unit, point}))}}));
+            setPicks((s) => ({...s, [n]: {at, mosaics: mosaics.map((m, i) => ({...m, res: found[i]}))}}));
         });
     }
 
@@ -243,8 +252,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         setPicks((s) => ({...s, [n]: null}));
     }
 
-    // A pane's map sized again when the picked point opens or closes below it, or the split moves
-    useEffect(() => { NAMES.forEach((n) => maps.current[n]?.map.updateSize()); }, [split, !!picks.a, !!picks.b, mapsMade]);
+    // A pane's map sized again when the split moves
+    useEffect(() => { NAMES.forEach((n) => maps.current[n]?.map.updateSize()); }, [split, mapsMade]);
 
     // The points picked asked again when what the panes show changes
     const shownKey = panes ? key + ":" + panes.a.diff + ":" + panes.b.diff : "";
@@ -434,15 +443,16 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const conversion = (conv: number) => list.find((c) => c.id === conv);
     const frameUrl = (conv: number) => publicUrl + "conversion/" + conv + "/frame?frame=";
 
-    function pickedFrames(n: PaneName): PickedFrame[] {
-        const p = picks[n]!;
-        return p.frames.map((f, i) => {
-            const c = conversion(f.conv), frame = f.point?.frame || "", s = styleOf(f.pane);
-            return {title: (panes![n].diff ? (i ? "B" : "A") + " · " : "") + (c ? c.dataset_name + " · " + c.name : ""),
-                    point: f.point, unit: f.unit, href: frameUrl(f.conv) + encodeURIComponent(frame),
-                    values: frame ? frameDataUrl(api, f.conv, frame) : "",
-                    curve: frame && s.adjust.equalize ? frameCurveUrl(api, f.conv, frame, s, f.unit) : "",
-                    colouring: {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], range: rangeIn(s.range, f.unit),
+    // The frames that saw the point picked in a pane, coloured as each mosaic is
+    function pickedGroups(n: PaneName): SourceGroup[] {
+        return picks[n]!.mosaics.map((m, i) => {
+            const c = conversion(m.conv), s = styleOf(m.pane);
+            // As the pane's mosaic is named: its conversion and tab
+            return {title: (panes![n].diff ? (i ? "B" : "A") + " · " : "") + (c ? c.name + " · " : "") + tabLabel(panes![m.pane].tab),
+                    res: m.res, unit: m.unit, href: (f) => frameUrl(m.conv) + encodeURIComponent(f),
+                    values: (f) => frameDataUrl(api, m.conv, f),
+                    curve: (f) => s.adjust.equalize ? frameCurveUrl(api, m.conv, f, s, m.unit) : "",
+                    colouring: {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], range: rangeIn(s.range, m.unit),
                                 shares: sharesOf(s.adjust, null), sharpen: s.adjust.sharpen}};
         });
     }
@@ -467,8 +477,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     <option value="diff">Difference (A − B)</option>
                 </select>
                 <button type="button" name="pick" class={"button default small" + (picking[n] ? " active" : "")}
-                        aria-pressed={picking[n]} title="Click the map to see the source frame of a point"
-                        onClick={() => setPicking((s) => ({...s, [n]: !s[n]}))}><Crosshairs/> Pick a point</button>
+                        aria-pressed={picking[n]} title="Click the map to see every frame that saw a point"
+                        onClick={() => setPicking((s) => ({...s, [n]: !s[n]}))}><Crosshairs/> Source frames</button>
             </div>}
             {p && ownStyle && (p.diff ?
                 <StyleBar key={n + ":diff"} style={p.diffStyle!} palettes={d?.palettes || []} what="the difference"
@@ -483,7 +493,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     p.diff ? <DifferenceReadout a={under.a} b={under.b} aUnit={panes!.a.info.unit} bUnit={panes!.b.info.unit}/> :
                     <Readout point={under[n]} unit={p.info.unit} frameUrl={frameUrl(p.conv)} pinned={false} onFollow={() => undefined}/>}
             </div>}
-            {p && picks[n] && <Picked frames={pickedFrames(n)} onClose={() => closePick(n)}/>}
+            {p && picks[n] && <SourcesWindow name={"compare-" + n} anchor={mapEls[n].current} groups={pickedGroups(n)}
+                                             onClose={() => closePick(n)}/>}
         </div>);
     }
 

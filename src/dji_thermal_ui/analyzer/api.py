@@ -994,45 +994,79 @@ class MosaicCurveView(DatasetView):
         return Response({'shares': thermal_measure.curve_shares(low, high, adjust, curve)})
 
 
+def mosaic_point(request, conversion, tab, lon, lat):
+    """A mosaic tab's values at a point (lon, lat): temperature (corrected as the tiles are), source frame, view angle
+    and the frame's pixel it was read from (column, row; none in a mosaic built before dji-thermal-cli 1.4.0)"""
+    from .raster.tiler import point_values
+
+    path, _band = mosaic_raster(conversion, tab)
+    m = conversion.mosaics or {}
+    unit = m.get('unit') or 'C'
+    out = {'coordinates': [lon, lat], 'valid': False, 'unit': unit,
+           'temperature': None, 'frame': None, 'frame_index': None, 'view_angle': None, 'frame_pixel': None}
+    with thermal_mosaics.open_raster(path) as src:
+        values = point_values(src, lon, lat, indexes=(1, 2, 3, 4, 5) if src.dataset.count >= 5 else (1, 2, 3))
+    if values is None:
+        out['reason'] = 'outside_raster'
+        return out
+    temperature, frame, angle = values[:3]
+    if temperature is not None and temperature > thermal_mosaics.low_value(unit):
+        kind = dict((t[0], t[1]) for t in thermal_mosaics.TABS).get(tab)
+        out['temperature'] = float(thermal_measure.corrected(np.array([temperature]), unit,
+                                                             mosaic_correction(request, conversion, kind))[0])
+    if frame is not None:
+        frames = m.get('frames') or []
+        out['frame_index'] = int(round(frame))
+        out['frame'] = frames[out['frame_index']] if 0 <= out['frame_index'] < len(frames) else None
+        if len(values) == 5 and None not in values[3:]:
+            out['frame_pixel'] = [int(values[3]), int(values[4])]
+    out['view_angle'] = angle
+    out['valid'] = out['temperature'] is not None or out['frame'] is not None
+    if not out['valid']:
+        out['reason'] = 'nodata'
+    return out
+
+
 class MosaicPointView(DatasetView):
     def get(self, request, pk, tab):
-        """A mosaic tab's values at a point (lon, lat): temperature (corrected as the tiles are), source frame, view
-        angle and the frame's pixel it was read from (column, row; none in a mosaic built before dji-thermal-cli 1.4.0)"""
-        from .raster.tiler import point_values
-
+        """A mosaic tab's values at a point (see mosaic_point)"""
         conversion = get_conversion(pk)
-        path, _band = mosaic_raster(conversion, tab)
+        mosaic_raster(conversion, tab)
         try:
             lon, lat = float(request.query_params.get('lon')), float(request.query_params.get('lat'))
         except (TypeError, ValueError):
             raise ValidationError({'error': "lon and lat are required"}) from None
         if not (-180 <= lon <= 180 and -90 <= lat <= 90):
             raise ValidationError({'error': "Coordinates out of range"})
+        return Response(mosaic_point(request, conversion, tab, lon, lat))
 
-        m = conversion.mosaics or {}
-        unit = m.get('unit') or 'C'
-        out = {'coordinates': [lon, lat], 'valid': False, 'unit': unit,
-               'temperature': None, 'frame': None, 'frame_index': None, 'view_angle': None, 'frame_pixel': None}
-        with thermal_mosaics.open_raster(path) as src:
-            values = point_values(src, lon, lat, indexes=(1, 2, 3, 4, 5) if src.dataset.count >= 5 else (1, 2, 3))
-        if values is None:
-            out['reason'] = 'outside_raster'
-            return Response(out)
-        temperature, frame, angle = values[:3]
-        if temperature is not None and temperature > thermal_mosaics.low_value(unit):
-            kind = dict((t[0], t[1]) for t in thermal_mosaics.TABS).get(tab)
-            out['temperature'] = float(thermal_measure.corrected(np.array([temperature]), unit,
-                                                                 mosaic_correction(request, conversion, kind))[0])
-        if frame is not None:
-            frames = m.get('frames') or []
-            out['frame_index'] = int(round(frame))
-            out['frame'] = frames[out['frame_index']] if 0 <= out['frame_index'] < len(frames) else None
-            if len(values) == 5 and None not in values[3:]:
-                out['frame_pixel'] = [int(values[3]), int(values[4])]
-        out['view_angle'] = angle
-        out['valid'] = out['temperature'] is not None or out['frame'] is not None
-        if not out['valid']:
-            out['reason'] = 'nodata'
+
+class MosaicSourcesView(DatasetView):
+    def post(self, request, pk, tab):
+        """
+        The frames that saw a spot or an area of a mosaic tab (geometry: a GeoJSON Point or Polygon, lon/lat), the ones
+        the mosaic used first (see thermal_sources.sources), each with when it was taken; models: whether the mosaic
+        knows every frame that saw it (built with dji-thermal-cli 1.5.0 or later), else it lists only those it used.
+        A spot also gets the mosaic's values there (point, as MosaicPointView's).
+        """
+        from . import thermal_sources
+
+        conversion = get_conversion(pk)
+        path, _band = mosaic_raster(conversion, tab)
+        try:
+            geometry = thermal_measure.check_geometry(request.data.get('geometry'))
+        except thermal_measure.MeasureError as e:
+            raise ValidationError({'error': str(e)}) from None
+        if geometry['type'] not in ('Point', 'Polygon'):
+            raise ValidationError({'error': "The geometry is a spot or an area"})
+        models = thermal_sources.read_models(path)
+        out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models)
+        times = {r['path']: r.get('time') or "" for r in thermal_measure.frame_rows(conversion)}
+        for f in out['frames']:
+            f['time'] = times.get(f['frame'], "")
+        out.update(kind=geometry['type'], geometry=geometry, models=models is not None)
+        if geometry['type'] == 'Point':
+            out['point'] = mosaic_point(request, conversion, tab, *geometry['coordinates'])
         return Response(out)
 
 

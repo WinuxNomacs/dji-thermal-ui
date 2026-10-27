@@ -20,6 +20,10 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
   and on single frames. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
+- **Source frames:** a spot or an area of a mosaic opens a window with every frame that saw it, the one the mosaic
+  used first, each with its time and view angle and the spot marked or the area outlined in it. Draw one with the
+  Source frames tool, click the Source frame tab, or open a measurement's; on the compare page, pick a spot. Mosaics
+  built before 0.5.0 list only the frames they used: build them again to list every frame.
 - **Compare:** two conversions side by side, or their difference, from any dataset, the project's listed first.
 - **Navigation:** a pane on the left of every page lists the projects, their datasets and each conversion's
   mosaics, frames and compare page. Each level folds, and the whole pane hides; over a narrow screen it opens on

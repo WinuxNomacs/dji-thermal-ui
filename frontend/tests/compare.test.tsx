@@ -4,7 +4,7 @@ import {setUserUnit} from "../src/core/units";
 import {autoRange, autoReach, type Comparable, compareQuery, differenceDataUrl, firstTab, frameCurveUrl, frameDataUrl, mosaicGroups,
         reachIn, readCompare} from "../src/compare/compare";
 import {ComparePage} from "../src/compare/compare-page";
-import {DifferenceReadout, Picked} from "../src/compare/pane";
+import {DifferenceReadout} from "../src/compare/pane";
 import {type Mosaics} from "../src/viewer/viewer-page";
 import {calls, click, key, server, ticks} from "./helpers";
 
@@ -110,23 +110,6 @@ describe("the compare parts", () => {
         expect(byId("root").textContent).toBe("A20.00 °CB21.11 °CA − B-1.11 °C");
         render(<DifferenceReadout a={{valid: false, reason: "outside_raster"}} b={null} aUnit="C" bUnit="F"/>, byId("root"));
         expect(byId("root").textContent).toBe("Aoutside the mosaicBno dataA − Bno data");
-    });
-
-    it("show a picked point's frame with a link to it, or why there is none", () => {
-        const close = vi.fn();
-        render(<Picked onClose={close} frames={[
-            {title: "A · Roof · Nadir", unit: "C", values: "/values", curve: "", colouring: {colors: []},
-             href: "/conversion/9/frame?frame=a.JPG", point: {valid: true, temperature: 21.5, frame: "a.JPG", frame_pixel: [3, 4]}},
-            {title: "B · Field · Other", unit: "F", values: "", curve: "", colouring: {colors: []}, href: "",
-             point: {valid: true, temperature: 70, frame: null}},
-        ]}/>, byId("root"));
-        const root = byId("root");
-        expect(root.querySelector("canvas")!.dataset.values).toBe("/values");
-        expect(root.querySelector("a")!.getAttribute("href")).toBe("/conversion/9/frame?frame=a.JPG");
-        expect(root.textContent).toContain("21.50 °C");
-        expect(root.textContent).toContain("No frame is known for this point.");
-        click(root.querySelector('button[name="close"]')!);
-        expect(close).toHaveBeenCalled();
     });
 });
 

@@ -34,7 +34,7 @@ def test_a_folder_dataset_is_analyzed_converted_and_made_into_mosaics_on_the_run
                                                                                    tmp_path):
     from dji_thermal_cli import api
 
-    from dji_thermal_ui.analyzer import thermal_analysis, thermal_conversion
+    from dji_thermal_ui.analyzer import thermal_analysis, thermal_conversion, thermal_sources
     from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset
 
     images = tmp_path / "images"
@@ -67,3 +67,19 @@ def test_a_folder_dataset_is_analyzed_converted_and_made_into_mosaics_on_the_run
         models = api.read_frame_models(os.path.join(conversion.data_dir(), m["raster"]))
         assert models is not None and len(models.files) == 12
         assert models.covering((west + east) / 2, (south + north) / 2)
+        # The pop-out's frames there: the one the mosaic used first, at the pixel the mosaic read, then the others
+        # that saw it; and around it, each frame's share of the area and its outline in the frame
+        raster = os.path.join(conversion.data_dir(), m["raster"])
+        lon, lat = (west + east) / 2, (south + north) / 2
+        spot = thermal_sources.sources(raster, {"type": "Point", "coordinates": [lon, lat]},
+                                       conversion.mosaics["frames"], models)
+        assert spot["frames"][0]["used"] and len(spot["frames"]) > 1
+        assert not any(f["used"] for f in spot["frames"][1:])
+        dx, dy = (east - west) / 20, (north - south) / 20
+        square = [[lon - dx, lat - dy], [lon + dx, lat - dy], [lon + dx, lat + dy], [lon - dx, lat + dy],
+                  [lon - dx, lat - dy]]
+        area = thermal_sources.sources(raster, {"type": "Polygon", "coordinates": [square]},
+                                       conversion.mosaics["frames"], models)
+        used = [f for f in area["frames"] if f["used"]]
+        assert used and sum(f["used_share"] for f in used) == pytest.approx(1, abs=0.05)
+        assert all(f["outline"] and 0 < f["share"] <= 1 for f in area["frames"])

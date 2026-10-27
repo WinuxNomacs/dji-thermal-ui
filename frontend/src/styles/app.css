@@ -629,19 +629,50 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .compare-map { height: calc(100vh - 300px); min-height: 320px; border-radius: var(--radius); }
 .compare-pane.picking .compare-map { cursor: crosshair; }
 .compare-readout { min-height: 3em; margin-top: 4px; font-size: 13px; }
-.compare-pick {
-    resize: vertical; overflow: auto; height: 320px; min-height: 120px; margin-top: 6px; padding: 6px;
-    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: 13px;
+/* The source frames pop-out: a window over the page, moved by its title */
+.sources-window {
+    position: fixed; z-index: 1020; display: flex; flex-direction: column; width: min(420px, calc(100vw - 32px));
+    max-height: calc(100vh - 16px); background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); font-size: 13px;
 }
-.compare-pick-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.compare-frames { display: flex; flex-direction: column; gap: 10px; }
-.compare-frame-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
-.compare-frame-image { position: relative; display: inline-block; max-width: 100%; }
-.compare-frame-image canvas { display: block; max-width: 100%; image-rendering: pixelated; }
-/* The frame's pixel: a ring on its centre */
-.compare-mark {
+.sources-window:focus { outline: none; }
+.sources-window:focus-visible { box-shadow: var(--shadow), 0 0 0 2px var(--accent); }
+.sources-head {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: move; user-select: none;
+    border-bottom: 1px solid var(--border); touch-action: none;
+}
+.sources-what { color: var(--muted); flex: 1; }
+.sources-groups { display: flex; margin: 6px 8px 0; }
+.sources-groups button { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sources-groups button.active { background: var(--accent-soft); color: var(--text); }
+.sources-body { overflow: auto; padding: 8px; }
+.sources-body > p { margin: 6px 0; }
+.sources-nav { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.sources-nav a { margin-left: auto; }
+.sources-count { color: var(--muted); min-width: 4.5em; text-align: center; }
+.sources-list { list-style: none; margin: 6px 0 0; padding: 0; max-height: 200px; overflow: auto;
+                border: 1px solid var(--border); border-radius: var(--radius); }
+.sources-list li + li { border-top: 1px solid var(--border); }
+.sources-list button {
+    display: block; width: 100%; padding: 4px 8px; border: 0; background: none; color: var(--text); font: inherit;
+    text-align: left; cursor: pointer;
+}
+.sources-list button:hover { background: var(--surface-2); }
+.sources-list button.active { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
+.sources-frame-name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-weight: 600; }
+.sources-frame-name .chip { white-space: nowrap; }
+.sources-frame-details { display: block; color: var(--muted); font-size: 12px; }
+/* A frame drawn whole, with a spot's pixel (a ring on its centre) or an area's outline over it */
+.frame-image { position: relative; display: block; max-width: 100%; }
+.frame-image canvas { display: block; width: 100%; image-rendering: pixelated; }
+.frame-mark {
     position: absolute; width: 17px; height: 17px; margin: -8px 0 0 -8px; pointer-events: none;
     border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #000;
+}
+.frame-outline { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.frame-outline polygon {
+    fill: rgba(255, 234, 0, .12); stroke: #ffea00; stroke-width: 2px; stroke-dasharray: 6 4;
+    vector-effect: non-scaling-stroke; stroke-linejoin: round;
 }
 
 /* A phone: the panels under the maps, the panes one above the other */
