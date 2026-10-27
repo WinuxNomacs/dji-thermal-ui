@@ -6,6 +6,12 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The pages are rebuilt in TypeScript and Preact, with Leaflet 1.9.4, and built with Vite. Bootstrap and Font
+  Awesome are gone: the app has its own stylesheet.
+- Light and dark pages, or the computer's own, chosen in the header.
+
 ## [0.1.0] - 2026-10-25
 
 The first release: the Thermal Analyzer from LuxODM's `thermal-analyzer` plugin (0.15.0), as a standalone app.

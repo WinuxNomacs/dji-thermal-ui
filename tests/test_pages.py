@@ -77,7 +77,7 @@ def test_a_rebuilt_page_loads_its_built_script_with_its_settings(client):
     assert '<script type="module" src="/static/dist/assets/dataset-f6.js"></script>' in html
 
 
-def test_every_page_loads_only_its_build(client):
+def test_every_page_loads_only_its_build_and_the_icon(client):
     c = conversion(dataset())
     pages = {"/": "datasets-a1", "/dataset/%d" % c.dataset.id: "dataset-f6", "/conversion/%d" % c.id: "viewer-a7",
              "/conversion/%d/frame" % c.id: "frame-c9", "/conversion/%d/compare" % c.id: "compare-e1"}
@@ -85,4 +85,4 @@ def test_every_page_loads_only_its_build(client):
         urls = re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode())
         # The tests' build is the stub manifest (tests/settings.py)
         assert "/static/dist/assets/%s.js" % script in urls, page
-        assert all(u.startswith("/static/dist/") for u in urls), (page, urls)
+        assert all(u.startswith("/static/dist/") for u in urls if u != "/static/favicon.svg"), (page, urls)

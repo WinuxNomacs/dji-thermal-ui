@@ -1,8 +1,8 @@
 """Check built distributions hold only what should ship: python scripts/check_dist.py dist/
 
 Every file in the wheel and sdist must match an allowlist, so nothing local (editor or assistant settings, test data,
-the Jest tests, node_modules, build leftovers) can be published by accident. Also checks both carry the templates, the
-migrations, the scripts and the vendored libraries with their licences.
+the front end's sources and tests, node_modules, build leftovers) can be published by accident. Also checks both carry
+the templates, the migrations and the built front end (npm run build) with the licences of what is bundled into it.
 """
 
 from __future__ import annotations
@@ -15,14 +15,11 @@ from pathlib import Path
 
 PY = r"dji_thermal_ui/(?:[a-z_0-9]+/)*[a-z_0-9]+\.py"
 TEMPLATES = r"dji_thermal_ui/templates/[a-z_]+\.html"
-STATIC = r"dji_thermal_ui/static/[a-z_]+\.(?:js|css)"
-VENDOR = (r"dji_thermal_ui/static/vendor/(?:"
-          r"bootstrap/(?:LICENSE|css/bootstrap\.min\.css)"
-          r"|fontawesome/(?:LICENSE\.txt|css/all\.min\.css|webfonts/fa-(?:regular-400|solid-900)\.woff2)"
-          r"|leaflet/(?:LICENSE|leaflet\.(?:js|css)|images/[a-z0-9-]+\.png))")
-PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}|{VENDOR}"
-VENDOR_LICENSES = r"src/dji_thermal_ui/static/vendor/(?:bootstrap/LICENSE|fontawesome/LICENSE\.txt|leaflet/LICENSE)"
-LICENSES = rf"LICENSE|{VENDOR_LICENSES}"
+STATIC = (r"dji_thermal_ui/static/(?:favicon\.svg"
+          r"|dist/(?:manifest\.json|THIRD-PARTY-LICENSES\.txt|assets/[A-Za-z0-9_.-]+\.(?:js|css|png|svg|woff2)))")
+PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}"
+BUNDLED_LICENSES = r"src/dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES\.txt"
+LICENSES = rf"LICENSE|{BUNDLED_LICENSES}"
 WHEEL = re.compile(rf"(?:{PACKAGE})|dji_thermal_ui-[^/]+\.dist-info/(?:METADATA|WHEEL|RECORD|entry_points\.txt"
                    rf"|licenses/(?:{LICENSES}))")
 # uv_build keeps the original pyproject.toml as pyproject.toml.orig next to its normalized copy
@@ -31,19 +28,14 @@ REQUIRED = [
     "dji_thermal_ui/__init__.py",
     "dji_thermal_ui/cli.py",
     "dji_thermal_ui/analyzer/migrations/0001_initial.py",
-    "dji_thermal_ui/templates/base.html",
+    "dji_thermal_ui/templates/page.html",
     "dji_thermal_ui/templates/datasets.html",
-    "dji_thermal_ui/static/analyzer_core.js",
-    "dji_thermal_ui/static/viewer.js",
-    "dji_thermal_ui/static/vendor/bootstrap/css/bootstrap.min.css",
-    "dji_thermal_ui/static/vendor/fontawesome/css/all.min.css",
-    "dji_thermal_ui/static/vendor/leaflet/leaflet.js",
+    "dji_thermal_ui/static/favicon.svg",
+    "dji_thermal_ui/static/dist/manifest.json",
 ]
 LICENCE_FILES = {
     "LICENSE",
-    "src/dji_thermal_ui/static/vendor/bootstrap/LICENSE",
-    "src/dji_thermal_ui/static/vendor/fontawesome/LICENSE.txt",
-    "src/dji_thermal_ui/static/vendor/leaflet/LICENSE",
+    "src/dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",
 }
 
 

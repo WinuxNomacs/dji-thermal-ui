@@ -37,11 +37,13 @@ machine. Keep it short; edit in place.
   `jobs.submit(fn, pk, run_id)`. Each job writes its progress to its row, and is cancelled cooperatively through its
   `run_id`. Tests run jobs inline unless they use the `threaded_jobs` fixture.
 - **API:** DRF with no users: `csrf.CsrfCheck` only enforces CSRF.
-- **Front end:** plain ES5 scripts in the UMD pattern with Leaflet 1.3.1, as in the plugin, on stock Bootstrap 3.4.1
-  and Font Awesome Free 5.15.4. These are vendored into `static/vendor/` from `node_modules`, with their licences,
-  so the wheel needs no npm. The pages extend `templates/base.html` (header, unit, version). The app serves its own static files.
-- **Tests:** pytest with pytest-django (`tests/`, settings `tests.settings`, which use a temporary data folder),
-  Jest with jsdom (`static/__tests__/`, kept out of the wheel), ruff, and ESLint. All of them run on the host.
+- **Front end:** TypeScript and Preact with Leaflet 1.9.4, built by Vite (`vite.config.mts`) from `frontend/src`
+  (one entry per page in `pages/`) into `static/dist` with a manifest that `{% vite_entry %}` reads. The pages
+  extend `templates/page.html`; the look is `frontend/src/styles/app.css`, light and dark. The build is not
+  committed: the wheel and sdist carry it, so installing needs no npm. The app serves its own static files.
+- **Tests:** pytest with pytest-django (`tests/`, settings `tests.settings`, which use a temporary data folder and a
+  stub manifest, so they need no build), Vitest with jsdom (`frontend/tests/`), ruff, and ESLint with `tsc`. All of
+  them run on the host.
 
 ## Commands
 
@@ -49,7 +51,7 @@ machine. Keep it short; edit in place.
   `--no-browser`).
 - `uv run pytest`, `uv run ruff check`. Set `DJI_THERMAL_FLIGHT_DIR` to a folder of one flight's R-JPEGs to run
   the `flight` tests too.
-- `npm ci`, then `npx jest` and `npm run -s lint`.
-- Release checks: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
+- `npm ci`, then `npm test`, `npm run -s lint` and `npm run build` (`-- --watch` while working on the pages).
+- Release checks, after `npm run build`: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
   `uvx twine@7.0.0 check --strict dist/*`, then `uv run --no-project python scripts/smoke.py uvx --from <wheel>
   dji-thermal-ui` (the installed command serving its pages). The changelog is `CHANGELOG.md` (Keep a Changelog).

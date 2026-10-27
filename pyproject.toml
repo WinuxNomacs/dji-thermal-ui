@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "A web app on your own computer to analyze, convert, mosaic and measure DJI thermal datasets with dji-thermal-cli"
 readme = "README.md"
 license = "AGPL-3.0-only"
-# the vendored scripts' and styles' own licences ship with them, and are listed here too
-license-files = ["LICENSE", "src/dji_thermal_ui/static/vendor/*/LICENSE*"]
+# the licences of the packages bundled into the built pages ship beside them (npm run build), and are listed here too
+license-files = ["LICENSE", "src/dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt"]
 authors = [
     { name = "Winxu Nomacs", email = "16427666+WinuxNomacs@users.noreply.github.com" }
 ]
@@ -53,11 +53,6 @@ dji-thermal-ui = "dji_thermal_ui.cli:main"
 [build-system]
 requires = ["uv_build>=0.12.5,<0.14.0"]
 build-backend = "uv_build"
-
-[tool.uv.build-backend]
-# the scripts' Jest tests stay out of the wheel and the sdist
-source-exclude = ["**/__tests__"]
-wheel-exclude = ["**/__tests__"]
 
 [dependency-groups]
 dev = [

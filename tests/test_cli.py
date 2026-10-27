@@ -50,9 +50,9 @@ def test_the_server_serves_the_home_page(threaded_jobs):
         status, body = get(url)
         assert status == 200
         assert b"Thermal Analyzer" in body
-        status, body = get(url + "static/vendor/leaflet/leaflet.css")
+        status, body = get(url + "static/favicon.svg")
         assert status == 200
-        assert b".leaflet-container" in body
+        assert body.startswith(b"<svg")
     finally:
         server.close()
 

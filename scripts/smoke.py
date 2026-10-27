@@ -2,14 +2,16 @@
 
 COMMAND is how the app is started, such as `dji-thermal-ui` or `uvx --from dist/<wheel> dji-thermal-ui`. It is run
 with --no-browser on a free port and a temporary data folder, which is removed afterwards. The script checks that
---version answers, then that the datasets page, a vendored file, a script and the preferences API are served, which
-needs the templates, the static files and the migrations to be in the installed package. Standard library only.
+--version answers, then that the datasets page, its built script and stylesheet, the icon and the preferences API are
+served, which needs the templates, the built front end, the static files and the migrations to be in the installed
+package. Standard library only.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -46,11 +48,16 @@ def stop(proc: subprocess.Popen) -> None:
 def check(base: str) -> list[str]:
     """What the running app gets wrong, if anything"""
     problems = []
+    status, page = get(base)
+    script = re.search(rb'<script type="module" src="/(static/dist/assets/[^"]+\.js)"', page)
+    style = re.search(rb'<link rel="stylesheet" href="/(static/dist/assets/[^"]+\.css)"', page)
+    if not script or not style:
+        return [f"/: status {status}, its built script or stylesheet not found in {page[:500]!r}"]
     expect = [
         ("", b"Thermal Analyzer"),
-        ("static/vendor/leaflet/leaflet.css", b".leaflet-container"),
-        ("static/vendor/bootstrap/css/bootstrap.min.css", b"Bootstrap v3.4.1"),
-        ("static/viewer.js", b"ThermalAnalyzerCore"),
+        (script.group(1).decode(), b"import"),
+        (style.group(1).decode(), b"--accent"),
+        ("static/favicon.svg", b"<svg"),
     ]
     for path, needle in expect:
         status, body = get(base + path)

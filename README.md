@@ -16,7 +16,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   and on single frames. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
 - **Compare:** two conversions side by side, or their difference.
-- Temperatures in °F, °C or K.
+- Temperatures in °F, °C or K, and light or dark pages (or the computer's own).
 
 It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
 are no logins or accounts.
@@ -27,7 +27,8 @@ dji-thermal-ui is not on PyPI yet. From a built wheel, it installs as a command 
 `uv tool install dji_thermal_ui-<version>-py3-none-any.whl` (or `pipx install` with the same file). It needs
 Python 3.12 or newer.
 
-From a clone, for development: `uv sync`, then `uv run dji-thermal-ui`.
+From a clone, for development: `uv sync` and `npm ci && npm run build` (the pages are built with Node.js), then
+`uv run dji-thermal-ui`.
 
 ## Run
 
@@ -65,11 +66,12 @@ uv sync
 uv run pytest            # DJI_THERMAL_FLIGHT_DIR=<a folder of one flight's R-JPEGs> runs the flight tests too
 uv run ruff check
 npm ci
-npx jest
-npm run -s lint
+npm test                 # the pages' tests (Vitest)
+npm run -s lint          # ESLint and the TypeScript check
+npm run build            # the pages, into src/dji_thermal_ui/static/dist (`-- --watch` while working on them)
 ```
 
-Release checks, on the built distributions:
+Release checks, on the built distributions (after `npm run build`, which they carry):
 
 ```
 uv build --no-sources
@@ -83,5 +85,5 @@ CI (`.github/workflows/ci.yml`) runs these and the tests on Linux and Windows on
 ## Licence
 
 AGPL-3.0-only (see [LICENSE](LICENSE)). Parts of the code come from WebODM and LuxODM (AGPL-3.0), whose files keep
-their notices. The vendored Bootstrap 3.4.1 (MIT), Font Awesome Free 5.15.4 (Font Awesome Free License) and
-Leaflet 1.3.1 (BSD-2-Clause) are in `src/dji_thermal_ui/static/vendor/`, with their licences.
+their notices. The pages bundle Preact (MIT) and Leaflet (BSD-2-Clause); their licences are in
+`THIRD-PARTY-LICENSES.txt` beside the built pages, and in the wheel's licence files.
