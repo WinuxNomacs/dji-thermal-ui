@@ -245,6 +245,62 @@ class ThermalMeasurement(models.Model):
         return self.name
 
 
+# A finding: a spot or an area of a dataset the user found something at, kept with the frames that saw it and the
+# temperatures measured when it was saved. In lon/lat, it shows on every mosaic of the dataset.
+
+FINDING_SEVERITIES = (
+    ('low', _("Low")),
+    ('medium', _("Medium")),
+    ('high', _("High")),
+    ('critical', _("Critical")),
+)
+
+FINDING_STATUSES = (
+    ('open', _("Open")),
+    ('reviewed', _("Reviewed")),
+    ('resolved', _("Resolved")),
+)
+
+
+class Finding(models.Model):
+    dataset = models.ForeignKey(ThermalDataset, on_delete=models.CASCADE, related_name='findings',
+                                help_text=_("The dataset the finding is in"), verbose_name=_("Dataset"))
+    name = models.CharField(max_length=255, help_text=_("A label used to describe the finding"), verbose_name=_("Name"))
+    notes = models.TextField(blank=True, default="", help_text=_("What was found"), verbose_name=_("Notes"))
+    severity = models.CharField(max_length=16, choices=FINDING_SEVERITIES, default='medium',
+                                help_text=_("How serious it is"), verbose_name=_("Severity"))
+    status = models.CharField(max_length=16, choices=FINDING_STATUSES, default='open',
+                              help_text=_("Where it is in its review"), verbose_name=_("Status"))
+    geometry = models.JSONField(help_text=_("A GeoJSON point or polygon, lon/lat"), verbose_name=_("Geometry"))
+    shape = models.JSONField(null=True, blank=True, help_text=_("The box or circle it was drawn as, if any"),
+                             verbose_name=_("Shape"))
+    conversion = models.ForeignKey(ThermalConversion, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='findings', help_text=_("The conversion its temperatures were read on"),
+                                   verbose_name=_("Conversion"))
+    tab = models.CharField(max_length=16, blank=True, default="",
+                           help_text=_("The mosaic its temperatures were read on"), verbose_name=_("Mosaic"))
+    temperatures = models.JSONField(default=dict, blank=True,
+                                    help_text=_("The temperatures measured when it was saved"),
+                                    verbose_name=_("Temperatures"))
+    frames = models.JSONField(default=list, blank=True,
+                              help_text=_("The frames that saw it, where it is in each and which were kept"),
+                              verbose_name=_("Frames"))
+    models_known = models.BooleanField(default=False,
+                                       help_text=_("Whether every frame that saw it is listed (the mosaic's frame "
+                                                   "models), or only those the mosaic used"),
+                                       verbose_name=_("Every frame listed"))
+    created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
+    updated_at = models.DateTimeField(auto_now=True, help_text=_("Last modified date"), verbose_name=_("Updated at"))
+
+    class Meta:
+        verbose_name = _("Finding")
+        verbose_name_plural = _("Findings")
+        ordering = ('created_at', 'id')
+
+    def __str__(self):
+        return self.name
+
+
 class Preferences(models.Model):
     """The saved preferences for new datasets: a single row"""
     data = models.JSONField(default=dict, blank=True, help_text=_("The preferences saved"), verbose_name=_("Data"))

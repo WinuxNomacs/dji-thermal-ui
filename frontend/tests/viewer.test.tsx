@@ -2,9 +2,10 @@ import WebGLTileLayer from "ol/layer/WebGLTile";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
+import type {Finding} from "../src/findings/findings";
 import {SLIDERS} from "../src/viewer/view";
 import {type Mosaics, ViewerPage} from "../src/viewer/viewer-page";
-import {calls, click, server, ticks} from "./helpers";
+import {calls, click, server, ticks, valuesResponse} from "./helpers";
 
 const API = "/api/";
 const BASE = API + "conversions/9";
@@ -26,6 +27,16 @@ const WHOLE = {result: {kind: "Polygon", valid_pixels: 8000, mean: 25, percentil
 const SAVED = {id: 4, name: "Hot spot", target: "harmonized", geometry: {type: "Point", coordinates: [10.0005, 50.0005]},
                parameters: {emissivity: 0.9}, values: {result: {kind: "Point", valid_pixels: 1, value: 31.5, mean: 31.5}}};
 
+const FOUND: Finding = {
+    id: 7, dataset: 5, name: "Hot joint", notes: "Loose bolt", severity: "high", status: "open",
+    geometry: {type: "Point", coordinates: [10.0005, 50.0005]}, shape: null, conversion: 9, conversion_name: "Nadir",
+    tab: "as_converted", temperatures: {value: 31.5, unit: "C", approximate: false}, models: true,
+    frames: [{frame: "a_T.JPG", used: true, view_angle: 5, time: "2026:10:12 18:29:50", pixel: [3, 4], kept: true},
+             {frame: "b_T.JPG", used: false, view_angle: 12, time: "2026:10:12 18:29:52", pixel: [1, 1], kept: false}],
+    created_at: "2026-10-27T09:00:00Z", updated_at: "2026-10-27T09:00:00Z",
+};
+const FINDINGS = API + "datasets/5/findings";
+
 const $ = (sel: string) => document.querySelector(sel);
 const byId = (id: string) => document.getElementById(id)!;
 const dialog = () => $(".page .dialog");
@@ -40,6 +51,9 @@ function routes(extra: Record<string, unknown> = {}) {
         [BASE + "/mosaics"]: MOSAICS,
         ["POST " + BASE + "/measure"]: WHOLE,
         [BASE + "/measurements"]: {measurements: []},
+        [FINDINGS]: {findings: []},
+        [BASE + "/frame/data?frame=a_T.JPG"]: valuesResponse(10, 8),
+        [BASE + "/frame/data?frame=b_T.JPG"]: valuesResponse(10, 8),
         ...extra,
     };
 }
@@ -49,6 +63,12 @@ async function open(fetchFn: ReturnType<typeof server>) {
     render(<ViewerPage api={API} publicUrl="/" id={9} datasetId={5} datasetName="Roof" basemaps={[]}/>, byId("root"));
     await ticks(40);
 }
+
+const sent = (fetchFn: ReturnType<typeof server>, method: string) =>
+    JSON.parse(String(fetchFn.mock.calls.find((c) => c[1]?.method === method)![1]!.body));
+const form = () => $(".finding-form form") as HTMLFormElement;
+const submit = () => form().dispatchEvent(new Event("submit", {bubbles: true, cancelable: true}));
+const ticked = () => [...form().querySelectorAll<HTMLInputElement>("input[name=kept]")].map((x) => x.value + ":" + x.checked);
 
 const measured = (fetchFn: ReturnType<typeof server>) => fetchFn.mock.calls.filter((c) => c[0] === BASE + "/measure")
     .map((c) => JSON.parse(String(c[1]!.body)));
@@ -267,5 +287,97 @@ describe("the viewer page", () => {
         await ticks();
         expect(calls(fetchFn)).toContain("POST " + BASE + "/mosaics");
         expect($(".notice.error")!.textContent).toBe("Busy");
+    });
+});
+
+describe("the findings in the viewer", () => {
+    it("lists the dataset's findings, opens the one a link asks for with its kept frames, and keeps what is shown in the URL", async () => {
+        history.replaceState(null, "", "/conversion/9?finding=7");
+        await open(server(routes({[FINDINGS]: {findings: [FOUND]}})));
+        expect($("[data-section=findings]")!.textContent).toContain("Findings (1)");
+        expect($("[data-finding='7']")!.textContent).toContain("High Hot joint Open");
+        const about = $(".sources-window .finding-about")!.textContent;
+        expect(about).toContain("Hot joint");
+        expect(about).toContain("31.50 °C");
+        expect(about).toContain("Loose bolt");
+        expect($(".sources-what")!.textContent).toBe("Spot · 1 frame");
+        expect($("[name=save-finding]")).toBeNull();
+        expect(location.search).toContain("finding=7");
+
+        click($("[data-finding='7'] button[name=hide]")!);
+        await ticks();
+        expect(location.search).toContain("hide=7");
+        click($("input[name=findings]")!);
+        await ticks();
+        expect(location.search).toContain("findings=0");
+        expect(($("[data-finding='7'] button[name=hide]") as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("changes a finding in its form, sending the frames kept, and asks for a name", async () => {
+        const changed = {...FOUND, severity: "critical", frames: FOUND.frames.map((f) => ({...f, kept: true}))};
+        const fetchFn = server(routes({[FINDINGS]: [{findings: [FOUND]}, {findings: [changed]}],
+                                       ["PATCH " + FINDINGS + "/7"]: changed}));
+        await open(fetchFn);
+        click($("[data-finding='7'] a")!);
+        await ticks();
+        click($(".finding-about button[name=edit]")!);
+        await ticks();
+        expect(($("#finding-name") as HTMLInputElement).value).toBe("Hot joint");
+        expect(ticked()).toEqual(["a_T.JPG:true", "b_T.JPG:false"]);
+
+        change($("#finding-name")!, " ", "input");
+        await ticks();
+        submit();
+        await ticks();
+        expect($(".finding-form [role=alert]")!.textContent).toBe("Name the finding to save it");
+        expect(calls(fetchFn)).not.toContain("PATCH " + FINDINGS + "/7");
+
+        change($("#finding-name")!, "Hot joint", "input");
+        change($("#finding-severity")!, "critical");
+        click(form().querySelector("input[value='b_T.JPG']")!);
+        await ticks();
+        submit();
+        await ticks(40);
+        expect(sent(fetchFn, "PATCH")).toEqual({name: "Hot joint", notes: "Loose bolt", severity: "critical", status: "open",
+                                                kept: ["a_T.JPG", "b_T.JPG"]});
+        expect($(".finding-form")).toBeNull();
+        expect($(".finding-about")!.textContent).toContain("Critical");
+        expect($(".sources-what")!.textContent).toBe("Spot · 2 frames");
+    });
+
+    it("saves a saved measurement as a finding with the frames picked, and deletes a finding after asking", async () => {
+        const saved = {...FOUND, id: 8, name: "Hot spot", severity: "medium", tab: "harmonized"};
+        const fetchFn = server(routes({
+            [BASE + "/measurements"]: {measurements: [SAVED]},
+            [FINDINGS]: [{findings: []}, {findings: [saved]}, {findings: []}],
+            ["POST " + BASE + "/mosaics/harmonized/sources"]: {kind: "Point", geometry: SAVED.geometry, models: true,
+                reason: null, frames: FOUND.frames, point: {valid: true, temperature: 31.5}},
+            ["POST " + FINDINGS]: saved,
+            ["DELETE " + FINDINGS + "/8"]: {},
+        }));
+        await open(fetchFn);
+        expect($("[data-section=findings]")!.textContent).toContain("No findings yet");
+        click($("[data-measurement='4'] button[name=finding]")!);
+        await ticks(40);
+        expect(($("#finding-name") as HTMLInputElement).value).toBe("Hot spot");
+        expect(ticked()).toEqual(["a_T.JPG:true", "b_T.JPG:true"]);
+        click(form().querySelector("input[value='b_T.JPG']")!);
+        await ticks();
+        submit();
+        await ticks(40);
+        const posted = fetchFn.mock.calls.filter((c) => c[0] === FINDINGS && c[1]?.method === "POST")
+            .map((c) => JSON.parse(String(c[1]!.body)));
+        expect(posted).toEqual([{name: "Hot spot", notes: "", severity: "medium", status: "open", kept: ["a_T.JPG"],
+                                 measurement: 4}]);
+        expect($(".sources-window .finding-about")!.textContent).toContain("Hot spot");
+
+        click($("[data-finding='8'] button[name=delete]")!);
+        await ticks();
+        expect(dialog()!.textContent).toContain("Delete the finding Hot spot?");
+        press("Delete");
+        await ticks(40);
+        expect(calls(fetchFn)).toContain("DELETE " + FINDINGS + "/8");
+        expect($(".sources-window")).toBeNull();
+        expect($("[data-section=findings]")!.textContent).toContain("No findings yet");
     });
 });

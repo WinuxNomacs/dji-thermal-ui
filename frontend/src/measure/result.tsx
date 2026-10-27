@@ -1,7 +1,7 @@
 // What measuring shows on the viewer and frame pages: the tools' toolbar, the isotherm, a measure's figures and
 // charts, and the saved measurements (with two of them compared)
 import {useState} from "preact/hooks";
-import {Circle, Crosshairs, Info, Minus, Pencil, Polygon, Sliders, Square, Trash} from "../components/icons";
+import {Circle, Crosshairs, Flag, Info, Minus, Pencil, Polygon, Sliders, Square, Trash} from "../components/icons";
 import {Histogram, Profile} from "./charts";
 import {HINTS, ISOTHERM_MODES, type Measured, type Measurement, measurementFigure, type ParamField, paramsText,
         type Result, resultRows, shapeLabel, shownTemp, symbol, targetLabel, type Tool, TOOLS} from "./measure";
@@ -160,6 +160,7 @@ interface MeasurementsProps {
     onRename: (m: Measurement) => void;
     onDelete: (m: Measurement) => void;
     onRemeasure: (m: Measurement, values: Record<string, string>) => Promise<string | null>;
+    onFinding?: (m: Measurement) => void;   // saved as a finding (a spot or an area on a mosaic)
 }
 
 // The saved measurements: a line each with its name, where it was measured and its main figure, then the two ticked
@@ -181,6 +182,9 @@ export function Measurements(props: MeasurementsProps) {
                 {params && <div class="measurement-params text-muted">Measured with {params}</div>}
                 {fields.length > 0 && <button type="button" class="icon-button" title="Measure again with other parameters"
                                               onClick={() => props.onEdit(editing === m.id ? null : m.id)}><Sliders/></button>}
+                {props.onFinding && m.target !== "frame" && (m.geometry?.type === "Point" || m.geometry?.type === "Polygon") &&
+                    <button type="button" class="icon-button" name="finding" title="Save as finding"
+                            onClick={() => props.onFinding!(m)}><Flag/></button>}
                 <button type="button" class="icon-button" title="Rename" onClick={() => props.onRename(m)}><Pencil/></button>
                 <button type="button" class="icon-button" title="Delete" onClick={() => props.onDelete(m)}><Trash/></button>
                 {editing === m.id && <ParamsForm m={m} fields={fields} unit={unit} onSave={(v) => props.onRemeasure(m, v)}

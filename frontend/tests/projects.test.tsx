@@ -161,6 +161,30 @@ describe("a project's page", () => {
         expect($(".breadcrumb a")!.getAttribute("href")).toBe("/");
     });
 
+    it("lists its datasets' findings, each opening the viewer on its mosaics when there are any", async () => {
+        const finding = {id: 7, dataset: 5, dataset_name: "Roof", name: "Hot joint", notes: "Loose bolt\nNorth side",
+                         severity: "high", status: "reviewed", temperatures: {value: 31.5, unit: "C"},
+                         created_at: "2026-10-27T09:00:00Z", opens: 9};
+        projectPage(routes({...DETAIL, findings: [finding, {...finding, id: 8, name: "Old", notes: "", opens: null}]}));
+        await ticks();
+        const rows = [...document.querySelectorAll("#findings tbody tr")];
+        expect(rows[0].textContent).toContain("High");
+        expect(rows[0].textContent).toContain("Reviewed");
+        expect(rows[0].textContent).toContain("31.50 °C");
+        expect(rows[0].textContent).toContain("Loose bolt");
+        expect(rows[0].textContent).not.toContain("North side");
+        expect(rows[0].querySelector("a")!.getAttribute("href")).toBe("/conversion/9?finding=7");
+        expect(rows[0].querySelectorAll("a")[1].getAttribute("href")).toBe("/dataset/5");
+        expect(rows[1].querySelectorAll("a")).toHaveLength(1);
+        expect(rows[1].textContent).toContain("Old");
+    });
+
+    it("has no findings table without findings", async () => {
+        projectPage(routes({...DETAIL, findings: []}));
+        await ticks();
+        expect(byId("findings")).toBeNull();
+    });
+
     it("has no map without a location or a dataset flown", async () => {
         projectPage(routes({...EMPTY, id: 3, areas: []}));
         await ticks();

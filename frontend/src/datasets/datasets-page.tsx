@@ -18,6 +18,7 @@ const COLUMNS: {key: string; label: string; title?: string}[] = [
     {key: "files", label: "Files"},
     {key: "problems", label: "Problems"},
     {key: "conversions", label: "Conversions", title: "Conversions ready of all"},
+    {key: "findings", label: "Findings", title: "Findings saved on its mosaics"},
     {key: "size", label: "Size"},
     {key: "activity", label: "Last activity", title: "The latest creation, analysis or conversion"},
     {key: "created", label: "Created"},
@@ -68,6 +69,7 @@ function Row({d, publicUrl, rename, analyze, move, remove}: RowProps) {
             <td>{filesCell(d)}</td>
             <td><ProblemsCell d={d}/></td>
             <td><ConversionsCell d={d}/></td>
+            <td>{d.finding_count || ""}</td>
             <td>{formatBytes(d.size)}</td>
             <td>{formatDate(d.last_activity)}</td>
             <td>{formatDate(d.created_at)}</td>

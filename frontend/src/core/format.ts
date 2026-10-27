@@ -140,7 +140,7 @@ export function mosaicLabel(c: {stage?: Maybe<Stage>}): string {
 
 export interface DeleteOf {
     name: string; source?: string; folder?: string | null; file_count?: number;
-    conversion_count?: number; mosaic_count?: number; measurement_count?: number;
+    conversion_count?: number; mosaic_count?: number; measurement_count?: number; finding_count?: number;
 }
 
 // What deleting a dataset (a summary of it, or its detail) takes with it, paragraph by paragraph
@@ -152,6 +152,7 @@ export function deleteText(d: DeleteOf): string[] {
     if (d.conversion_count) with_.push(count(d.conversion_count, "conversion", "conversions"));
     if (d.mosaic_count) with_.push(count(d.mosaic_count, "mosaic", "mosaics"));
     if (d.measurement_count) with_.push(count(d.measurement_count, "measurement", "measurements"));
+    if (d.finding_count) with_.push(count(d.finding_count, "finding", "findings"));
     if (with_.length) {
         out.push("With it: " + with_.slice(0, -1).join(", ") + (with_.length > 1 ? " and " : "") +
             with_[with_.length - 1] + ".");

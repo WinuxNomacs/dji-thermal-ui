@@ -1,7 +1,8 @@
 // The mosaic viewer: a conversion's mosaics on a map (as converted, harmonized, the source frames and the view
 // angles), with their palette, range and image adjustments, the values under the cursor, measuring with the isotherm
-// and the thermal correction, the saved measurements, the source frames of a spot or an area in a window, and the
-// mosaic as a PNG; kept up to date while the mosaics are built. The view (tab, palette, range, adjustments, the frame outlined) is kept in the URL.
+// and the thermal correction, the saved measurements, the source frames of a spot or an area in a window, the
+// dataset's findings, and the mosaic as a PNG; kept up to date while the mosaics are built. The view (tab, palette,
+// range, adjustments, the frame outlined, the findings shown and the one open) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import GeoJSON from "ol/format/GeoJSON";
 import type OlMap from "ol/Map";
@@ -16,13 +17,17 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, Grid, Image, Images, Save, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, Flag, Grid, Image, Images, Save, Stop} from "../components/icons";
 import {Drawing, drawingKey} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
 import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {SourcesWindow} from "../sources/window";
+import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, findingSources,
+        findingsUrl} from "../findings/findings";
+import {drawFindings, findingAt} from "../findings/layer";
+import {FindingAbout, FindingForm, Findings} from "../findings/panel";
 import {type Colouring, isothermRange} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer} from "../map/map";
@@ -91,8 +96,12 @@ function defaultStyle(v: Mosaics, tab: string): Style {
 }
 
 // The source frames asked for a spot or an area, on a tab: res undefined while they are asked, null when they could
-// not be
-interface Asked {geometry: Geometry; tab: string; res?: Sources | null; error?: string}
+// not be; shape: how it was drawn, measurement: the saved one it is; finding: the finding shown (its kept frames)
+interface Asked {geometry: Geometry; tab: string; res?: Sources | null; error?: string; shape?: Maybe<Shape>;
+                measurement?: Measurement; finding?: number}
+
+// The finding form open: a new one (from the source frames shown) or one being changed
+interface Draft {title: string; fields: FindingFields; edit?: Finding; error?: string}
 
 // The same shape measured afresh (on another tab, or with another isotherm or correction)
 const fresh = (c: Current | null, target: string): Current | null => c && {geometry: c.geometry, target, shape: c.shape};
@@ -139,6 +148,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [sources, setSources] = useState<Asked | null>(null);
     // What the drawing tool on draws for: a measurement, or the source frames
     const [drawFor, setDrawFor] = useState<"measure" | "sources">("measure");
+    const [findings, setFindings] = useState<Finding[]>([]);
+    const [showFindings, setShowFindings] = useState(wanted.findings !== false);
+    const [hidden, setHidden] = useState<number[]>(wanted.hidden || []);
+    const [draft, setDraft] = useState<Draft | null>(null);
+    const [findingError, setFindingError] = useState("");
 
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -150,6 +164,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const drawing = useRef<Drawing | null>(null);
     const footprint = useRef<VectorSource | null>(null);
     const sourcesShape = useRef<VectorSource | null>(null);
+    const findingsShown = useRef<VectorSource | null>(null);
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0});
 
@@ -168,8 +183,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const colouring = colouringOf(shown);
 
     // What the map's handlers (set up once) read: this render's values
-    const now = useRef({tab, params, current, pinned, drawFor});
-    now.current = {tab, params, current, pinned, drawFor};
+    const now = useRef({tab, params, current, pinned, drawFor, findings});
+    now.current = {tab, params, current, pinned, drawFor, findings};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -235,6 +250,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         legend.current = made.legend;
         footprint.current = vectorLayer(m, 5);
         sourcesShape.current = vectorLayer(m, 9);
+        findingsShown.current = vectorLayer(m, 8);
         layer.current = new ThermalLayer(m, values, colouring);
         fitBounds(m, t.bounds || WORLD);
 
@@ -253,7 +269,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             map: m, toCoords, fromCoords, distance: (a, b) => getDistance(a, b),
             onDone: (geometry, shape) => {
                 if (now.current.drawFor === "sources") {
-                    openSources(geometry);
+                    openSources(geometry, {shape});
                     syncTools();
                     return;
                 }
@@ -266,9 +282,12 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 const points = now.current.current?.res?.result?.profile?.points;
                 showIndex(coords && points ? nearestIndex(points, coords) : null, points);
             },
-            // A click with no tool on keeps the values there (and its frame's link) until the next click; on the
-            // Source frame tab it opens the frames that saw it too
+            // A click with no tool on opens the finding there, else keeps the values there (and its frame's link)
+            // until the next click; on the Source frame tab it opens the frames that saw it too
             onClick: (at) => {
+                const hit = findingsShown.current && findingAt(m, m.getPixelFromCoordinate(at), findingsShown.current);
+                const f = hit !== null && now.current.findings.find((x) => x.id === hit);
+                if (f) return openFinding(f);
                 setPinned(true);
                 now.current.pinned = true;
                 clearTimeout(hover.current);
@@ -277,6 +296,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             },
         });
         loadSaved();
+        loadFindings(wanted.finding);
         if (wanted.frame) showFrame(wanted.frame);
     }, [ready]);
 
@@ -338,17 +358,26 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     // The source frames asked again on the tab chosen (its spot's temperature is its own), and their spot or area on
     // the map while the window is open
     useEffect(() => {
-        if (sources && tab && tab !== sources.tab && SOURCES_TABS.includes(tab)) openSources(sources.geometry);
+        if (sources && !sources.finding && tab && tab !== sources.tab && SOURCES_TABS.includes(tab)) {
+            openSources(sources.geometry, {shape: sources.shape, measurement: sources.measurement});
+        }
     }, [tab]);
     useEffect(() => {
         const f = sourcesShape.current;
         if (!f) return;
         f.clear();
-        if (!sources) return;
+        if (!sources || sources.finding) return;
         const feature = new GeoJSON().readFeature({type: "Feature", geometry: sources.geometry, properties: {}},
                                                   {featureProjection: "EPSG:3857"});
         (Array.isArray(feature) ? feature : [feature]).forEach((x) => { x.setStyle(SOURCES_SHAPE); f.addFeature(x); });
     }, [sources && JSON.stringify(sources.geometry)]);
+
+    // The findings shown on the map, the one open drawn thicker
+    const opened = sources?.finding ?? null;
+    const drawn = showFindings ? findings.filter((f) => !hidden.includes(f.id)) : [];
+    useEffect(() => {
+        if (findingsShown.current) drawFindings(findingsShown.current, drawn, opened);
+    }, [JSON.stringify(drawn), opened, ready]);
 
     // The colour scale on the map
     const scale = scaleShown();
@@ -359,13 +388,15 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     }, [JSON.stringify(scale), ready]);
 
     // The view in the URL, so that a reload or a copied link keeps it: the tab, its palette, range and adjustments,
-    // and the frame outlined
+    // the frame outlined, and the findings shown and open
     useEffect(() => {
         if (!ready || !tab || !style) return;
-        const view = tab === "source_frame" ? {tab, frame: outlined} :
-            {tab, frame: outlined, palette: style.palette, range: style.range, adjust: style.adjust};
+        const marks = {frame: outlined, findings: showFindings, hidden, finding: opened};
+        const view = tab === "source_frame" ? {tab, ...marks} :
+            {tab, ...marks, palette: style.palette, range: style.range, adjust: style.adjust};
         history.replaceState(null, "", location.pathname + viewQuery(view));
-    }, [ready, tab, outlined, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
+    }, [ready, tab, outlined, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust),
+        showFindings, hidden.join(), opened]);
 
     function readout(at: Coordinate, pin = false) {
         const n = ++asked.current.point, q = now.current, [lon, lat] = mapToLonLat(at);
@@ -380,25 +411,101 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             .catch(() => { if (n === asked.current.point) setPoint(null); });
     }
 
-    // The frames that saw a spot or an area of the mosaic shown (or, on the View angle tab, of the as converted one)
-    async function openSources(geometry: Geometry) {
-        const n = ++asked.current.sources, at = SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : "as_converted";
-        setSources({geometry, tab: at});
+    // The frames that saw a spot or an area of the mosaic shown (or, on the View angle tab, of the as converted one;
+    // a saved measurement's on its own mosaic)
+    async function openSources(geometry: Geometry, more: {shape?: Maybe<Shape>; measurement?: Measurement} = {}) {
+        const n = ++asked.current.sources;
+        const at = more.measurement ? more.measurement.target : SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : "as_converted";
+        const asking: Asked = {geometry, tab: at, ...more};
+        setSources(asking);
         // The spot's temperature corrected as the mosaic is
         const q = extraQuery(now.current.params);
         try {
             const r = await readJson<Sources>(await sendJson(sourcesUrl(api, id, at) + (q ? "?" + q.slice(1) : ""),
                                                              "POST", {geometry}));
             if (n !== asked.current.sources) return;
-            setSources({geometry, tab: at, res: r.ok ? r.data : null, error: r.ok ? "" : errorText(r.data, "Could not find the frames.")});
+            setSources({...asking, res: r.ok ? r.data : null, error: r.ok ? "" : errorText(r.data, "Could not find the frames.")});
         } catch {
-            if (n === asked.current.sources) setSources({geometry, tab: at, res: null});
+            if (n === asked.current.sources) setSources({...asking, res: null});
         }
     }
 
     function closeSources() {
         asked.current.sources++;
         setSources(null);
+    }
+
+    // The dataset's findings (open: the one a link asked to open)
+    async function loadFindings(open?: Maybe<number>) {
+        try {
+            const r = await readJson<{findings?: Finding[]}>(await fetch(findingsUrl(api, datasetId), {credentials: "same-origin"}));
+            if (!r.ok) return;
+            const items = r.data.findings || [];
+            setFindings(items);
+            setHidden((h) => h.filter((x) => items.some((f) => f.id === x)));
+            const f = open && items.find((x) => x.id === open);
+            if (f) openFinding(f, true);
+            return items;
+        } catch {
+            // the list stays as it was
+        }
+    }
+
+    // A finding in the window with its kept frames (centre: the map moves to it)
+    function openFinding(f: Finding, centre = false) {
+        asked.current.sources++;
+        setSources({geometry: f.geometry, tab: SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : "as_converted",
+                    res: findingSources(f), finding: f.id});
+        const m = map.current;
+        if (centre && m) {
+            const ring = f.geometry.type === "Point" ? [f.geometry.coordinates as Coords] : (f.geometry.coordinates as Coords[][])[0];
+            const xs = ring.map((c) => fromCoords(c));
+            m.getView().animate({center: [xs.reduce((a, c) => a + c[0], 0) / xs.length, xs.reduce((a, c) => a + c[1], 0) / xs.length],
+                                 duration: 250});
+        }
+    }
+
+    // The form, to save the spot or area in the window as a finding (named as its measurement is), or to change one
+    function newFinding(name = sources?.measurement?.name || "") {
+        setDraft({title: "Save as finding", fields: blankFields(name)});
+    }
+
+    function editFinding(f: Finding) {
+        setDraft({title: "Change finding", fields: fieldsOf(f), edit: f});
+    }
+
+    async function saveFinding(v: FindingFields) {
+        const d = draft, s = sources;
+        if (!d) return;
+        if (!v.name.trim()) return setDraft({...d, error: "Name the finding to save it"});
+        let r;
+        if (d.edit) {
+            r = await readJson<Finding>(await sendJson(findingsUrl(api, datasetId, d.edit.id), "PATCH",
+                {...fieldsBody(v, d.edit.frames), kept: v.kept || d.edit.frames.map((x) => x.frame)}));
+        } else {
+            if (!s) return;
+            const read = isTemperatureTab(s.tab) ? s.tab : "as_converted";
+            const from = s.measurement ? {measurement: s.measurement.id} :
+                {conversion: id, tab: read, geometry: s.geometry, shape: s.shape,
+                 parameters: isTemperatureTab(now.current.tab || "") ? now.current.params : {}};
+            r = await readJson<Finding>(await sendJson(findingsUrl(api, datasetId), "POST",
+                                                       {...fieldsBody(v, s.res?.frames), ...from}));
+        }
+        if (!r.ok) return setDraft({...d, fields: v, error: errorText(r.data, "Could not save the finding.")});
+        setDraft(null);
+        setFindingError("");
+        setHidden((h) => h.filter((x) => x !== r.data.id));
+        await loadFindings();
+        openFinding(r.data);
+    }
+
+    async function deleteFinding(f: Finding) {
+        if (!await ask("Delete finding", "Delete the finding " + f.name + "?", "Delete", "danger")) return;
+        const r = await readJson(await sendJson(findingsUrl(api, datasetId, f.id), "DELETE"));
+        if (!r.ok) return setFindingError(errorText(r.data, "Could not delete the finding."));
+        setFindingError("");
+        if (sources?.finding === f.id) closeSources();
+        await loadFindings();
     }
 
     // A drawing tool put on (or away), for a measurement or the source frames
@@ -684,17 +791,29 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const m = map.current, l = layer.current;
         if (!m || !l || !v || !tab || !mapEl.current) return;
         const shapes = saved.filter((x) => x.target === tab && x.geometry).map((x) => shapeOnMap(m, x.geometry!, fromCoords, x.name));
+        drawn.forEach((f) => shapes.push(shapeOnMap(m, f.geometry, fromCoords, f.name)));
         if (current && !current.saved && current.target === tab && temperature) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
-        const drawn = await snapshot(m, l.layer);
+        const image = await snapshot(m, l.layer);
         const taken = takenText(v.flown, v.flight_zone), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
             title: [v.dataset_name, v.name, tabLabel(tab)].filter(Boolean).join(" · "),
             date: (taken ? "Flown " + taken + " · exported " : "Exported ") + today,
-            panes: [{el: mapEl.current, images: drawn ? [drawn] : [], shapes}],
+            panes: [{el: mapEl.current, images: image ? [image] : [], shapes}],
             legend: scale, scale: scaleBar(metresPerPixel(m), 120), ratio: Math.max(1, devicePixelRatio || 1),
         });
         const error = await saveCanvas(canvas, fileName([v.dataset_name, v.name, tabLabel(tab)], ".png"));
         if (error) setNotice(error);
+    }
+
+    // Above the window's frame: the finding shown, or the button that saves the spot or area as one
+    function sourcesAbout() {
+        const f = sources?.finding ? findings.find((x) => x.id === sources.finding) : null;
+        if (f) return <FindingAbout f={f} onEdit={() => editFinding(f)}/>;
+        if (!sources?.res || sources.res.reason === "outside_raster") return null;
+        return (<div class="sources-actions">
+            <button type="button" class="button default small" name="save-finding" onClick={() => newFinding()}
+                    title="Keep this spot or area, its temperatures and frames, as a finding of the dataset"><Flag/> Save as finding</button>
+        </div>);
     }
 
     if (!v) {
@@ -786,7 +905,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                             {hasSources(res.geometry) &&
                                                 <button type="button" class="button default small" name="sources"
                                                         title="The frames that saw it, in a window"
-                                                        onClick={() => openSources(res.geometry)}><Images/> Source frames</button>}
+                                                        onClick={() => openSources(res.geometry, {shape: res.shape, measurement: res.saved || undefined})}>
+                                                    <Images/> Source frames</button>}
                                         </>}
                                 </div>
                                 {res && !res.saved && res.res?.result?.valid_pixels ? <div class="measure-save" id="save">
@@ -820,7 +940,15 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                             <Measurements items={saved} unit={unit} current={current?.saved?.id ?? null} compared={compared}
                                           editing={editing} fields={PARAM_FIELDS} onShow={showSaved}
                                           onCompare={(x, on) => setCompared((c) => toggleCompared(c, x, on))}
-                                          onEdit={setEditing} onRename={rename} onDelete={remove} onRemeasure={remeasure}/>
+                                          onEdit={setEditing} onRename={rename} onDelete={remove} onRemeasure={remeasure}
+                                          onFinding={(m) => { openSources(m.geometry!, {shape: m.values?.shape, measurement: m}); newFinding(m.name); }}/>
+                        </Section>
+                        <Section name="findings" title={"Findings" + (findings.length ? " (" + findings.length + ")" : "")}>
+                            {findingError && <div class="text-danger" id="finding-error">{findingError}</div>}
+                            <Findings items={findings} shown={showFindings} hidden={hidden} opened={opened}
+                                      onShown={setShowFindings} onOpen={(f) => openFinding(f, true)} onEdit={editFinding}
+                                      onDelete={deleteFinding}
+                                      onHide={(x, hide) => setHidden((h) => hide ? h.concat(x) : h.filter((y) => y !== x))}/>
                         </Section>
                         <Section name="report" title="The mosaic">
                             <Report kind={kind} base={base}/>
@@ -828,10 +956,13 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     </div>}
                 </div>
             </div>
-            {sources && <SourcesWindow name="viewer" anchor={mapEl.current} onClose={closeSources} groups={[{
+            {sources && <SourcesWindow name="viewer" anchor={mapEl.current} onClose={closeSources} about={sourcesAbout()} groups={[{
                 title: "", res: sources.res, error: sources.error, unit, colouring: frameColouring(),
                 values: (f) => base + "/frame/data?frame=" + encodeURIComponent(f),
                 curve: (f) => frameCurve(f), href: (f) => frameUrl + encodeURIComponent(f)}]}/>}
+            {draft && <FindingForm title={draft.title} fields={draft.fields} error={draft.error} onSave={saveFinding}
+                                   onCancel={() => setDraft(null)}
+                                   frames={draft.edit ? draft.edit.frames : sources?.res === undefined ? undefined : sources.res?.frames ?? null}/>}
         </div>
     );
 }

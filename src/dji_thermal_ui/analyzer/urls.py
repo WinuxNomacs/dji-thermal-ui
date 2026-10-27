@@ -16,6 +16,8 @@ urlpatterns = [
     re_path(r'^datasets/(?P<pk>[0-9]+)/analyze$', api.DatasetAnalyzeView.as_view()),
     re_path(r'^datasets/(?P<pk>[0-9]+)/cancel$', api.DatasetCancelView.as_view()),
     re_path(r'^datasets/(?P<pk>[0-9]+)/thumbnail$', api.DatasetThumbnailView.as_view()),
+    re_path(r'^datasets/(?P<pk>[0-9]+)/findings$', api.FindingsView.as_view()),
+    re_path(r'^datasets/(?P<pk>[0-9]+)/findings/(?P<fid>[0-9]+)$', api.FindingDetailView.as_view()),
     re_path(r'^datasets/(?P<pk>[0-9]+)/conversions$', api.ConversionListCreateView.as_view()),
     re_path(C + r'$', api.ConversionDetailView.as_view()),
     re_path(C + r'/cancel$', api.ConversionCancelView.as_view()),

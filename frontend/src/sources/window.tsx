@@ -2,6 +2,7 @@
 // spot or an area of a mosaic (coloured as the mosaic is, the spot marked or the area outlined) and the list of every
 // frame that saw it, the one the mosaic used first; ← and → step through them. On the compare page a difference has
 // a list for each of its mosaics.
+import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {ChevronLeft, ChevronRight, Image} from "../components/icons";
 import {readJson} from "../core/api";
@@ -27,6 +28,7 @@ interface Props {
     groups: SourceGroup[];
     name: string;                           // which window: each keeps where it was moved to
     anchor?: HTMLElement | null;            // where it opens: over its top left corner
+    about?: ComponentChildren;              // above the frame: what it is (a finding) or what can be done with it
     onClose: () => void;
 }
 
@@ -98,7 +100,7 @@ function FrameRow({f, current, onPick}: {f: SourceFrame; current: boolean; onPic
     </button></li>);
 }
 
-export function SourcesWindow({groups, name, anchor, onClose}: Props) {
+export function SourcesWindow({groups, name, anchor, about, onClose}: Props) {
     const [g, setG] = useState(0);
     const [index, setIndex] = useState(0);
     const [at, setAt] = useState(() => kept[name] || startAt(anchor));
@@ -176,6 +178,6 @@ export function SourcesWindow({groups, name, anchor, onClose}: Props) {
             {groups.map((x, k) => <button key={k} type="button" class={k === g ? "active" : ""} aria-pressed={k === g}
                                           title={x.title} onClick={() => setG(k)}>{x.title}</button>)}
         </div>}
-        <div class="sources-body">{body}</div>
+        <div class="sources-body">{about}{body}</div>
     </div>);
 }

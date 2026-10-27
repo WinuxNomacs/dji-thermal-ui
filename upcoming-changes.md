@@ -9,9 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
-   severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-2. **C4: findings on the compare page.** (Findings)
+1. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
@@ -386,6 +384,16 @@ Requested 2026-10-27 (`new.md`) and put before the reports at the user's request
 
 ### C3: findings on the viewer
 
+- **Built** (2026-10-27): see Done.
+- **Decided with the user (2026-10-27):**
+  - **The project side too:** the projects page and the project page show findings counts, and the project page
+    lists its datasets' findings, each opening the viewer on the conversion it was measured on (or the dataset's
+    latest with mosaics when that one is gone).
+  - **Drawn as an outline with a severity tag:** the shape in a white-and-black dashed outline that reads on any
+    palette (a spot as a ringed dot), labelled with a chip in the severity's colour holding the name.
+  - **Frame measurements are not saved as findings** (they are in the frame's pixels): only a mosaic's spot or
+    area, from a saved measurement or the source frames window.
+- **The conversion measured on** is kept as a link that empties if that conversion is deleted; the finding stays.
 - **Model:** `Finding` on the dataset, with the fields above, its frames as a list ({frame, pixel or outline, kept}),
   and when it was made and changed. API: list, create, change and delete under `/api/datasets/<id>/findings`.
 - **Saving:** the pop-out's "Save as finding" opens a form (name, notes, severity, status, the frames to keep, all
@@ -489,7 +497,7 @@ Requested 2026-10-27 (`new.md`):
 
 ### E1: projects
 
-- **Built** (2026-10-27): see Done. The findings counts and the project's findings together wait for C3; the form
+- **Built** (2026-10-27): see Done. The findings counts and the project's findings together came with C3; the form
   edits the name and description, and the location's form is E2's.
 - **Model:** `Project` (name, description, location as lon/lat with its label, when made and changed), and each
   dataset in exactly one project. The migration makes the Default Project and moves the existing datasets into it.
@@ -692,3 +700,15 @@ show the minimum and maximum at its ends.
   and no failed requests. Released as 0.5.1: release checks passed on Linux (check_dist, twine, smoke on 3.12 and
   3.14, ruff, 198 pytest with the flight tests, 210 Vitest, ESLint) and on Windows from WSL (196 pytest from a fresh
   clone, smoke).
+- **C3: findings on the viewer** (2026-10-27). `Finding` on the dataset (`analyzer/models.py`, migration 0004),
+  its API under `/api/datasets/<id>/findings` (`analyzer/api.py`: drawn spots and areas measured on the tab shown, or
+  a saved measurement copied; the frames from `frame_sources`, shared with the source frames window), and the counts
+  and the project's findings list. The viewer's part in `frontend/src/findings/` (helpers, the map layer, the form,
+  list and window heading) and `viewer/viewer-page.tsx`; the view in the URL keeps `findings=0`, `hide=` and
+  `finding=`. A spot far from a mosaic made a 500, also on `main`: fixed on its own branch (`mosaic_measure` checks
+  the shape lands in the mosaic's CRS). Tests: `tests/test_api_findings.py`, `frontend/tests/findings.test.ts`, and
+  findings tests in `viewer.test.tsx` and `projects.test.tsx` (214 pytest, 219 Vitest, ESLint and ruff clean).
+  Checked live in headless Chromium on the 220 M4T frames, light and dark: a box from the source frames window with
+  one frame left out, a saved spot measurement saved as a finding, both drawn and tagged, a click on the map opening
+  one, hiding one and the switch in the URL, a change of status, a link opening one, the project page's list and
+  the counts, then both deleted; no console errors and no failed requests.

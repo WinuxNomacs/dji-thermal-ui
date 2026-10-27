@@ -1,9 +1,12 @@
 // A project's page: its name, description and location, edited or deleted (with its datasets); where its datasets
-// were flown, on a map; and its datasets
+// were flown, on a map; its datasets' findings together; and its datasets
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask} from "../components/dialog";
 import {ArrowLeft, MapPin, Pencil, Trash} from "../components/icons";
+import {formatDate} from "../core/format";
+import {type Finding, statusLabel, temperaturesText} from "../findings/findings";
+import {SeverityChip} from "../findings/panel";
 import {DatasetsPage} from "../datasets/datasets-page";
 import type {Basemap} from "../map/map";
 import {AreasMap} from "./areas-map";
@@ -16,6 +19,28 @@ interface Props {
     id: number;
     basemaps: Basemap[];
     nav?: (url: string) => void;
+}
+
+// The project's findings, each opening the viewer on the mosaics its temperatures were read on (or its dataset's
+// newest: plain text when its dataset has none)
+function ProjectFindings({items, publicUrl}: {items: Finding[]; publicUrl: string}) {
+    return (<section class="project-findings">
+        <h2>Findings</h2>
+        <div class="table-scroll">
+            <table class="table" id="findings">
+                <thead><tr><th>Severity</th><th>Name</th><th>Dataset</th><th>Status</th><th>Temperatures</th><th>Saved</th></tr></thead>
+                <tbody>{items.map((f) => (<tr key={f.id} data-id={f.id}>
+                    <td><SeverityChip severity={f.severity}/></td>
+                    <td>{f.opens ? <a href={publicUrl + "conversion/" + f.opens + "?finding=" + f.id}>{f.name}</a> : f.name}
+                        {f.notes && <div class="text-muted project-description">{f.notes.split("\n")[0]}</div>}</td>
+                    <td><a href={publicUrl + "dataset/" + f.dataset}>{f.dataset_name}</a></td>
+                    <td>{statusLabel(f.status)}</td>
+                    <td>{temperaturesText(f.temperatures)}</td>
+                    <td>{formatDate(f.created_at)}</td>
+                </tr>))}</tbody>
+            </table>
+        </div>
+    </section>);
 }
 
 export function ProjectPage({api, publicUrl, id, basemaps, nav = (url) => { location.href = url; }}: Props) {
@@ -66,6 +91,7 @@ export function ProjectPage({api, publicUrl, id, basemaps, nav = (url) => { loca
             <AreasMap basemaps={basemaps} areas={p.areas} location={p.location}
                       open={(dataset) => nav(publicUrl + "dataset/" + dataset)}/>
         ) : null}
+        {p && (p.findings || []).length > 0 && <ProjectFindings items={p.findings!} publicUrl={publicUrl}/>}
         {editing && p && <ProjectForm api={api} project={p} basemaps={basemaps} onClose={() => setEditing(false)}
                                       onSaved={() => { setEditing(false); load(); }}/>}
     </>);
