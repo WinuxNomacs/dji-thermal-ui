@@ -6,6 +6,18 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Findings: a spot or an area of a mosaic saved on its dataset, with a name, notes, a severity and a status, its
+  temperatures and the frames that saw it. They are saved from the source frames window or a saved spot or area
+  measurement, drawn on the viewer's map with a tag in their severity's colour, listed in the viewer's panel, shown
+  or hidden all together or one by one (kept in the link), changed and deleted. The projects, datasets and dataset
+  pages count them, and a project's page lists its datasets' findings, each opening the viewer.
+
+### Fixed
+
+- A spot or an area far from a mosaic (in another UTM zone, or nowhere near) measures nothing instead of failing.
+
 ## [0.5.1] - 2026-10-27
 
 ### Changed
