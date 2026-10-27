@@ -89,7 +89,7 @@ function choose(input: HTMLInputElement, files: File[]) {
 
 function page(fetchFn: ReturnType<typeof server>, nav = vi.fn()) {
     vi.stubGlobal("fetch", fetchFn);
-    render(<DatasetPage api={API} publicUrl="/" id={5} nav={nav}/>, byId("root"));
+    render(<DatasetPage api={API} publicUrl="/" id={5} projectId={4} projectName="Silos" nav={nav}/>, byId("root"));
     return nav;
 }
 
@@ -298,7 +298,7 @@ describe("the dataset page", () => {
         press("Delete");
         await ticks();
         expect(calls(fetchFn)).toContain("DELETE " + URL);
-        expect(nav).toHaveBeenCalledWith("/");
+        expect(nav).toHaveBeenCalledWith("/project/4");
     });
 
     it("copies a link to the dataset, or shows it to copy when the clipboard refuses", async () => {

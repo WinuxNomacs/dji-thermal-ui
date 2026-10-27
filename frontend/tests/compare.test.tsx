@@ -70,8 +70,11 @@ describe("the compare helpers", () => {
             .toBe("?b=9&a=3&a_tab=harmonized&b_tab=as_converted&diff=a&split=35");
     });
 
-    it("group the mosaics by dataset and start a pane on the tab wanted, else another than the other pane's", () => {
+    it("group the mosaics by dataset (another project's named) and start a pane on the tab wanted, else another than the other pane's", () => {
         expect(mosaicGroups(LIST).map((g) => [g.name, g.items.map((c) => c.id)])).toEqual([["Roof", [9]], ["Field", [12]]]);
+        // Another project's datasets are named with it
+        const projects = [{...LIST[0], project: 1, project_name: "Silos"}, {...LIST[1], project: 2, project_name: "Barns"}];
+        expect(mosaicGroups(projects, 1).map((g) => g.name)).toEqual(["Roof", "Barns · Field"]);
         expect(firstTab(LIST[0], "harmonized")).toBe("harmonized");
         expect(firstTab(LIST[0], "view_angle", "as_converted")).toBe("harmonized");
         expect(firstTab(LIST[1], undefined, "as_converted")).toBe("as_converted");

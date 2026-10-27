@@ -1,10 +1,12 @@
-// The app's landing page: the datasets, searched and sorted, kept up to date while one is analyzed or converted;
-// New Dataset, also opened by dropping images (or their folder) anywhere on the page
+// A project's datasets, searched and sorted, kept up to date while one is analyzed or converted, under what the
+// project page shows of the project; New Dataset (made in the project), also opened by dropping images (or their
+// folder) anywhere on the page; a dataset moved to another project
+import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {count, deleteText, formatBytes, formatDate, statusLabel} from "../core/format";
-import {ask, askName} from "../components/dialog";
-import {CaretDown, CaretUp, Check, Cog, Folder, Images, Pencil, Plus, Refresh, Trash} from "../components/icons";
+import {ask, askName, dialog} from "../components/dialog";
+import {CaretDown, CaretUp, Check, Cog, Folder, Images, MoveTo, Pencil, Plus, Refresh, Trash} from "../components/icons";
 import {type Dataset, droppedFiles, filesCell, matchesSearch, sortDatasets} from "./list";
 import {NewDataset, type Stage} from "./new-dataset";
 
@@ -52,9 +54,11 @@ function ConversionsCell({d}: {d: Dataset}) {
         {ready}/{d.conversion_count}</span>);
 }
 
-interface RowProps {d: Dataset; publicUrl: string; rename: () => void; analyze: () => void; remove: () => void}
+interface RowProps {
+    d: Dataset; publicUrl: string; rename: () => void; analyze: () => void; move: () => void; remove: () => void;
+}
 
-function Row({d, publicUrl, rename, analyze, remove}: RowProps) {
+function Row({d, publicUrl, rename, analyze, move, remove}: RowProps) {
     return (
         <tr data-id={d.id}>
             <td><a href={publicUrl + "dataset/" + d.id}>{d.name || "(untitled)"}</a>
@@ -73,6 +77,8 @@ function Row({d, publicUrl, rename, analyze, remove}: RowProps) {
                 {d.status !== "analyzing" && (
                     <button type="button" class="icon-button analyze" title="Analyze again" aria-label="Analyze again"
                             onClick={analyze}><Refresh/></button>)}
+                <button type="button" class="icon-button move" title="Move to another project"
+                        aria-label="Move to another project" onClick={move}><MoveTo/></button>
                 <button type="button" class="icon-button delete" title="Delete" aria-label="Delete"
                         onClick={remove}><Trash/></button>
             </td>
@@ -83,10 +89,13 @@ function Row({d, publicUrl, rename, analyze, remove}: RowProps) {
 interface Props {
     api: string;
     publicUrl: string;
+    project: number;                            // the project whose datasets are listed
+    top?: ComponentChildren;                    // what the page shows above them
+    onChange?: () => void;                      // a dataset changed (made, analyzed, moved, deleted)
     nav?: (url: string) => void;
 }
 
-export function DatasetsPage({api, publicUrl, nav = (url) => { location.href = url; }}: Props) {
+export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url) => { location.href = url; }}: Props) {
     const [datasets, setDatasets] = useState<Dataset[] | null>(null);       // null until first loaded
     const [notice, setNotice] = useState("");
     const [query, setQuery] = useState("");
@@ -101,9 +110,10 @@ export function DatasetsPage({api, publicUrl, nav = (url) => { location.href = u
     async function load() {
         clearTimeout(timer.current);
         try {
-            const res = await fetch(api + "datasets", {credentials: "same-origin"});
+            const res = await fetch(api + "datasets?project=" + project, {credentials: "same-origin"});
             const list: Dataset[] = (await res.json()).datasets;
             setDatasets(list);
+            onChange?.();
             if (list.some((d) => d.status === "analyzing" || d.busy)) timer.current = setTimeout(load, POLL_MS);
         } catch {
             setNotice("Could not load the datasets.");
@@ -126,6 +136,33 @@ export function DatasetsPage({api, publicUrl, nav = (url) => { location.href = u
     async function analyze(d: Dataset) {
         const r = await readJson(await sendJson(api + "datasets/" + d.id + "/analyze", "POST", {}));
         setNotice(r.ok ? "" : errorText(r.data, "Could not start the analysis."));
+        load();
+    }
+
+    async function move(d: Dataset) {
+        let projects: {id: number; name: string}[];
+        try {
+            projects = (await (await fetch(api + "projects", {credentials: "same-origin"})).json()).projects;
+        } catch {
+            return setNotice("Could not load the projects.");
+        }
+        const others = projects.filter((p) => p.id !== project);
+        if (!others.length) {
+            await dialog({title: "Move dataset", text: "There is no other project to move it to. Make one on the " +
+                                                        "Projects page first."});
+            return;
+        }
+        let to = others[0].id;
+        const r = await dialog({
+            title: "Move dataset", text: "Move “" + d.name + "”, with its conversions and measurements, to:",
+            body: <div class="field"><select id="move-to" aria-label="Project"
+                                             onChange={(e) => { to = Number(e.currentTarget.value); }}>
+                {others.map((p) => <option value={p.id}>{p.name}</option>)}</select></div>,
+            buttons: [{label: "Cancel", value: false}, {label: "Move", value: true, style: "primary"}],
+        });
+        if (r.button !== true) return;
+        const res = await readJson(await sendJson(api + "datasets/" + d.id, "PATCH", {project: to}));
+        setNotice(res.ok ? "" : errorText(res.data, "Could not move the dataset."));
         load();
     }
 
@@ -182,14 +219,15 @@ export function DatasetsPage({api, publicUrl, nav = (url) => { location.href = u
 
     const shown = (datasets || []).filter((d) => matchesSearch(d, query.trim()));
     const message = datasets === null ? (notice ? "" : "Loading…") :
-        !datasets.length ? "No datasets yet. Use New Dataset to analyze a flight's thermal images." :
+        !datasets.length ? "No datasets in this project yet. Use New Dataset to analyze a flight's thermal images." :
         !shown.length ? "No datasets match the search." : "";
 
     return (
         <div class="page datasets" onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave}
              onDrop={onDrop}>
+            {top}
             <div class="page-header">
-                <h1>Datasets</h1>
+                <h2>Datasets</h2>
                 <div class="page-actions">
                     <input type="search" id="search" placeholder="Search datasets" aria-label="Search datasets"
                            value={query} onInput={(e) => setQuery(e.currentTarget.value)}/>
@@ -223,7 +261,7 @@ export function DatasetsPage({api, publicUrl, nav = (url) => { location.href = u
                         <tbody>
                             {sortDatasets(shown, sort.key, sort.desc).map((d) => (
                                 <Row key={d.id} d={d} publicUrl={publicUrl} rename={() => rename(d)}
-                                     analyze={() => analyze(d)} remove={() => remove(d)}/>
+                                     analyze={() => analyze(d)} move={() => move(d)} remove={() => remove(d)}/>
                             ))}
                         </tbody>
                     </table>
@@ -233,7 +271,7 @@ export function DatasetsPage({api, publicUrl, nav = (url) => { location.href = u
             {hint && <div class="drop-hint" id="drop-hint"><Images/> Drop the images or their folder to make a new
                 dataset</div>}
 
-            {open && <NewDataset api={api} publicUrl={publicUrl} nav={nav} dropped={dropped}
+            {open && <NewDataset api={api} publicUrl={publicUrl} project={project} nav={nav} dropped={dropped}
                                  onStage={(s) => { stage.current = s; }}
                                  onClose={() => setOpen(false)} onError={setNotice} load={load}/>}
         </div>

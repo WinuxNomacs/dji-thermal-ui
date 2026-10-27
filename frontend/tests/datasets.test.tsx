@@ -13,6 +13,7 @@ const DATASET: Dataset = {
     analyzed: true, created_at: "2026-10-18T09:00:00Z",
 };
 const LIST = {datasets: [DATASET]};
+const LIST_URL = API + "datasets?project=3";
 const NAMES = "abcdefghijk".split("").map((c) => c + "_T.JPG");
 
 const $ = <T extends Element = HTMLElement>(sel: string) => document.querySelector(sel) as T | null;
@@ -29,7 +30,7 @@ function type(el: HTMLInputElement, value: string) {
 
 function page(fetchFn: ReturnType<typeof server>, nav = vi.fn()) {
     vi.stubGlobal("fetch", fetchFn);
-    render(<DatasetsPage api={API} publicUrl="/" nav={nav}/>, byId("root"));
+    render(<DatasetsPage api={API} publicUrl="/" project={3} nav={nav}/>, byId("root"));
     return nav;
 }
 
@@ -77,7 +78,7 @@ describe("the datasets list", () => {
     });
 
     it("shows a dataset's progress, files and problems, with its actions", async () => {
-        page(server({[API + "datasets"]: {datasets: [
+        page(server({[LIST_URL]: {datasets: [
             {...DATASET, name: "<i>x</i>", conversion_count: 3, conversions_ready: 2},
             {...DATASET, id: 6, source: "folder", folder: "/data/flight3", conversion_count: 1, conversions_ready: 1},
             {...DATASET, id: 7, status: "analyzing", progress: 0.3, created_at: "2026-10-17T09:00:00Z"},
@@ -100,10 +101,10 @@ describe("the datasets list", () => {
     it("lists the datasets and polls while one is analyzed", async () => {
         vi.useFakeTimers();
         const other = {...DATASET, id: 6, name: "Yard", status: "analyzing", progress: 0.5};
-        const fetchFn = server({[API + "datasets"]: {datasets: [DATASET, other]}});
+        const fetchFn = server({[LIST_URL]: {datasets: [DATASET, other]}});
         page(fetchFn);
         await ticks();
-        expect(fetchFn).toHaveBeenCalledWith(API + "datasets", {credentials: "same-origin"});
+        expect(fetchFn).toHaveBeenCalledWith(LIST_URL, {credentials: "same-origin"});
         expect(document.querySelectorAll("#datasets tbody tr").length).toBe(2);
         vi.runOnlyPendingTimers();
         expect(fetchFn).toHaveBeenCalledTimes(2);
@@ -111,7 +112,7 @@ describe("the datasets list", () => {
 
     it("shows a dataset being converted as such, and polls until it is done", async () => {
         vi.useFakeTimers();
-        const fetchFn = server({[API + "datasets"]: [{datasets: [{...DATASET, busy: true}]}, LIST]});
+        const fetchFn = server({[LIST_URL]: [{datasets: [{...DATASET, busy: true}]}, LIST]});
         page(fetchFn);
         await ticks();
         expect($("#datasets tbody tr")!.textContent).toContain("Converting");
@@ -126,7 +127,7 @@ describe("the datasets list", () => {
     it("filters the list by the search and sorts it by the header clicked", async () => {
         const yard = {...DATASET, id: 6, name: "Yard", created_at: "2026-10-19T09:00:00Z", conversion_count: 2,
                       conversions_ready: 1, last_activity: "2026-10-21T08:00:00Z"};
-        page(server({[API + "datasets"]: {datasets: [yard, DATASET]}}));
+        page(server({[LIST_URL]: {datasets: [yard, DATASET]}}));
         await ticks();
         expect(names()).toEqual(["Yard", "Roof"]);
         const th = (key: string) => $(`th[data-sort=${key}]`)!;
@@ -160,10 +161,10 @@ describe("the datasets list", () => {
     });
 
     it("says there are no datasets yet, and offers uploading images or a folder on this computer", async () => {
-        page(server({[API + "datasets"]: {datasets: []}}));
+        page(server({[LIST_URL]: {datasets: []}}));
         expect(byId("message").textContent).toBe("Loading…");
         await ticks();
-        expect(byId("message").textContent).toMatch(/No datasets yet/);
+        expect(byId("message").textContent).toMatch(/No datasets in this project yet/);
         click(byId("new-dataset-button"));
         await ticks();
         expect(byId("new-dataset-title").textContent).toBe("New thermal dataset");
@@ -175,7 +176,7 @@ describe("the datasets list", () => {
     });
 
     it("opens New Dataset with the images dropped on the page, a dropped folder's read through", async () => {
-        page(server({[API + "datasets"]: {datasets: []}}));
+        page(server({[LIST_URL]: {datasets: []}}));
         await ticks();
         const drag = (type: string, dataTransfer: object) => {
             const e = new Event(type, {bubbles: true, cancelable: true});
@@ -213,7 +214,7 @@ describe("the datasets list", () => {
     });
 
     it("creates a folder dataset and opens it", async () => {
-        const fetchFn = server({[API + "datasets"]: {datasets: []},
+        const fetchFn = server({[LIST_URL]: {datasets: []},
                                 ["POST " + API + "datasets"]: {...DATASET, id: 8, source: "folder"}});
         const nav = page(fetchFn);
         await ticks();
@@ -235,13 +236,13 @@ describe("the datasets list", () => {
         await ticks();
         const [url, opts] = fetchFn.mock.calls[1];
         expect(url).toBe(API + "datasets");
-        expect(JSON.parse(opts!.body as string)).toEqual({name: "Flight 3", source: "folder", folder: "/data/flight3"});
+        expect(JSON.parse(opts!.body as string)).toEqual({name: "Flight 3", source: "folder", folder: "/data/flight3", project: 3});
         expect((opts!.headers as Record<string, string>)["X-CSRFToken"]).toBe("tok");
         expect(nav).toHaveBeenCalledWith("/dataset/8");
     });
 
     it("says why a dataset could not be created", async () => {
-        page(server({[API + "datasets"]: {datasets: []},
+        page(server({[LIST_URL]: {datasets: []},
                      ["POST " + API + "datasets"]: () => jsonResponse({name: ["A name is required"]}, false)}));
         await choose(["a_T.JPG"]);
         expect(byId("new-chosen").textContent).toMatch(/1 image/);
@@ -255,7 +256,7 @@ describe("the datasets list", () => {
 
 describe("the datasets list's actions, and an upload that does not all arrive", () => {
     it("renames a dataset in the page's dialog", async () => {
-        const fetchFn = server({[API + "datasets"]: LIST, ["PATCH " + API + "datasets/5"]: DATASET});
+        const fetchFn = server({[LIST_URL]: LIST, ["PATCH " + API + "datasets/5"]: DATASET});
         page(fetchFn);
         await ticks();
         click($(".rename")!);
@@ -270,8 +271,35 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
         expect(dialog()).toBeNull();
     });
 
+    it("moves a dataset to another project, or says there is none to move it to", async () => {
+        const projects = {projects: [{id: 3, name: "Silos"}, {id: 7, name: "Barns"}, {id: 9, name: "Yard"}]};
+        const fetchFn = server({[LIST_URL]: LIST, [API + "projects"]: [projects, {projects: [{id: 3, name: "Silos"}]}],
+                                ["PATCH " + API + "datasets/5"]: DATASET});
+        page(fetchFn);
+        await ticks();
+        click($(".move")!);
+        await ticks();
+        // The others only, the first chosen
+        const select = byId<HTMLSelectElement>("move-to");
+        expect([...select.options].map((o) => o.textContent)).toEqual(["Barns", "Yard"]);
+        select.value = "9";
+        select.dispatchEvent(new Event("change", {bubbles: true}));
+        press("Move");
+        await ticks();
+        const patch = fetchFn.mock.calls.find((c) => c[1]?.method === "PATCH")!;
+        expect(JSON.parse(patch[1]!.body as string)).toEqual({project: 9});
+        expect(calls(fetchFn).filter((c) => c === "GET " + LIST_URL)).toHaveLength(2);
+
+        click($(".move")!);
+        await ticks();
+        expect(dialog()!.textContent).toContain("There is no other project");
+        press("OK");
+        await ticks();
+        expect(calls(fetchFn).filter((c) => c.startsWith("PATCH"))).toHaveLength(1);
+    });
+
     it("analyzes a dataset again, and says when it could not", async () => {
-        const fetchFn = server({[API + "datasets"]: LIST,
+        const fetchFn = server({[LIST_URL]: LIST,
                                 ["POST " + API + "datasets/5/analyze"]: () => jsonResponse({detail: "Busy"}, false)});
         page(fetchFn);
         await ticks();
@@ -283,7 +311,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
 
     it("says what deleting a dataset takes with it before deleting it", async () => {
         const d = {...DATASET, conversion_count: 2, mosaic_count: 1, measurement_count: 14};
-        const fetchFn = server({[API + "datasets"]: {datasets: [d]}, ["DELETE " + API + "datasets/5"]: {}});
+        const fetchFn = server({[LIST_URL]: {datasets: [d]}, ["DELETE " + API + "datasets/5"]: {}});
         page(fetchFn);
         await ticks();
         click($(".delete")!);
@@ -308,7 +336,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
     it("stops when images could not be sent, and analyzes once they are sent again", async () => {
         let failing = true;
         const fetchFn = server({
-            [API + "datasets"]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
+            [LIST_URL]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
             ["POST " + API + "datasets/8/upload"]: (_: string, opts?: RequestInit) =>
                 failing && paths(opts).includes("k_T.JPG") ? jsonResponse({}, false) :
                     jsonResponse({saved: paths(opts).length}),
@@ -338,7 +366,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
 
     it("analyzes without the images that could not be sent", async () => {
         const fetchFn = server({
-            [API + "datasets"]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
+            [LIST_URL]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
             ["POST " + API + "datasets/8/upload"]: (_: string, opts?: RequestInit) =>
                 paths(opts).includes("k_T.JPG") ? jsonResponse({}, false) : jsonResponse({saved: paths(opts).length}),
             ["POST " + API + "datasets/8/analyze"]: {},
@@ -355,7 +383,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
 
     it("offers only to send the images again when none arrived", async () => {
         page(server({
-            [API + "datasets"]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
+            [LIST_URL]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
             ["POST " + API + "datasets/8/upload"]: () => jsonResponse({}, false),
         }));
         await choose(["a_T.JPG"]);
@@ -368,7 +396,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
 
     it("cancels an upload under way, deleting the new dataset with the images sent so far", async () => {
         const fetchFn = server({
-            [API + "datasets"]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
+            [LIST_URL]: LIST, ["POST " + API + "datasets"]: {...DATASET, id: 8},
             // The requests hang until they are aborted
             ["POST " + API + "datasets/8/upload"]: (_: string, opts?: RequestInit) => new Promise((_ok, fail) =>
                 opts!.signal!.addEventListener("abort", () => fail(new DOMException("aborted", "AbortError")))),

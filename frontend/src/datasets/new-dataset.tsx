@@ -23,6 +23,7 @@ interface Made {
 interface Props {
     api: string;
     publicUrl: string;
+    project: number;                            // the project it is made in
     nav: (url: string) => void;
     dropped: {files: File[]} | null;           // files dropped on the page, a new object for each drop
     onStage: (stage: Stage) => void;
@@ -33,7 +34,7 @@ interface Props {
 
 const HINT = "The R-JPEGs of a flight (the _T.JPG files). Visible images can be included: they are listed, not analyzed.";
 
-export function NewDataset({api, publicUrl, nav, dropped, onStage, onClose, onError, load}: Props) {
+export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onClose, onError, load}: Props) {
     const [name, setName] = useState("");
     const [source, setSource] = useState<"upload" | "folder">("upload");
     const [folder, setFolder] = useState("");
@@ -148,7 +149,7 @@ export function NewDataset({api, publicUrl, nav, dropped, onStage, onClose, onEr
         setStage("working");
         try {
             const r = await readJson<{id: number}>(await sendJson(api + "datasets", "POST",
-                                                                  {name: n, source, folder: path}));
+                                                                  {name: n, source, folder: path, project}));
             if (!r.ok) throw new Error(errorText(r.data, "Could not create the dataset."));
             made.current = {dataset: r.data, saved: 0, failed: []};
             if (source === "folder") {

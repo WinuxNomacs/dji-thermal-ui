@@ -9,19 +9,16 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **E1: projects**: a project (name, description, location) holds datasets; a renamable "Default Project" holds the
-   datasets made before projects; its page lists their datasets, findings and conversions, and compares within it.
-   (Projects)
-2. **E2: a project's location found on the map**: an address or place searched on Mapbox (with a token) or
+1. **E2: a project's location found on the map**: an address or place searched on Mapbox (with a token) or
    OpenStreetMap, or the point picked on the map. (Projects)
-3. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
+2. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
    datasets and what is under them, and User Preferences (unit, theme, date and time locale). (Projects)
-4. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
-5. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
+3. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
+4. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
    on the viewer and the compare page; the Source frame tab opens it on a click. (Findings)
-6. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+5. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
    severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-7. **C4: findings on the compare page.** (Findings)
+6. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
@@ -489,6 +486,8 @@ Requested 2026-10-27 (`new.md`):
 
 ### E1: projects
 
+- **Built** (2026-10-27): see Done. The findings counts and the project's findings together wait for C3; the form
+  edits the name and description, and the location's form is E2's.
 - **Model:** `Project` (name, description, location as lon/lat with its label, when made and changed), and each
   dataset in exactly one project. The migration makes the Default Project and moves the existing datasets into it.
 - **API:** `/api/projects` (list, create, change, delete with its datasets); a dataset's `project`, changed to move
@@ -591,3 +590,15 @@ Requested 2026-10-27 (`new.md`):
   (Vitest). The README says how to get a token. The release checks found check_dist refusing the wordmark, fixed on
   its own branch. Release checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 143 pytest with
   the flight tests, 164 Vitest, ESLint) and on Windows from WSL (141 pytest from a fresh clone, smoke).
+- **E1: projects** (2026-10-27). `Project` and each dataset's `project` (`analyzer/models.py`; a dataset saved
+  without one goes into the first), the migration making the Default Project and moving the datasets into it
+  (`migrations/0003_projects.py`), and `Project.default()` making it again whenever none is left. `/api/projects`
+  (list, make, change, delete with the datasets and their folders), a project's disk space and each dataset's flight
+  area (the hull of its frames' positions, `thermal_analysis.flight_area`); datasets made in, listed by and moved to
+  a project; compare listing the project's conversions first (`analyzer/api.py`). The projects page is the home page
+  and a project has its page with the map of its flights and its datasets (`frontend/src/projects/`); the dataset
+  page leads back to its project. Tests: `tests/test_api_projects.py` (with the migration), `tests/test_pages.py`,
+  `frontend/tests/projects.test.tsx`, `frontend/tests/datasets.test.tsx` (moving a dataset). Checked live in headless
+  Chromium on the real data folder (its database backed up first and restored after): the migration, a project
+  made, the dataset moved into it and back, its flight area on the map, the breadcrumb, the delete dialog, compare;
+  light, dark and 390 px wide; no console errors or failed requests.

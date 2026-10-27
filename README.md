@@ -6,6 +6,9 @@ dji-thermal-ui is a local web app built on [dji-thermal-cli](https://github.com/
 does the work with dji-thermal-cli and shows the results in the browser, so neither ODM nor the DJI Thermal SDK is
 needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM fork, now standing on its own.
 
+- **Projects:** a site's datasets together, with a name, a description and a location, and a map of where each
+  dataset was flown. A dataset can be moved to another project. The datasets made before projects existed are in the
+  Default Project, which you can rename; one is made again whenever none is left.
 - **Datasets:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a dataset.
 - **Conversions:** temperature images with any of dji-thermal-cli's settings. You can keep several side by side,
@@ -16,7 +19,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
   and on single frames. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
-- **Compare:** two conversions side by side, or their difference.
+- **Compare:** two conversions side by side, or their difference, from any dataset, the project's listed first.
 - Temperatures in °F, °C or K, and light or dark pages (or the computer's own).
 
 It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
@@ -83,6 +86,7 @@ The database (SQLite), the secret key and each dataset's files (`datasets/<id>/`
 
 `--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. A dataset used in place
 from a folder reads its images there and never changes them. Deleting a dataset deletes only what the app made.
+Deleting a project deletes its datasets the same way, after saying how many there are and how much space is freed.
 
 ## Development
 

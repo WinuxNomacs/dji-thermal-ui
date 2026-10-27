@@ -12,7 +12,10 @@ export const NO_OVERLAP = "These mosaics do not overlap.";
 export type PaneName = "a" | "b";
 
 // A conversion whose mosaics can be compared (/comparable), with its temperature tabs
-export interface Comparable {id: number; name: string; dataset: number; dataset_name: string; unit?: string; tabs: string[]}
+export interface Comparable {
+    id: number; name: string; dataset: number; dataset_name: string; project?: number; project_name?: string;
+    unit?: string; tabs: string[];
+}
 
 // A temperature mosaic's palette, range (in the user's unit) and adjustments
 export interface CompareStyle {palette: string; range: [number, number]; adjust: Adjust}
@@ -66,11 +69,14 @@ export function compareQuery(view: CompareView, pageId: number): string {
     return "?" + parts.join("&");
 }
 
-// The mosaics to choose from, by dataset (in the order given)
-export function mosaicGroups(list: Comparable[]): {name: string; items: Comparable[]}[] {
+// The mosaics to choose from, by dataset (in the order given: the project's first); those of other projects named with
+// their project
+export function mosaicGroups(list: Comparable[], project?: number): {name: string; items: Comparable[]}[] {
     const groups: {name: string; items: Comparable[]}[] = [], byDataset: Record<number, {name: string; items: Comparable[]}> = {};
     list.forEach((c) => {
-        if (!byDataset[c.dataset]) groups.push(byDataset[c.dataset] = {name: c.dataset_name, items: []});
+        const name = project !== undefined && c.project !== undefined && c.project !== project ?
+            c.project_name + " · " + c.dataset_name : c.dataset_name;
+        if (!byDataset[c.dataset]) groups.push(byDataset[c.dataset] = {name, items: []});
         byDataset[c.dataset].items.push(c);
     });
     return groups;

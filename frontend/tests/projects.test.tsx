@@ -1,0 +1,197 @@
+import {render} from "preact";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {type Project, projectDeleteText} from "../src/projects/list";
+import {ProjectPage} from "../src/projects/project-page";
+import {ProjectsPage} from "../src/projects/projects-page";
+import {calls, click, jsonResponse, key, server, ticks} from "./helpers";
+
+const API = "/api/";
+const SILOS: Project = {
+    id: 3, name: "Silos", description: "North farm\nBins 1 to 4", location: {lon: -88.07, lat: 42.1, label: "1 Farm Rd"},
+    dataset_count: 2, conversion_count: 3, mosaic_count: 2, measurement_count: 14, size: 5 * 1048576,
+    created_at: "2026-10-18T09:00:00Z",
+};
+const EMPTY: Project = {...SILOS, id: 1, name: "Default Project", description: "", location: null, dataset_count: 0,
+                        conversion_count: 0, mosaic_count: 0, measurement_count: 0, size: 0};
+const DETAIL = {...SILOS, areas: [{dataset: 5, name: "Roof", ring: [[0, 0], [1, 0], [1, 1], [0, 0]]}]};
+
+const $ = <T extends Element = HTMLElement>(sel: string) => document.querySelector(sel) as T | null;
+const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+const dialog = () => $(".page .dialog:not(#project-form)");
+const press = (label: string) => click([...dialog()!.querySelectorAll("button")].find((b) => b.textContent === label)!);
+const names = () => [...document.querySelectorAll("#projects tbody tr td:first-child a")].map((a) => a.textContent);
+const body = (fetchFn: ReturnType<typeof server>, method: string) =>
+    JSON.parse(fetchFn.mock.calls.find((c) => c[1]?.method === method)![1]!.body as string);
+
+function type(el: HTMLInputElement | HTMLTextAreaElement, value: string) {
+    el.value = value;
+    el.dispatchEvent(new Event("input", {bubbles: true}));
+}
+
+beforeEach(() => {
+    document.cookie = "csrftoken=tok";
+    document.body.innerHTML = '<div id="root"></div>';
+});
+afterEach(() => {
+    render(null, byId("root"));
+    vi.unstubAllGlobals();
+});
+
+function projectsPage(fetchFn: ReturnType<typeof server>, nav = vi.fn()) {
+    vi.stubGlobal("fetch", fetchFn);
+    render(<ProjectsPage api={API} publicUrl="/" nav={nav}/>, byId("root"));
+    return nav;
+}
+
+function projectPage(fetchFn: ReturnType<typeof server>, nav = vi.fn()) {
+    vi.stubGlobal("fetch", fetchFn);
+    render(<ProjectPage api={API} publicUrl="/" id={3} basemaps={[]} nav={nav}/>, byId("root"));
+    return nav;
+}
+
+describe("the projects page", () => {
+    it("lists the projects with their location, datasets and size, and searches them", async () => {
+        projectsPage(server({[API + "projects"]: {projects: [EMPTY, SILOS]}}));
+        expect(byId("message").textContent).toBe("Loading…");
+        await ticks();
+        expect(names()).toEqual(["Default Project", "Silos"]);
+        const row = $('tr[data-id="3"]')!;
+        expect(row.querySelector("a")!.getAttribute("href")).toBe("/project/3");
+        // The description's first line, and the location's label
+        expect(row.textContent).toContain("North farm");
+        expect(row.textContent).not.toContain("Bins 1 to 4");
+        expect(row.textContent).toContain("1 Farm Rd");
+        expect(row.textContent).toContain("5.0 MB");
+
+        type(byId<HTMLInputElement>("search"), "silo");
+        await ticks();
+        expect(names()).toEqual(["Silos"]);
+        type(byId<HTMLInputElement>("search"), "barn");
+        await ticks();
+        expect(byId("message").textContent).toBe("No projects match the search.");
+    });
+
+    it("makes a project and opens it, after asking for a name", async () => {
+        const fetchFn = server({[API + "projects"]: {projects: [EMPTY]}, ["POST " + API + "projects"]: SILOS});
+        const nav = projectsPage(fetchFn);
+        await ticks();
+        click(byId("new-project-button"));
+        await ticks();
+        click(byId("project-save"));
+        await ticks();
+        expect(byId("project-error").textContent).toBe("Give the project a name.");
+        expect(calls(fetchFn)).not.toContain("POST " + API + "projects");
+
+        type(byId<HTMLInputElement>("project-name"), " Silos ");
+        type(byId<HTMLTextAreaElement>("project-description"), "North farm");
+        await ticks();
+        key(byId("project-name"), "Enter");
+        await ticks();
+        expect(body(fetchFn, "POST")).toEqual({name: "Silos", description: "North farm"});
+        expect(nav).toHaveBeenCalledWith("/project/3");
+    });
+
+    it("edits a project, says why it was not saved, and closes on Escape", async () => {
+        const fetchFn = server({[API + "projects"]: {projects: [SILOS]},
+                                ["PATCH " + API + "projects/3"]: [() => jsonResponse({name: ["Too long"]}, false), SILOS]});
+        projectsPage(fetchFn);
+        await ticks();
+        click($(".edit")!);
+        await ticks();
+        expect(byId<HTMLInputElement>("project-name").value).toBe("Silos");
+        expect(byId<HTMLTextAreaElement>("project-description").value).toBe(SILOS.description);
+        type(byId<HTMLInputElement>("project-name"), "Grain silos");
+        await ticks();
+        click(byId("project-save"));
+        await ticks();
+        expect(byId("project-error").textContent).toBe("Too long");
+        click(byId("project-save"));
+        await ticks();
+        expect(body(fetchFn, "PATCH").name).toBe("Grain silos");
+        expect(byId("project-form")).toBeNull();
+        expect(calls(fetchFn).filter((c) => c === "GET " + API + "projects")).toHaveLength(2);
+
+        click($(".edit")!);
+        await ticks();
+        key(document.body, "Escape");
+        await ticks();
+        expect(byId("project-form")).toBeNull();
+    });
+
+    it("says what deleting a project takes with it, and the space freed, before deleting it", async () => {
+        const fetchFn = server({[API + "projects"]: {projects: [SILOS]}, ["DELETE " + API + "projects/3"]: {}});
+        projectsPage(fetchFn);
+        await ticks();
+        click($(".delete")!);
+        await ticks();
+        const text = dialog()!.textContent;
+        expect(text).toContain("“Silos” is deleted with its 2 datasets, 3 conversions, 2 mosaics and 14 measurements.");
+        expect(text).toContain("5.0 MB of disk space is freed.");
+        expect(text).toContain("cannot be undone");
+        press("Cancel");
+        await ticks();
+        expect(calls(fetchFn)).not.toContain("DELETE " + API + "projects/3");
+        click($(".delete")!);
+        await ticks();
+        press("Delete");
+        await ticks();
+        expect(calls(fetchFn)).toContain("DELETE " + API + "projects/3");
+    });
+
+    it("words a delete for a project with nothing in it, or a dataset alone", () => {
+        expect(projectDeleteText(EMPTY)).toEqual(["“Default Project” has no datasets.", "This cannot be undone."]);
+        expect(projectDeleteText({...EMPTY, dataset_count: 1})[0]).toBe("“Default Project” is deleted with its 1 dataset.");
+        expect(projectDeleteText({...EMPTY, dataset_count: 1})[1]).toBe(
+            "The images of datasets read from a folder stay in their folders.");
+    });
+});
+
+describe("a project's page", () => {
+    const routes = (project: unknown = DETAIL, more = {}) =>
+        server({[API + "projects/3"]: project, [API + "datasets?project=3"]: {datasets: []}, ...more});
+
+    it("shows the project, the map of where its datasets were flown, and its datasets", async () => {
+        projectPage(routes());
+        await ticks();
+        expect(byId("project-name").textContent).toBe("Silos");
+        expect(byId("project-description").textContent).toBe(SILOS.description);
+        expect($(".project-location")!.textContent).toContain("1 Farm Rd");
+        expect(byId("project-map")).not.toBeNull();
+        expect(byId("message").textContent).toMatch(/No datasets in this project yet/);
+        expect($(".breadcrumb a")!.getAttribute("href")).toBe("/");
+    });
+
+    it("has no map without a location or a dataset flown", async () => {
+        projectPage(routes({...EMPTY, id: 3, areas: []}));
+        await ticks();
+        expect(byId("project-name").textContent).toBe("Default Project");
+        expect(byId("project-map")).toBeNull();
+        expect($(".project-about")).toBeNull();
+    });
+
+    it("edits the project and shows it again", async () => {
+        const fetchFn = routes([DETAIL, {...DETAIL, name: "Grain silos"}], {["PATCH " + API + "projects/3"]: SILOS});
+        projectPage(fetchFn);
+        await ticks();
+        click(byId("edit-project"));
+        await ticks();
+        type(byId<HTMLInputElement>("project-name"), "Grain silos");
+        await ticks();
+        click(byId("project-save"));
+        await ticks();
+        expect(byId("project-name").textContent).toBe("Grain silos");
+    });
+
+    it("deletes the project after asking, and goes back to the projects", async () => {
+        const fetchFn = routes(DETAIL, {["DELETE " + API + "projects/3"]: {}});
+        const nav = projectPage(fetchFn);
+        await ticks();
+        click(byId("delete-project"));
+        await ticks();
+        expect(dialog()!.textContent).toContain("“Silos” is deleted with its 2 datasets");
+        press("Delete");
+        await ticks();
+        expect(calls(fetchFn)).toContain("DELETE " + API + "projects/3");
+        expect(nav).toHaveBeenCalledWith("/");
+    });
+});
