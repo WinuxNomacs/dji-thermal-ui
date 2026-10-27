@@ -2,11 +2,13 @@
 
 Every file in the wheel and sdist must match an allowlist, so nothing local (editor or assistant settings, test data,
 the front end's sources and tests, node_modules, build leftovers) can be published by accident. Also checks both carry
-the templates, the migrations and the built front end (npm run build) with the licences of what is bundled into it.
+the templates, the migrations and the built front end (npm run build): each page's entry and files, and the
+licences of what is bundled into it.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import tarfile
@@ -33,32 +35,54 @@ REQUIRED = [
     "dji_thermal_ui/static/favicon.svg",
     "dji_thermal_ui/static/dist/manifest.json",
 ]
+# The pages' entries in the build's manifest (frontend/src/pages), each with its files in the distribution
+PAGES = ["datasets", "dataset", "viewer", "frame", "compare"]
+MANIFEST = "dji_thermal_ui/static/dist/manifest.json"
 LICENCE_FILES = {
     "LICENSE",
     "src/dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",
 }
 
 
+def build_problems(names: list[str], manifest: bytes | None, prefix: str = "") -> list[str]:
+    """What the build's manifest lacks: an entry for each page, and the files they load"""
+    if manifest is None:
+        return []           # reported as missing already
+    chunks = json.loads(manifest)
+    problems = []
+    for page in PAGES:
+        chunk = chunks.get(f"src/pages/{page}.tsx")
+        if not chunk or not chunk.get("isEntry"):
+            problems.append(f"no entry for the {page} page in the manifest")
+            continue
+        for f in [chunk["file"], *chunk.get("css", [])]:
+            if f"{prefix}dji_thermal_ui/static/dist/{f}" not in names:
+                problems.append(f"missing: the {page} page's {f}")
+    return problems
+
+
 def wheel_problems(path: Path) -> list[str]:
     with zipfile.ZipFile(path) as z:
         names = [n for n in z.namelist() if not n.endswith("/")]
+        manifest = z.read(MANIFEST) if MANIFEST in names else None
     problems = [f"unexpected file: {n}" for n in names if not WHEEL.fullmatch(n)]
     problems += [f"missing: {r}" for r in REQUIRED if r not in names]
     licences = {n.split("/licenses/", 1)[1] for n in names if "/licenses/" in n}
     problems += [f"missing licence: {lic}" for lic in sorted(LICENCE_FILES - licences)]
-    return problems
+    return problems + build_problems(names, manifest)
 
 
 def sdist_problems(path: Path) -> list[str]:
     with tarfile.open(path) as t:
         members = t.getmembers()
-    root = members[0].name.split("/", 1)[0]
-    names = [m.name.removeprefix(root + "/") for m in members if m.isfile()]
+        root = members[0].name.split("/", 1)[0]
+        names = [m.name.removeprefix(root + "/") for m in members if m.isfile()]
+        manifest = t.extractfile(f"{root}/src/{MANIFEST}").read() if f"src/{MANIFEST}" in names else None
     problems = [f"not a regular file or directory: {m.name}" for m in members if not (m.isfile() or m.isdir())]
     problems += [f"unexpected file: {n}" for n in names if not SDIST.fullmatch(n)]
     problems += [f"missing: src/{r}" for r in REQUIRED if f"src/{r}" not in names]
     problems += [f"missing licence: {lic}" for lic in sorted(LICENCE_FILES - set(names))]
-    return problems
+    return problems + build_problems(names, manifest, "src/")
 
 
 def main(argv: list[str]) -> int:

@@ -191,10 +191,10 @@ Awesome 5) is rebuilt in two stages, each released on its own.
 - **Tests:** Vitest with jsdom and Testing Library replaces Jest. The behaviour the 141 Jest tests cover is
   ported. ESLint uses typescript-eslint, and `tsc --noEmit` runs with the lint. pytest's page tests run against
   a stub manifest, so they do not need a build.
-- **Packaging:** CI's lint, test and build jobs build the front end first. `check_dist.py` requires the manifest
-  and the entries. A third-party licence file for the bundle (Preact, Leaflet) is generated at build and shipped.
-  To check in B1: that the sdist carries the built files although they are gitignored, so a wheel built from it
-  needs no Node.
+- **Packaging:** CI's build job builds the front end first (lint and pytest need no build: the stub manifest).
+  `check_dist.py` requires the manifest, each page's entry and its files. A third-party licence file for the
+  bundle (Preact, Leaflet) is generated at build and shipped as a licence file. Checked: the sdist carries the
+  built files although they are gitignored, and `uv build` makes the wheel from it with no Node.
 - **Versions (npm, 2026-10-26), pinned exactly:** preact 11.0.2, @preact/signals 2.11.3, vite 8.3.5,
   @preact/preset-vite 2.10.6, typescript 6.0.3 (typescript-eslint 8.72.0 supports up to 6.0, so not 7),
   vitest 5.0.5, jsdom 30.1.3, @testing-library/preact 3.2.6, leaflet 1.9.4, @types/leaflet 1.9.22, eslint
@@ -202,6 +202,10 @@ Awesome 5) is rebuilt in two stages, each released on its own.
 - **Live check:** A3's walk-through in headless Chromium on the 220 M4T frames, in light and in dark, and on
   Windows from WSL with the smoke check.
 - **Release:** 0.2.0.
+- **Built so far (branch `b1-pages`):** the five pages in `frontend/src` with their Vitest tests in
+  `frontend/tests`; the stylesheet `frontend/src/styles/app.css`; the old scripts, CSS, `base.html`, the vendored
+  libraries and Jest removed; packaging and CI as above. Left: the Windows check, A3's walk-through in light and
+  dark, and the release.
 
 ### B2: the viewer on OpenLayers (to plan after B1)
 
