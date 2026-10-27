@@ -9,13 +9,13 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing planned: the next phase is chosen from Later with the user.
+1. **B3: the basemaps**: Google's satellite tiles under the mosaics with the user's own key, and Esri's satellite
+   layer stretched past the levels it has where the mosaic is. (Basemaps)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
    the plan's options, and follow it. This replaces the plugin's "Process in LuxODM". (Integration)
-2. **Google Map Tiles under the mosaics.** (Basemaps)
-3. **A report** of a dataset or a mosaic (moved from LuxODM's Later, 2026-10-25). (Analyzer)
+2. **A report** of a dataset or a mosaic (moved from LuxODM's Later, 2026-10-25). (Analyzer)
 
 ## Standalone (option A)
 
@@ -238,11 +238,61 @@ Planned 2026-10-27.
 
 ## Basemaps
 
-- **Google Map Tiles:** the deployment holds the key (decided 2026-10-25). For a locally installed app, a key it
-  holds is effectively public. The plan is to proxy tiles through the local server, ship without a key, and read
-  it from the config, with a quota. Check first whether Google's terms allow proxying.
-- **Esri's satellite layer past its highest zoom** shows "Map data not yet available" tiles under a mosaic zoomed
-  in closely (seen in A3's live check). Setting the layer's `maxNativeZoom` would stretch its last level instead.
+### B3: the basemaps
+
+Planned 2026-10-27.
+
+- **Decisions (2026-10-27):** this replaces the note of 2026-10-25 (a key the deployment holds, tiles proxied
+  through the server, the app counting a quota). That note was written for LuxODM's shared server. Here there is
+  one user on their own computer, with their own key:
+  - the browser fetches Google's tiles directly, with no proxy;
+  - the key is entered in the app and saved in the preferences;
+  - Esri's layer gets a maximum zoom for each area;
+  - the app counts no usage: Google Cloud's own caps limit it.
+- **Google's terms (read 2026-10-27, Map Tiles API policies):**
+  - Content must not be pre-fetched, stored or cached, apart from honouring the responses' `Cache-Control`.
+  - Offline use is not allowed.
+  - The Google Maps logo, or "Google Maps" where there is no room, and the `copyright` attribution of the area in
+    view stay visible, and nothing covers them. The mosaics may lie over the tiles.
+  - The terms say nothing about proxying, which no longer matters here.
+  - Since 8 July 2025, accounts billed at an address in the EEA no longer get some Map Tiles content (the README
+    says so).
+- **Google Satellite:** `ol/source/Google` (OpenLayers 10.11.0) with `mapType: "satellite"` and the key. It creates
+  and renews the session, and reads each view's attribution from `tile/v1/viewport`.
+  - Shown as "Google Satellite" in the basemap switch when a key is saved.
+  - The Google logo is a map control at the bottom left while the layer is shown. The logo is Google's file,
+    unmodified, kept beside the other static files.
+  - If the session cannot be made (a wrong key, the API not enabled, billing), the switch says why, and the map
+    goes back to the previous basemap.
+- **The key:** "Google Satellite: add a key…" in the basemap switch opens a small form to paste the key, which
+  links to Google's page on getting one.
+  - The key is saved as the `google_maps_key` preference (`PUT /api/preferences`), never in the code or a
+    settings file, and reaches the map pages in their JSON.
+  - The same form changes or removes it.
+  - It is the user's own key, used only by their own browser, as the terms expect.
+- **Esri past its levels:** Esri's satellite imagery goes as deep as zoom 21 in some places and only to 17–19 in
+  others. Past that, it serves "Map data not yet available" tiles.
+  - The layer asks Esri's tilemap service (`MapServer/tilemap/{z}/{row}/{col}/{w}/{h}`) which tiles exist around
+    the mosaic, at most once per block and level, and requests none that do not exist.
+  - Where tiles are missing, the deepest level that exists is stretched (the tile grid's lower levels).
+  - First check when building: the endpoint and its answer. Esri's server returned 502s on 2026-10-27.
+  - If the tilemap cannot be used, the layer stops at zoom 19 and is stretched past it.
+  - Google gets the same treatment, from the viewport's `maxZoomRects`, if its tiles show the same problem.
+- **Usage limits:** none in the app. The README says to restrict the key to the Map Tiles API (and to
+  `127.0.0.1`/`localhost` referrers), and to set a daily quota in the Google Cloud console.
+- **Tests:**
+  - Vitest:
+    - the basemaps listed with and without a key;
+    - the key form saving, changing and removing the key;
+    - the switch going back when the session fails (the session request stubbed);
+    - the tilemap's answer turned into the levels each tile has.
+  - pytest: the preference saved, removed and passed to the pages, and an empty or overlong key refused.
+- **Live check:** the viewer and compare pages on the 220 M4T frames, in light and in dark.
+  - Esri zoomed in past its levels, with no placeholder tiles.
+  - Google with a key the user provides for the check (asked for, never looked for). The logo and attribution are
+    shown, and a wrong key is reported.
+  - The key is removed again afterwards if it was saved only for the check.
+- **Release:** 0.4.0 (a feature).
 
 ## Integration
 
