@@ -9,23 +9,23 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **C1: frame models in dji-thermal-cli**: its mosaics save how each frame sees the ground, so the app can list
-   every frame that saw a spot or area (dji-thermal-cli 1.5.0, released there first). (Findings)
-2. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
+1. **E1: projects**: a project (name, description, location) holds datasets; a renamable "Default Project" holds the
+   datasets made before projects; its page lists their datasets, findings and conversions, and compares within it.
+   (Projects)
+2. **E2: a project's location found on the map**: an address or place searched on Mapbox (with a token) or
+   OpenStreetMap, or the point picked on the map. (Projects)
+3. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
+   datasets and what is under them, and User Preferences (unit, theme, date and time locale). (Projects)
+4. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
+5. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
    on the viewer and the compare page; the Source frame tab opens it on a click. (Findings)
-3. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+6. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
    severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-4. **C4: findings on the compare page.** (Findings)
+7. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
 2. **D2: the mosaic report**, with its measurements and findings. (Reports)
-3. **E1: projects**: a project (name, description, location) holds datasets; its page lists their datasets, findings
-   and conversions, and compares within it. (Projects)
-4. **E2: a project's location found on the map**: an address or place searched on OpenStreetMap or Mapbox, and the
-   point picked on the map. (Projects)
-5. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
-   datasets and what is under them, and User Preferences (unit, theme, locale). (Projects)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -467,36 +467,60 @@ Requested 2026-10-27 (`new.md`):
 - **Basemaps** (B3): OpenStreetMap and, with the user's token, Mapbox. Both have a search service (Nominatim, and
   Mapbox's geocoding), which the location search would call from the browser.
 
-### Proposed phases
+### Decisions (2026-10-27)
 
-- **E1: projects.** A `Project` model (name, description, location as lon/lat with its label, when made), and each
-  dataset in one project. API `/api/projects` (list, create, change, delete). A projects page as the new home, a
-  project page listing its datasets (with their conversions and finding counts) and the project's findings
-  together, and a dataset moved between projects from its page. The compare page lists the project's conversions
-  first.
-- **E2: the location.** On the project's form: a map (the basemaps of B3) with a search box; the results from
-  Nominatim (OpenStreetMap) or Mapbox's geocoding, whichever basemap is shown; a result or a click on the map sets
-  the point. Shown on the project page's map with its datasets' flight areas.
-- **E3: the navigation pane and preferences.** A pane on the left of every page: the projects, under each its
-  datasets, under each its conversions (and their viewer, compare and report pages), collapsible by level and as a
-  whole (kept for the next visit), the current page highlighted. Its last entry is User Preferences, a page with the
-  unit, the theme and the locale (the computer's, or one chosen from a list), applied to every date and time shown.
-- **Tests:** pytest for the model and API (a dataset's project, deleting a project, refused values); Vitest for the
-  pane, the search and the preferences; a live check in the browser, light and dark, at desktop and narrow widths.
+- **Order:** projects first, before the rest of the findings (C2–C4) and the reports, since they change the scope
+  of everything else: findings and reports are then seen within a project.
+- **The Default Project:** made whenever no project exists (on the first start after E1, and again if the last
+  project is deleted). Datasets made before projects go into it. It is an ordinary project: the user renames it and
+  fills in its description and location.
+- **Deleting a project** deletes its datasets with it (their files, conversions, mosaics, measurements and
+  findings), after a confirmation that says how many datasets and how much disk space go with it.
+- **Place search:** Mapbox's geocoding when a Mapbox token is set (saved or from the environment, as B3), otherwise
+  OpenStreetMap's Nominatim. The search text goes to that service; nothing else leaves the computer.
+- **The location:** one point with its address or place name, the general site where the project's flights are made
+  (a parcel with several buildings or silos). No outline.
+- **Unit and theme** stay in the header as quick switches, and are on the preferences page too.
+- **Locale:** dates and times only, not numbers. The locale's format is the computer's by default, or one chosen on
+  the preferences page. A flight's times are shown in the time where the flight was made: the offset of the
+  frames' local capture time (EXIF DateTimeOriginal) from their UTC time (DJI's UTCAtExposure), rounded to 15
+  minutes as the two clocks differ by seconds (the 220 M4T frames: 08:44:42 against 13:45:01.8 UTC, so UTC−5), so
+  no time zone database is needed; the times of the app's own events (made, changed) stay in the computer's time.
 
-### Open decisions
+### E1: projects
 
-- **Where in the order:** after the findings and the reports (as listed now), or before the reports, so that the
-  reports can show the project.
-- **Datasets made before projects:** put into a first project made for them ("My datasets"), or left without a
-  project, listed on their own.
-- **Deleting a project:** refused while it holds datasets, or deleting its datasets with it.
-- **Searching for places** sends the search text to OpenStreetMap's Nominatim or to Mapbox; the app is otherwise
-  local. Both, or one of them. Nominatim's usage policy allows about one search a second, with no autocomplete.
-- **The location:** a point only, or a point and an outline of the site.
-- **Unit and theme in the header:** kept there as quick switches as well, or only on the preferences page.
-- **Locale:** for dates and times only, or for numbers too (a decimal comma); and whether times are shown in the
-  computer's time zone or the one where the flight was made.
+- **Model:** `Project` (name, description, location as lon/lat with its label, when made and changed), and each
+  dataset in exactly one project. The migration makes the Default Project and moves the existing datasets into it.
+- **API:** `/api/projects` (list, create, change, delete with its datasets); a dataset's `project`, changed to move
+  it. A new dataset is made in the project it was started from.
+- **Pages:** a projects page as the new home (each project with its location, dataset count and findings count),
+  and a project page with its datasets (their conversions and findings counts), the project's findings together
+  (once C3 is built), and the flight areas on a map. The compare page lists the project's conversions first.
+- **Tests:** pytest for the model, migration and API (the Default Project made when none exists, a dataset moved,
+  deleting a project and its datasets' folders, refused values); Vitest for the pages' lists and the delete
+  confirmation.
+
+### E2: the location
+
+- On the project's form: a map with the basemaps of B3 and a search box; results from Mapbox's geocoding (with a
+  token) or Nominatim (one search a second at most, on Enter, with the app's name as its user agent as Nominatim's
+  usage policy asks), with the service named under the results. A result, or a click on the map (reverse-geocoded
+  for its label), sets the point; the label can be edited.
+- **Tests:** pytest for the location's values; Vitest for the search (each service, no token, no results, a failed
+  request) and setting the point.
+
+### E3: the navigation pane and preferences
+
+- **The pane:** on the left of every page: the projects, under each its datasets, under each its conversions (with
+  their viewer, compare and, later, report pages), and User Preferences last. Collapsible by level and as a whole
+  (kept for the next visit), the current page highlighted, and over the page on narrow screens.
+- **User Preferences:** a page with the unit and the theme (as in the header), and the date and time locale (the
+  computer's, or one chosen from a list), applied to every date and time shown.
+- **Flight times:** a dataset's capture times are shown in the flight's local time (the offset above), labelled
+  with it (e.g. "UTC−5"); a dataset without both times falls back to the computer's time and says so.
+- **Tests:** pytest for the preference and the flight's offset; Vitest for the pane (levels, collapsing, the current
+  page) and the date formatting (locale, offset, fallback); a live check in the browser, light and dark, at desktop
+  and narrow widths.
 
 ## Integration
 
