@@ -1,0 +1,3 @@
+{% extends "page.html" %}
+{% block data %} data-id="{{ project.id }}"{% endblock %}
+{% block json %}{{ basemaps|json_script:"ta-basemaps" }}{% endblock %}

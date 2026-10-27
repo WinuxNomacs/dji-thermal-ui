@@ -64,10 +64,14 @@ interface Props {
     api: string;
     publicUrl: string;
     id: number;
+    projectId: number;                          // the project it is in
+    projectName: string;
     nav?: (url: string) => void;
 }
 
-export function DatasetPage({api, publicUrl, id, nav = (url) => { location.href = url; }}: Props) {
+export function DatasetPage({api, publicUrl, id, projectId, projectName,
+                             nav = (url) => { location.href = url; }}: Props) {
+    const projectUrl = publicUrl + "project/" + projectId;
     const url = api + "datasets/" + id;
     const [d, setD] = useState<Dataset | null>(null);
     const [notice, setNotice] = useState("");
@@ -133,7 +137,7 @@ export function DatasetPage({api, publicUrl, id, nav = (url) => { location.href 
         if (!await ask("Delete dataset", deleteText(d!), "Delete", "danger")) return;
         const r = await readJson(await sendJson(url, "DELETE"));
         if (!r.ok) return setNotice(errorText(r.data, "Could not delete the dataset."));
-        nav(publicUrl);
+        nav(projectUrl);
     }
 
     // To the clipboard, the button saying so; refused, a dialog to copy it from
@@ -209,7 +213,7 @@ export function DatasetPage({api, publicUrl, id, nav = (url) => { location.href 
 
     return (
         <div class="page dataset">
-            <div class="breadcrumb"><a href={publicUrl}><ArrowLeft/> Datasets</a></div>
+            <div class="breadcrumb"><a href={projectUrl}><ArrowLeft/> {projectName}</a></div>
             <div class="page-header">
                 <div>
                     <h1 id="name">{d.name}</h1>

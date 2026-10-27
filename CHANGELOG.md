@@ -6,6 +6,19 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Projects: a site's datasets together, with a name, a description and a location. The projects page is the new
+  home page; a project's page shows where each of its datasets was flown on a map, and lists its datasets. A dataset
+  is made in the project it was started from, and can be moved to another. Deleting a project deletes its datasets,
+  after saying how many there are and how much disk space is freed.
+- The datasets made before projects are moved into a "Default Project", which can be renamed and described. One is
+  made again whenever no project is left.
+
+### Changed
+
+- Compare lists the conversions of the project first, and names the project of the others.
+
 ## [0.4.0] - 2026-10-27
 
 ### Added

@@ -94,3 +94,7 @@ export const Minus = (p: Props) => (<Icon {...p}><path d="M5 12h14"/></Icon>);
 export const Polygon = (p: Props) => (<Icon {...p}><path d="M12 3l9 7-4 10H7L3 10z"/></Icon>);
 export const Square = (p: Props) => (<Icon {...p}><rect x="4" y="4" width="16" height="16"/></Icon>);
 export const Circle = (p: Props) => (<Icon {...p}><circle cx="12" cy="12" r="9"/></Icon>);
+export const MapPin = (p: Props) => (
+    <Icon {...p}><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></Icon>);
+export const MoveTo = (p: Props) => (
+    <Icon {...p}><path d="M3 7h6l2 2h10v10H3z"/><path d="M10 14h6M13 11l3 3-3 3"/></Icon>);

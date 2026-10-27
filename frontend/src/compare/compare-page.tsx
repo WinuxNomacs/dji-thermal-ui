@@ -457,7 +457,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 <span class="compare-name">{n.toUpperCase()}</span>
                 <select name="mosaic" title={"The mosaic of pane " + n.toUpperCase()} value={p.conv + ":" + p.tab}
                         onChange={(e) => choose(n, e.currentTarget.value)}>
-                    {mosaicGroups(list).map((g) => <optgroup key={g.name} label={g.name}>
+                    {mosaicGroups(list, list.find((c) => c.id === id)?.project).map((g) => <optgroup key={g.name} label={g.name}>
                         {g.items.flatMap((c) => c.tabs.map((t) =>
                             <option key={c.id + ":" + t} value={c.id + ":" + t}>{c.name + " · " + tabLabel(t)}</option>))}
                     </optgroup>)}

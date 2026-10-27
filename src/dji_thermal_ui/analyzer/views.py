@@ -8,7 +8,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from .._version import __version__
 from .api import app_theme, app_unit
 from .basemaps import page_basemaps
-from .models import ThermalConversion, ThermalDataset
+from .models import Project, ThermalConversion, ThermalDataset
 
 API = "/api/"
 PUBLIC = "/"
@@ -24,14 +24,21 @@ def conversion_or_404(conversion_id):
 
 
 @ensure_csrf_cookie
-def datasets_list(request):
-    return page(request, "datasets.html", title="Thermal Analyzer", entry="datasets")
+def projects_list(request):
+    return page(request, "projects.html", title="Thermal Analyzer", entry="projects")
+
+
+@ensure_csrf_cookie
+def project_page(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+    return page(request, "project.html", title=project.name, entry="project", project=project,
+                basemaps=page_basemaps(API))
 
 
 @ensure_csrf_cookie
 def dataset_page(request, dataset_id):
-    dataset = get_object_or_404(ThermalDataset, pk=dataset_id)
-    return page(request, "dataset.html", title=dataset.name, dataset=dataset, entry="dataset")
+    dataset = get_object_or_404(ThermalDataset.objects.select_related('project'), pk=dataset_id)
+    return page(request, "dataset.html", title=dataset.name, dataset=dataset, project=dataset.project, entry="dataset")
 
 
 @ensure_csrf_cookie
