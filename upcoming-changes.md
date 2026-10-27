@@ -254,20 +254,25 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
     `.env` file is used too, for whoever sets the app up (the order is below).
   - Esri's layer gets a maximum zoom for each area.
   - The app counts no usage: the Mapbox account's own free tier limits it.
-- **Mapbox's terms:** Mapbox's tiles need the Mapbox wordmark and the text attribution ("© Mapbox © OpenStreetMap",
-  "Improve this map", and "© Maxar" for the imagery) to stay visible while they are shown. The mosaics may lie over
-  the tiles. The first build step checks the current wording and the free tier on mapbox.com, since the sources
-  disagree on the raster allowance (200,000 or 750,000 tiles a month). Without a card on the account only trial
-  limits apply; the README says so.
+- **Mapbox's terms (checked 2026-10-27):** Mapbox's tiles need the Mapbox wordmark and the text attribution
+  ("© Mapbox", "© OpenStreetMap", "Improve this map" at the place shown, and "© Maxar" for the imagery) while they
+  are shown. The wordmark may be moved to another corner but not styled. The Raster Tiles API's free allowance is
+  750,000 tiles a month (mapbox.com/pricing). Without a card on the account only trial limits apply; the README says
+  so.
 - **Mapbox Satellite:** an XYZ layer on the Raster Tiles API
   (`https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token=…`), up to zoom 22.
   - Shown as "Mapbox Satellite" in the basemap switch when a token is known.
-  - The wordmark is a map control at the bottom left and the attribution goes in the attribution control, while
-    the layer is shown. The wordmark is Mapbox's file, unmodified, kept beside the other static files.
+  - The wordmark is a map control at the bottom left, above the scale line, and the attribution (not collapsible)
+    goes in the attribution control, while the layer is shown. The wordmark is Mapbox's map wordmark, unmodified,
+    from Mapbox GL JS 1.13.3 (BSD-3-Clause), in `static/vendor/mapbox/` with its licence.
   - If its tiles are refused (401 for a wrong token, 403 for one restricted to other URLs, 429 past the limits),
     the switch says why, and the map goes back to the previous basemap.
-- **The token:** "Mapbox Satellite: add a token…" in the basemap switch opens a small form to paste the token,
-  which links to Mapbox's page on making one.
+- **The token:** "Mapbox Satellite: add a token…" in the basemap switch opens a small form to paste the token.
+  - The form says how to get one (asked for by the user, 2026-10-27): sign up at mapbox.com (the free allowance,
+    and the trial limits without a card), copy the Default public token from the Access tokens page (or make one
+    with the public scopes only, never a secret one), paste it. It says the token stays in the app's preferences and
+    goes to Mapbox with each tile, links to the Statistics page for the usage, and says when `MAPBOX_API_TOKEN` is
+    the one in use. The README has the same steps.
   - Saved as the `mapbox_token` preference (`PUT /api/preferences`), never in the code or a committed file, and
     reaches the map pages in their JSON. The same form changes or removes it.
   - Only a public token (`pk.`) is accepted. A secret one (`sk.`) is refused, since the browser shows it to anyone
@@ -284,10 +289,15 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
     the mosaic, at most once per block and level, and requests none that do not exist.
   - Where tiles are missing, the deepest level that exists is stretched (the tile grid's lower levels).
   - First check when building: the endpoint and its answer. Esri's server returned 502s on 2026-10-27.
-  - If the tilemap cannot be used, the layer stops at zoom 19 and is stretched past it.
+  - If the tilemap cannot be read, or does not answer within 5 s, the layer stops at zoom 19 there and is
+    stretched past it.
+  - Checked 2026-10-27: the tilemap answers (with CORS), and over the M4T dataset Esri has tiles to zoom 19 only.
+  - A tile the tilemap says is missing is left in OpenLayers' error state, and the layer preloads 4 levels, so the
+    renderer draws the deepest loaded level above it in its place.
   - Mapbox gets the same stretching past its deepest level if its tiles show the same problem.
-- **Usage limits:** none in the app. The README says to make a public token with only the default public scopes,
-  restricted to `http://127.0.0.1` and `http://localhost` URLs.
+- **Usage limits:** none in the app. Mapbox's URL restrictions accept no IP addresses (the app is on 127.0.0.1)
+  and the default public token cannot be restricted, so the README says to use a public token, unrestricted, and to
+  watch the Statistics page.
 - **Tests:**
   - Vitest:
     - the basemaps listed with and without a token;
