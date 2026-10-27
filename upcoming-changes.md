@@ -689,4 +689,6 @@ show the minimum and maximum at its ends.
   `viewer.test.tsx` and `compare.test.tsx` (drawn while dragged, kept when let go, no curve asked meanwhile).
   Checked live in headless Chromium on the 220 M4T frames, light and dark: every slider on the three pages redraws
   the map while held, and it is the same once let go; the scales read e.g. 49.2, 80, 100, 125.4; no console errors
-  and no failed requests.
+  and no failed requests. Released as 0.5.1: release checks passed on Linux (check_dist, twine, smoke on 3.12 and
+  3.14, ruff, 198 pytest with the flight tests, 210 Vitest, ESLint) and on Windows from WSL (196 pytest from a fresh
+  clone, smoke).
