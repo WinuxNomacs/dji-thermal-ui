@@ -309,6 +309,8 @@ details > summary h5 { display: inline; }
     background: var(--surface); color: var(--text); border-radius: 6px; box-shadow: var(--shadow);
 }
 .dialog-inner h2 { margin: 0 0 12px; }
+.dialog-inner.wide { width: 640px; }
+.dialog-inner.wide .field { max-width: none; }
 .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .field-error { margin-top: 4px; color: var(--danger); font-size: 13px; }
 /* How to get a Mapbox token */
@@ -451,6 +453,22 @@ details > summary h5 { display: inline; }
 .project-map .ol-viewport { border-radius: var(--radius); }
 .page-header h2 { margin: 0; }
 td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A project's location on its form: the search, its results, the map it is picked on */
+.location-field { max-width: none; }
+.location-search { display: flex; gap: 8px; }
+.location-search input { flex: 1; min-width: 0; }
+.location-results { list-style: none; margin: 6px 0 0; padding: 0; border: 1px solid var(--border);
+                    border-radius: var(--radius); max-height: 180px; overflow-y: auto; }
+.location-results li + li { border-top: 1px solid var(--border); }
+.location-results button { display: block; width: 100%; padding: 6px 10px; border: 0; background: none;
+                           color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.location-results button:hover, .location-results button:focus-visible { background: var(--accent-soft); }
+.location-map { height: 260px; margin-top: 8px; border-radius: var(--radius); overflow: hidden; background: var(--map-bg); }
+.location-credit { font-size: 12px; margin-top: 2px; }
+.location-chosen { margin-top: 8px; }
+.location-chosen > label { display: block; margin-bottom: 4px; }
+#location-point { font-size: 12px; margin-top: 2px; }
 .app-main .ol-viewport { font: inherit; font-size: 12px; }
 .app-main .ol-control { color: #333; }
 .map-basemaps { top: .5em; right: .5em; }

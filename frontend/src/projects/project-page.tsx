@@ -66,7 +66,7 @@ export function ProjectPage({api, publicUrl, id, basemaps, nav = (url) => { loca
             <AreasMap basemaps={basemaps} areas={p.areas} location={p.location}
                       open={(dataset) => nav(publicUrl + "dataset/" + dataset)}/>
         ) : null}
-        {editing && p && <ProjectForm api={api} project={p} onClose={() => setEditing(false)}
+        {editing && p && <ProjectForm api={api} project={p} basemaps={basemaps} onClose={() => setEditing(false)}
                                       onSaved={() => { setEditing(false); load(); }}/>}
     </>);
 

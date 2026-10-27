@@ -8,7 +8,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 
 - **Projects:** a site's datasets together, with a name, a description and a location, and a map of where each
   dataset was flown. A dataset can be moved to another project. The datasets made before projects existed are in the
-  Default Project, which you can rename; one is made again whenever none is left.
+  Default Project, which you can rename; one is made again whenever none is left. A project's location is found by
+  searching an address or a place on OpenStreetMap, or by clicking the site on the map, and keeps the address.
 - **Datasets:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a dataset.
 - **Conversions:** temperature images with any of dji-thermal-cli's settings. You can keep several side by side,
@@ -50,7 +51,9 @@ running when the server stops is marked as interrupted the next time it starts.
 | `--no-browser` | do not open the browser |
 | `--version` | print the version |
 
-The maps under the mosaics are loaded from the internet. Everything else works offline.
+The maps under the mosaics are loaded from the internet, and a project's location is searched for on OpenStreetMap's
+[Nominatim](https://nominatim.org/) (the text searched, or the point clicked, is sent to it by the app, at most once a
+second; the addresses are © OpenStreetMap contributors, under the ODbL). Everything else works offline.
 
 ## The maps under the mosaics
 

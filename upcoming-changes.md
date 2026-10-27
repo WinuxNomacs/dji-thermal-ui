@@ -9,16 +9,14 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **E2: a project's location found on the map**: an address or place searched on Mapbox (with a token) or
-   OpenStreetMap, or the point picked on the map. (Projects)
-2. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
+1. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
    datasets and what is under them, and User Preferences (unit, theme, date and time locale). (Projects)
-3. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
-4. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
+2. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
+3. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
    on the viewer and the compare page; the Source frame tab opens it on a click. (Findings)
-5. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+4. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
    severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-6. **C4: findings on the compare page.** (Findings)
+5. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
@@ -473,8 +471,11 @@ Requested 2026-10-27 (`new.md`):
   fills in its description and location.
 - **Deleting a project** deletes its datasets with it (their files, conversions, mosaics, measurements and
   findings), after a confirmation that says how many datasets and how much disk space go with it.
-- **Place search:** Mapbox's geocoding when a Mapbox token is set (saved or from the environment, as B3), otherwise
-  OpenStreetMap's Nominatim. The search text goes to that service; nothing else leaves the computer.
+- **Place search:** OpenStreetMap's Nominatim, with or without a Mapbox token (changed 2026-10-27, while building E2:
+  Mapbox's geocoding results may not be stored unless asked for as its permanent geocoding, which needs a card on
+  the account and is billed per request, and may only be used with a Mapbox map; Nominatim's are OpenStreetMap's
+  data, kept under the ODbL with the credit). The search text, or the point clicked, goes to Nominatim; nothing else
+  leaves the computer.
 - **The location:** one point with its address or place name, the general site where the project's flights are made
   (a parcel with several buildings or silos). No outline.
 - **Unit and theme** stay in the header as quick switches, and are on the preferences page too.
@@ -501,9 +502,10 @@ Requested 2026-10-27 (`new.md`):
 
 ### E2: the location
 
-- On the project's form: a map with the basemaps of B3 and a search box; results from Mapbox's geocoding (with a
-  token) or Nominatim (one search a second at most, on Enter, with the app's name as its user agent as Nominatim's
-  usage policy asks), with the service named under the results. A result, or a click on the map (reverse-geocoded
+- **Built** (2026-10-27): see Done.
+- On the project's form: a map with the basemaps of B3 and a search box; results from Nominatim (one search a second
+  at most, on Enter, with the app's name as its user agent as Nominatim's usage policy asks: the server asks it, since
+  a browser cannot set the user agent), with the service named under the results. A result, or a click on the map (reverse-geocoded
   for its label), sets the point; the label can be edited.
 - **Tests:** pytest for the location's values; Vitest for the search (each service, no token, no results, a failed
   request) and setting the point.
@@ -602,3 +604,12 @@ Requested 2026-10-27 (`new.md`):
   Chromium on the real data folder (its database backed up first and restored after): the migration, a project
   made, the dataset moved into it and back, its flight area on the map, the breadcrumb, the delete dialog, compare;
   light, dark and 390 px wide; no console errors or failed requests.
+- **E2: the location** (2026-10-27). `/api/places` (`?q=` a search, `?lon=&lat=` the address at a point) asking
+  OpenStreetMap's Nominatim from the server with the app's user agent, one request a second at most, in the browser's
+  language (`analyzer/places.py`, `NOMINATIM_URL` in the settings). On the project's form, the search, its results
+  and their credit, the map the point is clicked on, the label edited, and the location cleared
+  (`frontend/src/projects/location-field.tsx`, `location-map.tsx`, `places.ts`); the projects page has the basemaps
+  for it. Tests: `tests/test_places.py` (a fake Nominatim), `tests/test_pages.py`, `frontend/tests/location.test.tsx`
+  (the map stood in for). Checked live in headless Chromium against Nominatim, light, dark and 390 px wide: a search,
+  a result picked, a point clicked and named, the project made and shown with its pin, the location cleared, the
+  project deleted. No console errors and no failed requests.

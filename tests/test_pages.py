@@ -57,9 +57,9 @@ def test_compare_takes_two_conversions_of_different_datasets(client):
     assert 'data-id="%d" data-b="%d"' % (a.id, a.id) in html
 
 
-def test_the_project_viewer_and_compare_pages_carry_the_basemaps(client):
+def test_the_projects_project_viewer_and_compare_pages_carry_the_basemaps(client):
     c = conversion(dataset())
-    for url in ["/project/%d" % c.dataset.project_id, "/conversion/%d" % c.id, "/conversion/%d/compare" % c.id]:
+    for url in ["/", "/project/%d" % c.dataset.project_id, "/conversion/%d" % c.id, "/conversion/%d/compare" % c.id]:
         assert 'id="ta-basemaps"' in client.get(url).content.decode()
 
 

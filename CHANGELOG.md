@@ -14,6 +14,9 @@ All notable changes are recorded here. The format follows
   after saying how many there are and how much disk space is freed.
 - The datasets made before projects are moved into a "Default Project", which can be renamed and described. One is
   made again whenever no project is left.
+- A project's location: an address or a place searched for on OpenStreetMap's Nominatim, or a point clicked on the
+  map and named by its address, shown on the project's map. The app's server asks Nominatim, as the app, at most once
+  a second.
 
 ### Changed
 

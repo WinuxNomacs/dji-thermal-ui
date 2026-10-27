@@ -6,16 +6,18 @@ import {count, formatBytes, formatDate} from "../core/format";
 import {ask} from "../components/dialog";
 import {MapPin, Pencil, Plus, Trash} from "../components/icons";
 import {matchesSearch} from "../datasets/list";
+import type {Basemap} from "../map/map";
 import {type Project, projectDeleteText} from "./list";
 import {ProjectForm} from "./project-form";
 
 interface Props {
     api: string;
     publicUrl: string;
+    basemaps: Basemap[];
     nav?: (url: string) => void;
 }
 
-export function ProjectsPage({api, publicUrl, nav = (url) => { location.href = url; }}: Props) {
+export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { location.href = url; }}: Props) {
     const [projects, setProjects] = useState<Project[] | null>(null);       // null until first loaded
     const [notice, setNotice] = useState("");
     const [query, setQuery] = useState("");
@@ -102,7 +104,7 @@ export function ProjectsPage({api, publicUrl, nav = (url) => { location.href = u
                 </div>
             )}
 
-            {editing && <ProjectForm api={api} project={editing === "new" ? undefined : editing}
+            {editing && <ProjectForm api={api} basemaps={basemaps} project={editing === "new" ? undefined : editing}
                                      onSaved={saved} onClose={() => setEditing(null)}/>}
         </div>
     );
