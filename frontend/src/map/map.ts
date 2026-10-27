@@ -84,7 +84,7 @@ function basemapLayer(bm: Basemap): TileLayer {
         return new TileLayer({source: new TileWMS({url: bm.url, attributions: opts.attributions,
             params: {LAYERS: bm.layers || "0", STYLES: bm.styles || "default", FORMAT: bm.format || "image/png", VERSION: "1.1.1"}})});
     }
-    // Leaflet's {s}: one URL for each subdomain
+    // {s} (as Leaflet wrote basemap URLs): one URL for each subdomain
     const subdomains = typeof bm.subdomains === "string" ? bm.subdomains.split("") : bm.subdomains || [];
     const urls = bm.url.includes("{s}") && subdomains.length ? subdomains.map((s) => bm.url.replace("{s}", s)) : [bm.url];
     return new TileLayer({source: new XYZ({...opts, urls})});

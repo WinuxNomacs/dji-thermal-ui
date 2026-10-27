@@ -37,10 +37,13 @@ machine. Keep it short; edit in place.
   `jobs.submit(fn, pk, run_id)`. Each job writes its progress to its row, and is cancelled cooperatively through its
   `run_id`. Tests run jobs inline unless they use the `threaded_jobs` fixture.
 - **API:** DRF with no users: `csrf.CsrfCheck` only enforces CSRF.
-- **Front end:** TypeScript and Preact with Leaflet 1.9.4, built by Vite (`vite.config.mts`) from `frontend/src`
+- **Front end:** TypeScript and Preact with OpenLayers 10.11.0, built by Vite (`vite.config.mts`) from `frontend/src`
   (one entry per page in `pages/`) into `static/dist` with a manifest that `{% vite_entry %}` reads. The pages
   extend `templates/page.html`; the look is `frontend/src/styles/app.css`, light and dark. The build is not
   committed: the wheel and sdist carry it, so installing needs no npm. The app serves its own static files.
+- **Map colouring:** the server sends a mosaic's tiles, a difference and a frame as float32 values (`data_response`
+  in `api.py`); the browser colours them in WebGL (`frontend/src/map/colour.ts`: palette, range, tone curve,
+  isotherm, sharpening), and on a canvas where it draws without a map (`colourValues`).
 - **Tests:** pytest with pytest-django (`tests/`, settings `tests.settings`, which use a temporary data folder and a
   stub manifest, so they need no build), Vitest with jsdom (`frontend/tests/`), ruff, and ESLint with `tsc`. All of
   them run on the host.

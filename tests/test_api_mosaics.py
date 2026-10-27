@@ -18,7 +18,7 @@ from tests.fakes import (CONVERSIONS, DATASETS, MOSAIC_ORIGIN, analysed, convert
                          mosaic_events, mosaic_lonlat, mosaic_temperature, mosaic_tile, uploaded, write_mosaic)
 
 
-def test_conversions_build_their_mosaics_which_the_viewer_tiles_and_reads(api):
+def test_conversions_build_their_mosaics_which_the_viewer_reads(api):
     c, make = converted(api, {'max_pitch': -85})
     assert (c.status, c.mosaic_status, c.mosaic_progress, c.run_id) == ('ready', 'ready', 1.0, "")
     # Both mosaics from one layout (the harmonized one, and as converted alongside), with the conversion's pitch
@@ -63,34 +63,7 @@ def test_conversions_build_their_mosaics_which_the_viewer_tiles_and_reads(api):
     assert api.get("{}/{}/mosaics".format(CONVERSIONS, c.id)).data['flown'] == \
         ['2026:10:12 18:29:50', '2026:10:12 18:29:51']
 
-    (z, x, y), (lon, lat) = mosaic_tile()
-    tiles = "{}/{}/mosaics/{{}}/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)
-    for tab in ('as_converted', 'harmonized', 'view_angle'):
-        for palette in ('dji_ironred', 'magma'):
-            res = api.get(tiles.format(tab), {'color_map': palette, 'rescale': '10,30'})
-            assert (res.status_code, res['Content-Type']) == (200, 'image/png'), (tab, palette)
-    res = api.get(tiles.format('source_frame'))
-    assert res.status_code == 200
-    assert api.get(tiles.format('as_converted'), {'color_map': 'dji_ironred', 'rescale': '10,30'},
-                   HTTP_IF_NONE_MATCH=res['ETag']).status_code == 200
-    assert api.get(tiles.format('source_frame'), HTTP_IF_NONE_MATCH=res['ETag']).status_code == 304
-    assert api.get(tiles.format('as_converted'), {'color_map': 'terrain', 'rescale': '10,30'}).status_code == 400
-    assert api.get(tiles.format('as_converted'), {'color_map': 'dji_neon', 'rescale': '10,30'}).status_code == 400
-    assert api.get(tiles.format('as_converted'), {'color_map': 'magma', 'rescale': '30,10'}).status_code == 400
-    assert api.get(tiles.format('nope')).status_code == 404
-    assert api.get("{}/{}/mosaics/as_converted/tiles/5/1/1.png".format(CONVERSIONS, c.id)).status_code == 404
-
-    # The rendered colours: the palette over the range, transparent where there is no data
-    from PIL import Image
-    res = api.get(tiles.format('as_converted'), {'color_map': 'dji_ironred', 'rescale': '10,30'})
-    pixels = list(Image.open(io.BytesIO(res.content)).convert('RGBA').get_flattened_data())
-    shown = [p for p in pixels if p[3] == 255]
-    assert shown and len(shown) < len(pixels)
-    assert all(g == 0 and r + b == 255 for r, g, b, _ in shown)
-    # From the cold end of the range to the hot end (the fake mosaic warms from west to east)
-    assert min(r for r, _, _, _ in shown) < 40
-    assert max(r for r, _, _, _ in shown) > 215
-
+    _, (lon, lat) = mosaic_tile()
     point = "{}/{}/mosaics/{{}}/point".format(CONVERSIONS, c.id)
     p = api.get(point.format('harmonized'), {'lon': lon, 'lat': lat}).data
     assert p['valid']
@@ -193,7 +166,7 @@ def test_stripped_conversions_keep_a_located_copy_for_the_viewer_only(api):
     assert c.mosaics['kinds']['as_converted']['raster'] == 'viewer/as_converted.tif'
     assert c.mosaics['stripped']
     (z, x, y), _ = mosaic_tile()
-    assert api.get("{}/{}/mosaics/source_frame/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)).status_code == 200
+    assert api.get("{}/{}/mosaics/source_frame/data/{}/{}/{}".format(CONVERSIONS, c.id, z, x, y)).status_code == 200
     # Never downloaded: neither in the zip nor on its own
     download = "{}/{}/download".format(CONVERSIONS, c.id)
     with zipfile.ZipFile(io.BytesIO(b"".join(api.get(download).streaming_content))) as zf:
@@ -345,7 +318,6 @@ def write_flat_mosaic(c, value, east_m):
 
 
 def test_two_mosaics_are_compared_as_their_difference_in_the_first_ones_unit(api):
-    from PIL import Image
     a, _ = converted(api)
     b, _ = converted(api, {'unit': 'F'})
     assert (a.mosaics['unit'], b.mosaics['unit']) == ('C', 'F')
@@ -356,20 +328,9 @@ def test_two_mosaics_are_compared_as_their_difference_in_the_first_ones_unit(api
         [(a.id, 'C', ['as_converted', 'harmonized']), (b.id, 'F', ['as_converted', 'harmonized'])]
     assert (listed[0]['name'], listed[0]['dataset_name']) == (a.name, 'Roof')
 
-    (z, x, y), _ = mosaic_tile()
-    tiles = "{}/{}/mosaics/{{}}/difference/tiles/{}/{}/{}.png".format(CONVERSIONS, a.id, z, x, y)
     difference = "{}/{}/mosaics/{{}}/difference".format(CONVERSIONS, a.id)
 
-    def opaque(res):
-        assert (res.status_code, res['Content-Type']) == (200, 'image/png')
-        return [p for p in Image.open(io.BytesIO(res.content)).convert('RGBA').get_flattened_data() if p[3] == 255]
-
-    # A mosaic less itself is 0 wherever it has data: the middle of the diverging palette
-    same = opaque(api.get(tiles.format('as_converted'), {'b': a.id, 'rescale': '-1,1'}))
-    assert same
-    assert len(set(same)) == 1
-    r, g, b_, _ = same[0]
-    assert min(r, g, b_) > 200, same[0]
+    # A mosaic less itself is 0 wherever it has data
     d = api.get(difference.format('as_converted'), {'b': a.id}).data
     assert (d['unit'], d['stats']['min'], d['stats']['max'], d['range']) == ('C', 0, 0, [-1.0, 1.0])
     assert [p['key'] for p in d['palettes']] == ['rdbu_r', 'coolwarm', 'bwr', 'seismic']
@@ -377,10 +338,6 @@ def test_two_mosaics_are_compared_as_their_difference_in_the_first_ones_unit(api
 
     # B, 50 °F (10 °C) everywhere, over the east half of A: A - B in °C there, no data elsewhere
     write_flat_mosaic(b, 50.0, 1.6)
-    shifted = api.get(tiles.format('as_converted'), {'b': b.id, 'rescale': '0,20', 'color_map': 'coolwarm'})
-    warmer = opaque(shifted)
-    assert 0 < len(warmer) < len(same) * 0.6
-    assert all(r > b_ for r, _, b_, _ in warmer)
     d = api.get(difference.format('as_converted'), {'b': b.id}).data
     assert d['stats']['min'] == pytest.approx(mosaic_temperature(32) - 10, abs=0.4)
     assert d['stats']['max'] == pytest.approx(20, abs=0.4)
@@ -390,22 +347,12 @@ def test_two_mosaics_are_compared_as_their_difference_in_the_first_ones_unit(api
     d = api.get(difference.format('harmonized'), {'b': b.id, 'b_tab': 'harmonized'}).data
     assert d['stats']['min'] == pytest.approx(10.5 - (10 - 32) / 1.8, abs=0.4)
 
-    # Cached until either mosaic changes
-    etag = shifted['ETag']
-    query = {'b': b.id, 'rescale': '0,20', 'color_map': 'coolwarm'}
-    assert api.get(tiles.format('as_converted'), query, HTTP_IF_NONE_MATCH=etag).status_code == 304
-    write_flat_mosaic(b, 50.0, 10)
-    assert api.get(tiles.format('as_converted'), query, HTTP_IF_NONE_MATCH=etag).status_code == 200
     # Not overlapping at all
+    write_flat_mosaic(b, 50.0, 10)
     d = api.get(difference.format('as_converted'), {'b': b.id}).data
     assert (d['unit'], d['bounds'], d['stats'], d['range']) == ('C', None, None, None)
 
     # What is asked is checked
-    assert api.get(tiles.format('as_converted'), {'rescale': '0,1'}).status_code == 400
-    assert api.get(tiles.format('as_converted'), {'b': 'x', 'rescale': '0,1'}).status_code == 400
-    assert api.get(tiles.format('as_converted'), {'b': a.id, 'rescale': '0,1', 'color_map': 'magma'}).status_code == 400
-    assert api.get(tiles.format('as_converted'), {'b': a.id, 'rescale': '1,0'}).status_code == 400
-    assert api.get(tiles.format('source_frame'), {'b': a.id, 'rescale': '0,1'}).status_code == 404
     assert api.get(difference.format('as_converted'), {'b': a.id, 'b_tab': 'view_angle'}).status_code == 404
     assert api.get(difference.format('as_converted'), {'b': 99999}).status_code == 404
 

@@ -2,12 +2,10 @@
 Thermal palettes: the gradients themselves (checked against an independent interpolation), their registration, and
 what the browser is sent of them.
 """
-import io
 
 import numpy as np
 import pytest
 from django.test import RequestFactory
-from PIL import Image
 from rest_framework.exceptions import ValidationError
 
 from dji_thermal_ui.analyzer.raster import tiler
@@ -77,42 +75,18 @@ def test_rio_tilers_own_colour_maps_are_sent_as_their_colours():
 
 def test_an_unknown_palette_is_a_validation_error():
     with pytest.raises(ValidationError):
-        tiler.check_colormap("nope")
-    with pytest.raises(ValidationError):
         tiler.colormap_entries(["ironbow", "nope"])
-
-
-@pytest.mark.parametrize("fmt", ["png", "webp"])
-def test_a_tile_is_drawn_with_the_palette(fmt):
-    # WebP through Pillow, PNG through GDAL (lossless, to compare the colours exactly)
-    data = np.arange(256, dtype=np.uint8).reshape(1, 16, 16)
-    mask = np.full((16, 16), 255, dtype=np.uint8)
-    options = dict(tiler.img_profiles.get(fmt, {}), **({"lossless": True} if fmt == "webp" else {}))
-    out = tiler.render_tile(data, mask, fmt, colormap=tiler.colormap.get("ironbow"), **options)
-    rgb = np.array(Image.open(io.BytesIO(out)).convert("RGB")).reshape(-1, 3).astype(float)
-    expected = np.array([tiler.colormap.get("ironbow")[i][:3] for i in range(256)], dtype=float)
-    np.testing.assert_array_equal(rgb, expected)
-
-
-def test_the_tile_format_follows_the_mask_and_what_the_browser_takes():
-    opaque, partly = np.full((4, 4), 255), np.zeros((4, 4))
-    webp = RequestFactory().get("/", HTTP_ACCEPT="image/webp,*/*")
-    plain = RequestFactory().get("/")
-    assert tiler.tile_format(webp, opaque)[:2] == ("jpg", "jpeg")
-    assert tiler.tile_format(webp, partly)[:2] == ("webp", "webp")
-    assert tiler.tile_format(plain, partly)[:2] == ("png", "png")
-    assert tiler.tile_format(webp, partly, "png")[:2] == ("png", "png")
 
 
 def test_a_tile_etag_changes_with_the_raster_and_answers_304(tmp_path):
     raster = tmp_path / "r.tif"
     raster.write_bytes(b"a")
-    request = RequestFactory().get("/tiles/1/2/3.png?color_map=ironbow")
+    request = RequestFactory().get("/data/1/2/3?emissivity=0.9")
     etag = tiler.raster_etag(request, str(raster))
     assert etag == tiler.raster_etag(request, str(raster))
     assert tiler.raster_etag(request, str(raster), "other") != etag
     assert tiler.not_modified(request, etag) is None
-    again = RequestFactory().get("/tiles/1/2/3.png?color_map=ironbow", HTTP_IF_NONE_MATCH=etag)
+    again = RequestFactory().get("/data/1/2/3?emissivity=0.9", HTTP_IF_NONE_MATCH=etag)
     assert tiler.not_modified(again, etag).status_code == 304
     raster.write_bytes(b"bb")
     assert tiler.raster_etag(request, str(raster)) != etag

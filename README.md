@@ -85,5 +85,5 @@ CI (`.github/workflows/ci.yml`) runs these and the tests on Linux and Windows on
 ## Licence
 
 AGPL-3.0-only (see [LICENSE](LICENSE)). Parts of the code come from WebODM and LuxODM (AGPL-3.0), whose files keep
-their notices. The pages bundle Preact (MIT) and Leaflet (BSD-2-Clause); their licences are in
-`THIRD-PARTY-LICENSES.txt` beside the built pages, in `dji_thermal_ui/static/dist/`.
+their notices. The pages bundle Preact (MIT) and OpenLayers (BSD-2-Clause, with rbush, MIT, and quickselect,
+ISC); their licences are in `THIRD-PARTY-LICENSES.txt` beside the built pages, in `dji_thermal_ui/static/dist/`.
