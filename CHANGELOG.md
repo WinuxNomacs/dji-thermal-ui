@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-27
+
 ### Added
 
 - Mapbox's satellite imagery under the mosaics, with your own Mapbox token: "Mapbox Satellite: add a token…" in the

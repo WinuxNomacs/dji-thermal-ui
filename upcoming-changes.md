@@ -384,4 +384,6 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
   how to get one, the wordmark and attribution (`frontend/src/map/basemaps.ts`, `frontend/src/map/mapbox-token.tsx`,
   the wordmark in `static/vendor/mapbox/`), and Esri's layer reading its tilemap to stretch its deepest level instead
   of "Map data not yet available". Tests: `tests/test_basemaps.py` (pytest), `frontend/tests/basemaps.test.tsx`
-  (Vitest). The README says how to get a token.
+  (Vitest). The README says how to get a token. The release checks found check_dist refusing the wordmark, fixed on
+  its own branch. Release checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 143 pytest with
+  the flight tests, 164 Vitest, ESLint) and on Windows from WSL (141 pytest from a fresh clone, smoke).
