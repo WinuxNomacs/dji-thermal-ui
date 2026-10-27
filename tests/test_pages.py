@@ -24,7 +24,7 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
     c = conversion(d)
     for url, page_id in [("/", "app"), ("/dataset/%d" % d.id, "app"),
                          ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "app"),
-                         ("/conversion/%d/compare" % c.id, "ta-compare")]:
+                         ("/conversion/%d/compare" % c.id, "app")]:
         client.cookies.clear()
         res = client.get(url)
         assert res.status_code == 200, url
@@ -77,16 +77,12 @@ def test_a_rebuilt_page_loads_its_built_script_with_its_settings(client):
     assert '<script type="module" src="/static/dist/assets/dataset-f6.js"></script>' in html
 
 
-def test_every_script_and_stylesheet_a_page_loads_is_served(client):
+def test_every_page_loads_only_its_build(client):
     c = conversion(dataset())
-    urls = set()
-    for page in ["/", "/dataset/%d" % c.dataset.id, "/conversion/%d" % c.id, "/conversion/%d/frame" % c.id,
-                 "/conversion/%d/compare" % c.id]:
-        urls.update(re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode()))
-    # The tests' build is a stub (tests/settings.py): its files are not there
-    urls = {u for u in urls if not u.startswith("/static/dist/")}
-    assert len(urls) >= 10
-    for url in sorted(urls):
-        res = client.get(url)
-        assert res.status_code == 200, url
-        res.close()
+    pages = {"/": "datasets-a1", "/dataset/%d" % c.dataset.id: "dataset-f6", "/conversion/%d" % c.id: "viewer-a7",
+             "/conversion/%d/frame" % c.id: "frame-c9", "/conversion/%d/compare" % c.id: "compare-e1"}
+    for page, script in pages.items():
+        urls = re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode())
+        # The tests' build is the stub manifest (tests/settings.py)
+        assert "/static/dist/assets/%s.js" % script in urls, page
+        assert all(u.startswith("/static/dist/") for u in urls), (page, urls)

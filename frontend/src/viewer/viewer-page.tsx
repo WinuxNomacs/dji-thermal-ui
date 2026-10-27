@@ -15,6 +15,7 @@ import {type Coords, type Geometry, isothermParam, isothermText, type Measured, 
         type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
+import {addBasemaps, addLegend, type Basemap} from "./map";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         Readout, Report, ScaleView, Section, Whole} from "./panel";
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, defaultAdjust, defaultRange, extraQuery,
@@ -25,11 +26,6 @@ import {adjustQuery, type Correction as CorrectionValue, correctionParams, defau
 const POLL_MS = 2000;
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
 const TYPING_MS = 400;      // the correction redraws once typing pauses
-
-export interface Basemap {
-    label: string; url: string; type?: string; attribution?: string; maxzoom?: number; minzoom?: number;
-    subdomains?: string | string[]; layers?: string; styles?: string; format?: string; default?: boolean;
-}
 
 export interface Mosaics {
     name: string;
@@ -208,26 +204,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     useEffect(() => {
         if (!ready || map.current || !mapEl.current || !t || !style) return;
         const m = map.current = L.map(mapEl.current, {maxZoom: 26});
-        const layers: Record<string, L.Layer> = {};
-        let chosen: L.Layer | null = null;
-        basemaps.forEach((bm) => {
-            const opts: L.TileLayerOptions = {attribution: bm.attribution || bm.label, maxZoom: 26, maxNativeZoom: bm.maxzoom || 21,
-                                              minZoom: bm.minzoom || 0, subdomains: bm.subdomains || []};
-            const l = bm.type === "wms" ? L.tileLayer.wms(bm.url, {...opts, layers: bm.layers || "0", styles: bm.styles || "default",
-                                                                   format: bm.format || "image/png"}) : L.tileLayer(bm.url, opts);
-            layers[bm.label] = l;
-            if (bm.default && !chosen) chosen = l;
-        });
-        layers.None = L.layerGroup();
-        (chosen || layers.None).addTo(m);
-        L.control.layers(layers, {}, {position: "topright"}).addTo(m);
-        L.control.scale({imperial: false}).addTo(m);
-        const el = legend.current = L.DomUtil.create("div", "map-legend leaflet-control");
-        L.DomEvent.disableClickPropagation(el);
-        L.DomEvent.disableScrollPropagation(el);
-        const control = new L.Control({position: "bottomright"});
-        control.onAdd = () => el;
-        control.addTo(m);
+        addBasemaps(m, basemaps);
+        legend.current = addLegend(m);
         layer.current = L.tileLayer(url, {maxZoom: 26, maxNativeZoom: (t.maxzoom || 20) + 1, minZoom: 0,
                                           bounds: t.bounds && boundsOf(t.bounds)}).addTo(m);
         if (t.bounds) m.fitBounds(boundsOf(t.bounds));
