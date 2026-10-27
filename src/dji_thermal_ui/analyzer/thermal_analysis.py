@@ -169,3 +169,28 @@ def analyze_dataset(dataset_id, run_id):
     run.update(status='ready', progress=1.0, error="", analysis=analysis, analyzed_at=timezone.now(),
                file_count=dataset.file_count, size=dataset.size, run_id="", updated_at=timezone.now())
     return {'files': dataset.file_count}
+
+
+def flight_area(analysis):
+    """Where a dataset's thermal frames were taken: the convex hull of their positions as a closed lon/lat ring, or
+    None without three positions apart"""
+    points = sorted({(r['lon'], r['lat']) for r in (analysis or {}).get('files') or []
+                     if r.get('kind') == 'thermal' and r.get('lon') is not None and r.get('lat') is not None})
+    if len(points) < 3:
+        return None
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    def half(pts):
+        out = []
+        for p in pts:
+            while len(out) >= 2 and cross(out[-2], out[-1], p) <= 0:
+                out.pop()
+            out.append(p)
+        return out[:-1]
+
+    hull = half(points) + half(points[::-1])
+    if len(hull) < 3:
+        return None
+    return [list(p) for p in hull + hull[:1]]

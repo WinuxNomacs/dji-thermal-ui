@@ -11,6 +11,38 @@ from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger('dji_thermal_ui')
 
+DEFAULT_PROJECT_NAME = "Default Project"
+
+
+class Project(models.Model):
+    """A site's datasets together: its flights, compared with each other. One always exists (the Default Project,
+    made whenever there is none)."""
+    name = models.CharField(max_length=255, help_text=_("A label used to describe the project"), verbose_name=_("Name"))
+    description = models.TextField(blank=True, default="", help_text=_("What the project is about"),
+                                   verbose_name=_("Description"))
+    location_lon = models.FloatField(null=True, blank=True, help_text=_("Where the site is: its longitude"),
+                                     verbose_name=_("Longitude"))
+    location_lat = models.FloatField(null=True, blank=True, help_text=_("Where the site is: its latitude"),
+                                     verbose_name=_("Latitude"))
+    location_label = models.CharField(max_length=255, blank=True, default="",
+                                      help_text=_("The site's address or place name"), verbose_name=_("Location"))
+    created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
+    updated_at = models.DateTimeField(auto_now=True, help_text=_("Last modified date"), verbose_name=_("Updated at"))
+
+    class Meta:
+        verbose_name = _("Project")
+        verbose_name_plural = _("Projects")
+        ordering = ('created_at', 'id')
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def default(cls):
+        """The first project, made (as the Default Project) when there is none"""
+        project = cls.objects.order_by('created_at', 'id').first()
+        return project or cls.objects.create(name=DEFAULT_PROJECT_NAME)
+
 # A thermal dataset: the R-JPEGs of a flight, analyzed with dji-thermal-cli before they are converted. Its images are
 # uploaded into the data folder, or read in place from a folder on the computer.
 
@@ -29,6 +61,8 @@ DATASET_STATUSES = (
 
 
 class ThermalDataset(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='datasets',
+                                help_text=_("The project the dataset is in"), verbose_name=_("Project"))
     name = models.CharField(max_length=255, help_text=_("A label used to describe the dataset"), verbose_name=_("Name"))
     source = models.CharField(max_length=16, choices=DATASET_SOURCES, default='upload',
                               help_text=_("Where the images are: uploaded, or a folder on the computer"),
@@ -59,6 +93,12 @@ class ThermalDataset(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        # A dataset made without a project goes into the first one
+        if self.project_id is None:
+            self.project = Project.default()
+        super().save(*args, **kwargs)
 
     def data_dir(self):
         """Where the app keeps this dataset's files"""

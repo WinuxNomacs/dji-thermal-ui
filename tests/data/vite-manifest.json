@@ -1,6 +1,8 @@
 {
-  "src/pages/datasets.tsx": {"file": "assets/datasets-a1.js", "src": "src/pages/datasets.tsx", "isEntry": true,
-                             "imports": ["_shared-b2.js"], "css": ["assets/datasets-c3.css"]},
+  "src/pages/projects.tsx": {"file": "assets/projects-a1.js", "src": "src/pages/projects.tsx", "isEntry": true,
+                             "imports": ["_shared-b2.js"], "css": ["assets/projects-c3.css"]},
+  "src/pages/project.tsx": {"file": "assets/project-b4.js", "src": "src/pages/project.tsx", "isEntry": true,
+                            "imports": ["_shared-b2.js", "_leaflet-d4.js"]},
   "src/pages/dataset.tsx": {"file": "assets/dataset-f6.js", "src": "src/pages/dataset.tsx", "isEntry": true,
                             "imports": ["_shared-b2.js"]},
   "src/pages/viewer.tsx": {"file": "assets/viewer-a7.js", "src": "src/pages/viewer.tsx", "isEntry": true,

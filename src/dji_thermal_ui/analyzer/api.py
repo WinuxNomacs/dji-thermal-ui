@@ -1,5 +1,5 @@
 """
-The API of the Thermal Analyzer: the thermal datasets (uploaded images, or a folder on this computer), uploading their
+The API of the Thermal Analyzer: the projects (a site's datasets together), the thermal datasets (uploaded images, or a folder on this computer), uploading their
 images, their analysis in a job, their conversions (several, side by side), their mosaics (tiles and values for the
 viewer), the radiometric analysis of the mosaics and frames (measuring, saved measurements, frames measured again with
 other parameters) and the saved preferences (conversion settings, temperature unit).
@@ -31,7 +31,7 @@ from zipstream.ng import ZipStream
 
 from . import basemaps, jobs, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .downloads import download_file_response, download_file_stream
-from .models import Preferences, ThermalConversion, ThermalDataset, ThermalMeasurement
+from .models import Preferences, Project, ThermalConversion, ThermalDataset, ThermalMeasurement
 from .raster.security import path_traversal_check
 
 PREFERENCES_KEY = 'conversion_settings'
@@ -41,6 +41,90 @@ THEME_KEY = 'theme'
 THEMES = ('system', 'light', 'dark')     # system: the computer's own light or dark
 IMAGE_EXTENSIONS = ('.jpg', '.jpeg')
 MAX_FOLDER_DEPTH = 4    # subfolders kept from an uploaded folder (e.g. thermal/, 100MEDIA/)
+MAX_NAME_LENGTH = 255
+MAX_DESCRIPTION_LENGTH = 10000
+
+
+def get_project(pk):
+    try:
+        return Project.objects.get(pk=pk)
+    except Project.DoesNotExist:
+        raise NotFound() from None
+
+
+def project_id_of(value):
+    """The project a dataset is made in or moved to, from its id"""
+    try:
+        return Project.objects.get(pk=int(value)).id
+    except (TypeError, ValueError, Project.DoesNotExist):
+        raise ValidationError({'project': "That project does not exist"}) from None
+
+
+def location_of(value):
+    """A project's location from {lon, lat, label}, or None to clear it"""
+    if value is None:
+        return None, None, ""
+    if not isinstance(value, dict):
+        raise ValidationError({'location': "A location is a point (lon, lat) with its label"})
+    try:
+        lon, lat = float(value.get('lon')), float(value.get('lat'))
+    except (TypeError, ValueError):
+        raise ValidationError({'location': "A location is a point (lon, lat) with its label"}) from None
+    if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+        raise ValidationError({'location': "That point is not on the Earth (lon -180 to 180, lat -90 to 90)"})
+    return lon, lat, str(value.get('label') or "").strip()[:MAX_NAME_LENGTH]
+
+
+def project_fields(data, partial):
+    """The fields a project is made or changed with (partial: only those given)"""
+    out = {}
+    if not partial or 'name' in data:
+        name = str(data.get('name') or '').strip()
+        if not name:
+            raise ValidationError({'name': "A name is required"})
+        out['name'] = name[:MAX_NAME_LENGTH]
+    if 'description' in data:
+        description = data.get('description') or ""
+        if not isinstance(description, str):
+            raise ValidationError({'description': "A description is text"})
+        if len(description) > MAX_DESCRIPTION_LENGTH:
+            raise ValidationError({'description': "That is longer than {} characters".format(MAX_DESCRIPTION_LENGTH)})
+        out['description'] = description.strip()
+    if 'location' in data:
+        out['location_lon'], out['location_lat'], out['location_label'] = location_of(data.get('location'))
+    return out
+
+
+def project_summary(project):
+    """A project as the projects page shows it: its datasets' counts, and the disk space the app keeps for them
+    (uploaded images and outputs: a folder dataset's own folder is not the app's)"""
+    datasets = list(project.datasets.all())
+    conversions = list(ThermalConversion.objects.filter(dataset__project=project).only('size', 'mosaic_status'))
+    kept = sum(d.size for d in datasets if d.source == 'upload') + sum(c.size for c in conversions)
+    location = None
+    if project.location_lon is not None and project.location_lat is not None:
+        location = {'lon': project.location_lon, 'lat': project.location_lat, 'label': project.location_label}
+    return {
+        'id': project.id,
+        'name': project.name,
+        'description': project.description,
+        'location': location,
+        'dataset_count': len(datasets),
+        'conversion_count': len(conversions),
+        'mosaic_count': sum(1 for c in conversions if c.mosaic_status == 'ready'),
+        'measurement_count': ThermalMeasurement.objects.filter(conversion__dataset__project=project).count(),
+        'size': int(kept * 1024 * 1024),
+        'created_at': project.created_at,
+        'updated_at': project.updated_at,
+    }
+
+
+def project_detail(project):
+    """A project with where each of its datasets was flown"""
+    out = project_summary(project)
+    out['areas'] = [{'dataset': d.id, 'name': d.name, 'ring': ring} for d in project.datasets.all()
+                    for ring in [thermal_analysis.flight_area(d.analysis)] if ring]
+    return out
 
 
 def get_dataset(pk):
@@ -81,6 +165,7 @@ def summary(dataset):
                if c.status == 'converting' or c.mosaic_status == 'building')
     out = {
         'id': dataset.id,
+        'project': dataset.project_id,
         'name': dataset.name,
         'source': dataset.source,
         'status': dataset.status,
@@ -113,6 +198,7 @@ def summary(dataset):
 
 def detail(dataset):
     out = summary(dataset)
+    out['project_name'] = dataset.project.name
     out['analysis'] = dataset.analysis or {}
     out['conversions'] = [conversion_summary(check_stale(c)) for c in dataset.conversions.all()]
     # What the conversions' settings are compared against, to list what each one changed
@@ -255,12 +341,47 @@ class DatasetView(APIView):
     pass
 
 
-class DatasetListCreateView(DatasetView):
+class ProjectListCreateView(DatasetView):
     def get(self, request):
-        """The datasets, newest first"""
-        return Response({'datasets': [summary(check_stale(d)) for d in ThermalDataset.objects.all()]})
+        """The projects, oldest first (the Default Project made if there is none)"""
+        Project.default()
+        return Response({'projects': [project_summary(p) for p in Project.objects.all()]})
 
     def post(self, request):
+        project = Project.objects.create(**project_fields(request.data, partial=False))
+        return Response(project_detail(project), status=status.HTTP_201_CREATED)
+
+
+class ProjectDetailView(DatasetView):
+    def get(self, request, pk):
+        return Response(project_detail(get_project(pk)))
+
+    def patch(self, request, pk):
+        project = get_project(pk)
+        fields = project_fields(request.data, partial=True)
+        for k, v in fields.items():
+            setattr(project, k, v)
+        project.save(update_fields=list(fields) + ['updated_at'])
+        return Response(project_detail(project))
+
+    def delete(self, request, pk):
+        """Deletes the project with its datasets (their running jobs find their runs gone and stop); the Default
+        Project is made again when it was the last"""
+        get_project(pk).delete()
+        Project.default()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DatasetListCreateView(DatasetView):
+    def get(self, request):
+        """The datasets, newest first: all of them, or a project's"""
+        datasets = ThermalDataset.objects.all()
+        if request.query_params.get('project'):
+            datasets = datasets.filter(project=get_project(request.query_params['project']))
+        return Response({'datasets': [summary(check_stale(d)) for d in datasets]})
+
+    def post(self, request):
+        project = project_id_of(request.data['project']) if request.data.get('project') is not None else None
         name = str(request.data.get('name', '')).strip()
         source = request.data.get('source', 'upload')
         folder = str(request.data.get('folder', '')).strip()
@@ -273,7 +394,7 @@ class DatasetListCreateView(DatasetView):
                 raise ValidationError({'folder': "That folder does not exist"})
             folder = os.path.abspath(folder)
 
-        dataset = ThermalDataset.objects.create(name=name[:255], source=source,
+        dataset = ThermalDataset.objects.create(project_id=project, name=name[:255], source=source,
                                                 folder=folder if source == 'folder' else "")
         if source == 'folder':
             dataset.update_size()
@@ -287,13 +408,20 @@ class DatasetDetailView(DatasetView):
         return Response(detail(check_stale(get_dataset(pk))))
 
     def patch(self, request, pk):
+        """Renames the dataset, or moves it to another project"""
         dataset = get_dataset(pk)
-        name = str(request.data.get('name', '')).strip()
-        if not name:
-            raise ValidationError({'name': "A name is required"})
-        dataset.name = name[:255]
-        # Only the name: a running analysis writes the rest
-        dataset.save(update_fields=['name', 'updated_at'])
+        fields = []
+        if 'project' in request.data:
+            dataset.project_id = project_id_of(request.data['project'])
+            fields.append('project')
+        if 'name' in request.data or not fields:
+            name = str(request.data.get('name', '')).strip()
+            if not name:
+                raise ValidationError({'name': "A name is required"})
+            dataset.name = name[:255]
+            fields.append('name')
+        # Only these: a running analysis writes the rest
+        dataset.save(update_fields=fields + ['updated_at'])
         return Response(detail(dataset))
 
     def delete(self, request, pk):
@@ -923,14 +1051,18 @@ def difference(a, a_valid, a_unit, b, b_valid, b_unit):
 
 
 def comparable(conversion):
-    """The conversions whose mosaics the conversion's can be compared with (its own too), by dataset then name, with
-    their temperature tabs"""
+    """The conversions whose mosaics the conversion's can be compared with (its own too): its project's first, then
+    by project, dataset and name, with their temperature tabs"""
     out = []
-    for c in ThermalConversion.objects.select_related('dataset').order_by('dataset__name', 'dataset_id', 'name', 'id'):
+    own = conversion.dataset.project_id
+    found = ThermalConversion.objects.select_related('dataset__project').order_by(
+        'dataset__project__name', 'dataset__project_id', 'dataset__name', 'dataset_id', 'name', 'id')
+    for c in sorted(found, key=lambda c: c.dataset.project_id != own):
         kinds = (c.mosaics or {}).get('kinds') or {}
         tabs = [tab for tab, kind, band in thermal_mosaics.TABS if band == 1 and kinds.get(kind)]
         if tabs:
             out.append({'id': c.id, 'name': c.name, 'dataset': c.dataset_id, 'dataset_name': c.dataset.name,
+                        'project': c.dataset.project_id, 'project_name': c.dataset.project.name,
                         'unit': mosaic_unit(c), 'tabs': tabs})
     return out
 
@@ -1016,7 +1148,6 @@ class MosaicDifferenceView(DatasetView):
 # --- radiometric analysis -----------------------------------------------------------------------------------------
 
 MEASUREMENT_TARGETS = ('as_converted', 'harmonized', 'frame')
-MAX_NAME_LENGTH = 255
 
 
 def changes_of(params):

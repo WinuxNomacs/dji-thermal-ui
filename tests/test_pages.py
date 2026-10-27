@@ -6,7 +6,7 @@ import re
 import pytest
 from django.test import Client
 
-from dji_thermal_ui.analyzer.models import ThermalConversion
+from dji_thermal_ui.analyzer.models import Project, ThermalConversion
 from tests.fakes import PREFERENCES, dataset
 
 
@@ -22,7 +22,7 @@ def conversion(d, name="Conversion 1"):
 def test_each_page_is_served_with_the_csrf_cookie(client):
     d = dataset()
     c = conversion(d)
-    for url, page_id in [("/", "app"), ("/dataset/%d" % d.id, "app"),
+    for url, page_id in [("/", "app"), ("/project/%d" % d.project_id, "app"), ("/dataset/%d" % d.id, "app"),
                          ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "app"),
                          ("/conversion/%d/compare" % c.id, "app")]:
         client.cookies.clear()
@@ -37,9 +37,15 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
 
 def test_an_unknown_dataset_or_conversion_is_a_404(client):
     c = conversion(dataset())
-    for url in ["/dataset/999", "/conversion/999", "/conversion/999/frame", "/conversion/999/compare",
+    for url in ["/project/999", "/dataset/999", "/conversion/999", "/conversion/999/frame", "/conversion/999/compare",
                 "/conversion/%d/compare?b=999" % c.id, "/conversion/%d/compare?b=x" % c.id]:
         assert client.get(url).status_code == 404, url
+
+
+def test_a_project_page_is_named_after_its_project(client):
+    p = Project.objects.create(name="Grain silos")
+    html = client.get("/project/%d" % p.id).content.decode()
+    assert "<title>Grain silos · Thermal Analyzer</title>" in html and 'data-id="%d"' % p.id in html
 
 
 def test_compare_takes_two_conversions_of_different_datasets(client):
@@ -51,9 +57,9 @@ def test_compare_takes_two_conversions_of_different_datasets(client):
     assert 'data-id="%d" data-b="%d"' % (a.id, a.id) in html
 
 
-def test_the_viewer_and_compare_pages_carry_the_basemaps(client):
+def test_the_project_viewer_and_compare_pages_carry_the_basemaps(client):
     c = conversion(dataset())
-    for url in ["/conversion/%d" % c.id, "/conversion/%d/compare" % c.id]:
+    for url in ["/project/%d" % c.dataset.project_id, "/conversion/%d" % c.id, "/conversion/%d/compare" % c.id]:
         assert 'id="ta-basemaps"' in client.get(url).content.decode()
 
 
@@ -69,17 +75,18 @@ def test_the_pages_show_temperatures_in_the_apps_unit(client):
 
 def test_a_rebuilt_page_loads_its_built_script_with_its_settings(client):
     html = client.get("/").content.decode()
-    assert '<div id="app" data-page="datasets" data-api="/api/" data-public="/" data-unit="F"' in html
-    assert '<script type="module" src="/static/dist/assets/datasets-a1.js"></script>' in html
+    assert '<div id="app" data-page="projects" data-api="/api/" data-public="/" data-unit="F"' in html
+    assert '<script type="module" src="/static/dist/assets/projects-a1.js"></script>' in html
     d = dataset()
     html = client.get("/dataset/%d" % d.id).content.decode()
     assert '<div id="app" data-page="dataset" data-api="/api/"' in html and 'data-id="%d"' % d.id in html
+    assert 'data-project="%d" data-project-name="Default Project"' % d.project_id in html
     assert '<script type="module" src="/static/dist/assets/dataset-f6.js"></script>' in html
 
 
 def test_every_page_loads_only_its_build_and_the_icon(client):
     c = conversion(dataset())
-    pages = {"/": "datasets-a1", "/dataset/%d" % c.dataset.id: "dataset-f6", "/conversion/%d" % c.id: "viewer-a7",
+    pages = {"/": "projects-a1", "/project/%d" % c.dataset.project_id: "project-b4", "/dataset/%d" % c.dataset.id: "dataset-f6", "/conversion/%d" % c.id: "viewer-a7",
              "/conversion/%d/frame" % c.id: "frame-c9", "/conversion/%d/compare" % c.id: "compare-e1"}
     for page, script in pages.items():
         urls = re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode())
