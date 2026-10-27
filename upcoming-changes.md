@@ -529,6 +529,41 @@ Requested 2026-10-27 (`new.md`):
   page) and the date formatting (locale, offset, fallback); a live check in the browser, light and dark, at desktop
   and narrow widths.
 
+## Controls
+
+Asked in `new.md` (2026-10-27): the image should change while the brightness, contrast, gamma and other sliders are
+dragged, not only when they are let go, and the sliders should be 5% less sensitive; the temperature scale should
+show the minimum and maximum at its ends.
+
+### What it builds on
+
+- The browser colours the tiles since B2 (`frontend/src/map/colour.ts`), so redrawing while dragging needs no request
+  to the server. Today the viewer and frame pages move the range fields and the scale while brightness, contrast or
+  gamma is dragged, and colour the map when the slider is let go; sharpening, and every slider on the compare page,
+  act only when let go.
+- The scale (`ScaleView` in `viewer/panel.tsx`, and the PNG download's legend in `viewer/canvas.ts`) labels round
+  ticks (`scaleTicks` in `viewer/view.ts`), so its ends are labelled only when a tick falls on them.
+
+### Decisions (2026-10-27)
+
+- **Sensitivity:** smaller steps, same reach: each slider's step is 5% smaller, and its ends stay where they are.
+- **The scale's ends:** labelled with the range's ends (the exact values the palette's ends stand for, to 0.1), with
+  the round ticks between them; a tick too close to an end is dropped. On every scale, the download's legend included.
+- **Order:** before C3, then released as 0.5.1.
+
+### F1: live sliders and the scale's ends
+
+- **Built** (2026-10-27): see Done.
+- **Live:** brightness, contrast, gamma and sharpening redraw the image while dragged, on the viewer, frame and
+  compare pages; what is kept (the style saved, an equalized tone curve asked of the server) waits until the slider
+  is let go, as today.
+- **Steps:** about 5% finer, and a whole number of them from end to end so that both ends are reached: brightness
+  0.05 → 2/42, contrast 0.1 → 4/42, gamma 0.1 → 4.6/48, sharpening 0.5 → 5/11 (9% finer: its 10 steps cannot be
+  5% more and stay whole).
+- **Scale:** `scaleTicks` gives the two ends as well as the round ticks between them.
+- **Tests:** Vitest for the ticks (ends, ticks near an end dropped) and the sliders (the image's style changes while
+  dragging); a live check in the browser, light and dark.
+
 ## Integration
 
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
@@ -646,3 +681,12 @@ Requested 2026-10-27 (`new.md`):
   check_dist and the smoke check still expecting the datasets page E1 replaced, fixed on their own branch. Release
   checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 198 pytest with the flight tests, 206
   Vitest, ESLint) and on Windows from WSL (196 pytest from a fresh clone, smoke).
+- **F1: live sliders and the scale's ends** (2026-10-27). The viewer, frame and compare pages colour the map from
+  the style of a slider being dragged (`dragged` in `viewer-page.tsx` and `frame-page.tsx`, `drawnStyle` in
+  `compare-page.tsx`); `ThermalLayer.setColouring` (`map/map.ts`) sets the shader's variables when only the range or
+  the sharpening changed, and compiles the style again otherwise. The steps are `SLIDERS` and the scale's labels
+  `scaleTicks` (`viewer/view.ts`). Tests: `frontend/tests/view.test.ts` (steps, the scale's ends),
+  `viewer.test.tsx` and `compare.test.tsx` (drawn while dragged, kept when let go, no curve asked meanwhile).
+  Checked live in headless Chromium on the 220 M4T frames, light and dark: every slider on the three pages redraws
+  the map while held, and it is the same once let go; the scales read e.g. 49.2, 80, 100, 125.4; no console errors
+  and no failed requests.

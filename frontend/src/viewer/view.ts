@@ -132,6 +132,12 @@ export function sliderPositions(ref: [number, number], range: [number, number]):
             contrast: clamp(Math.log(refWidth / width) / Math.LN2, 2)};
 }
 
+// A slider's ends and its step: 5% finer than a step of 0.05 or 0.1 (0.5 for sharpening), and a whole number of
+// them from end to end, so that both ends are reached
+const slider = (min: number, max: number, step: number) => ({min, max, step: (max - min) / Math.round((max - min) / (step * 0.95))});
+export const SLIDERS = {brightness: slider(-1, 1, 0.05), contrast: slider(-2, 2, 0.1), gamma: slider(-2.3, 2.3, 0.1),
+                        sharpen: slider(0, SHARPEN_MAX, 0.5)};
+
 // Gamma from its slider (its log2), and the slider from gamma
 export function sliderGamma(value: string | number): number {
     const g = Math.round(Math.pow(2, parseFloat(String(value)) || 0) * 100) / 100;
@@ -139,18 +145,21 @@ export function sliderGamma(value: string | number): number {
 }
 export function gammaSlider(gamma: number): number { return Math.round(Math.log(gamma) / Math.LN2 * 100) / 100; }
 
-// Round values to mark on a colour scale from lo to hi (as shown), about count of them: each with its label and
-// where it sits on the scale (0 to 1)
-export function scaleTicks(lo: number, hi: number, count = 5): {value: number; label: string; at: number}[] {
+// The values to mark on a colour scale from lo to hi (as shown): its two ends, to 0.1, and about count round values
+// between them, less those too near an end (within gap of the scale) for their labels to fit; each with its label
+// and where it sits on the scale (0 to 1)
+export function scaleTicks(lo: number, hi: number, count = 5, gap = 0.18): {value: number; label: string; at: number}[] {
     if (!(hi > lo)) return [];
     const rough = (hi - lo) / count, mag = Math.pow(10, Math.floor(Math.log10(rough)));
     const m = [1, 2, 2.5, 5, 10].filter((x) => x * mag >= rough * (1 - 1e-9))[0], step = m * mag;
     const digits = Math.max(0, -Math.floor(Math.log10(step) + 1e-9) + (m === 2.5 ? 1 : 0));
-    const out = [];
+    const label = (value: number, n: number) => value.toFixed(n).replace(/^-(0\.?0*)$/, "$1");
+    const out = [{value: lo, label: label(lo, Math.max(1, digits)), at: 0}];
     for (let i = Math.ceil(lo / step - 1e-9); i <= Math.floor(hi / step + 1e-9); i++) {
-        const value = i * step;
-        out.push({value, label: value.toFixed(digits).replace(/^-(0\.?0*)$/, "$1"), at: (value - lo) / (hi - lo)});
+        const value = i * step, at = (value - lo) / (hi - lo);
+        if (at >= gap && at <= 1 - gap) out.push({value, label: label(value, digits), at});
     }
+    out.push({value: hi, label: label(hi, Math.max(1, digits)), at: 1});
     return out;
 }
 

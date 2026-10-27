@@ -16,7 +16,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   cancel one, or download it.
 - **Mosaics:** as converted, harmonized, by source frame or by view angle, over a street map or Esri's or Mapbox's
   satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma, equalization
-  and sharpening.
+  and sharpening, redrawn as their sliders are dragged; the colour scale is labelled with its range's ends.
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
   and on single frames. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.

@@ -287,11 +287,10 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         });
     }, [urls[0], urls[1]]);
 
-    // How the frame is coloured, as the palette, range, adjustments and isotherm are (not those of a slider being
-    // dragged: they are drawn when it is let go)
-    const colouring: Colouring | null = style && meta ? {
-        colors: (meta.palettes || []).find((p) => p.key === style.palette)?.color_map || [], range: style.range,
-        shares: shares(style.adjust), sharpen: style.adjust.sharpen, isotherm: isothermRange(isoValue)} : null;
+    // How the frame is coloured, as the palette, range, adjustments and isotherm are (a slider's as it is dragged)
+    const colouring: Colouring | null = shown && meta ? {
+        colors: (meta.palettes || []).find((p) => p.key === shown.palette)?.color_map || [], range: shown.range,
+        shares: shares(shown.adjust), sharpen: shown.adjust.sharpen, isotherm: isothermRange(isoValue)} : null;
 
     // The panes drawn as the frame, palette, range, adjustments, isotherm and parameters now are: the second pane with
     // the parameters changed
@@ -447,29 +446,27 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         setStyle(reset ? {range: autoRange(), adjust: defaultAdjust()} : {range: autoRange()});
     }
 
-    // The brightness or contrast slider moved: the range follows (its fields and the scale at once, the image when let
-    // go)
+    // A slider dragged: the image drawn with its change at once, which is kept when it is let go
+    function dragged(changes: Partial<Style>, done: boolean) {
+        setLive(done ? null : changes);
+        if (done) setStyle(changes);
+    }
+
+    // The brightness or contrast slider moved: the range follows
     function slide(brightness: number, contrast: number, done: boolean) {
         const f = rangeFields(slidRange(autoRange(), brightness, contrast));
         const range: [number, number] = [typedTemp(Number(f[0]), unit), typedTemp(Number(f[1]), unit)];
         setRangeText(null);
         setRangeError("");
-        if (done) {
-            setLive(null);
-            setStyle({range});
-        } else {
-            setLive({range});
-        }
+        dragged({range}, done);
+    }
+
+    function sharpen(value: number, done: boolean) {
+        dragged({adjust: {...style!.adjust, sharpen: value}}, done);
     }
 
     function gamma(slider: string, done: boolean) {
-        const adjust = {...style!.adjust, gamma: sliderGamma(slider)};
-        if (done) {
-            setLive(null);
-            setStyle({adjust});
-        } else {
-            setLive({adjust});
-        }
+        dragged({adjust: {...style!.adjust, gamma: sliderGamma(slider)}}, done);
     }
 
     function changeIsotherm(s: IsothermState, field: string) {
@@ -653,7 +650,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                         <Section name="image" title="Image" store={FOLDED_KEY}>
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
                                            temperature={true} onSlide={slide} onGamma={gamma}
-                                           onSharpen={(sharpen) => setStyle({adjust: {...style!.adjust, sharpen}})}
+                                           onSharpen={sharpen}
                                            onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
                                            onReset={() => auto(true)}/>
                         </Section>

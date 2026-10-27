@@ -5,7 +5,7 @@ import {setUserUnit} from "../src/core/units";
 import {gradientCss, gradientStops, paletteCss} from "../src/viewer/canvas";
 import {
     defaultRange, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
-    sliderPositions, slidRange, styleGroup, takenText, dataUrl, toneShares, viewQuery,
+    sliderPositions, SLIDERS, slidRange, styleGroup, takenText, dataUrl, toneShares, viewQuery,
 } from "../src/viewer/view";
 
 afterEach(() => setUserUnit("C"));
@@ -70,13 +70,32 @@ describe("the range", () => {
         expect(sliderGamma(1)).toBe(2);
         expect(sliderGamma(9)).toBe(5);
     });
+
+    it("steps 5% finer than before and still reaches both ends", () => {
+        const before = {brightness: 0.05, contrast: 0.1, gamma: 0.1, sharpen: 0.5};
+        Object.entries(SLIDERS).forEach(([name, s]) => {
+            const steps = (s.max - s.min) / s.step;
+            expect(Math.abs(steps - Math.round(steps))).toBeLessThan(1e-9);
+            expect(s.step / before[name as keyof typeof before]).toBeGreaterThan(0.9);
+            expect(s.step / before[name as keyof typeof before]).toBeLessThan(0.96);
+        });
+        expect(SLIDERS.brightness).toEqual({min: -1, max: 1, step: 2 / 42});
+    });
 });
 
 describe("the colour scale", () => {
-    it("marks round values across the range", () => {
-        expect(scaleTicks(0, 10).map((t) => t.label)).toEqual(["0", "2", "4", "6", "8", "10"]);
-        expect(scaleTicks(-0.5, 0.5).map((t) => t.label)).toEqual(["-0.4", "-0.2", "0.0", "0.2", "0.4"]);
+    it("marks its two ends and round values between them", () => {
+        expect(scaleTicks(0, 10).map((t) => t.label)).toEqual(["0.0", "2", "4", "6", "8", "10.0"]);
+        expect(scaleTicks(-0.5, 0.5).map((t) => t.label)).toEqual(["-0.5", "-0.2", "0.0", "0.2", "0.5"]);
         expect(scaleTicks(1, 1)).toEqual([]);
+    });
+
+    it("labels its ends to 0.1, leaving out a round value too near one to fit", () => {
+        const ticks = scaleTicks(21.96, 28.04);
+        expect(ticks.map((t) => t.label)).toEqual(["22.0", "24", "26", "28.0"]);
+        expect(ticks[0]).toMatchObject({value: 21.96, at: 0});
+        expect(ticks.at(-1)).toMatchObject({value: 28.04, at: 1});
+        expect(scaleTicks(12.34, 45.67).map((t) => t.label)).toEqual(["12.3", "20", "30", "45.7"]);
     });
 
     it("draws the palette with the image's tone curve", () => {
