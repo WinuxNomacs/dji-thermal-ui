@@ -205,8 +205,11 @@ Awesome 5) is rebuilt in two stages, each released on its own.
 - **Release:** 0.2.0.
 - **Built so far (branch `b1-pages`):** the five pages in `frontend/src` with their Vitest tests in
   `frontend/tests`; the stylesheet `frontend/src/styles/app.css`; the old scripts, CSS, `base.html`, the vendored
-  libraries and Jest removed; packaging and CI as above. Left: the Windows check, A3's walk-through in light and
-  dark, and the release.
+  libraries and Jest removed; packaging and CI as above. Windows (2026-10-27): a fresh clone installs and passes
+  pytest, and the smoke check passes on the built wheel. A3's walk-through, in light and in dark, passed; it found
+  three bugs, all fixed: resetting the defaults broke the convert tab, a conversion's menu stayed open after
+  Download all, and rio-tiler's colour maps (gray, magma…, the difference's) had black legends, a bug on `main`
+  since A2, fixed on its own branch. Left: the release.
 
 ### B2: the viewer on OpenLayers (to plan after B1)
 
