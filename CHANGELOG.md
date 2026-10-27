@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-27
+
 ### Changed
 
 - The image is redrawn while the brightness, contrast, gamma or sharpening slider is dragged, on the viewer, the
