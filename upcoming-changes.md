@@ -9,12 +9,21 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing planned yet: the next phase is chosen from Later and planned with the user.
+1. **C1: frame models in dji-thermal-cli**: its mosaics save how each frame sees the ground, so the app can list
+   every frame that saw a spot or area (dji-thermal-cli 1.5.0, released there first). (Findings)
+2. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
+   on the viewer and the compare page; the Source frame tab opens it on a click. (Findings)
+3. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+   severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
+4. **C4: findings on the compare page.** (Findings)
+
+**Then**
+1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
+2. **D2: the mosaic report**, with its measurements and findings. (Reports)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
    the plan's options, and follow it. This replaces the plugin's "Process in LuxODM". (Integration)
-2. **A report** of a dataset or a mosaic (moved from LuxODM's Later, 2026-10-25). (Analyzer)
 
 ## Standalone (option A)
 
@@ -317,6 +326,118 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
   open only while Mapbox is shown.
 - **Release:** 0.4.0 (a feature).
 - **Done:** see Done below.
+
+## Findings
+
+Requested 2026-10-27 (`new.md`) and put before the reports at the user's request:
+- **Findings on datasets:** on the As converted and Harmonized tabs, a spot or an area drawn on the mosaic opens the
+  source frames that made it, in a window on the page: the whole frame, and a list to pick another when there are
+  several. The user inspects them and can save the spot or area as a finding, its source frames kept with it. The
+  same on the compare page. Findings can be shown or hidden, and a measurement can be saved as a finding.
+- **The Source frame tab:** clicking it only outlines the frame today; it should open the frame in the same window.
+
+### Decisions (2026-10-27)
+
+- **Which frames:** every frame that saw the spot or area, not only the one the mosaic took each pixel from (that
+  one is listed first). The mosaic does not record the others, so dji-thermal-cli saves them first (C1).
+- **Kept by reference:** a finding stores its frames' names, where the spot or area is in each, and which ones the
+  user kept. The pictures stay in the dataset; nothing is copied.
+- **What a finding holds:** its shape (a spot or an area, in lon/lat), a name, notes, a severity (low, medium, high,
+  critical), a status (open, reviewed, resolved), the temperatures measured when it was saved (min, max, mean, ΔT,
+  with the conversion and tab they were read on), and its frames.
+- **Findings belong to the dataset:** in lon/lat, they show on every conversion's mosaics of that dataset and on
+  both panes of the compare page.
+- **The name:** dji-thermal-cli's analysis also has "findings", which the app shows as Problems. They stay Problems;
+  the front end's type for them is renamed `Problem` so that `Finding` is the new one.
+
+### C1: frame models in dji-thermal-cli
+
+- **In dji-thermal-cli** (`~/gitrepos/python/dji-thermal-cli`, its own branch, tests and release 1.5.0, a feature):
+  - The mosaic writes how each placed frame sees the ground beside its rasters: the camera position and height,
+    its rotation, principal point and focal length, the alignment correction (shift and rotation), the surface it
+    was projected onto, and its corrected footprint in lon/lat.
+  - A public function takes those and ground points (lon/lat) and gives each frame's pixel for them, or none where
+    the frame did not see the point; another gives the frames whose footprint covers a point or meets an area.
+  - Its tests: a ground point projected into a frame and back lands where it started; points outside the footprint
+    give none; the file is written and read back.
+- **Here:** dji-thermal-cli pinned at 1.5.0. Mosaics built before it have no frame models: for them the pop-out
+  lists only the frames the mosaic used (the Source frame raster) and says that rebuilding the mosaics lists every
+  frame that saw it.
+- **First check when building:** that the model reproduces the mosaic's own sampling (a pixel of the Source frame
+  tab maps to the same frame pixel as `frame_pixel` today).
+
+### C2: the source frames pop-out
+
+- **A "Source frames" tool** on the viewer's As converted, Harmonized and Source frame tabs: a spot (a click) or an
+  area (a polygon, as the Area tool draws). On the Source frame tab a click opens it directly, as asked.
+- **The window:** on the page, beside the map (not a browser pop-up), movable and closable. It shows the whole frame,
+  coloured with the mosaic's palette and range, with the spot marked or the area outlined in the frame's pixels;
+  and the list of frames that saw it, the one the mosaic used first, each with its time and view angle. Picking one
+  in the list (or ← and →) shows it; a link opens it on the frame page.
+- **API:** `POST …/mosaics/<tab>/sources` with the geometry: the frames that saw it, for each the spot's pixel or
+  the area's outline in its pixels, whether the mosaic used it, and what share of the area it covers.
+- **Compare page:** its "Picked point" panel is replaced by the same window, for each pane (A's and B's frames for
+  the difference).
+- **Tests:** pytest for the endpoint (a spot, an area, outside the mosaic, a mosaic without frame models); Vitest
+  for the window (the list, stepping, the marked spot and outline, closing).
+
+### C3: findings on the viewer
+
+- **Model:** `Finding` on the dataset, with the fields above, its frames as a list ({frame, pixel or outline, kept}),
+  and when it was made and changed. API: list, create, change and delete under `/api/datasets/<id>/findings`.
+- **Saving:** the pop-out's "Save as finding" opens a form (name, notes, severity, status, the frames to keep, all
+  ticked to start with); the temperatures are measured then on the tab shown. A saved measurement that is a spot or
+  an area (box and circle included; a line cannot be) has "Save as finding" too, its geometry and figures copied.
+- **On the map:** findings drawn in their own style (by severity), labelled, a click opening the finding with its
+  frames in the pop-out. A "Findings" switch shows or hides them all, kept in the URL, and each can be hidden from
+  the list.
+- **The list:** a Findings section in the viewer's panel (name, severity, status), to open, change or delete one.
+  The dataset page shows how many findings the dataset has.
+- **Tests:** pytest for the API (create, change, delete, the dataset's deletion removing them, refused values);
+  Vitest for the form, the list and the switch.
+
+### C4: findings on the compare page
+
+- Findings shown on both panes with their own switch, opened in each pane's pop-out, and saved from a spot or area
+  drawn in a pane.
+
+### Each phase
+
+- Live check on the 220 M4T frames in a real browser, light and dark, leaving no findings behind.
+- Release: C1 is dji-thermal-cli 1.5.0 (the user pushes and tags it there), then here 0.5.0 after C2 and 0.6.0
+  after C4, unless the user prefers one release at the end.
+
+## Reports
+
+Planned 2026-10-27, from Later ("a report of a dataset or a mosaic"), after the findings.
+
+### Decisions (2026-10-27)
+
+- **Two reports:** a dataset report and a mosaic report.
+- **Printed to PDF from the browser:** a report page laid out for A4 and Letter; the user prints it and picks "Save
+  as PDF". It uses the viewer's own colouring and drawing, adds no dependency, and works the same on Windows.
+- **The mosaic report holds:** the mosaic as shown (the viewer's tab, palette, range and adjustments, with the saved
+  measurements drawn and labelled, the colour scale, a scale bar and north); the measurements' table and their
+  charts (profiles, histograms); a close-up of each measurement (frame measurements on their frame); and the
+  settings and method (the conversion's settings, the mosaic kind, dji-thermal-cli's version).
+- **Text of the user's own, saved:** a title, author, date and notes on each report, and a comment on each
+  measurement, typed on the report page and saved.
+
+### D1: the dataset report
+
+- `/dataset/<id>/report`, opened from the dataset page: the title block; the dataset (files, size, thermal frames,
+  cameras, when it was flown, altitudes, where, with the frames' positions on a map); the problems from the analysis;
+  the frames' settings and temperature ranges; the conversions made; and, once C3 is built, the findings.
+- The report's text saved on the dataset. Print styles: no header or controls, always light, figures kept whole on
+  a page.
+
+### D2: the mosaic report
+
+- `/conversion/<id>/report`, opened from the viewer with its view: the contents decided above, and the dataset's
+  findings on this mosaic with their kept frames. Each measurement's comment saved on the measurement (shown in the
+  viewer and in the CSV and GeoJSON too).
+- Tests for both: pytest for the pages and the saved text; Vitest for the sections from the data; a live check
+  printing each to PDF with Playwright and looking at the pages.
 
 ## Integration
 
