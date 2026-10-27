@@ -9,8 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **B3: the basemaps**: Mapbox's satellite tiles under the mosaics with the user's own token, and Esri's
-   satellite layer stretched past the levels it has where the mosaic is. (Basemaps)
+- Nothing planned yet: the next phase is chosen from Later and planned with the user.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -269,8 +268,8 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
   - If its tiles are refused (401 for a wrong token, 403 for one restricted to other URLs, 429 past the limits),
     the switch says why, and the map goes back to the previous basemap.
 - **The token:** "Mapbox Satellite: add a token…" in the basemap switch opens a small form to paste the token.
-  - The form says how to get one (asked for by the user, 2026-10-27): sign up at mapbox.com (the free allowance,
-    and the trial limits without a card), copy the Default public token from the Access tokens page (or make one
+  - The form says how to get one (asked for by the user, 2026-10-27): sign up at mapbox.com (no card needed, the free
+    allowance, and charges only once a card is on the account), copy the Default public token from the Access tokens page (or make one
     with the public scopes only, never a secret one), paste it. It says the token stays in the app's preferences and
     goes to Mapbox with each tile, links to the Statistics page for the usage, and says when `MAPBOX_API_TOKEN` is
     the one in use. The README has the same steps.
@@ -311,7 +310,13 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
   - Esri zoomed in past its levels, with no placeholder tiles.
   - Mapbox with the user's token from `.env` (given by the user for this; never printed or copied). The wordmark
     and attribution are shown, and a wrong token saved in the form is reported, then removed.
+  Done 2026-10-27: Esri over the M4T site stretched from zoom 19 with no deeper tile requested; Mapbox's tiles to
+  zoom 22 with the wordmark and the open attribution, on the viewer and both maps of the compare page; the form in
+  light and dark, a secret token refused, a wrong one reported (401) and the map back on Esri. Found and fixed: the
+  Raster Tiles API's 429 (above), and OpenLayers' attribution control counting hidden layers, so the switch sets it
+  open only while Mapbox is shown.
 - **Release:** 0.4.0 (a feature).
+- **Done:** see Done below.
 
 ## Integration
 
@@ -373,3 +378,10 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
   tiles in `tests/test_api_mosaics.py`). Release checks passed on Linux (check_dist, twine, smoke, ruff, 131 pytest
   with the flight tests, 153 Vitest, ESLint) and on Windows from WSL (129 pytest from a fresh clone, smoke on 3.12
   and 3.14).
+- **B3: the basemaps, release 0.4.0** (2026-10-27). Mapbox's satellite imagery through the Static Tiles API with
+  the user's own public token (`analyzer/basemaps.py`: the `mapbox_token` preference, else `MAPBOX_API_TOKEN` from
+  the environment or a `.env` file; `PUT /api/preferences` saves and removes it), the switch, the token form with
+  how to get one, the wordmark and attribution (`frontend/src/map/basemaps.ts`, `frontend/src/map/mapbox-token.tsx`,
+  the wordmark in `static/vendor/mapbox/`), and Esri's layer reading its tilemap to stretch its deepest level instead
+  of "Map data not yet available". Tests: `tests/test_basemaps.py` (pytest), `frontend/tests/basemaps.test.tsx`
+  (Vitest). The README says how to get a token.

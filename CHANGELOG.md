@@ -6,6 +6,17 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Mapbox's satellite imagery under the mosaics, with your own Mapbox token: "Mapbox Satellite: add a token…" in the
+  map's basemap switch says how to get one and saves it in the app, or set `MAPBOX_API_TOKEN` in the environment or
+  a `.env` file. Only public tokens (`pk.`) are taken; the Mapbox wordmark and attribution show while it is shown.
+
+### Changed
+
+- Esri's satellite layer asks Esri which tiles exist and stretches the deepest one it has, instead of showing "Map
+  data not yet available" when zoomed in further.
+
 ## [0.3.0] - 2026-10-27
 
 ### Changed
