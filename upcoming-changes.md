@@ -9,12 +9,11 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
-2. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
+1. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
    on the viewer and the compare page; the Source frame tab opens it on a click. (Findings)
-3. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+2. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
    severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-4. **C4: findings on the compare page.** (Findings)
+3. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
@@ -351,6 +350,8 @@ Requested 2026-10-27 (`new.md`) and put before the reports at the user's request
 
 ### C1: frame models in dji-thermal-cli
 
+- **Built** (2026-10-27): see Done.
+
 - **In dji-thermal-cli** (`~/gitrepos/python/dji-thermal-cli`, its own branch, tests and release 1.5.0, a feature):
   - The mosaic writes how each placed frame sees the ground beside its rasters: the camera position and height,
     its rotation, principal point and focal length, the alignment correction (shift and rotation), the surface it
@@ -625,3 +626,7 @@ Requested 2026-10-27 (`new.md`):
   (`core/format.ts`). Tests: `tests/test_navigation.py`, `tests/test_pages.py`, `frontend/tests/navigation.test.tsx`.
   Checked live in headless Chromium on the user's data, light, dark and 390 px wide: the pane, hidden and kept, the
   dataset analyzed again and shown in UTC−5, the locale and theme saved. No console errors and no failed requests.
+- **C1: dji-thermal-cli 1.5.0** (2026-10-27). Released there (frame models in the mosaic's sidecar,
+  `read_frame_models` and `FrameModels`; its model reproduces the mosaic's own sampling for 99.6% of pixels on the
+  220 M4T frames), and pinned here in `pyproject.toml` and `uv.lock`. Test: `tests/test_flight.py` reads a mosaic's
+  frame models back and finds its centre in a frame.

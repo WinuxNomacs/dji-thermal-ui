@@ -29,6 +29,8 @@ All notable changes are recorded here. The format follows
 ### Changed
 
 - Compare lists the conversions of the project first, and names the project of the others.
+- dji-thermal-cli 1.5.0: a mosaic built now keeps how each of its frames saw the ground, for the source frames
+  pop-out to come. Mosaics built before keep working.
 
 ## [0.4.0] - 2026-10-27
 
