@@ -309,6 +309,11 @@ details > summary h5 { display: inline; }
 }
 .dialog-inner h2 { margin: 0 0 12px; }
 .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.field-error { margin-top: 4px; color: var(--danger); font-size: 13px; }
+/* How to get a Mapbox token */
+.mapbox-help ol { margin: 0 0 12px; padding-left: 20px; }
+.mapbox-help li { margin-bottom: 6px; }
+.mapbox-help code { font-size: 12px; }
 
 .drop-hint {
     position: fixed; inset: 0; z-index: 1040; display: flex; align-items: center; justify-content: center; gap: 10px;
@@ -440,6 +445,14 @@ details > summary h5 { display: inline; }
 .app-main .ol-control { color: #333; }
 .map-basemaps { top: .5em; right: .5em; }
 .map-basemaps select { font-size: 12px; padding: 1px 2px; color: #333; background: #fff; border: 1px solid #aaa; border-radius: 2px; }
+.map-basemaps-message {
+    max-width: 220px; margin-top: 4px; padding: 3px 6px; border-radius: 2px; background: #fff; color: #c62828;
+    font-size: 12px;
+}
+.map-basemaps-message[hidden] { display: none; }
+/* Mapbox's wordmark while its imagery is shown: above the scale line, as Mapbox shows it */
+.map-mapbox-logo { position: absolute; left: .5em; bottom: 2.4em; line-height: 0; }
+.map-mapbox-logo[hidden] { display: none; }
 /* A tip over what is drawn (the hottest and coldest pixels, a frame on the locator), and a box or circle's size */
 .map-tip {
     padding: 2px 6px; border-radius: 3px; background: rgba(0, 0, 0, .75); color: #fff; font-size: 12px;

@@ -29,7 +29,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import jobs, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from . import basemaps, jobs, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .downloads import download_file_response, download_file_stream
 from .models import Preferences, ThermalConversion, ThermalDataset, ThermalMeasurement
 from .raster.security import path_traversal_check
@@ -510,7 +510,7 @@ class PreferencesView(DatasetView):
 
     def put(self, request):
         """Saves settings as the defaults for new conversions, and/or the unit temperatures are shown in, and/or the
-        pages' theme"""
+        pages' theme, and/or the Mapbox token (null forgets it)"""
         out = {}
         for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES)):
             if key in request.data:
@@ -519,6 +519,15 @@ class PreferencesView(DatasetView):
                     raise ValidationError({key: "One of {}".format(", ".join(choices))})
                 save_preference(key, value)
                 out[key] = value
+        if basemaps.TOKEN_KEY in request.data:
+            token = request.data.get(basemaps.TOKEN_KEY)
+            if token is not None:
+                error = basemaps.token_error(token)
+                if error:
+                    raise ValidationError({basemaps.TOKEN_KEY: error})
+                token = token.strip()
+            save_preference(basemaps.TOKEN_KEY, token)
+            out['mapbox'] = basemaps.mapbox_state()
         if 'settings' in request.data or not out:
             settings, errors = thermal_conversion.parse_settings(request.data.get('settings'))
             if errors:

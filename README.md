@@ -10,8 +10,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a dataset.
 - **Conversions:** temperature images with any of dji-thermal-cli's settings. You can keep several side by side,
   cancel one, or download it.
-- **Mosaics:** as converted, harmonized, by source frame or by view angle, over a street or satellite map. The
-  viewer has palettes, a temperature range, brightness and contrast, gamma, equalization and sharpening.
+- **Mosaics:** as converted, harmonized, by source frame or by view angle, over a street map or Esri's or Mapbox's
+  satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma, equalization
+  and sharpening.
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
   and on single frames. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
@@ -46,8 +47,32 @@ running when the server stops is marked as interrupted the next time it starts.
 | `--no-browser` | do not open the browser |
 | `--version` | print the version |
 
-The street and satellite maps under the mosaics are loaded from OpenStreetMap and Esri, so they need an internet
-connection. Everything else works offline.
+The maps under the mosaics are loaded from the internet. Everything else works offline.
+
+## The maps under the mosaics
+
+The switch at the top right of a mosaic's map chooses what is under it:
+
+- **ESRI Satellite** (the default) and **OpenStreetMap** need nothing set up. Where Esri's imagery stops short of the
+  zoom shown, its deepest level there is stretched instead of showing "Map data not yet available".
+- **Mapbox Satellite** needs a Mapbox account of your own and its access token. Choose "Mapbox Satellite: add a
+  token…" in the switch: the form says how to get one and saves it. The same form changes or removes it.
+
+To get the token:
+
+1. Sign up at [mapbox.com](https://account.mapbox.com/auth/signup/): no card is needed. The imagery comes through
+   Mapbox's Static Tiles API, whose free allowance is 200,000 tiles a month; Mapbox charges past it only when a card
+   is on the account.
+2. On the [Access tokens](https://console.mapbox.com/account/access-tokens/) page, copy the **Default public token**
+   (it starts with `pk.`), or create a token with the public scopes only. A secret token (`sk.`) is refused: the
+   browser sends the token to Mapbox with each tile, so anyone using the page could read it. Mapbox's URL
+   restrictions do not accept `127.0.0.1`, so leave the token unrestricted.
+3. Paste it into the form. Mapbox's [Statistics](https://console.mapbox.com/account/statistics/) page shows how many
+   tiles have been used.
+
+Whoever sets the app up can give the token in `MAPBOX_API_TOKEN` instead, in the environment or in a `.env` file
+(`MAPBOX_API_TOKEN=pk....`) in the folder the app is started from or in the data folder. A token saved in the form
+is used instead of it, and removing that one goes back to it.
 
 ## Where the data lives
 
@@ -87,3 +112,5 @@ CI (`.github/workflows/ci.yml`) runs these and the tests on Linux and Windows on
 AGPL-3.0-only (see [LICENSE](LICENSE)). Parts of the code come from WebODM and LuxODM (AGPL-3.0), whose files keep
 their notices. The pages bundle Preact (MIT) and OpenLayers (BSD-2-Clause, with rbush, MIT, and quickselect,
 ISC); their licences are in `THIRD-PARTY-LICENSES.txt` beside the built pages, in `dji_thermal_ui/static/dist/`.
+Mapbox's wordmark, shown with its imagery, comes from Mapbox GL JS 1.13.3 (BSD-3-Clause), with its licence in
+`dji_thermal_ui/static/vendor/mapbox/`.

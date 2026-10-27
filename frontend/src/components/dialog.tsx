@@ -1,7 +1,7 @@
 // The pages' dialog, in place of the browser's prompt and confirm: themed as the page is. dialog() shows it and
 // resolves to {button, value}: the value of the button pressed (null when dismissed: Escape, or a click beside it)
 // and the field's text. ask() and askName() are its two common uses.
-import {render} from "preact";
+import {type ComponentChildren, render} from "preact";
 import {useLayoutEffect, useRef} from "preact/hooks";
 
 export type ButtonStyle = "primary" | "danger" | "default";
@@ -9,14 +9,15 @@ export interface DialogButton<V> {label: string; value: V; style?: ButtonStyle}
 export interface DialogOptions<V> {
     title: string;
     text?: string | string[];                               // a paragraph, or a list of them
-    field?: {label?: string; value?: string; readonly?: boolean};
+    body?: ComponentChildren;                               // more after them (links, a list of steps)
+    field?: {label?: string; value?: string; readonly?: boolean; placeholder?: string; error?: string};
     buttons?: DialogButton<V>[];                            // left to right
 }
 export interface DialogResult<V> {button: V | null; value: string | undefined}
 
 interface Props<V> extends DialogOptions<V> {close: (button: V | null, value: string | undefined) => void}
 
-function Dialog<V>({title, text, field, buttons, close}: Props<V>) {
+function Dialog<V>({title, text, body, field, buttons, close}: Props<V>) {
     const all = buttons || [{label: "OK", value: true as V, style: "primary" as const}];
     const main = all.find((b) => b.style === "primary" || b.style === "danger");
     const fieldRef = useRef<HTMLInputElement>(null);
@@ -49,12 +50,14 @@ function Dialog<V>({title, text, field, buttons, close}: Props<V>) {
             <div class="dialog-inner" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
                 <h2 id="dialog-title">{title}</h2>
                 {([] as string[]).concat(text || []).map((t) => <p>{t}</p>)}
+                {body}
                 {field && (
-                    <div class="field">
+                    <div class={"field" + (field.error ? " has-error" : "")}>
                         {field.label && <label for="dialog-field">{field.label}</label>}
                         <input type="text" id="dialog-field" maxLength={255} ref={fieldRef}
-                               value={field.value || ""} readOnly={field.readonly}
+                               value={field.value || ""} readOnly={field.readonly} placeholder={field.placeholder}
                                aria-label={field.label ? undefined : title} />
+                        {field.error && <div class="field-error">{field.error}</div>}
                     </div>
                 )}
                 <div class="dialog-actions">

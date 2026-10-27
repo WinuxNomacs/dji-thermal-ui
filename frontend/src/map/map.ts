@@ -1,4 +1,4 @@
-// The pages' maps on OpenLayers: a map of mosaics with its basemaps (the settings' BASEMAPS) and their switch, its
+// The pages' maps on OpenLayers: a map of mosaics with its basemaps (basemaps.ts) and their switch, its
 // scale and a place for the colour scale; a frame's map, in its pixels; the values the server sends, coloured in the
 // browser (colour.ts); tips shown over what is drawn; and the values as drawn, for the PNG export
 import type {Coordinate} from "ol/coordinate";
@@ -12,24 +12,19 @@ import ScaleLine from "ol/control/ScaleLine";
 import Zoom from "ol/control/Zoom";
 import Point from "ol/geom/Point";
 import {defaults as defaultInteractions} from "ol/interaction/defaults";
-import TileLayer from "ol/layer/Tile";
 import VectorLayer from "ol/layer/Vector";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import Projection from "ol/proj/Projection";
 import {fromLonLat, toLonLat, transformExtent} from "ol/proj";
 import {getDistance} from "ol/sphere";
 import DataTile from "ol/source/DataTile";
-import TileWMS from "ol/source/TileWMS";
 import VectorSource from "ol/source/Vector";
-import XYZ from "ol/source/XYZ";
 import TileGrid from "ol/tilegrid/TileGrid";
 import {createXYZ} from "ol/tilegrid";
+import {addBasemaps, type Basemap} from "./basemaps";
 import {type Colouring, colourStyle, decodeValues, sharpenSigma} from "./colour";
 
-export interface Basemap {
-    label: string; url: string; type?: string; attribution?: string; maxzoom?: number; minzoom?: number;
-    subdomains?: string | string[]; layers?: string; styles?: string; format?: string; default?: boolean;
-}
+export type {Basemap};
 
 export const MAX_ZOOM = 26;
 // A mosaic's data tiles: their size and the gutter around them (the server's DATA_TILE_SIZE and DATA_GUTTER)
@@ -76,46 +71,6 @@ export function fitBounds(map: OlMap, bounds: number[], mapped = false, padding 
     if (!size || !size[0] || !size[1]) return false;
     map.getView().fit(mapped ? bounds : mercatorBounds(bounds), {size, padding: [padding, padding, padding, padding]});
     return true;
-}
-
-function basemapLayer(bm: Basemap): TileLayer {
-    const opts = {attributions: bm.attribution || bm.label, maxZoom: bm.maxzoom || 21, minZoom: bm.minzoom || 0};
-    if (bm.type === "wms") {
-        return new TileLayer({source: new TileWMS({url: bm.url, attributions: opts.attributions,
-            params: {LAYERS: bm.layers || "0", STYLES: bm.styles || "default", FORMAT: bm.format || "image/png", VERSION: "1.1.1"}})});
-    }
-    // {s} (as Leaflet wrote basemap URLs): one URL for each subdomain
-    const subdomains = typeof bm.subdomains === "string" ? bm.subdomains.split("") : bm.subdomains || [];
-    const urls = bm.url.includes("{s}") && subdomains.length ? subdomains.map((s) => bm.url.replace("{s}", s)) : [bm.url];
-    return new TileLayer({source: new XYZ({...opts, urls})});
-}
-
-// The basemaps under everything else, and their switch (top right)
-function addBasemaps(map: OlMap, basemaps: Basemap[]) {
-    const layers = basemaps.map((bm) => {
-        const l = basemapLayer(bm);
-        l.setZIndex(-1);
-        l.setVisible(false);
-        map.addLayer(l);
-        return l;
-    });
-    const chosen = Math.max(-1, basemaps.findIndex((bm) => bm.default));
-    if (chosen >= 0) layers[chosen].setVisible(true);
-    const select = document.createElement("select");
-    select.name = "basemap";
-    select.title = "The map under the mosaic";
-    [...basemaps.map((bm) => bm.label), "None"].forEach((label, i) => {
-        const o = document.createElement("option");
-        o.value = String(i < basemaps.length ? i : -1);
-        o.textContent = label;
-        select.appendChild(o);
-    });
-    select.value = String(chosen);
-    select.addEventListener("change", () => layers.forEach((l, i) => l.setVisible(String(i) === select.value)));
-    const el = document.createElement("div");
-    el.className = "map-basemaps ol-unselectable ol-control";
-    el.appendChild(select);
-    map.addControl(new Control({element: el}));
 }
 
 // The colour scale's place on the map (bottom right), for the page to render into
