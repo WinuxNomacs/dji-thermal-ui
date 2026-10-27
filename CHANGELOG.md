@@ -12,7 +12,14 @@ All notable changes are recorded here. The format follows
   temperatures and the frames that saw it. They are saved from the source frames window or a saved spot or area
   measurement, drawn on the viewer's map with a tag in their severity's colour, listed in the viewer's panel, shown
   or hidden all together or one by one (kept in the link), changed and deleted. The projects, datasets and dataset
-  pages count them, and a project's page lists its datasets' findings, each opening the viewer.
+  pages count them, and a project's page lists its datasets' findings, each opening the viewer. On the compare page
+  each pane draws its datasets' findings (one switch for both, kept in the link), opens one with a click or a link
+  and changes it, and saves a spot or an area drawn in it on its mosaic's dataset.
+
+### Changed
+
+- The compare page's source frames take a spot or an area (Spot and Area tools in each pane, as in the viewer), and
+  the spot tool is put away after one spot.
 
 ### Fixed
 

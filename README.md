@@ -23,13 +23,17 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   GeoJSON.
 - **Source frames:** a spot or an area of a mosaic opens a window with every frame that saw it, the one the mosaic
   used first, each with its time and view angle and the spot marked or the area outlined in it. Draw one with the
-  Source frames tool, click the Source frame tab, or open a measurement's; on the compare page, pick a spot. Mosaics
+  Source frames tool, click the Source frame tab, or open a measurement's; on the compare page, draw a spot or an area
+  in a pane. Mosaics
   built before 0.5.0 list only the frames they used: build them again to list every frame.
 - **Findings:** a spot or an area of a mosaic kept on its dataset, with a name, notes, a severity and a status, the
   temperatures measured when it was saved and the frames that saw it (all of them, or those you pick). Save one from
   the source frames window or from a saved spot or area measurement. The viewer draws them on the map, outlined and
   tagged in their severity's colour; click one, or its line in the Findings list, to open it with its frames. They
-  can all be hidden with one switch, or one by one, and a link keeps which are shown and which is open.
+  can all be hidden with one switch, or one by one, and a link keeps which are shown and which is open. On the
+  compare page each pane draws its datasets' findings, opened with a click or a link and changed there, and a spot
+  or an area drawn in a pane is saved on the dataset of its mosaic (for a difference, the mosaic picked in the
+  window).
 - **Compare:** two conversions side by side, or their difference, from any dataset, the project's listed first.
 - **Navigation:** a pane on the left of every page lists the projects, their datasets and each conversion's
   mosaics, frames and compare page. Each level folds, and the whole pane hides; over a narrow screen it opens on
