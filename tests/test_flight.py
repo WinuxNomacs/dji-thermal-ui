@@ -32,6 +32,8 @@ def test_a_job_on_the_runner_converts_frames_with_worker_processes(threaded_jobs
 @pytest.mark.django_db(transaction=True)
 def test_a_folder_dataset_is_analyzed_converted_and_made_into_mosaics_on_the_runner(threaded_jobs, flight_frames,
                                                                                    tmp_path):
+    from dji_thermal_cli import api
+
     from dji_thermal_ui.analyzer import thermal_analysis, thermal_conversion
     from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset
 
@@ -61,3 +63,7 @@ def test_a_folder_dataset_is_analyzed_converted_and_made_into_mosaics_on_the_run
         assert west < east and south < north
         assert m["temperature"]["min"] < m["temperature"]["max"]
         assert os.path.isfile(os.path.join(conversion.data_dir(), m["raster"]))
+        # dji-thermal-cli 1.5.0 keeps each frame's model beside the mosaic: its centre was seen by some frame
+        models = api.read_frame_models(os.path.join(conversion.data_dir(), m["raster"]))
+        assert models is not None and len(models.files) == 12
+        assert models.covering((west + east) / 2, (south + north) / 2)
