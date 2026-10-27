@@ -5,6 +5,8 @@
                             "imports": ["_shared-b2.js"]},
   "src/pages/viewer.tsx": {"file": "assets/viewer-a7.js", "src": "src/pages/viewer.tsx", "isEntry": true,
                            "imports": ["_shared-b2.js", "_leaflet-d4.js"], "css": ["assets/viewer-b8.css"]},
+  "src/pages/frame.tsx": {"file": "assets/frame-c9.js", "src": "src/pages/frame.tsx", "isEntry": true,
+                          "imports": ["_shared-b2.js", "_leaflet-d4.js"]},
   "_shared-b2.js": {"file": "assets/shared-b2.js", "imports": ["_leaflet-d4.js"], "css": ["assets/shared-e5.css"]},
   "_leaflet-d4.js": {"file": "assets/leaflet-d4.js", "css": ["assets/shared-e5.css"]}
 }

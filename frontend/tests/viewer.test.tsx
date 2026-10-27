@@ -83,6 +83,18 @@ describe("the viewer page", () => {
         expect(location.search).toBe("?tab=as_converted&palette=ironred&min=20&max=30.1");
     });
 
+    it("keeps its map when a notice appears above it", async () => {
+        const fetchFn = server(routes({["POST " + BASE + "/mosaics"]: () => Promise.resolve({ok: false, status: 400,
+            json: () => Promise.resolve({error: "Busy"})} as Response)}));
+        await open(fetchFn);
+        const map = byId("map");
+        click(byId("build"));
+        await ticks(40);
+        expect($(".notice")!.textContent).toBe("Busy");
+        expect(byId("map")).toBe(map);
+        expect(map.classList.contains("leaflet-container")).toBe(true);
+    });
+
     it("opens the view a link asks for: its tab, palette, range and frame", async () => {
         history.replaceState(null, "", "/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&frame=a_T.JPG");
         const fetchFn = server(routes({[BASE + "/mosaics/footprint?frame=a_T.JPG"]: {type: "FeatureCollection", features: []}}));

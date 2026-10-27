@@ -44,7 +44,8 @@ def viewer_page(request, conversion_id):
 @ensure_csrf_cookie
 def frame_page(request, conversion_id):
     conversion = conversion_or_404(conversion_id)
-    return page(request, "frame.html", title=conversion.name, conversion=conversion, dataset=conversion.dataset)
+    return page(request, "frame.html", title=conversion.name, entry="frame", conversion=conversion,
+                dataset=conversion.dataset)
 
 
 @ensure_csrf_cookie

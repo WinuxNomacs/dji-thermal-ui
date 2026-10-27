@@ -651,7 +651,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             {notice && <div class="notice error" role="alert">{notice}</div>}
             <MosaicStatus v={{...v, label: mosaicLabel(v)}}/>
 
-            <div class="viewer-main" hidden={!ready}>
+            {/* Keyed: a notice appearing above it is never taken for it, which would make its map again */}
+            <div class="viewer-main" key="main" hidden={!ready}>
                 {ready && <div class="tabs" role="tablist">
                     {v.tabs!.map((x) => (
                         <a key={x.tab} href={"#" + x.tab} role="tab" aria-selected={tab === x.tab} class={tab === x.tab ? "active" : ""}

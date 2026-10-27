@@ -13,17 +13,26 @@ import {type Adjust, EMISSIVITY_RANGE, gammaSlider, type Kind, type MosaicTab, r
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
 
-function folded(): string[] {
-    try { return JSON.parse(localStorage.getItem(FOLDED_KEY) || "[]") as string[]; } catch { return []; }
+function folded(key: string): string[] {
+    try { return JSON.parse(localStorage.getItem(key) || "[]") as string[]; } catch { return []; }
+}
+
+interface SectionProps {
+    name: string;
+    title: ComponentChildren;
+    children: ComponentChildren;
+    store?: string;                         // where the folded sections are kept (each page its own)
+    onToggle?: (open: boolean) => void;
 }
 
 // A section of the panel, folded or not as it was left
-export function Section({name, title, children}: {name: string; title: ComponentChildren; children: ComponentChildren}) {
-    const [open] = useState(() => !folded().includes(name));
+export function Section({name, title, children, store = FOLDED_KEY, onToggle}: SectionProps) {
+    const [open] = useState(() => !folded(store).includes(name));
     const toggle = (e: Event) => {
         const shut = !(e.currentTarget as HTMLDetailsElement).open;
-        const kept = folded().filter((n) => n !== name).concat(shut ? [name] : []);
-        try { localStorage.setItem(FOLDED_KEY, JSON.stringify(kept)); } catch { /* not kept: it opens again next time */ }
+        const kept = folded(store).filter((n) => n !== name).concat(shut ? [name] : []);
+        try { localStorage.setItem(store, JSON.stringify(kept)); } catch { /* not kept: it opens again next time */ }
+        onToggle?.(!shut);
     };
     return (<details class="section" open={open} data-section={name} onToggle={toggle}>
         <summary><h5>{title}</h5></summary>
@@ -83,7 +92,7 @@ export function Controls(p: ControlsProps) {
                     onClick={p.onAuto}>Auto</button>
         </div>
         {p.rangeError && <div class="text-danger" id="range-error">{p.rangeError}</div>}
-        {s && <div class="message">This mosaic: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
+        {s && <div class="message">{t === "frame" ? "This frame" : "This mosaic"}: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
             " " + (temperature ? symbol() : "°"))}</div>}
     </>);
 }
