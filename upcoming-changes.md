@@ -386,6 +386,15 @@ Requested 2026-10-27 (`new.md`) and put before the reports at the user's request
 
 ### C3: findings on the viewer
 
+- **Decided with the user (2026-10-27):**
+  - **The project side too:** the projects page and the project page show findings counts, and the project page
+    lists its datasets' findings, each opening the viewer on the conversion it was measured on (or the dataset's
+    latest with mosaics when that one is gone).
+  - **Drawn as an outline with a severity tag:** the shape in a white-and-black dashed outline that reads on any
+    palette (a spot as a ringed dot), labelled with a chip in the severity's colour holding the name.
+  - **Frame measurements are not saved as findings** (they are in the frame's pixels): only a mosaic's spot or
+    area, from a saved measurement or the source frames window.
+- **The conversion measured on** is kept as a link that empties if that conversion is deleted; the finding stays.
 - **Model:** `Finding` on the dataset, with the fields above, its frames as a list ({frame, pixel or outline, kept}),
   and when it was made and changed. API: list, create, change and delete under `/api/datasets/<id>/findings`.
 - **Saving:** the pop-out's "Save as finding" opens a form (name, notes, severity, status, the frames to keep, all
