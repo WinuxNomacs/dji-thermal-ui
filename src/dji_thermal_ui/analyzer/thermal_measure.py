@@ -460,10 +460,14 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
         crs = ds.crs
     to_crs = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
     to_lonlat = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+    out = {'kind': geometry['type'], 'reason': None}
+    flat = np.asarray(geometry['coordinates'], dtype=float).reshape(-1, 2)
+    if not np.all(np.isfinite(to_crs.transform(flat[:, 0], flat[:, 1]))):     # far from the mosaic's zone
+        out.update(valid_pixels=0, reason='outside_raster')
+        return out
     shape, inside, ring = shapes(geometry, to_crs)
     reach = ring if not ring.is_empty else inside
     read = read_mosaic(path, unit, reach.bounds)
-    out = {'kind': geometry['type'], 'reason': None}
     out.update(shape_size(geometry['type'], shape))
     if read is None:
         out.update(valid_pixels=0, reason='outside_raster')
