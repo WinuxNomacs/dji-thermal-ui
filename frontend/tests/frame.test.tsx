@@ -1,10 +1,10 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
-import {changesIn, type FrameInfo, frameLabel, imageUrl, newConversionUrl, readChanges} from "../src/frame/frame";
+import {changesIn, type FrameInfo, frameLabel, newConversionUrl, readChanges, valuesUrl} from "../src/frame/frame";
 import {FramePage, type Frames} from "../src/frame/frame-page";
 import {FrameReadout, Info} from "../src/frame/panel";
-import {calls, click, key, server, ticks} from "./helpers";
+import {calls, click, key, server, ticks, valuesResponse} from "./helpers";
 
 const API = "/api/";
 const BASE = API + "conversions/9";
@@ -28,7 +28,8 @@ const enc = encodeURIComponent;
 
 const $ = (sel: string) => document.querySelector(sel);
 const byId = (id: string) => document.getElementById(id)!;
-const imageOf = (pane: string) => byId(pane).querySelector("img")?.getAttribute("src") || "";
+// What a pane's map shows: the URL of its values
+const valuesOf = (pane: string) => byId(pane).dataset.values || "";
 const type = (el: Element, value: string) => {
     (el as HTMLInputElement).value = value;
     el.dispatchEvent(new Event("input", {bubbles: true}));
@@ -41,6 +42,9 @@ function routes(extra: Record<string, unknown> = {}) {
         [BASE + "/frame?frame=" + enc(B)]: {...INFO, frame: B},
         [BASE + "/measurements?frame=" + enc(A)]: {measurements: []},
         [BASE + "/measurements?frame=" + enc(B)]: {measurements: []},
+        [BASE + "/frame/data?frame=" + enc(A)]: valuesResponse(4, 3),
+        [BASE + "/frame/data?frame=" + enc(B)]: valuesResponse(4, 3),
+        [BASE + "/frame/data?frame=" + enc(A) + "&emissivity=0.98"]: valuesResponse(4, 3, 21),
         ...extra,
     };
 }
@@ -86,13 +90,10 @@ describe("the frame helpers", () => {
         expect(changesIn({reflected_temp: 68, emissivity: 0.9}, "C")).toEqual({reflected_temp: 20, emissivity: 0.9});
     });
 
-    it("make the image's URL and a new conversion's with the changes", () => {
+    it("make the values' URL and a new conversion's with the changes", () => {
         expect(newConversionUrl("/p/", 5, 9, {emissivity: 0.98})).toBe("/p/dataset/5?from=9&emissivity=0.98#convert");
-        const style = {palette: "magma", range: [15, 30] as [number, number]};
-        expect(imageUrl("/api/", 9, A, style, "above,25", {distance: 30}))
-            .toBe("/api/conversions/9/frame/image.png?frame=thermal%2Fa_T.JPG&color_map=magma&rescale=15,30&isotherm=above%2C25&distance=30");
-        expect(imageUrl("/api/", 9, A, {...style, adjust: {gamma: 0.5, equalize: true, sharpen: 0}}, "", {}))
-            .toMatch(/&gamma=0\.5&equalize=1$/);
+        expect(valuesUrl("/api/", 9, A, {distance: 30})).toBe("/api/conversions/9/frame/data?frame=thermal%2Fa_T.JPG&distance=30");
+        expect(valuesUrl("/api/", 9, A, {})).toBe("/api/conversions/9/frame/data?frame=thermal%2Fa_T.JPG");
     });
 });
 
@@ -125,7 +126,7 @@ describe("the frame page", () => {
         expect(byId("mosaics").getAttribute("href")).toBe("/conversion/9?frame=thermal%2Fa_T.JPG");
         expect((byId("range-min") as HTMLInputElement).value).toBe("17");
         expect((byId("range-max") as HTMLInputElement).value).toBe("28");
-        expect(imageOf("map")).toBe("/api/conversions/9/frame/image.png?frame=thermal%2Fa_T.JPG&color_map=dji_ironred&rescale=17,28");
+        expect(valuesOf("map")).toBe(BASE + "/frame/data?frame=thermal%2Fa_T.JPG");
         expect(byId("changed-pane").hidden).toBe(true);
         expect($("[data-section=info]")!.textContent).toContain("640 × 512 px");
         expect($("[data-section=parameters]")!.textContent).toContain("The distance is the rangefinder.");
@@ -141,7 +142,8 @@ describe("the frame page", () => {
         expect((byId("frame") as HTMLSelectElement).value).toBe(B);
         expect((byId("palette") as HTMLSelectElement).value).toBe("magma");
         expect(byId("mosaics").getAttribute("href")).toBe("/conversion/9");
-        expect(imageOf("map")).toContain("color_map=magma&rescale=18,32");
+        expect(valuesOf("map")).toBe(BASE + "/frame/data?frame=" + enc(B));
+        expect((byId("range-min") as HTMLInputElement).value).toBe("18");
     });
 
     it("measures the frame again with the parameters changed, beside it as converted", async () => {
@@ -160,8 +162,8 @@ describe("the frame page", () => {
         await ticks(40);
         expect(calls(fetchFn)).toContain("GET " + BASE + "/frame?frame=" + enc(A) + "&emissivity=0.98");
         expect(byId("changed-pane").hidden).toBe(false);
-        expect(imageOf("map")).not.toContain("emissivity");
-        expect(imageOf("map-changed")).toContain("&emissivity=0.98");
+        expect(valuesOf("map")).not.toContain("emissivity");
+        expect(valuesOf("map-changed")).toContain("&emissivity=0.98");
         expect(byId("new-conversion").getAttribute("href")).toBe("/dataset/5?from=9&emissivity=0.98#convert");
         click(byId("change-clear"));
         await ticks(40);

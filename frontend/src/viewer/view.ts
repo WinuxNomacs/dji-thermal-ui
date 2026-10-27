@@ -1,4 +1,4 @@
-// The mosaic viewer's helpers: the tabs, the view kept in the URL, the tiles' query, the image's adjustments, the
+// The mosaic viewer's helpers: the tabs, the view kept in the URL, the data tiles' URL, the image's adjustments, the
 // colour scale's ticks, the correction and the report, ported from viewer.js
 import {type Maybe, formatNumber} from "../core/format";
 import {convertDelta, convertTemp, formatDelta, formatTemp, userUnit} from "../core/units";
@@ -101,11 +101,10 @@ export function extraQuery(extra: Maybe<Extra>): string {
         .map(([k, v]) => "&" + k + "=" + encodeURIComponent(v as string | number)).join("");
 }
 
-export function tileUrl(api: string, id: number, tab: string, style: Style, extra?: Extra): string {
-    const url = api + "conversions/" + id + "/mosaics/" + tab + "/tiles/{z}/{x}/{y}";
-    if (tab === "source_frame") return url;
-    return url + "?color_map=" + encodeURIComponent(style.palette) + "&rescale=" + style.range[0] + "," + style.range[1] +
-        adjustQuery(style.adjust) + (isTemperatureTab(tab) ? extraQuery(extra) : "");
+// A mosaic tab's data tiles (the values the browser colours): a temperature's corrected as extra asks
+export function dataUrl(api: string, id: number, tab: string, extra?: Extra): string {
+    const query = isTemperatureTab(tab) ? extraQuery(extra) : "";
+    return api + "conversions/" + id + "/mosaics/" + tab + "/data/{z}/{x}/{y}" + (query ? "?" + query.slice(1) : "");
 }
 
 // The palette's share at CURVE_SAMPLES values evenly across the range, with gamma alone (what the server's curve

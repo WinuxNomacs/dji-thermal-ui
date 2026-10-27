@@ -92,7 +92,7 @@ describe("the viewer page", () => {
         await ticks(40);
         expect($(".notice")!.textContent).toBe("Busy");
         expect(byId("map")).toBe(map);
-        expect(map.classList.contains("leaflet-container")).toBe(true);
+        expect(map.querySelector(".ol-viewport")).not.toBeNull();
     });
 
     it("opens the view a link asks for: its tab, palette, range and frame", async () => {

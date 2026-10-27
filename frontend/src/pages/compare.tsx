@@ -1,5 +1,5 @@
 // Two mosaics side by side, or their difference
-import "leaflet/dist/leaflet.css";
+import "ol/ol.css";
 import {ComparePage} from "../compare/compare-page";
 import {jsonScript, mountPage} from "../core/page";
 

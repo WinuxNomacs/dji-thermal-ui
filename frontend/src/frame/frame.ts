@@ -1,9 +1,8 @@
 // A conversion's frames one at a time: the parameters a frame can be measured again with, checked and sent as the API
-// takes them, the frames' names, and the image's URL. Plain functions, no DOM; ported from frame.js.
+// takes them, the frames' names, and their values' URL. Plain functions, no DOM; ported from frame.js.
 import {type Maybe, formatNumber} from "../core/format";
 import {convertTemp} from "../core/units";
 import {type Histogram, type ParamField, symbol, typedTemp} from "../measure/measure";
-import {adjustQuery, type Adjust} from "../viewer/view";
 
 // The parameters a frame can be measured again with: [field, label, step, in the temperature unit, what the SDK reports
 // it as (info.params), the analysis' recorded value]
@@ -70,11 +69,9 @@ export function changesQuery(changes: Maybe<Record<string, Maybe<number | string
         .map(([k, v]) => "&" + k + "=" + encodeURIComponent(v as string | number)).join("");
 }
 
-export function imageUrl(api: string, id: number, frame: string, style: {palette: string; range: [number, number]; adjust?: Adjust},
-                         isotherm: string, changes: Maybe<Changes>): string {
-    return api + "conversions/" + id + "/frame/image.png?frame=" + encodeURIComponent(frame) + "&color_map=" +
-        encodeURIComponent(style.palette) + "&rescale=" + style.range[0] + "," + style.range[1] + adjustQuery(style.adjust) +
-        (isotherm ? "&isotherm=" + encodeURIComponent(isotherm) : "") + changesQuery(changes);
+// A frame's values, measured again with the changes (as the API takes them)
+export function valuesUrl(api: string, id: number, frame: string, changes: Maybe<Changes>): string {
+    return api + "conversions/" + id + "/frame/data?frame=" + encodeURIComponent(frame) + changesQuery(changes);
 }
 
 // Convert with the conversion's settings and these changes: the dataset's Convert tab, filled in

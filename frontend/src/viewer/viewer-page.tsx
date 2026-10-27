@@ -2,7 +2,13 @@
 // angles), with their palette, range and image adjustments, the values under the cursor, measuring with the isotherm
 // and the thermal correction, the saved measurements, and the mosaic as a PNG; kept up to date while the mosaics are
 // built. The view (tab, palette, range, adjustments, the frame outlined) is kept in the URL.
-import L from "leaflet";
+import type {Coordinate} from "ol/coordinate";
+import GeoJSON from "ol/format/GeoJSON";
+import type OlMap from "ol/Map";
+import type VectorSource from "ol/source/Vector";
+import Stroke from "ol/style/Stroke";
+import OlStyle from "ol/style/Style";
+import {getDistance} from "ol/sphere";
 import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
@@ -14,14 +20,16 @@ import {Drawing, drawingKey} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
+import {type Colouring, isothermRange} from "../map/colour";
+import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
+        ThermalLayer, type Values, vectorLayer} from "../map/map";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
-import {addBasemaps, addLegend, type Basemap} from "./map";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         Readout, Report, ScaleView, Section, Whole} from "./panel";
-import {adjustQuery, type Correction as CorrectionValue, correctionParams, defaultAdjust, defaultRange, extraQuery,
-        fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection, readView,
-        scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel, takenText,
-        tileUrl, toneShares, viewQuery} from "./view";
+import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
+        extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
+        readView, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
+        takenText, toneShares, viewQuery} from "./view";
 
 const POLL_MS = 2000;
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
@@ -61,9 +69,10 @@ interface Current {
 
 const isReady = (v: Maybe<Mosaics>) => !!v && v.mosaic_status === "ready" && (v.tabs || []).length > 0;
 const isBusy = (v: Mosaics) => v.status === "converting" || v.mosaic_status === "building";
-const toCoords = (ll: L.LatLng): Coords => [ll.lng, ll.lat];
-const fromCoords = (c: Coords) => L.latLng(c[1], c[0]);
-const boundsOf = (b: number[]) => L.latLngBounds([b[1], b[0]], [b[3], b[2]]);
+const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
+const fromCoords = (c: Coords): Coordinate => lonLatToMap(c);
+const WORLD = [-180, -85, 180, 85];
+const FOOTPRINT = new OlStyle({stroke: new Stroke({color: "rgba(255, 255, 255, 0.9)", width: 2})});
 
 // A tab's palette and range before any is chosen
 function defaultStyle(v: Mosaics, tab: string): Style {
@@ -119,11 +128,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const typing = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const mapEl = useRef<HTMLDivElement>(null);
-    const map = useRef<L.Map | null>(null);
-    const layer = useRef<L.TileLayer | null>(null);
+    const map = useRef<OlMap | null>(null);
+    const layer = useRef<ThermalLayer | null>(null);
     const legend = useRef<HTMLDivElement | null>(null);
     const drawing = useRef<Drawing | null>(null);
-    const footprint = useRef<L.GeoJSON | null>(null);
+    const footprint = useRef<VectorSource | null>(null);
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0});
 
@@ -136,8 +145,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const shown: Style | null = style && {...style, ...live};
     const params = unit !== undefined ? correctionParams(correction, unit) : {};
     const paramsKey = JSON.stringify(params);
-    const extra = {isotherm: isoValue, ...params};
-    const url = style && tab ? tileUrl(api, id, tab, style, extra) : "";
+    const values: Values | null = t && tab ? {kind: "tiles", url: dataUrl(api, id, tab, params), bounds: t.bounds || WORLD,
+                                              maxZoom: (t.maxzoom || 20) + 1, gutter: DATA_GUTTER,
+                                              pixel: rasterPixel(t.bounds, v?.kinds?.[t.kind || ""]?.width)} : null;
+    const colouring = colouringOf(style);
 
     // What the map's handlers (set up once) read: this render's values
     const now = useRef({tab, params, current, pinned});
@@ -191,7 +202,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             clearTimeout(hover.current);
             clearTimeout(typing.current);
             document.removeEventListener("keydown", keys);
-            map.current?.remove();
+            map.current?.setTarget(undefined);
         };
     }, []);
 
@@ -200,30 +211,28 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         setTools({tool: d ? d.tool() : null, count: d ? d.count() : 0});
     }
 
-    // The map, once there are mosaics to show: the basemaps, the mosaic's tiles, the legend and the drawing
+    // The map, once there are mosaics to show: the basemaps, the mosaic's values, the legend and the drawing
     useEffect(() => {
-        if (!ready || map.current || !mapEl.current || !t || !style) return;
-        const m = map.current = L.map(mapEl.current, {maxZoom: 26});
-        addBasemaps(m, basemaps);
-        legend.current = addLegend(m);
-        layer.current = L.tileLayer(url, {maxZoom: 26, maxNativeZoom: (t.maxzoom || 20) + 1, minZoom: 0,
-                                          bounds: t.bounds && boundsOf(t.bounds)}).addTo(m);
-        if (t.bounds) m.fitBounds(boundsOf(t.bounds));
-        else m.setView([0, 0], 2);
+        if (!ready || map.current || !mapEl.current || !t || !values || !colouring) return;
+        const made = mosaicMap(mapEl.current, basemaps), m = map.current = made.map;
+        legend.current = made.legend;
+        footprint.current = vectorLayer(m, 5);
+        layer.current = new ThermalLayer(m, values, colouring);
+        fitBounds(m, t.bounds || WORLD);
 
-        m.on("mousemove", (e: L.LeafletMouseEvent) => {
-            if (now.current.pinned) return;
+        m.on("pointermove", (e) => {
+            if (now.current.pinned || e.dragging) return;
             clearTimeout(hover.current);
-            hover.current = setTimeout(() => readout(e.latlng), HOVER_MS);
+            hover.current = setTimeout(() => readout(e.coordinate), HOVER_MS);
         });
-        m.on("mouseout", () => {
+        m.getViewport()?.addEventListener("mouseleave", () => {
             if (now.current.pinned) return;
             clearTimeout(hover.current);
             asked.current.point++;
             setPoint(undefined);
         });
         drawing.current = new Drawing({
-            map: m, toCoords, fromCoords,
+            map: m, toCoords, fromCoords, distance: (a, b) => getDistance(a, b),
             onDone: (geometry, shape) => {
                 setCurrent({geometry, target: now.current.tab!, shape});
                 setIndex(null);
@@ -235,19 +244,23 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 showIndex(coords && points ? nearestIndex(points, coords) : null, points);
             },
             // A click with no tool on keeps the values there (and its frame's link) until the next click
-            onClick: (e) => {
+            onClick: (at) => {
                 setPinned(true);
                 now.current.pinned = true;
                 clearTimeout(hover.current);
-                readout(e.latlng, true);
+                readout(at, true);
             },
         });
         loadSaved();
         if (wanted.frame) showFrame(wanted.frame);
     }, [ready]);
 
-    // The tiles drawn again as the tab, palette, range, adjustments, isotherm and correction now are
-    useEffect(() => { if (url) layer.current?.setUrl(url); }, [url]);
+    // The mosaic drawn again as the tab, palette, range, adjustments, isotherm and correction now are: its values
+    // asked again only for another tab or correction
+    useEffect(() => {
+        if (values) layer.current?.setValues(values);
+        if (colouring) layer.current?.setColouring(colouring);
+    }, [JSON.stringify(values), JSON.stringify(colouring)]);
 
     // The legend's curve with equalization: the server's (from the whole mosaic's histogram)
     useEffect(() => {
@@ -314,9 +327,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         history.replaceState(null, "", location.pathname + viewQuery(view));
     }, [ready, tab, outlined, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
 
-    function readout(latlng: L.LatLng, pin = false) {
-        const n = ++asked.current.point, q = now.current;
-        fetch(base + "/mosaics/" + q.tab + "/point?lon=" + latlng.lng + "&lat=" + latlng.lat +
+    function readout(at: Coordinate, pin = false) {
+        const n = ++asked.current.point, q = now.current, [lon, lat] = mapToLonLat(at);
+        fetch(base + "/mosaics/" + q.tab + "/point?lon=" + lon + "&lat=" + lat +
               extraQuery(q.params), {credentials: "same-origin"})
             .then((res) => readJson<Point>(res))
             .then((r) => {
@@ -329,20 +342,18 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The frame's footprint outlined on the mosaic, what it contributes (null: none); fit: the map moves to it
     async function outline(path: string | null, fit = false) {
-        const n = ++asked.current.outline, m = map.current;
-        if (footprint.current) m?.removeLayer(footprint.current);
-        footprint.current = null;
+        const n = ++asked.current.outline, m = map.current, f = footprint.current;
+        f?.clear();
         setOutlined(path);
-        if (!path || !m) return;
+        if (!path || !m || !f) return;
         try {
             const r = await readJson(await fetch(base + "/mosaics/footprint?frame=" + encodeURIComponent(path),
                                                  {credentials: "same-origin"}));
             if (n !== asked.current.outline || !r.ok) return;
-            const f = footprint.current = L.geoJSON(r.data as unknown as GeoJSON.GeoJsonObject,
-                                                    {style: {color: "#fff", weight: 2, opacity: 0.9, fill: false}, interactive: false});
-            f.addTo(m);
-            const b = f.getBounds();
-            if (fit && b.isValid()) m.fitBounds(b);
+            const features = new GeoJSON().readFeatures(r.data, {featureProjection: "EPSG:3857"});
+            features.forEach((x) => x.setStyle(FOOTPRINT));
+            f.addFeatures(features);
+            if (fit && features.length) fitBounds(m, f.getExtent()!, true);
         } catch {
             // the outline is simply not drawn then
         }
@@ -384,6 +395,15 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     function shares(a: Style["adjust"]): number[] | null {
         if (a.equalize && curve) return curve;
         return a.gamma !== 1 || a.equalize ? toneShares(a.gamma) : null;
+    }
+
+    // How the mosaic's values are coloured, as the tab's palette, range, adjustments and isotherm are (not those of a
+    // slider being dragged: they are drawn when it is let go)
+    function colouringOf(s: Style | null): Colouring | null {
+        if (!s || !v || !tab) return null;
+        if (tab === "source_frame") return {colors: v.frame_colors || [], index: true};
+        return {colors: (v.palettes || []).find((p) => p.key === s.palette)?.color_map || [], range: s.range,
+                shares: shares(s.adjust), sharpen: s.adjust.sharpen, isotherm: temperature ? isothermRange(isoValue) : null};
     }
 
     // The colour scale as the tab's palette and range now are, or null on a tab without one
@@ -577,14 +597,13 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (!m || !l || !v || !tab || !mapEl.current) return;
         const shapes = saved.filter((x) => x.target === tab && x.geometry).map((x) => shapeOnMap(m, x.geometry!, fromCoords, x.name));
         if (current && !current.saved && current.target === tab && temperature) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
-        const size = m.getSize(), y = size.y / 2;
-        const metresPerPx = m.distance(m.containerPointToLatLng([0, y]), m.containerPointToLatLng([size.x, y])) / size.x;
+        const drawn = await snapshot(m, l.layer);
         const taken = takenText(v.flown), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
             title: [v.dataset_name, v.name, tabLabel(tab)].filter(Boolean).join(" · "),
             date: (taken ? "Flown " + taken + " · exported " : "Exported ") + today,
-            panes: [{el: mapEl.current, images: Array.from(l.getContainer()?.querySelectorAll("img") || []), shapes}],
-            legend: scale, scale: scaleBar(metresPerPx, 120), ratio: Math.max(1, devicePixelRatio || 1),
+            panes: [{el: mapEl.current, images: drawn ? [drawn] : [], shapes}],
+            legend: scale, scale: scaleBar(metresPerPixel(m), 120), ratio: Math.max(1, devicePixelRatio || 1),
         });
         const error = await saveCanvas(canvas, fileName([v.dataset_name, v.name, tabLabel(tab)], ".png"));
         if (error) setNotice(error);

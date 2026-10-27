@@ -735,10 +735,12 @@ def read_tile(src, x, y, z, band, margin=0, tilesize=256):
 
 
 def data_response(values, valid, etag, cache='private, no-cache'):
-    """Values as the browser colours them: float32 little-endian, row by row, NO_DATA where there are none"""
+    """Values as the browser colours them: float32 little-endian, row by row, NO_DATA where there are none, their
+    width and height in X-Width and X-Height"""
     from django.http import HttpResponse
     valid = valid & np.isfinite(values)
     res = HttpResponse(np.where(valid, values, NO_DATA).astype('<f4').tobytes(), content_type='application/octet-stream')
+    res['X-Height'], res['X-Width'] = values.shape
     if etag:
         res['ETag'] = etag
     res['Cache-Control'] = cache

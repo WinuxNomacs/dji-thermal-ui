@@ -484,6 +484,7 @@ def test_a_frame_is_sent_as_its_temperatures_measured_again_with_the_changes_ask
     with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
         res = api.get(url, {'frame': rel})
         assert (res.status_code, res['Content-Type']) == (200, 'application/octet-stream')
+        assert (res['X-Width'], res['X-Height']) == ('10', '8')
         values = np.frombuffer(res.content, dtype='<f4').reshape(8, 10)
         # Row by row, with no data where dji-thermal-cli marked none (its top left pixel)
         assert values[0, 0] == np.float32(api_module.NO_DATA)
