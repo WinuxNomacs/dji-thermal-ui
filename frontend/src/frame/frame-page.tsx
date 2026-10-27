@@ -2,7 +2,14 @@
 // its palette, range and image adjustments, the values under the cursor, measuring with the isotherm, the frame's
 // figures, where the frames were taken, the measurements saved on it, and the frame as a PNG. ← and → step through
 // the frames. The view (frame, palette, range, adjustments) is kept in the URL.
-import L from "leaflet";
+import type {Coordinate} from "ol/coordinate";
+import type Feature from "ol/Feature";
+import type OlMap from "ol/Map";
+import type VectorSource from "ol/source/Vector";
+import CircleStyle from "ol/style/Circle";
+import Fill from "ol/style/Fill";
+import Stroke from "ol/style/Stroke";
+import OlStyle from "ol/style/Style";
 import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
@@ -14,18 +21,23 @@ import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
+import {type Colouring, isothermRange, readValues} from "../map/colour";
+import {addLegend, fitBounds, frameMap, hoverTips, lonLatToMap, pointFeature, pointsMap, snapshot, ThermalLayer,
+        vectorLayer} from "../map/map";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, ScaleView, Section} from "../viewer/panel";
 import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
         sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
-import {type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, frameLabel, imageUrl,
-        newConversionUrl, PARAM_FIELDS, readChanges} from "./frame";
+import {type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, frameLabel,
+        newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
 import {FrameReadout, type FramePoint, Info, Params} from "./panel";
 
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
 const FOLDED_KEY = "thermal-analyzer.frame.folded";
-const LOCATOR_SPOT: L.CircleMarkerOptions = {radius: 4, weight: 1, color: "#333", fillColor: "#9ab", fillOpacity: 0.9};
-const LOCATOR_CURRENT: L.CircleMarkerOptions = {radius: 6, weight: 2, color: "#fff", fillColor: "#e8562a", fillOpacity: 1};
+const LOCATOR_SPOT = new OlStyle({image: new CircleStyle({radius: 4, stroke: new Stroke({color: "#333", width: 1}),
+                                                         fill: new Fill({color: "rgba(153, 170, 187, 0.9)"})})});
+const LOCATOR_CURRENT = new OlStyle({zIndex: 1, image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2}),
+                                                                        fill: new Fill({color: "#e8562a"})})});
 
 export interface Frames {
     name: string;
@@ -48,10 +60,12 @@ interface Current {
     error?: string;
 }
 
-// The frame is in pixels, y downwards: the map's latitude is -y
-const toCoords = (ll: L.LatLng): Coords => [ll.lng, -ll.lat];
-const fromCoords = (c: Coords) => L.latLng(-c[1], c[0]);
-const boundsOf = (info: FrameInfo) => L.latLngBounds([-info.height, 0], [0, info.width]);
+// A frame's values (key: the URL they came from)
+interface FrameValues {key: string; values: Float32Array; width: number; height: number}
+
+// The frame is in pixels, y downwards: the map's y is -y
+const toCoords = (at: Coordinate): Coords => [at[0], -at[1]];
+const fromCoords = (c: Coords): Coordinate => [c[0], -c[1]];
 const isPlaced = (f: FrameEntry) => typeof f.lat === "number" && typeof f.lon === "number";
 
 // The same shape measured afresh (with another isotherm or other parameters)
@@ -95,28 +109,29 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const [editing, setEditing] = useState<number | null>(null);
     const [saveName, setSaveName] = useState("");
     const [measureError, setMeasureError] = useState("");
+    // Each pane's values: as converted, and with the parameters changed
+    const [values, setValues] = useState<(FrameValues | null)[]>([null, null]);
 
     const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const paneEls = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
     const locatorEl = useRef<HTMLDivElement>(null);
     // The two panes (the second shown only with parameters changed), their images and drawings
-    const maps = useRef<L.Map[]>([]);
-    const images = useRef<L.ImageOverlay[]>([]);
+    const maps = useRef<OlMap[]>([]);
+    const layers = useRef<ThermalLayer[]>([]);
     const drawings = useRef<Drawing[]>([]);
     const legend = useRef<HTMLDivElement | null>(null);
-    const locator = useRef<L.Map | null>(null);
-    const spots = useRef<Record<string, L.CircleMarker>>({});
+    const locator = useRef<{map: OlMap; spots: VectorSource; fitted: boolean} | null>(null);
     // The panes fit the frame when the next image is drawn (a new frame, or one of another size)
     const fit = useRef(true);
     // Counters: only the answer to the latest question is shown
-    const asked = useRef({point: 0, frame: 0, curve: 0, measure: 0, saved: 0});
+    const asked = useRef({point: 0, frame: 0, curve: 0, measure: 0, saved: 0, values: [0, 0]});
 
     const unit = meta?.unit;
     const changed = Object.keys(changes).length > 0;
     const changesKey = JSON.stringify(changes);
     const shown: Style | null = style && {...style, ...live};
-    const urls = info && style && frame ? [imageUrl(api, id, frame, style, isoValue, {}),
-                                           changed ? imageUrl(api, id, frame, style, isoValue, changesIn(changes, unit)) : ""] : ["", ""];
+    const urls = info && frame ? [valuesUrl(api, id, frame, {}), changed ? valuesUrl(api, id, frame, changesIn(changes, unit)) : ""]
+        : ["", ""];
     const entry = (meta?.frames || []).find((f) => f.path === frame);
     const placed = (meta?.frames || []).filter(isPlaced);
 
@@ -140,8 +155,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         return () => {
             clearTimeout(hover.current);
             document.removeEventListener("keydown", keys);
-            maps.current.forEach((m) => m.remove());
-            locator.current?.remove();
+            maps.current.forEach((m) => m.setTarget(undefined));
+            locator.current?.map.setTarget(undefined);
         };
     }, []);
 
@@ -229,28 +244,21 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         }
     }
 
-    // A pane's map, its readout and its drawing; the panes move together
+    // A pane's map (with the first one's view: the panes move together), its readout and its drawing
     function setupMap(i: number, el: HTMLDivElement) {
-        const m = L.map(el, {crs: L.CRS.Simple, minZoom: -3, maxZoom: 6, zoomSnap: 0.25, attributionControl: false,
-                             keyboard: false});    // the arrows step through the frames
-        let syncing = false;
-        m.on("move", () => {
-            if (syncing) return;
-            syncing = true;
-            maps.current.forEach((other) => { if (other !== m) other.setView(m.getCenter(), m.getZoom(), {animate: false}); });
-            syncing = false;
-        });
-        m.on("mousemove", (e: L.LeafletMouseEvent) => {
+        const m = frameMap(el, maps.current[0]?.getView());     // no keyboard: the arrows step through the frames
+        m.on("pointermove", (e) => {
+            if (e.dragging) return;
             clearTimeout(hover.current);
-            hover.current = setTimeout(() => readout(e.latlng), HOVER_MS);
+            hover.current = setTimeout(() => readout(e.coordinate), HOVER_MS);
         });
-        m.on("mouseout", () => {
+        m.getViewport()?.addEventListener("mouseleave", () => {
             clearTimeout(hover.current);
             asked.current.point++;
             setPoint(undefined);
         });
         drawings.current[i] = new Drawing({
-            map: m, toCoords, fromCoords, pixels: true,
+            map: m, toCoords, fromCoords, pixels: true, distance: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]),
             onDone: (geometry, shape) => {
                 drawings.current.forEach((d) => { if (d.tool()) d.stop(); });
                 setCurrent({geometry, shape});
@@ -263,63 +271,74 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                 showIndex(coords && points ? nearestIndex(points, coords, true) : null, points);
             },
         });
-        if (i === 0) {
-            const lg = legend.current = L.DomUtil.create("div", "map-legend leaflet-control");
-            L.DomEvent.disableClickPropagation(lg);
-            L.DomEvent.disableScrollPropagation(lg);
-            const control = new L.Control({position: "bottomright"});
-            control.onAdd = () => lg;
-            control.addTo(m);
-        }
+        if (i === 0) legend.current = addLegend(m);
         maps.current[i] = m;
     }
 
-    // The images drawn as the frame, palette, range, adjustments, isotherm and parameters now are: the second pane
-    // with the parameters changed
+    // Each pane's values, asked again only when the frame or the parameters changed are others
     useEffect(() => {
-        if (!info || !urls[0]) return;
-        const b = boundsOf(info), ms = maps.current;
+        urls.forEach((url, i) => {
+            const n = ++asked.current.values[i];
+            if (!url || values[i]?.key === url) return;
+            fetch(url, {credentials: "same-origin"}).then(readValues)
+                .then((v) => { if (n === asked.current.values[i]) setValues((s) => s.map((x, j) => j === i ? {key: url, ...v} : x)); })
+                .catch(() => { if (n === asked.current.values[i]) setStatus({text: "Could not load the frame's values.", error: true}); });
+        });
+    }, [urls[0], urls[1]]);
+
+    // How the frame is coloured, as the palette, range, adjustments and isotherm are (not those of a slider being
+    // dragged: they are drawn when it is let go)
+    const colouring: Colouring | null = style && meta ? {
+        colors: (meta.palettes || []).find((p) => p.key === style.palette)?.color_map || [], range: style.range,
+        shares: shares(style.adjust), sharpen: style.adjust.sharpen, isotherm: isothermRange(isoValue)} : null;
+
+    // The panes drawn as the frame, palette, range, adjustments, isotherm and parameters now are: the second pane with
+    // the parameters changed
+    useEffect(() => {
+        const ms = maps.current, first = values[0];
+        if (!first || !colouring) return;
         if (!ms[0] && paneEls[0].current) setupMap(0, paneEls[0].current);
-        if (urls[1] && !ms[1] && paneEls[1].current) setupMap(1, paneEls[1].current);
-        urls.forEach((u, i) => {
-            if (!u || !ms[i]) return;
-            const image = images.current[i];
-            if (!image) {
-                images.current[i] = L.imageOverlay(u, b).addTo(ms[i]);
-            } else {
-                image.setUrl(u);
-                image.setBounds(b);
+        if (changed && values[1] && !ms[1] && paneEls[1].current) setupMap(1, paneEls[1].current);
+        values.forEach((v, i) => {
+            if (!v || !ms[i]) return;
+            const shown = {kind: "frame" as const, key: v.key, values: v.values, width: v.width, height: v.height};
+            if (!layers.current[i]) layers.current[i] = new ThermalLayer(ms[i], shown, colouring);
+            else {
+                layers.current[i].setValues(shown);
+                layers.current[i].setColouring(colouring);
             }
         });
-        ms.forEach((m) => m.invalidateSize());
-        if (fit.current) {
-            ms[0].fitBounds(b);
-            fit.current = false;
-        } else if (ms[1]) {
-            ms[1].setView(ms[0].getCenter(), ms[0].getZoom(), {animate: false});
-        }
+        ms.forEach((m) => m.updateSize());
+        if (fit.current && fitBounds(ms[0], [0, -first.height, first.width, 0], true)) fit.current = false;
         drawLocator();
-    }, [info, urls[0], urls[1]]);
+    }, [values[0]?.key, values[1]?.key, changed, JSON.stringify(colouring)]);
 
     // Where the frames were taken, on a small map: the frame shown highlighted, a click on another opens it
     function drawLocator() {
         if (locator.current || !locatorEl.current || !placed.length) return;
-        const m = locator.current = L.map(locatorEl.current, {attributionControl: false, zoomControl: false, keyboard: false,
-                                                              maxZoom: 19});
-        placed.forEach((f) => {
-            const spot = L.circleMarker([f.lat!, f.lon!], LOCATOR_SPOT).bindTooltip(f.path);
-            spot.on("click", () => { if (f.path !== now.current.frame) chooseFrame(f.path); });
-            spot.addTo(m);
-            spots.current[f.path] = spot;
+        const m = pointsMap(locatorEl.current), spots = vectorLayer(m);
+        locator.current = {map: m, spots, fitted: false};
+        placed.forEach((f) => spots.addFeature(pointFeature(lonLatToMap([f.lon!, f.lat!]), {path: f.path, tip: f.path})));
+        hoverTips(m);
+        m.on("click", (e) => {
+            const path = m.forEachFeatureAtPixel(e.pixel, (x) => x.get("path") as string, {hitTolerance: 3});
+            if (path && path !== now.current.frame) chooseFrame(path);
         });
-        m.fitBounds(L.latLngBounds(placed.map((f) => [f.lat!, f.lon!] as L.LatLngTuple)), {padding: [12, 12]});
+        fitLocator();
         markLocator();
     }
 
+    // Fitted to the frames once it has a size (it may start folded)
+    function fitLocator() {
+        const l = locator.current;
+        if (!l || l.fitted) return;
+        l.map.updateSize();
+        l.fitted = fitBounds(l.map, l.spots.getExtent()!, true, 12);
+    }
+
     function markLocator() {
-        Object.entries(spots.current).forEach(([path, spot]) => {
-            spot.setStyle(path === now.current.frame ? LOCATOR_CURRENT : LOCATOR_SPOT);
-            if (path === now.current.frame) spot.bringToFront();
+        locator.current?.spots.getFeatures().forEach((f: Feature) => {
+            f.setStyle(f.get("path") === now.current.frame ? LOCATOR_CURRENT : LOCATOR_SPOT);
         });
     }
     useEffect(markLocator, [frame]);
@@ -365,7 +384,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         if (!legend.current) return;
         render(scale ? <ScaleView scale={scale}/> : null, legend.current);
         legend.current.hidden = !scale;
-    }, [JSON.stringify(scale), !!info]);
+    }, [JSON.stringify(scale), !!values[0]]);
 
     // The view in the URL, so that a reload or a copied link keeps it: the frame, its palette, range and adjustments
     useEffect(() => {
@@ -374,9 +393,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                                                                       adjust: style?.adjust}));
     }, [frame, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
 
-    function readout(latlng: L.LatLng) {
+    function readout(at: Coordinate) {
         const n = ++asked.current.point, q = now.current;
-        fetch(base + "/frame/point?frame=" + encodeURIComponent(q.frame || "") + "&x=" + latlng.lng + "&y=" + (-latlng.lat) +
+        fetch(base + "/frame/point?frame=" + encodeURIComponent(q.frame || "") + "&x=" + at[0] + "&y=" + (-at[1]) +
               changesQuery(changesIn(q.changes, q.meta?.unit)), {credentials: "same-origin"})
             .then((res) => readJson<FramePoint>(res))
             .then((r) => { if (n === asked.current.point) setPoint(r.ok ? r.data : null); })
@@ -548,15 +567,15 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // The frame as shown (both panes, with parameters changed), its saved measurements (and the one drawn, not saved
     // yet) and colour scale, as a PNG. The frame is in pixels: there is no scale bar.
     async function exportPng() {
-        if (!meta || !frame || !images.current[0]) return;
-        const both = changed && !!maps.current[1] && !!images.current[1];
-        const panes = (both ? [0, 1] : [0]).map((i) => {
-            const m = maps.current[i];
+        if (!meta || !frame || !layers.current[0]) return;
+        const both = changed && !!maps.current[1] && !!layers.current[1];
+        const panes = await Promise.all((both ? [0, 1] : [0]).map(async (i) => {
+            const m = maps.current[i], drawn = await snapshot(m, layers.current[i].layer);
             const shapes = saved.filter((x) => x.geometry).map((x) => shapeOnMap(m, x.geometry!, fromCoords, x.name));
             if (current && !current.saved) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
-            return {el: m.getContainer(), images: [images.current[i].getElement()!], shapes,
+            return {el: paneEls[i].current!, images: drawn ? [drawn] : [], shapes,
                     caption: both ? (i ? "Parameters changed" : "As converted") : ""};
-        });
+        }));
         const taken = takenText([entry?.time]), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
             title: [meta.dataset_name, meta.name, frame].filter(Boolean).join(" · "),
@@ -681,7 +700,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                             <Info info={info} unit={unit} normalized={meta.normalized}/>
                         </Section>
                         {placed.length > 0 && <Section name="locator" title="Where the frames are" store={FOLDED_KEY}
-                                                        onToggle={(open) => { if (open) locator.current?.invalidateSize(); }}>
+                                                        onToggle={(open) => { if (open) { locator.current?.map.updateSize(); fitLocator(); } }}>
                             <div class="frame-locator" id="locator" ref={locatorEl}/>
                         </Section>}
                         <Section name="saved" title={<span class="measurements-head"><span>Saved on this frame</span>

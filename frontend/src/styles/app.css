@@ -1,6 +1,6 @@
 /* The app's look, on every page: the colours as tokens, light by default and dark under data-theme="dark" (set on
    <html> before the page paints, see templates/page.html and core/theme.ts), then the parts every page shares, then
-   each page's layout. The map's own controls and colour scale stay light in both themes, as Leaflet draws them. */
+   each page's layout. The map's own controls and colour scale stay light in both themes, as OpenLayers draws them. */
 
 :root {
     color-scheme: light;
@@ -411,7 +411,7 @@ details > summary h5 { display: inline; }
 .viewer-panel ul.files li { margin-bottom: 2px; word-break: break-all; }
 .readout { min-height: 3em; }
 
-/* The colour scale: in the panel, and on the map as a Leaflet control */
+/* The colour scale: in the panel, and on the map as one of its controls */
 .scale { margin-bottom: 8px; }
 .scale-caption { font-size: 11px; margin-bottom: 2px; }
 .scale-bar { height: 14px; border-radius: 2px; border: 1px solid rgba(128, 128, 128, .4); }
@@ -425,15 +425,27 @@ details > summary h5 { display: inline; }
 .scale-ticks .end { transform: translateX(-100%); }
 .scale-ticks .end::before { left: auto; right: 0; }
 .map-legend {
+    position: absolute; right: .5em; bottom: 2.4em;
     width: 220px; padding: 4px 8px 2px; background: rgba(255, 255, 255, .9); color: #333;
     border-radius: 4px; box-shadow: 0 1px 5px rgba(0, 0, 0, .4); font-size: 12px;
 }
 .map-legend .scale { margin: 0; }
 .map-legend:empty { display: none; }
 
-.app-main .leaflet-container { background: var(--map-bg); font: inherit; font-size: 12px; }
-/* Leaflet's controls stay light: the text in them dark in both themes */
-.app-main .leaflet-control-layers, .app-main .leaflet-bar a { color: #333; }
+.frame-map .map-legend { bottom: .5em; }
+
+/* The maps: their controls stay light, the text in them dark in both themes */
+.app-main .viewer-map, .app-main .compare-map { background: var(--map-bg); }
+.app-main .ol-viewport { font: inherit; font-size: 12px; }
+.app-main .ol-control { color: #333; }
+.map-basemaps { top: .5em; right: .5em; }
+.map-basemaps select { font-size: 12px; padding: 1px 2px; color: #333; background: #fff; border: 1px solid #aaa; border-radius: 2px; }
+/* A tip over what is drawn (the hottest and coldest pixels, a frame on the locator), and a box or circle's size */
+.map-tip {
+    padding: 2px 6px; border-radius: 3px; background: rgba(0, 0, 0, .75); color: #fff; font-size: 12px;
+    white-space: nowrap; pointer-events: none;
+}
+.map-tip[hidden] { display: none; }
 
 /* Measuring (the viewer and the frame page) */
 .measure-toolbar { margin-bottom: 6px; }
@@ -503,7 +515,6 @@ details > summary h5 { display: inline; }
 .frame-pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 .frame-pane-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
 .app-main .frame-map { flex: 1 1 auto; height: calc(100vh - 270px); background: var(--frame-bg); }
-.frame .leaflet-image-layer { image-rendering: pixelated; image-rendering: crisp-edges; }
 .frame .viewer-panel { flex-basis: 340px; }
 .frame-locator { height: 180px; border-radius: var(--radius); background: var(--map-bg); }
 
@@ -539,7 +550,7 @@ details > summary h5 { display: inline; }
 .compare-frames { display: flex; flex-direction: column; gap: 10px; }
 .compare-frame-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
 .compare-frame-image { position: relative; display: inline-block; max-width: 100%; }
-.compare-frame-image img { display: block; max-width: 100%; image-rendering: pixelated; }
+.compare-frame-image canvas { display: block; max-width: 100%; image-rendering: pixelated; }
 /* The frame's pixel: a ring on its centre */
 .compare-mark {
     position: absolute; width: 17px; height: 17px; margin: -8px 0 0 -8px; pointer-events: none;

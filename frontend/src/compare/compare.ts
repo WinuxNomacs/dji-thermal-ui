@@ -107,20 +107,34 @@ export function autoReach(info: Maybe<DiffInfo>): number {
     return Math.max(0.1, Math.ceil((convertDelta(info.range[1], info.unit) as number) * 10 - 1e-9) / 10);
 }
 
-export function differenceTileUrl(api: string, a: number, aTab: string, b: number, bTab: string,
-                                  style: {palette: string; reach: number}, aUnit: unknown): string {
-    const r = Math.round((convertDelta(style.reach, userUnit(), aUnit) as number) * 10000) / 10000;
-    return api + "conversions/" + a + "/mosaics/" + aTab + "/difference/tiles/{z}/{x}/{y}?b=" + b + "&b_tab=" +
-        encodeURIComponent(bTab) + "&color_map=" + encodeURIComponent(style.palette) + "&rescale=" + (-r) + "," + r;
+// The difference's values (A − B, in A's unit)
+export function differenceDataUrl(api: string, a: number, aTab: string, b: number, bTab: string): string {
+    return api + "conversions/" + a + "/mosaics/" + aTab + "/difference/data/{z}/{x}/{y}?b=" + b + "&b_tab=" +
+        encodeURIComponent(bTab);
+}
+
+// The difference's reach (± in the user's unit) in A's unit, as its values are
+export function reachIn(reach: number, aUnit: unknown): number {
+    return Math.round((convertDelta(reach, userUnit(), aUnit) as number) * 10000) / 10000;
 }
 
 export function differenceUrl(api: string, a: number, aTab: string, b: number, bTab: string): string {
     return api + "conversions/" + a + "/mosaics/" + aTab + "/difference?b=" + b + "&b_tab=" + encodeURIComponent(bTab);
 }
 
-// A frame drawn in a style (the range in the user's unit), for a conversion in unit
-export function frameImageUrl(api: string, id: number, frame: string, style: CompareStyle, unit: unknown): string {
+// How a temperature tab is toned with equalization in a style (the range in the user's unit), for a conversion in unit
+export function mosaicCurveUrl(api: string, id: number, tab: string, style: CompareStyle, unit: unknown): string {
     const range = rangeIn(style.range, unit);
-    return api + "conversions/" + id + "/frame/image.png?frame=" + encodeURIComponent(frame) + "&color_map=" +
-        encodeURIComponent(style.palette) + "&rescale=" + range[0] + "," + range[1] + adjustQuery(style.adjust);
+    return api + "conversions/" + id + "/mosaics/" + tab + "/curve?rescale=" + range[0] + "," + range[1] + adjustQuery(style.adjust);
+}
+
+// A frame's values, and how it is toned with equalization in a style
+export function frameDataUrl(api: string, id: number, frame: string): string {
+    return api + "conversions/" + id + "/frame/data?frame=" + encodeURIComponent(frame);
+}
+
+export function frameCurveUrl(api: string, id: number, frame: string, style: CompareStyle, unit: unknown): string {
+    const range = rangeIn(style.range, unit);
+    return api + "conversions/" + id + "/frame/curve?frame=" + encodeURIComponent(frame) + "&rescale=" + range[0] + "," +
+        range[1] + adjustQuery(style.adjust);
 }

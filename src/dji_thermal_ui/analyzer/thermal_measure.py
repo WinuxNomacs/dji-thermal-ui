@@ -33,11 +33,10 @@ CORRECTIONS = ('emissivity', 'reflected_temp')
 # On a frame, in pixels: a spot's disc, a line's strip and the surroundings (on a mosaic: app/measurements' metres)
 FRAME_SHAPES = {'point_radius': 1.5, 'line_half_width': 1.0, 'ring_min': 3.0, 'ring_max': 10.0}
 FRAME_CACHE = 16            # frames measured kept in memory (about 1.3 MB each for the M4T's 640 × 512)
-# How temperatures are drawn (display only): gamma on the palette's shares, an unsharp mask's amount and its radius
-# (a Gaussian's sigma, in the raster's own pixels), the histogram equalization reads and the legend's samples
+# How temperatures are drawn (display only, in the browser): gamma on the palette's shares, an unsharp mask's amount,
+# the histogram equalization reads and the legend's samples
 GAMMA_LIMITS = (0.2, 5.0)
 SHARPEN_LIMITS = (0.0, 5.0)
-SHARPEN_RADIUS = 1.0
 EQUALIZE_BINS = 1024
 EQUALIZE_SPAN = (0.1, 99.9)     # the percentiles a mosaic's histogram spans: its outliers would empty all its bins but one
 CURVE_SAMPLES = 65
@@ -255,7 +254,7 @@ def no_data(values, unit):
 
 def parse_adjust(params):
     """
-    The display adjustments a tile or frame image is asked with (gamma, equalize=1, sharpen), checked:
+    The display adjustments the browser draws a mosaic or frame with (gamma, equalize=1, sharpen), checked:
     {gamma, equalize, sharpen}, none by default. They change how temperatures are drawn, never the temperatures.
     """
     def ranged(name, label, limits, default):
@@ -319,41 +318,9 @@ def tone(values, low, high, adjust=None, curve=None):
     return t ** (1.0 / gamma) if gamma != 1.0 else t
 
 
-def sharpened(t, valid, amount, sigma):
-    """An unsharp mask of shares t (sigma in pixels), the pixels with no data left out of the blur"""
-    from scipy.ndimage import gaussian_filter
-    weight = gaussian_filter(valid.astype(np.float64), sigma, mode='nearest')
-    blurred = gaussian_filter(np.where(valid, t, 0.0), sigma, mode='nearest') / np.where(weight > 0, weight, 1.0)
-    return np.clip(np.where(valid, t + amount * (t - blurred), t), 0.0, 1.0)
-
-
 def curve_shares(low, high, adjust=None, curve=None):
     """The palette's share at CURVE_SAMPLES temperatures evenly across low..high, for the legend's gradient"""
     return [float(t) for t in tone(np.linspace(low, high, CURVE_SAMPLES), low, high, adjust, curve)]
-
-
-def colorize(values, valid, cmap, low, high, isotherm=None, adjust=None, curve=None, sigma=SHARPEN_RADIUS, margin=0):
-    """
-    The levels (0-255 over low..high, adjusted: see tone and sharpened) of values and the colour map to draw them
-    with; with an isotherm, RGB bands instead: the isotherm's pixels in the colour map, the rest in grey. A margin
-    of pixels around values (read for the sharpening) is left out. Returns (uint8 bands, colour map or None).
-    """
-    t = tone(np.where(valid, values, low), low, high, adjust, curve)
-    amount = (adjust or {}).get('sharpen') or 0.0
-    if amount > 0:
-        t = sharpened(t, valid, amount, sigma)
-    if margin:
-        crop = (slice(margin, -margin), slice(margin, -margin))
-        t, values, valid = t[crop], values[crop], valid[crop]
-    levels = np.rint(t * 255).astype(np.uint8)
-    if isotherm is None:
-        return levels[np.newaxis], cmap
-    lut = np.zeros((256, 3), dtype=np.uint8)
-    for i, c in cmap.items():
-        lut[int(i)] = c[:3]
-    inside = isotherm_mask(np.where(valid, values, np.nan), isotherm)
-    rgb = np.where(inside[..., np.newaxis], lut[levels], np.repeat(levels[..., np.newaxis], 3, axis=-1))
-    return np.moveaxis(rgb, -1, 0).astype(np.uint8), None
 
 
 # --- the mosaics ---------------------------------------------------------------------------------------------------
@@ -621,7 +588,7 @@ def frame_offset(conversion, rel):
 
 @lru_cache(maxsize=FRAME_CACHE)
 def measured(path, mtime, settings_items):
-    """dji-thermal-cli's measurement of a frame (cached: the page asks for it again for every image and value)"""
+    """dji-thermal-cli's measurement of a frame (cached: the page asks for it again for its values and each point)"""
     from dji_thermal_cli import api
     settings = dict(settings_items)
     m = api.measure(path, thermal_conversion.api_arguments(settings)['settings'], settings['unit'])

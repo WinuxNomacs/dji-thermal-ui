@@ -1,5 +1,5 @@
-"""Measuring the mosaics and the frames through the API: spots, lines, areas, isotherms, corrections, the images'
-adjustments, and the saved measurements and their exports (ported from LuxODM's
+"""Measuring the mosaics and the frames through the API: spots, lines, areas, isotherms, corrections, the
+colouring's adjustments, and the saved measurements and their exports (ported from LuxODM's
 app/tests/test_thermal_analyzer_plugin.py, commit a2a81052, without its sharing and its pages; the exports are in
 the app's unit)"""
 
@@ -12,7 +12,6 @@ from unittest import mock
 
 import numpy as np
 import pytest
-from PIL import Image
 
 from dji_thermal_ui.analyzer import thermal_measure as measuring
 from dji_thermal_ui.analyzer import thermal_mosaics as mosaics
@@ -104,34 +103,14 @@ def test_the_mosaics_are_corrected_approximately_for_another_emissivity_or_refle
         float(corrected_array([mosaic_temperature(32)], (0.85, 1, 27.6, 20), (0.91, 1, 27.6, 20))[0]), abs=1e-3)
     assert api.post(url, {'target': 'as_converted', 'parameters': {'emissivity': 3}}, format='json').status_code == 400
 
-    (z, x, y), (lon, lat) = mosaic_tile()
+    _, (lon, lat) = mosaic_tile()
     point = "{}/{}/mosaics/as_converted/point".format(CONVERSIONS, c.id)
     plain = api.get(point, {'lon': lon, 'lat': lat}).data['temperature']
     corrected = api.get(point, {'lon': lon, 'lat': lat, 'emissivity': '0.85'}).data['temperature']
     assert corrected < plain
-    tiles = "{}/{}/mosaics/as_converted/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)
-    style = {'color_map': 'gray', 'rescale': '10,30'}
-    assert api.get(tiles, style).content != api.get(tiles, dict(style, emissivity='0.85')).content
-    assert api.get(tiles, dict(style, emissivity='x')).status_code == 400
 
 
-def test_isotherms_keep_the_palette_inside_and_the_rest_grey(api):
-    c, _ = converted(api)
-    (z, x, y), _ = mosaic_tile()
-    tiles = "{}/{}/mosaics/as_converted/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)
-    res = api.get(tiles, {'color_map': 'dji_ironred', 'rescale': '10,30', 'isotherm': 'above,20'})
-    assert res.status_code == 200
-    pixels = [p for p in Image.open(io.BytesIO(res.content)).convert('RGBA').get_flattened_data() if p[3] == 255]
-    grey = [p for p in pixels if p[0] == p[1] == p[2]]
-    coloured = [p for p in pixels if not p[0] == p[1] == p[2]]
-    assert grey and coloured
-    # The palette (blue to red) only above 20 °C: the red half of it
-    assert all(r >= 120 for r, g, b, _ in coloured)
-    assert all(r < 140 for r, g, b, _ in grey)
-    assert api.get(tiles, {'color_map': 'magma', 'rescale': '10,30', 'isotherm': 'above'}).status_code == 400
-
-
-def test_images_are_drawn_with_gamma_equalization_and_sharpening_without_changing_the_temperatures():
+def test_the_palettes_shares_are_bent_by_gamma_and_equalization_without_changing_the_temperatures():
     assert measuring.parse_adjust({}) == {'gamma': 1.0, 'equalize': False, 'sharpen': 0.0}
     assert measuring.parse_adjust({'gamma': '2', 'equalize': '1', 'sharpen': '1.5'}) == \
         {'gamma': 2.0, 'equalize': True, 'sharpen': 1.5}
@@ -156,55 +135,20 @@ def test_images_are_drawn_with_gamma_equalization_and_sharpening_without_changin
     assert float(measuring.tone(np.array([25.0]), 20, 30, None, stray)[0]) == pytest.approx(0.5, abs=0.1)
     assert measuring.value_histogram(values, (10, 12))[1][[0, -1]].tolist() == [10, 12]
 
-    # Sharpening steepens an edge, leaves flat areas alone and does not blur in pixels with no data
-    t = np.tile(np.repeat([0.3, 0.7], 6), (12, 1))
-    valid = np.ones_like(t, dtype=bool)
-    valid[:, 11] = False
-    t[:, 11] = 0.0
-    s = measuring.sharpened(t, valid, 1.0, 1.0)
-    assert s[6, 5] < 0.29
-    assert s[6, 6] > 0.71
-    assert s[6, 0] == pytest.approx(0.3, abs=1e-3)
-    assert s[6, 10] == pytest.approx(0.7, abs=1e-2)
-    assert s[6, 11] == 0.0
-    # A margin read around the image for the sharpening is left out of it
-    levels, _ = measuring.colorize(np.full((20, 20), 15.0), np.ones((20, 20), bool), {}, 10, 20,
-                                   adjust={'gamma': 1.0, 'sharpen': 1.0}, margin=3)
-    assert levels.shape == (1, 14, 14)
 
-
-def test_mosaic_tiles_and_frames_are_drawn_adjusted_with_a_curve_for_their_legend(api):
+def test_mosaics_and_frames_have_a_curve_the_browser_colours_them_and_their_legend_with(api):
     c = analysed(converted(api)[0])
-    (z, x, y), _ = mosaic_tile()
-    tiles = "{}/{}/mosaics/as_converted/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y)
-    style = {'color_map': 'magma', 'rescale': '0,40'}
-
-    def drawn(**adjust):
-        res = api.get(tiles, dict(style, **adjust))
-        assert res.status_code == 200, adjust
-        return np.asarray(Image.open(io.BytesIO(res.content)).convert('RGBA'))
-
-    plain = drawn()
-    for adjust in ({'gamma': '2'}, {'equalize': '1'}, {'sharpen': '2'}, {'gamma': '0.5', 'equalize': '1', 'sharpen': '1'}):
-        image = drawn(**adjust)
-        # Drawn on the same pixels, with the margin read for the sharpening left out
-        assert image.shape == plain.shape, adjust
-        assert (image[..., 3] == plain[..., 3]).all(), adjust
-    assert not (drawn(gamma='2') == plain).all()
-    assert not (drawn(equalize='1') == plain).all()
-    for bad in ({'gamma': '9'}, {'equalize': '2'}, {'sharpen': '-1'}):
-        assert api.get(tiles, dict(style, **bad)).status_code == 400, bad
-
     # The mosaic's histogram is kept beside it, and read again rather than the mosaic
+    curve = "{}/{}/mosaics/as_converted/curve".format(CONVERSIONS, c.id)
+    assert api.get(curve, {'rescale': '0,40', 'equalize': '1'}).status_code == 200
     kept = os.path.join(c.data_dir(), mosaics.VIEWER_DIR, 'histogram-as_converted.json')
     assert os.path.isfile(kept)
     measuring.kept_histogram.cache_clear()
     with mock.patch.object(measuring, 'read_mosaic', wraps=measuring.read_mosaic) as read:
-        drawn(equalize='1', rescale='5,35')
+        assert api.get(curve, {'rescale': '5,35', 'equalize': '1'}).status_code == 200
     assert read.call_count == 0
 
-    # The legend's curve: linear, bent by gamma, or equalized (the fake mosaic's 10 to 30 °C, evenly)
-    curve = "{}/{}/mosaics/as_converted/curve".format(CONVERSIONS, c.id)
+    # Linear, bent by gamma, or equalized (the fake mosaic's 10 to 30 °C, evenly)
     shares = api.get(curve, {'rescale': '0,40'}).data['shares']
     assert len(shares) == measuring.CURVE_SAMPLES
     assert shares[16] == pytest.approx(0.25)
@@ -213,19 +157,16 @@ def test_mosaic_tiles_and_frames_are_drawn_adjusted_with_a_curve_for_their_legen
     assert equalized[15] < 0.05
     assert equalized[49] > 0.95
     assert equalized[32] == pytest.approx(0.5, abs=0.1)
-    # Corrected as the tiles are: warmer, so less of the range is below 10 °C still
+    # Corrected as the data tiles are: warmer, so less of the range is below 10 °C still
     warmer = api.get(curve, {'rescale': '0,40', 'equalize': '1', 'emissivity': '0.8'}).data['shares']
     assert warmer != equalized
     assert api.get("{}/{}/mosaics/source_frame/curve".format(CONVERSIONS, c.id)).status_code == 404
-    assert api.get(curve, {'rescale': '0,40', 'gamma': '0'}).status_code == 400
+    for bad in ({'gamma': '0'}, {'gamma': '9'}, {'equalize': '2'}, {'sharpen': '-1'}):
+        assert api.get(curve, dict(bad, rescale='0,40')).status_code == 400, bad
 
-    # A frame: its image adjusted, and its curve equalized from its own temperatures (20 to 29 °C, evenly)
+    # A frame's, equalized from its own temperatures (20 to 29 °C, evenly)
     rel = '100MEDIA/DJI_0002_T.JPG'
     with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
-        image = api.get("{}/{}/frame/image.png".format(CONVERSIONS, c.id),
-                        dict(style, frame=rel, gamma='1.5', equalize='1', sharpen='1'))
-        assert image.status_code == 200
-        assert Image.open(io.BytesIO(image.content)).size == (10, 8)
         frame_curve = "{}/{}/frame/curve".format(CONVERSIONS, c.id)
         shares = api.get(frame_curve, {'frame': rel, 'rescale': '10,40', 'equalize': '1'}).data['shares']
         assert (shares[0], shares[-1]) == (0.0, 1.0)
@@ -438,15 +379,10 @@ def test_frames_are_measured_as_converted_and_again_with_parameters_changed(api)
         assert res.data['changed']['mean'] == pytest.approx(27.0, abs=1e-4)
         assert res.data['result']['max_location'] == [6.5, 2.5]
 
-        image = api.get(frame + "/image.png", {'frame': rel, 'color_map': 'magma', 'rescale': '20,30',
-                                               'isotherm': 'above,25'})
-        assert (image.status_code, image['Content-Type']) == (200, 'image/png')
-        assert Image.open(io.BytesIO(image.content)).size == (10, 8)
-
         for bad in ({'frame': '../../../etc/passwd'}, {'frame': 'nope.JPG'}, {'frame': rel, 'emissivity': '7'},
                     {'frame': rel, 'distance': 'far'}):
             assert api.get(frame, bad).status_code == 400, bad
-    # Measured once per frame and settings: the page asks for the same one again for every image and value
+    # Measured once per frame and settings: the page asks for the same one again for its values and each point
     calls = measure.call_count
     with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure) as again:
         api.get(frame, {'frame': rel})
@@ -474,3 +410,22 @@ def test_a_normalized_conversions_frames_are_measured_as_it_converted_them(api):
     assert (info['offset'], info['offset_known']) == (0.75, True)
     assert info['stats']['min'] == pytest.approx(20 - 0.75, abs=1e-4)
     assert info['stats']['max'] == pytest.approx(28 - 0.75, abs=1e-4)
+
+
+def test_a_frame_is_sent_as_its_temperatures_measured_again_with_the_changes_asked(api):
+    from dji_thermal_ui.analyzer import api as api_module
+    c = analysed(converted(api)[0])
+    rel = '100MEDIA/DJI_0002_T.JPG'
+    url = "{}/{}/frame/data".format(CONVERSIONS, c.id)
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
+        res = api.get(url, {'frame': rel})
+        assert (res.status_code, res['Content-Type']) == (200, 'application/octet-stream')
+        assert (res['X-Width'], res['X-Height']) == ('10', '8')
+        values = np.frombuffer(res.content, dtype='<f4').reshape(8, 10)
+        # Row by row, with no data where dji-thermal-cli marked none (its top left pixel)
+        assert values[0, 0] == np.float32(api_module.NO_DATA)
+        assert (values[0, 1], values[1, 9]) == (21, 29)
+        warmer = np.frombuffer(api.get(url, {'frame': rel, 'emissivity': '0.95'}).content, dtype='<f4').reshape(8, 10)
+        assert warmer[1, 9] > values[1, 9]
+        assert api.get(url, {'frame': rel, 'emissivity': 'x'}).status_code == 400
+        assert api.get(url, {'frame': 'nope.JPG'}).status_code == 400

@@ -11,14 +11,13 @@
   },
   "dependencies": {
     "@preact/signals": "2.11.3",
-    "leaflet": "1.9.4",
+    "ol": "10.11.0",
     "preact": "11.0.2"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@preact/preset-vite": "2.10.6",
     "@testing-library/preact": "3.2.6",
-    "@types/leaflet": "1.9.22",
     "@types/node": "26.6.5",
     "eslint": "10.13.0",
     "globals": "17.13.0",

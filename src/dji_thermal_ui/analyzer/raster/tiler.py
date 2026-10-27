@@ -4,23 +4,18 @@
 # Licensed under the GNU Affero General Public License v3.0 (see LICENSE).
 import hashlib
 import importlib
-import io
 import os
 import warnings
 from functools import lru_cache
 
 import numpy as np
-from django.http import HttpResponse, HttpResponseNotModified
+from django.http import HttpResponseNotModified
 from django.utils.http import parse_etags
-from PIL import Image
 from rasterio.crs import CRS
 from rasterio.errors import NotGeoreferencedWarning
 from rest_framework import exceptions
-from rio_tiler.colormap import apply_cmap
 from rio_tiler.colormap import cmap as colormap
 from rio_tiler.errors import AlphaBandWarning, InvalidColorMapName, PointOutsideBounds
-from rio_tiler.profiles import img_profiles
-from rio_tiler.utils import render
 
 from .colormaps import thermal_colormaps
 
@@ -61,44 +56,7 @@ def get_colormap_encoded_values(cmap):
     return encoded_values
 
 
-# libwebp effort (0-6) for WebP tiles. GDAL's WEBP driver, which rio-tiler's render uses, spends
-# ~90 ms on a 512px tile; Pillow at method 2 makes a file of about the same size in ~4 ms
-WEBP_METHOD = 2
-
-
-def render_tile(data, mask, img_format, colormap=None, **options):
-    """
-    Same as rio_tiler.utils.render, but WebP is encoded with Pillow (see WEBP_METHOD).
-
-    :param data: uint8 array (bands, height, width)
-    :param mask: uint8 array (height, width), 0 = transparent, 255 = opaque, or None for no alpha
-    :param img_format: png | jpeg | webp
-    :param colormap: rio-tiler colormap to apply to single band data
-    :param options: encoder options (rio_tiler.profiles.img_profiles)
-    """
-    # Anything Pillow's WebP encoder cannot take as is keeps going through GDAL
-    if img_format != "webp" or data.dtype != np.uint8 or data.shape[0] not in (1, 3):
-        return render(data, mask, img_format=img_format, colormap=colormap, **options)
-
-    # As rio_tiler.utils.render does
-    if colormap:
-        data, alpha = apply_cmap(data, colormap)
-        if mask is not None:
-            mask = np.bitwise_and(alpha, mask)
-    if data.shape[0] == 1:
-        data = np.repeat(data, 3, axis=0)
-
-    bands = list(data)
-    if mask is not None:
-        bands.append(mask.astype(np.uint8))
-
-    buf = io.BytesIO()
-    Image.fromarray(np.stack(bands, axis=-1)).save(buf, "WEBP", quality=options.get("quality", 75),
-                                                  lossless=options.get("lossless", False), method=WEBP_METHOD)
-    return buf.getvalue()
-
-
-# Modules whose code decides what a tile looks like (see raster_etag)
+# Modules whose code decides what a tile holds (see raster_etag)
 TILE_RENDERING_MODULES = ['dji_thermal_ui.analyzer.raster.tiler', 'dji_thermal_ui.analyzer.raster.colormaps',
                           'dji_thermal_ui.analyzer.raster.thermal_correction']
 
@@ -106,32 +64,30 @@ TILE_RENDERING_MODULES = ['dji_thermal_ui.analyzer.raster.tiler', 'dji_thermal_u
 @lru_cache(maxsize=None)
 def tile_code_fingerprint():
     """
-    Hash of the code and libraries that render tiles
+    Hash of the code and libraries that read tiles
     """
-    import PIL
     import rasterio
     import rio_tiler
-    from PIL import features
 
     h = hashlib.sha1()
     for name in TILE_RENDERING_MODULES:
         with open(importlib.import_module(name).__file__, 'rb') as f:
             h.update(f.read())
     h.update(" ".join(str(v) for v in [rio_tiler.__version__, rasterio.__version__, rasterio.__gdal_version__,
-                                        np.__version__, PIL.__version__, features.version('webp')]).encode())
+                                        np.__version__]).encode())
     return h.hexdigest()
 
 
 def raster_etag(request, raster_path, *extra):
     """
     ETag of a tile. Tiles are served with "no-cache" (the browser keeps them but asks every time
-    whether they are still valid), so this must change whenever anything the tile is rendered from
-    changes: the request (URL and Accept, which picks the format), the raster file (replaced when
-    it is rebuilt), the rendering code and whatever else the caller reads while rendering (extra).
+    whether they are still valid), so this must change whenever anything the tile is read from
+    changes: the request (its URL), the raster file (replaced when it is rebuilt), the code that
+    reads it and whatever else the caller reads (extra).
     """
     st = os.stat(raster_path)
-    parts = [tile_code_fingerprint(), request.get_full_path(), request.headers.get('Accept', ''),
-             raster_path, st.st_ino, st.st_size, st.st_mtime_ns] + list(extra)
+    parts = [tile_code_fingerprint(), request.get_full_path(), raster_path, st.st_ino, st.st_size,
+             st.st_mtime_ns] + list(extra)
     return '"%s"' % hashlib.sha1("\n".join(str(p) for p in parts).encode()).hexdigest()
 
 
@@ -145,43 +101,12 @@ def not_modified(request, etag):
     return res
 
 
-def tile_response(content, ext, etag):
-    res = HttpResponse(content, content_type="image/{}".format(ext))
-    res['ETag'] = etag
-    res['Cache-Control'] = 'private, no-cache'
-    return res
-
-
-def tile_format(request, mask, ext=None):
-    """
-    (extension, driver, encoder options) of a tile: ext when the URL asks for one, else JPEG when
-    the tile is fully opaque, WebP when the browser takes it, PNG otherwise
-    """
-    if ext is None:
-        if np.equal(mask, 255).all():
-            ext = "jpg"
-        elif 'image/webp' in request.headers.get('Accept', ''):
-            ext = "webp"
-        else:
-            ext = "png"
-    driver = "jpeg" if ext == "jpg" else ext
-    return ext, driver, img_profiles.get(driver, {})
-
-
 def parse_rescale(rescale):
     """[min, max] from "min,max", or a validation error"""
     try:
         return list(map(float, rescale.split(",")))
     except (AttributeError, ValueError):
         raise exceptions.ValidationError("Invalid rescale value") from None
-
-
-def check_colormap(name):
-    """The rio-tiler colour map called name, or a validation error"""
-    try:
-        return colormap.get(name)
-    except InvalidColorMapName:
-        raise exceptions.ValidationError("Not a valid color_map value") from None
 
 
 COLORMAP_LABELS = {

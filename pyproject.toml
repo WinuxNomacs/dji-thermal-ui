@@ -38,7 +38,6 @@ dependencies = [
     "pyproj==3.8.0",
     "rasterio==1.5.2",
     "rio-tiler==9.4.12",
-    "scipy==1.18.1",
     "shapely==2.2.0",
     "waitress==3.0.2",
     "zipstream-ng==1.9.3",

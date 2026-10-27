@@ -1,6 +1,7 @@
 // Colours as the API gives them, as CSS, and the view as an image drawn on a canvas (Export PNG), ported from
 // viewer.js
-import type L from "leaflet";
+import type {Coordinate} from "ol/coordinate";
+import type OlMap from "ol/Map";
 import type {Coords, Geometry} from "../measure/measure";
 import {scaleTicks} from "./view";
 
@@ -35,7 +36,9 @@ export function gradientCss(encoded: number[] | null | undefined, shares?: numbe
 }
 
 export interface CanvasShape {type: string; name: string; points: [number, number][]}
-export interface Pane {el: HTMLElement; images: HTMLImageElement[]; caption?: string; shapes?: CanvasShape[]}
+// An image drawn where it is on the page (the values as a map drew them)
+export interface Placed {image: CanvasImageSource; rect: DOMRect}
+export interface Pane {el: HTMLElement; images: Placed[]; caption?: string; shapes?: CanvasShape[]}
 export interface Scale {colors: number[]; shown: [number, number]; caption: string; shares?: number[] | null}
 
 // A measurement on the image as it is on the map (the drawing's colours), its name beside it
@@ -66,7 +69,7 @@ export function drawShape(g: CanvasRenderingContext2D, s: CanvasShape): void {
 }
 
 // The view as an image, drawn in the browser on a canvas: a title and the date above; each pane's own images
-// (the mosaic's tiles, the frame) where they are on the page, its measurements drawn over them, named; below,
+// (the mosaic's values, the frame's, as drawn) where they are on the page, its measurements drawn over them, named; below,
 // the scale bar and the colour scale. The basemap is left out: its tiles come from elsewhere and can't be
 // copied into an image.
 export function viewCanvas(o: {title: string; date: string; panes: Pane[]; legend: Scale | null;
@@ -108,10 +111,8 @@ export function viewCanvas(o: {title: string; date: string; panes: Pane[]; legen
         g.clip();
         g.fillStyle = "#f2f2f2";
         g.fillRect(b.x, top, b.rect.width, b.rect.height);
-        p.images.forEach((img) => {
-            if (!img.complete || !img.naturalWidth) return;
-            const r = img.getBoundingClientRect();
-            g.drawImage(img, b.x + r.left - b.rect.left, top + r.top - b.rect.top, r.width, r.height);
+        p.images.forEach(({image, rect: r}) => {
+            g.drawImage(image, b.x + r.left - b.rect.left, top + r.top - b.rect.top, r.width, r.height);
         });
         g.translate(b.x, top);
         (p.shapes || []).forEach((s) => drawShape(g, s));
@@ -176,12 +177,12 @@ export function saveCanvas(canvas: HTMLCanvasElement, name: string): Promise<str
     });
 }
 
-// A measurement's geometry as points on a map's pane (fromCoords: its coordinates to a latlng)
-export function shapeOnMap(map: L.Map, geometry: Geometry, fromCoords: (c: Coords) => L.LatLng, name?: string): CanvasShape {
+// A measurement's geometry as points on a map's pane (fromCoords: its coordinates to the map's)
+export function shapeOnMap(map: OlMap, geometry: Geometry, fromCoords: (c: Coords) => Coordinate, name?: string): CanvasShape {
     const coords: Coords[] = geometry.type === "Point" ? [geometry.coordinates] :
         geometry.type === "LineString" ? geometry.coordinates : geometry.coordinates[0].slice(0, -1);
     return {type: geometry.type, name: name || "", points: coords.map((c) => {
-        const p = map.latLngToContainerPoint(fromCoords(c));
-        return [p.x, p.y] as [number, number];
+        const p = map.getPixelFromCoordinate(fromCoords(c));
+        return [p[0], p[1]] as [number, number];
     })};
 }

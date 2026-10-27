@@ -1,5 +1,5 @@
 // A conversion's frames, one at a time, measured
-import "leaflet/dist/leaflet.css";
+import "ol/ol.css";
 import {FramePage} from "../frame/frame-page";
 import {mountPage} from "../core/page";
 

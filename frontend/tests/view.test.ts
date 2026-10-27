@@ -1,11 +1,11 @@
-// Tests of the mosaic viewer's helpers: the view in the URL, the tiles' query, the sliders, the colour scale, the
+// Tests of the mosaic viewer's helpers: the view in the URL, the values' URL, the sliders, the colour scale, the
 // correction and the PNG export's parts
 import {afterEach, describe, expect, it} from "vitest";
 import {setUserUnit} from "../src/core/units";
 import {gradientCss, gradientStops, paletteCss} from "../src/viewer/canvas";
 import {
     defaultRange, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
-    sliderPositions, slidRange, styleGroup, takenText, tileUrl, toneShares, viewQuery,
+    sliderPositions, slidRange, styleGroup, takenText, dataUrl, toneShares, viewQuery,
 } from "../src/viewer/view";
 
 afterEach(() => setUserUnit("C"));
@@ -30,16 +30,15 @@ describe("the view in the URL", () => {
     });
 });
 
-describe("the tiles", () => {
-    const style = {palette: "iron", range: [1, 2] as [number, number], adjust: {gamma: 1, equalize: true, sharpen: 0}};
-
-    it("ask a temperature tab with its palette, range, adjustments and correction", () => {
-        expect(tileUrl("/api/", 3, "harmonized", style, {emissivity: "0.9", isotherm: ""}))
-            .toBe("/api/conversions/3/mosaics/harmonized/tiles/{z}/{x}/{y}?color_map=iron&rescale=1,2&equalize=1&emissivity=0.9");
+describe("the values", () => {
+    it("ask a temperature tab with its correction", () => {
+        expect(dataUrl("/api/", 3, "harmonized", {emissivity: "0.9", reflected_temp: ""}))
+            .toBe("/api/conversions/3/mosaics/harmonized/data/{z}/{x}/{y}?emissivity=0.9");
     });
 
     it("ask the source frames with nothing", () => {
-        expect(tileUrl("/api/", 3, "source_frame", style)).toBe("/api/conversions/3/mosaics/source_frame/tiles/{z}/{x}/{y}");
+        expect(dataUrl("/api/", 3, "source_frame", {emissivity: "0.9"}))
+            .toBe("/api/conversions/3/mosaics/source_frame/data/{z}/{x}/{y}");
     });
 
     it("share one style between both temperature tabs", () => {

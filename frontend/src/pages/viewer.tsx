@@ -1,5 +1,5 @@
 // The mosaic viewer: a conversion's mosaics on a map, measured
-import "leaflet/dist/leaflet.css";
+import "ol/ol.css";
 import {ViewerPage} from "../viewer/viewer-page";
 import {jsonScript, mountPage} from "../core/page";
 

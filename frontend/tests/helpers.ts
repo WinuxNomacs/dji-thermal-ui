@@ -5,6 +5,9 @@ import {vi} from "vitest";
 // Effects run with the promises settled by ticks(), not after the next paint (which jsdom never makes)
 options.requestAnimationFrame = (f) => { queueMicrotask(f); };
 
+// OpenLayers watches its maps' size, which jsdom cannot tell
+globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
+
 export const jsonResponse = (data: unknown, ok = true) =>
     Promise.resolve({ok, status: ok ? 200 : 400, json: () => Promise.resolve(data)} as Response);
 
@@ -20,6 +23,11 @@ export function file(name: string, size = 1, relativePath = ""): File {
     Object.defineProperty(f, "webkitRelativePath", {value: relativePath});
     return f;
 }
+
+// Values as the server sends them (float32, width × height, all at value)
+export const valuesResponse = (width: number, height: number, value = 20) => () =>
+    Promise.resolve(new Response(new Float32Array(width * height).fill(value).buffer,
+                                 {headers: {"X-Width": String(width), "X-Height": String(height)}}));
 
 type Route = unknown | ((url: string, opts?: RequestInit) => Promise<Response>);
 

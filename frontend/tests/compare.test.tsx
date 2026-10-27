@@ -1,8 +1,8 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
-import {autoRange, autoReach, type Comparable, compareQuery, differenceTileUrl, firstTab, frameImageUrl, mosaicGroups,
-        readCompare} from "../src/compare/compare";
+import {autoRange, autoReach, type Comparable, compareQuery, differenceDataUrl, firstTab, frameCurveUrl, frameDataUrl, mosaicGroups,
+        reachIn, readCompare} from "../src/compare/compare";
 import {ComparePage} from "../src/compare/compare-page";
 import {DifferenceReadout, Picked} from "../src/compare/pane";
 import {type Mosaics} from "../src/viewer/viewer-page";
@@ -83,19 +83,21 @@ describe("the compare helpers", () => {
         expect(autoRange([])).toEqual([0, 1]);
     });
 
-    it("give the difference's reach in the user's unit, and its tiles' range in A's", () => {
+    it("give the difference's reach in the user's unit, and in A's for its values", () => {
         expect(autoReach({unit: "C", range: [-1.23, 1.23]})).toBe(1.3);
         expect(autoReach({unit: "C", range: null})).toBe(1);
         setUserUnit("F");
         expect(autoReach({unit: "C", range: [-1.23, 1.23]})).toBe(2.3);
-        expect(differenceTileUrl(API, 9, "as_converted", 12, "as_converted", {palette: "rdbu", reach: 1.8}, "C")).toBe(
-            API + "conversions/9/mosaics/as_converted/difference/tiles/{z}/{x}/{y}?b=12&b_tab=as_converted&color_map=rdbu&rescale=-1,1");
+        expect(reachIn(1.8, "C")).toBe(1);
+        expect(differenceDataUrl(API, 9, "as_converted", 12, "as_converted")).toBe(
+            API + "conversions/9/mosaics/as_converted/difference/data/{z}/{x}/{y}?b=12&b_tab=as_converted");
     });
 
-    it("draw a frame in the range shown, in its conversion's unit", () => {
+    it("ask a frame's values, and its tone curve in the range shown in its conversion's unit", () => {
         setUserUnit("F");
-        expect(frameImageUrl(API, 9, "a.JPG", {palette: "magma", range: [32, 212], adjust: {gamma: 2, equalize: false, sharpen: 0}}, "C"))
-            .toBe(API + "conversions/9/frame/image.png?frame=a.JPG&color_map=magma&rescale=0,100&gamma=2");
+        expect(frameDataUrl(API, 9, "a b.JPG")).toBe(API + "conversions/9/frame/data?frame=a%20b.JPG");
+        expect(frameCurveUrl(API, 9, "a.JPG", {palette: "magma", range: [32, 212], adjust: {gamma: 2, equalize: true, sharpen: 0}}, "C"))
+            .toBe(API + "conversions/9/frame/curve?frame=a.JPG&rescale=0,100&gamma=2&equalize=1");
     });
 });
 
@@ -110,12 +112,13 @@ describe("the compare parts", () => {
     it("show a picked point's frame with a link to it, or why there is none", () => {
         const close = vi.fn();
         render(<Picked onClose={close} frames={[
-            {title: "A · Roof · Nadir", unit: "C", image: "/img.png", href: "/conversion/9/frame?frame=a.JPG",
-             point: {valid: true, temperature: 21.5, frame: "a.JPG", frame_pixel: [3, 4]}},
-            {title: "B · Field · Other", unit: "F", image: "", href: "", point: {valid: true, temperature: 70, frame: null}},
+            {title: "A · Roof · Nadir", unit: "C", values: "/values", curve: "", colouring: {colors: []},
+             href: "/conversion/9/frame?frame=a.JPG", point: {valid: true, temperature: 21.5, frame: "a.JPG", frame_pixel: [3, 4]}},
+            {title: "B · Field · Other", unit: "F", values: "", curve: "", colouring: {colors: []}, href: "",
+             point: {valid: true, temperature: 70, frame: null}},
         ]}/>, byId("root"));
         const root = byId("root");
-        expect(root.querySelector("img")!.getAttribute("src")).toBe("/img.png");
+        expect(root.querySelector("canvas")!.dataset.values).toBe("/values");
         expect(root.querySelector("a")!.getAttribute("href")).toBe("/conversion/9/frame?frame=a.JPG");
         expect(root.textContent).toContain("21.50 °C");
         expect(root.textContent).toContain("No frame is known for this point.");
@@ -157,6 +160,9 @@ describe("the compare page", () => {
         expect(Array.from(document.querySelectorAll("#pane-b select[name=palette] option")).map((o) => o.textContent)).toEqual(["Red–blue"]);
         expect($("#shared input[name=min]")).not.toBeNull();     // A still shows its mosaic
         expect(location.search).toBe("?b=12&a_tab=as_converted&b_tab=as_converted&diff=b");
+        expect(byId("map-a").dataset.values).toBe(API + "conversions/9/mosaics/as_converted/data/{z}/{x}/{y}");
+        expect(byId("map-b").dataset.values)
+            .toBe(API + "conversions/9/mosaics/as_converted/difference/data/{z}/{x}/{y}?b=12&b_tab=as_converted");
         // A difference in A takes it from B
         choose($("#pane-a select[name=show]")!, "diff");
         await ticks(40);
@@ -179,7 +185,7 @@ describe("the compare page", () => {
         await ticks(40);
         expect(byId("pane-b").querySelector(".compare-note")!.textContent).toBe("These mosaics do not overlap.");
         // Above the map, which stays as it was, with no colour scale
-        expect(byId("pane-b").querySelector(".compare-note + .compare-map .leaflet-control-scale")).not.toBeNull();
+        expect(byId("pane-b").querySelector(".compare-note + .compare-map .ol-scale-line")).not.toBeNull();
         expect((byId("pane-b").querySelector(".map-legend") as HTMLElement).hidden).toBe(true);
     });
 
