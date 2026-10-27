@@ -11,6 +11,8 @@
                           "imports": ["_shared-b2.js", "_leaflet-d4.js"]},
   "src/pages/compare.tsx": {"file": "assets/compare-e1.js", "src": "src/pages/compare.tsx", "isEntry": true,
                             "imports": ["_shared-b2.js", "_leaflet-d4.js"]},
+  "src/pages/preferences.tsx": {"file": "assets/preferences-f2.js", "src": "src/pages/preferences.tsx", "isEntry": true,
+                                "imports": ["_shared-b2.js"]},
   "_shared-b2.js": {"file": "assets/shared-b2.js", "imports": ["_leaflet-d4.js"], "css": ["assets/shared-e5.css"]},
   "_leaflet-d4.js": {"file": "assets/leaflet-d4.js", "css": ["assets/shared-e5.css"]}
 }

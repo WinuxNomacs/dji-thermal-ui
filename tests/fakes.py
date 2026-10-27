@@ -185,7 +185,7 @@ def thermal_report(path, **over):
     info = {
         'file': {'size_bytes': 1000, 'warnings': []},
         'camera': {'model': 'M4T', 'camera_serial': 'SN1', 'width': 640, 'height': 512,
-                   'capture_time': '2026:10:12 18:29:50'},
+                   'capture_time': '2026:10:12 18:29:50', 'utc_at_exposure': '2026-10-12T23:30:09.6'},
         'thermal': {'measurement_params': {'distance': 5.0, 'humidity': 50.0, 'emissivity': 0.91, 'reflection': 27.6,
                                            'ambient_temp': 27.6}, 'palette': {'name': 'ironred'}},
         'temperature': {'min': 17.25, 'max': float('nan'), 'mean': 21.9},

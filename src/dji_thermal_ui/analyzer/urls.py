@@ -40,4 +40,5 @@ urlpatterns = [
     re_path(C + r'/frame/curve$', api.FrameCurveView.as_view()),
     re_path(r'^preferences$', api.PreferencesView.as_view()),
     re_path(r'^places$', api.PlacesView.as_view()),
+    re_path(r'^navigation$', api.NavigationView.as_view()),
 ]

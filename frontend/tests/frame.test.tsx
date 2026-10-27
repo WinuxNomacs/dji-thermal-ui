@@ -1,5 +1,6 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {setUserLocale} from "../src/core/format";
 import {setUserUnit} from "../src/core/units";
 import {changesIn, type FrameInfo, frameLabel, newConversionUrl, readChanges, valuesUrl} from "../src/frame/frame";
 import {FramePage, type Frames} from "../src/frame/frame-page";
@@ -13,9 +14,10 @@ const FRAMES: Frames = {
     name: "Nadir", dataset_name: "Roof", description: "temp_c tiff", unit: "C", normalized: true, default_palette: "dji_ironred",
     palettes: [{key: "dji_ironred", label: "DJI ironred", color_map: [0x000000, 0xff0000]},
                {key: "magma", label: "Magma", color_map: [0x000004, 0xfcfdbf]}],
-    frames: [{path: A, pitch: -90, time: "18:29:50", converted: true, mosaic: 0,
+    flight_zone: {offset: -300},
+    frames: [{path: A, pitch: -90, time: "2026:10:12 18:29:50", converted: true, mosaic: 0,
               recorded: {emissivity: 0.91, humidity: 50, lrf: 21.4, reflection: 27.6, ambient: 27.6}},
-             {path: B, pitch: -45, time: "18:30:10", converted: false, mosaic: null, recorded: {}}],
+             {path: B, pitch: -45, time: "2026:10:12 18:30:10", converted: false, mosaic: null, recorded: {}}],
 };
 const INFO: FrameInfo = {
     frame: A, width: 640, height: 512, distance_source: "rangefinder", notes: [], offset: 0.2, offset_known: true,
@@ -56,11 +58,13 @@ async function open(fetchFn: ReturnType<typeof server>) {
 }
 
 beforeEach(() => {
+    setUserLocale("en-GB");
     document.cookie = "csrftoken=tok";
     document.body.innerHTML = '<div id="root"></div>';
     history.replaceState(null, "", "/conversion/9/frame");
 });
 afterEach(() => {
+    setUserLocale("");
     render(null, byId("root"));
     vi.unstubAllGlobals();
     history.replaceState(null, "", "/");
@@ -122,7 +126,8 @@ describe("the frame page", () => {
         await open(fetchFn);
         expect(byId("name").textContent).toBe("Nadir: frames");
         expect((byId("frame") as HTMLSelectElement).value).toBe(A);
-        expect(byId("about").textContent).toBe("18:29:50 · frame 1 of the mosaics");
+        // Captured in the flight's local time, labelled with its zone, in the locale chosen
+        expect(byId("about").textContent).toBe("12/10/2026, 18:29:50 (UTC−5) · frame 1 of the mosaics");
         expect(byId("mosaics").getAttribute("href")).toBe("/conversion/9?frame=thermal%2Fa_T.JPG");
         expect((byId("range-min") as HTMLInputElement).value).toBe("17");
         expect((byId("range-max") as HTMLInputElement).value).toBe("28");
@@ -178,7 +183,7 @@ describe("the frame page", () => {
         key(document.body, "ArrowRight");
         await ticks(40);
         expect((byId("frame") as HTMLSelectElement).value).toBe(B);
-        expect(byId("about").textContent).toBe("18:30:10");
+        expect(byId("about").textContent).toBe("12/10/2026, 18:30:10 (UTC−5)");
         expect(calls(fetchFn)).toContain("GET " + BASE + "/frame?frame=" + enc(B));
         expect(location.search).toContain("frame=thermal%2Fb_T.JPG");
         key($("input[name=emissivity]")!, "ArrowLeft");

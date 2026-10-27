@@ -22,7 +22,7 @@ def conversion(d, name="Conversion 1"):
 def test_each_page_is_served_with_the_csrf_cookie(client):
     d = dataset()
     c = conversion(d)
-    for url, page_id in [("/", "app"), ("/project/%d" % d.project_id, "app"), ("/dataset/%d" % d.id, "app"),
+    for url, page_id in [("/", "app"), ("/preferences", "app"), ("/project/%d" % d.project_id, "app"), ("/dataset/%d" % d.id, "app"),
                          ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "app"),
                          ("/conversion/%d/compare" % c.id, "app")]:
         client.cookies.clear()
@@ -86,10 +86,18 @@ def test_a_rebuilt_page_loads_its_built_script_with_its_settings(client):
 
 def test_every_page_loads_only_its_build_and_the_icon(client):
     c = conversion(dataset())
-    pages = {"/": "projects-a1", "/project/%d" % c.dataset.project_id: "project-b4", "/dataset/%d" % c.dataset.id: "dataset-f6", "/conversion/%d" % c.id: "viewer-a7",
+    pages = {"/": "projects-a1", "/preferences": "preferences-f2", "/project/%d" % c.dataset.project_id: "project-b4", "/dataset/%d" % c.dataset.id: "dataset-f6", "/conversion/%d" % c.id: "viewer-a7",
              "/conversion/%d/frame" % c.id: "frame-c9", "/conversion/%d/compare" % c.id: "compare-e1"}
     for page, script in pages.items():
         urls = re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode())
         # The tests' build is the stub manifest (tests/settings.py)
         assert "/static/dist/assets/%s.js" % script in urls, page
         assert all(u.startswith("/static/dist/") for u in urls if u != "/static/favicon.svg"), (page, urls)
+
+
+def test_the_pages_show_dates_in_the_locale_chosen_or_the_computers(client):
+    from rest_framework.test import APIClient
+    assert 'data-locale=""' in client.get("/").content.decode()
+    APIClient().put(PREFERENCES, {'locale': 'en-GB'}, format='json')
+    assert 'data-locale="en-GB"' in client.get("/preferences").content.decode()
+    assert "<title>User Preferences · Thermal Analyzer</title>" in client.get("/preferences").content.decode()

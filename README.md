@@ -21,7 +21,13 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   and on single frames. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
 - **Compare:** two conversions side by side, or their difference, from any dataset, the project's listed first.
-- Temperatures in °F, °C or K, and light or dark pages (or the computer's own).
+- **Navigation:** a pane on the left of every page lists the projects, their datasets and each conversion's
+  mosaics, frames and compare page. Each level folds, and the whole pane hides; over a narrow screen it opens on
+  top of the page.
+- **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
+  header, and the locale dates and times are written in (the computer's, or one chosen). A flight's capture times
+  are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
+  clocks (a dataset analyzed by an earlier version of the app is analyzed again for it).
 
 It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
 are no logins or accounts.

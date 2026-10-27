@@ -3,10 +3,11 @@
 // converted
 import {useEffect, useRef, useState} from "preact/hooks";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
-import {count, deleteText, failedText, formatDate} from "../core/format";
+import {count, deleteText, failedText, type FlightZone, formatDate} from "../core/format";
 import {isImage, type Progress, uploadFiles} from "../core/upload";
 import {ask, askName, dialog} from "../components/dialog";
 import {ArrowLeft, Check, Link, Pencil, Play, Plus, Refresh, Stop, Trash, Warning} from "../components/icons";
+import {navigationChanged} from "../core/navigation";
 import {type Conversion, isBusy, parsePrefill} from "./conversions";
 import {ConvertTab} from "./convert";
 import {type Analysis, type FilesView, newestReady} from "./files";
@@ -30,6 +31,7 @@ export interface Dataset {
     analyzed?: boolean;
     analyzed_at?: string | null;
     analysis?: Analysis | null;
+    flight_zone?: FlightZone | null;
     conversions?: Conversion[];
     conversion_count?: number;
     mosaic_count?: number;
@@ -85,10 +87,15 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const controller = useRef<AbortController | null>(null);
     const convertRef = useRef<HTMLDivElement>(null);
+    const shows = useRef<string | null>(null);     // what the navigation pane lists of the conversions
 
     function show(data: Dataset) {
         clearTimeout(timer.current);
         setD(data);
+        // A conversion's frames or mosaics became ready while the page watched it: the pane offers them
+        const listed = (data.conversions || []).map((c) => c.id + ":" + c.status + ":" + c.mosaic_status).join();
+        if (shows.current !== null && shows.current !== listed) navigationChanged();
+        shows.current = listed;
         document.title = data.name + " · Thermal Analyzer";
         if (data.status === "analyzing" || (data.conversions || []).some(isBusy)) timer.current = setTimeout(load, POLL_MS);
     }
@@ -264,7 +271,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                             {label}{badges[key] !== "" && <> <span class="badge">{badges[key]}</span></>}</a>))}
                 </div>
                 {a?.files && tab === "files" && <FilesTab analysis={a} view={view} setView={setView} frames={frames}
-                                                          thumbs={url + "/thumbnail?file="}/>}
+                                                          thumbs={url + "/thumbnail?file="} zone={d.flight_zone}/>}
                 {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}
                 {/* Kept mounted, hidden: its form keeps what was typed while another tab is open */}

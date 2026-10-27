@@ -196,6 +196,9 @@ def test_the_analysis_keeps_a_compact_row_per_file_with_paths_inside_the_dataset
     assert (t['model'], t['tmin'], t['alt'], t['pitch'], t['distance'], t['lrf'], t['gps']) == \
         ('M4T', 17.25, 21.14, -90.0, 5.0, 21.4, 'RTK')
     assert t['tmax'] is None     # NaN: JSON has none
+    # Both clocks: the flight's time zone is found from them
+    assert (t['time'], t['utc']) == ('2026:10:12 18:29:50', '2026-10-12T23:30:09.6')
+    assert thermal_analysis.flight_zone(a) == {'offset': -300}
     assert rows['flight.srt']['kind'] == 'not_jpeg'
     assert a['cameras'] == [{'model': 'M4T', 'serial': 'SN1', 'width': 640, 'height': 512, 'frames': 1}]
     assert a['findings'][0]['files'] == ['thermal/DJI_0002_T.JPG']

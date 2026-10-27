@@ -17,6 +17,14 @@ All notable changes are recorded here. The format follows
 - A project's location: an address or a place searched for on OpenStreetMap's Nominatim, or a point clicked on the
   map and named by its address, shown on the project's map. The app's server asks Nominatim, as the app, at most once
   a second.
+- A navigation pane on the left of every page: the projects, their datasets and each conversion's mosaics, frames
+  and compare page, and User Preferences. Each level folds and the whole pane hides, both kept for the next visit;
+  the page shown is unfolded to and marked. On a narrow screen it opens over the page.
+- User Preferences, a page with the unit and the theme (still in the header too) and the locale dates and times are
+  written in: the computer's, or one chosen from a list.
+- A flight's capture times are shown in the time where it was flown, labelled with its time zone, found from each
+  frame's local capture time and DJI's UTC time of exposure (now kept by the analysis). A dataset analyzed before
+  says to analyze it again; one whose images do not record both times says the time zone is unknown.
 
 ### Changed
 

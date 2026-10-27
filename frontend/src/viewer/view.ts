@@ -1,6 +1,6 @@
 // The mosaic viewer's helpers: the tabs, the view kept in the URL, the data tiles' URL, the image's adjustments, the
 // colour scale's ticks, the correction and the report, ported from viewer.js
-import {type Maybe, formatNumber} from "../core/format";
+import {type FlightZone, formatNumber, type Maybe, zoneLabel} from "../core/format";
 import {convertDelta, convertTemp, formatDelta, formatTemp, userUnit} from "../core/units";
 import {type Measured, type ParamField, symbol, typedTemp} from "../measure/measure";
 
@@ -159,9 +159,15 @@ export function shownRange(tab: string, range: [number, number], unit: unknown):
     return tab === "view_angle" ? [range[0], range[1]] : [convertTemp(range[0], unit) as number, convertTemp(range[1], unit) as number];
 }
 
-// When frames were taken, from their recorded times ("YYYY:MM:DD HH:MM:SS"): "2026-09-18 08:44–09:02", or the
-// first and last in full when they are on different days; "" when none is known
-export function takenText(times: Maybe<Maybe<string>[]>): string {
+// When frames were taken, from their recorded times ("YYYY:MM:DD HH:MM:SS", the flight's local time): "2026-09-18
+// 08:44–09:02 UTC−5" (the zone when it is known), or the first and last in full when they are on different days; ""
+// when none is known. The exports carry it, so it is the same in every locale.
+export function takenText(times: Maybe<Maybe<string>[]>, zone?: Maybe<FlightZone>): string {
+    const at = takenRange(times);
+    return at && zone && zone.offset !== null && zone.offset !== undefined ? at + " " + zoneLabel(zone.offset) : at;
+}
+
+function takenRange(times: Maybe<Maybe<string>[]>): string {
     const t = (times || []).map((s) => {
         const m = /^(\d{4})[:-](\d\d)[:-](\d\d)[ T](\d\d):(\d\d)/.exec(s || "");
         return m ? m[1] + "-" + m[2] + "-" + m[3] + " " + m[4] + ":" + m[5] : null;

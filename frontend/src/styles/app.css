@@ -129,7 +129,53 @@ ul { padding-left: 20px; }
 .app-settings { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
 .app-settings label { color: var(--muted); }
 .app-version { color: var(--muted); font-size: 12px; }
-.app-main { padding: 16px; }
+.app-start { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#nav-toggle { font-size: 18px; color: var(--text); }
+.app-body { display: flex; align-items: flex-start; }
+.app-main { flex: 1 1 auto; min-width: 0; padding: 16px; }
+
+/* The navigation pane: beside the page, or over it on a narrow screen */
+
+.app-nav {
+    position: sticky; top: 0; flex: 0 0 260px; width: 260px; height: 100vh; overflow-y: auto; padding: 8px 0 16px;
+    background: var(--surface); border-right: 1px solid var(--border); font-size: 13px;
+}
+.app-body.narrow .app-nav {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 1030; width: min(300px, 85vw); height: auto;
+    box-shadow: var(--shadow);
+}
+.nav-backdrop { position: fixed; inset: 0; z-index: 1029; background: var(--overlay); }
+.nav-tree, .nav-tree ul { list-style: none; margin: 0; padding: 0; }
+.nav-row { display: flex; align-items: center; gap: 2px; min-height: 28px; padding-right: 8px; }
+.nav-row a {
+    flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text);
+    padding: 3px 4px; border-radius: var(--radius);
+}
+.nav-row a:hover { background: var(--hover); text-decoration: none; }
+.nav-row.current { box-shadow: inset 3px 0 var(--accent); background: var(--accent-soft); }
+.nav-row.current a { color: var(--accent); font-weight: 600; }
+.nav-home, .nav-preferences .nav-row { padding-left: 12px; gap: 6px; }
+.nav-home .icon, .nav-preferences .icon { color: var(--muted); }
+.nav-home a, .nav-preferences a { font-weight: 600; }
+.nav-preferences { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+.nav-fold, .nav-fold-space { flex: none; width: 22px; height: 22px; }
+.nav-fold {
+    display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--radius);
+    background: none; color: var(--muted); cursor: pointer;
+}
+.nav-fold:hover { background: var(--hover); color: var(--text); }
+.nav-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.level-1 > .nav-row { padding-left: 12px; }
+.level-2 > .nav-row { padding-left: 26px; }
+.level-3 > .nav-row { padding-left: 40px; }
+.level-4 > .nav-row { padding-left: 54px; }
+.level-3 a, .level-4 a { font-size: 12px; }
+.nav-error { margin: 4px 12px; font-size: 12px; }
+.nav-close { display: flex; justify-content: flex-end; padding: 0 8px 4px; }
+
+.page.preferences { max-width: 720px; }
+.preference { padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.preference .help { max-width: 560px; }
 
 .page { max-width: 1200px; margin: 0 auto; }
 .page.viewer, .page.frame, .page.compare { max-width: none; }

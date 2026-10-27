@@ -24,10 +24,66 @@ export function formatBytes(n: Maybe<number>): string {
     return (i === 0 ? String(n) : n.toFixed(n < 10 ? 1 : 0)) + " " + units[i];
 }
 
+// The locale dates and times are shown in (the preferences', given to the page in its settings): "" for the computer's
+let locale = "";
+
+export function userLocale(): string { return locale; }
+export function setUserLocale(l: unknown): void {
+    locale = "";
+    if (typeof l !== "string" || !l) return;
+    try {
+        locale = Intl.DateTimeFormat.supportedLocalesOf(l).length ? l : "";
+    } catch { /* not a locale: the computer's */ }
+}
+const inLocale = () => locale || undefined;
+
+// When the app did something (made, changed, analyzed): in the computer's time, in the user's locale
 export function formatDate(iso: Maybe<string>): string {
     if (!iso) return "";
     const d = new Date(iso);
-    return isNaN(d.getTime()) ? "" : d.toLocaleString();
+    return isNaN(d.getTime()) ? "" : d.toLocaleString(inLocale());
+}
+
+// The time zone a dataset was flown in, as the API finds it from its frames' two clocks: {offset} in minutes east of
+// UTC, or none with the reason
+export interface FlightZone {offset: number | null; reason?: string}
+
+// "UTC−5", "UTC+5:30", "UTC"
+export function zoneLabel(offset: number): string {
+    if (!offset) return "UTC";
+    const m = Math.abs(offset);
+    return "UTC" + (offset < 0 ? "−" : "+") + Math.floor(m / 60) + (m % 60 ? ":" + String(m % 60).padStart(2, "0") : "");
+}
+
+// What a flight's times are labelled with: its time zone, or that it is not known
+export function zoneText(zone: Maybe<FlightZone>): string {
+    return zone && zone.offset !== null && zone.offset !== undefined ? zoneLabel(zone.offset) : "time zone unknown";
+}
+
+// A time as a frame records it ("2026:10:22 16:34:57", the flight's local time), as a Date whose UTC fields hold it
+function recorded(t: Maybe<string>): Date | null {
+    const m = /^(\d{4})[:-](\d\d)[:-](\d\d)[ T](\d\d):(\d\d)(?::(\d\d))?/.exec(t || "");
+    return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0))) : null;
+}
+
+// When a frame was captured, in the flight's local time and the user's locale (or the one given; "" when not
+// recorded, as recorded when it is not a date and time); part: the date and time, or one of them
+export function formatCapture(t: Maybe<string>, part: "both" | "date" | "time" = "both", inTag = inLocale()): string {
+    const d = recorded(t);
+    if (!d) return t ? String(t) : "";
+    const opts: Intl.DateTimeFormatOptions = {timeZone: "UTC"};
+    if (part === "date") return d.toLocaleDateString(inTag, opts);
+    if (part === "time") return d.toLocaleTimeString(inTag, opts);
+    return d.toLocaleString(inTag, opts);
+}
+
+// When a flight's frames were captured, first to last: "22/10/2026, 16:34:57 to 16:58:10" (the date once when it is
+// the same), "" when none is recorded
+export function formatCaptureRange(first: Maybe<string>, last: Maybe<string>): string {
+    const a = recorded(first), b = recorded(last);
+    if (!a) return "";
+    if (!b || a.getTime() === b.getTime()) return formatCapture(first);
+    return formatCapture(first) + " to " + formatCapture(last, a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10) ? "time" : "both");
 }
 
 export function formatNumber(v: Maybe<number | string>, digits: number, unit?: string): string {

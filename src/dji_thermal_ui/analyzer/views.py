@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from .._version import __version__
-from .api import app_theme, app_unit
+from .api import app_locale, app_theme, app_unit
 from .basemaps import page_basemaps
 from .models import Project, ThermalConversion, ThermalDataset
 
@@ -16,7 +16,7 @@ PUBLIC = "/"
 
 def page(request, template, **context):
     return render(request, template, dict(context, api=API, public=PUBLIC, unit=app_unit(), theme=app_theme(),
-                                                 version=__version__))
+                                                 locale=app_locale(), version=__version__))
 
 
 def conversion_or_404(conversion_id):
@@ -26,6 +26,11 @@ def conversion_or_404(conversion_id):
 @ensure_csrf_cookie
 def projects_list(request):
     return page(request, "projects.html", title="Thermal Analyzer", entry="projects", basemaps=page_basemaps(API))
+
+
+@ensure_csrf_cookie
+def preferences_page(request):
+    return page(request, "preferences.html", title="User Preferences", entry="preferences")
 
 
 @ensure_csrf_cookie
