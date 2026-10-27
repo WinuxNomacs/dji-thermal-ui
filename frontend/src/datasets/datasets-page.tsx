@@ -202,30 +202,32 @@ export function DatasetsPage({api, publicUrl, nav = (url) => { location.href = u
             {message && <div class="message" id="message">{message}</div>}
 
             {shown.length > 0 && (
-                <table class="table" id="datasets">
-                    <thead><tr>
-                        {COLUMNS.map((c) => {
-                            const on = c.key === sort.key;
-                            return (
-                                <th data-sort={c.key} title={c.title}
-                                    aria-sort={on ? (sort.desc ? "descending" : "ascending") : "none"}>
-                                    <button type="button" class="sort" onClick={() => sortBy(c.key)}>
-                                        {c.label}{on && " "}
-                                        {on && (sort.desc ? <CaretDown class="icon sort-icon down"/> :
-                                            <CaretUp class="icon sort-icon up"/>)}
-                                    </button>
-                                </th>
-                            );
-                        })}
-                        <th><span class="sr-only">Actions</span></th>
-                    </tr></thead>
-                    <tbody>
-                        {sortDatasets(shown, sort.key, sort.desc).map((d) => (
-                            <Row key={d.id} d={d} publicUrl={publicUrl} rename={() => rename(d)}
-                                 analyze={() => analyze(d)} remove={() => remove(d)}/>
-                        ))}
-                    </tbody>
-                </table>
+                <div class="table-scroll">
+                    <table class="table" id="datasets">
+                        <thead><tr>
+                            {COLUMNS.map((c) => {
+                                const on = c.key === sort.key;
+                                return (
+                                    <th data-sort={c.key} title={c.title}
+                                        aria-sort={on ? (sort.desc ? "descending" : "ascending") : "none"}>
+                                        <button type="button" class="sort" onClick={() => sortBy(c.key)}>
+                                            {c.label}{on && " "}
+                                            {on && (sort.desc ? <CaretDown class="icon sort-icon down"/> :
+                                                <CaretUp class="icon sort-icon up"/>)}
+                                        </button>
+                                    </th>
+                                );
+                            })}
+                            <th><span class="sr-only">Actions</span></th>
+                        </tr></thead>
+                        <tbody>
+                            {sortDatasets(shown, sort.key, sort.desc).map((d) => (
+                                <Row key={d.id} d={d} publicUrl={publicUrl} rename={() => rename(d)}
+                                     analyze={() => analyze(d)} remove={() => remove(d)}/>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
 
             {hint && <div class="drop-hint" id="drop-hint"><Images/> Drop the images or their folder to make a new

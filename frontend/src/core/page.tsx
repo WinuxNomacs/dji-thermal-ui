@@ -2,6 +2,7 @@
 // templates/page.html), the unit and the theme applied, and the header above its own content
 import {type ComponentChildren, render} from "preact";
 import {Header} from "../components/header";
+import "../styles/app.css";
 import {applyTheme, themeOf} from "./theme";
 import {setUserUnit, unitOf} from "./units";
 
