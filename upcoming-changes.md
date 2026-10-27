@@ -9,12 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **B1: the pages rebuilt.** TypeScript, Preact and Vite, a look of the app's own, light and dark; the server's
-   PNG tiles and Leaflet stay. Release 0.2.0. (Facelift)
-
-**Then**
-1. **B2: the viewer on OpenLayers**, colouring the float32 mosaics in the browser with WebGL. Planned in detail
-   once B1 is done. (Facelift)
+1. **B2: the viewer on OpenLayers**, colouring the float32 mosaics in the browser with WebGL. To plan now that B1
+   is done. (Facelift)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -203,15 +199,9 @@ Awesome 5) is rebuilt in two stages, each released on its own.
 - **Live check:** A3's walk-through in headless Chromium on the 220 M4T frames, in light and in dark, and on
   Windows from WSL with the smoke check.
 - **Release:** 0.2.0.
-- **Built so far (branch `b1-pages`):** the five pages in `frontend/src` with their Vitest tests in
-  `frontend/tests`; the stylesheet `frontend/src/styles/app.css`; the old scripts, CSS, `base.html`, the vendored
-  libraries and Jest removed; packaging and CI as above. Windows (2026-10-27): a fresh clone installs and passes
-  pytest, and the smoke check passes on the built wheel. A3's walk-through, in light and in dark, passed; it found
-  three bugs, all fixed: resetting the defaults broke the convert tab, a conversion's menu stayed open after
-  Download all, and rio-tiler's colour maps (gray, magma…, the difference's) had black legends, a bug on `main`
-  since A2, fixed on its own branch. Left: the release.
+- **Done:** see Done below.
 
-### B2: the viewer on OpenLayers (to plan after B1)
+### B2: the viewer on OpenLayers (to plan next)
 
 - OpenLayers (10.11.0 today) with a WebGL tile layer reading the float32 mosaics, so the palette, range, gamma
   and brightness/contrast change without new tiles. `ol/source/Google` later serves the Map Tiles (Basemaps).
@@ -270,3 +260,13 @@ Awesome 5) is rebuilt in two stages, each released on its own.
   `release/0.1.0` sets the version and dates the changelog. Release checks passed on Linux (check_dist, twine,
   smoke on 3.12 and 3.14, ruff, 141 Jest, ESLint, 124 pytest) and on Windows from WSL (124 pytest, the wheel built,
   smoke on 3.12 and 3.14).
+- **B1: the pages rebuilt, release 0.2.0** (2026-10-27). The five pages in TypeScript and Preact (`frontend/src`,
+  one Vite entry per page in `frontend/src/pages`), Leaflet 1.9.4, the app's own stylesheet
+  (`frontend/src/styles/app.css`) with light and dark tokens, the theme in the preferences and the header; the build
+  in `src/dji_thermal_ui/static/dist/` (gitignored, shipped in the sdist and wheel) read by the `{% vite_entry %}` tag
+  (`analyzer/templatetags/vite.py`). Bootstrap, Font Awesome, the old scripts and Jest removed. Tests: Vitest
+  (`frontend/tests`, 138), pytest against a stub manifest (`tests/data/vite-manifest.json`), ESLint with tsc. CI
+  builds the pages before the distributions; `check_dist.py` requires each page's entry and files. The walk-through
+  found three bugs, fixed (one, the black legends of rio-tiler's colour maps, on `main` since A2). Release checks
+  passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 129 pytest, 138 Vitest, ESLint) and on Windows
+  from WSL (129 pytest from a fresh clone, smoke on 3.12 and 3.14).
