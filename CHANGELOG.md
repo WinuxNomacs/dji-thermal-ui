@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The legends of the gray, rainbow, hot, magma, inferno, plasma, viridis and jet colour maps, and of the
+  difference's, were drawn black: their colours were lost when sent to the page.
+
 ## [0.1.0] - 2026-10-25
 
 The first release: the Thermal Analyzer from LuxODM's `thermal-analyzer` plugin (0.15.0), as a standalone app.
