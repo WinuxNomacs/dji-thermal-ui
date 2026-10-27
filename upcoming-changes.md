@@ -9,11 +9,10 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **C4: findings on the compare page.** (Findings)
+1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
 
 **Then**
-1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
-2. **D2: the mosaic report**, with its measurements and findings. (Reports)
+1. **D2: the mosaic report**, with its measurements and findings. (Reports)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -409,8 +408,21 @@ Requested 2026-10-27 (`new.md`) and put before the reports at the user's request
 
 ### C4: findings on the compare page
 
+- **Built** (2026-10-27): see Done.
 - Findings shown on both panes with their own switch, opened in each pane's pop-out, and saved from a spot or area
   drawn in a pane.
+- **Decided with the user (2026-10-27):**
+  - **A difference pane** draws A's and B's datasets' findings (once when they are the same dataset); in its window
+    each mosaic's frames (A, B) have their own "Save as finding", saved to that mosaic's dataset and measured on it.
+  - **One switch for both panes**, in the page header, kept in the URL.
+  - **Open and change only:** a finding opens in the pane's window with Change (C3's form) and a link to it in the
+    viewer; deleting, hiding one by one and the list stay in the viewer.
+- **Each pane** draws its mosaic's dataset's findings in C3's style; a click on one opens it in that pane's window
+  with its kept frames. The finding open is kept in the URL, so a link opens it on the compare page too.
+- **Drawing:** the pane's "Source frames" button becomes Spot (as today) and Area (a polygon, the viewer's drawing);
+  the window's "Save as finding" opens C3's form, the temperatures read on that pane's mosaic as converted.
+- **Tests:** Vitest for the switch and the URL, a finding opened by a click and by a link, saving from a pane and
+  from each mosaic of a difference, and changing one.
 
 ### Each phase
 
@@ -712,3 +724,14 @@ show the minimum and maximum at its ends.
   one frame left out, a saved spot measurement saved as a finding, both drawn and tagged, a click on the map opening
   one, hiding one and the switch in the URL, a change of status, a link opening one, the project page's list and
   the counts, then both deleted; no console errors and no failed requests.
+- **C4: findings on the compare page** (2026-10-27). In `compare/compare-page.tsx`: a Drawing on each pane's map
+  (Spot and Area, `Toolbar` in its compact form), each pane drawing its datasets' findings (`findings/layer.ts`, with
+  `centreOf` shared with the viewer), the findings of the datasets shown loaded once each, the window's per-mosaic
+  "Save as finding" (`SourceGroup.about`, `SaveFinding` in `findings/panel.tsx`) and a finding's heading with Change
+  and a link to the viewer; the URL keeps `findings=0`, `a_finding=` and `b_finding=` (`compare/compare.ts`). No
+  change to the back end. Tests: findings tests in `frontend/tests/compare.test.tsx`, a map click made up through
+  `MapBrowserEvent` (223 Vitest, ESLint clean). Checked live in headless Chromium on the 220 M4T frames, light and
+  dark: a spot saved from pane A, an area from pane B, a spot from B's mosaic of a difference (saved on conversion 2),
+  a click on the map opening one, a change of status, the switch in the URL, a link opening one in pane B and its
+  link to the viewer. The pane's tool hint pushed its map down: the toolbar now keeps it as a tooltip. No console
+  errors, no failed requests, no findings left.

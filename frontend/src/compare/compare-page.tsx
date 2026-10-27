@@ -1,9 +1,11 @@
 // Two mosaics side by side: each pane shows a conversion's temperature mosaic, or the difference of pane A's and pane
 // B's (A − B), with pan and zoom linked, the cursor marked in the other pane, one palette and range shared (or each
-// pane's own), the split between the panes moved, and the source frames of a point picked in a pane, in a window.
-// The view (the mosaics, the difference, the split) is kept in the URL.
+// pane's own), the split between the panes moved, and the source frames of a spot or an area drawn in a pane, in a
+// window, saved as a finding of its mosaic's dataset. Each pane draws its datasets' findings, opened by a click. The
+// view (the mosaics, the difference, the split, the findings shown and open) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
+import GeoJSON from "ol/format/GeoJSON";
 import type OlPoint from "ol/geom/Point";
 import type OlMap from "ol/Map";
 import View from "ol/View";
@@ -12,19 +14,26 @@ import CircleStyle from "ol/style/Circle";
 import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
+import {getDistance} from "ol/sphere";
 import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
-import {readJson, sendJson} from "../core/api";
+import {errorText, readJson, sendJson} from "../core/api";
 import {type Maybe} from "../core/format";
-import {ArrowLeft, Crosshairs, Link, Lock, Unlink, Unlock} from "../components/icons";
-import {symbol} from "../measure/measure";
+import {ArrowLeft, Flag, Link, Lock, Unlink, Unlock} from "../components/icons";
+import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, findingSources,
+        findingsUrl} from "../findings/findings";
+import {centreOf, drawFindings, findingAt} from "../findings/layer";
+import {FindingAbout, FindingForm, SaveFinding} from "../findings/panel";
+import {Drawing, drawingKey} from "../measure/drawing";
+import {type Coords, type Geometry, type Shape, symbol, TOOLS, type Tool} from "../measure/measure";
+import {Toolbar} from "../measure/result";
 import {type Colouring} from "../map/colour";
-import {type Basemap, DATA_GUTTER, fitBounds, MAX_ZOOM, mapToLonLat, mosaicMap, pointFeature, rasterPixel, ThermalLayer,
-        type Values, vectorLayer} from "../map/map";
+import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, MAX_ZOOM, mapToLonLat, mosaicMap, pointFeature, rasterPixel,
+        ThermalLayer, type Values, vectorLayer} from "../map/map";
 import {type Scale} from "../viewer/canvas";
 import {type Point, Readout, ScaleView} from "../viewer/panel";
 import {type Adjust, dataUrl, defaultAdjust, type MosaicTab, tabLabel, toneShares} from "../viewer/view";
-import {type Mosaics} from "../viewer/viewer-page";
+import {type Mosaics, SOURCES_SHAPE} from "../viewer/viewer-page";
 import {autoRange, autoReach, clampSplit, type Comparable, type CompareStyle, compareQuery, type DiffInfo, differenceDataUrl,
         differenceUrl, type DiffStyle, firstTab, frameCurveUrl, frameDataUrl, mosaicCurveUrl, mosaicGroups, NO_OVERLAP,
         type PaneName, rangeIn, reachIn, readCompare, SPLIT_LIMITS, SPLIT_STEP} from "./compare";
@@ -37,20 +46,27 @@ const CURSOR = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke(
 const PICKED = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2}),
                                                   fill: new Fill({color: "#e8562a"})})});
 const NAMES: PaneName[] = ["a", "b"];
+// The source frames of a spot or an area (polygon) drawn in a pane
+const PANE_TOOLS = TOOLS.filter(([x]) => x === "point" || x === "area");
+const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
 
 // What a pane shows: a conversion's temperature tab (its mosaics' info), or the difference; its own palette and range
 // (used when they are not shared), and the difference's
 interface PaneState {conv: number; tab: string; info: Mosaics; diff: boolean; style: CompareStyle; diffStyle: DiffStyle | null}
 type Panes = Record<PaneName, PaneState>;
 
-// A point picked in a pane, and the frames that saw it in each mosaic it reads (res undefined while they are asked,
-// null when they could not be)
-interface Pick {at: Coordinate; mosaics: {pane: PaneName; conv: number; unit: unknown; res?: Sources | null}[]}
+// A spot or an area drawn in a pane, and the frames that saw it in each mosaic it reads (res undefined while they are
+// asked, null when they could not be); or a finding opened there, with its kept frames on the mosaic of its dataset
+interface PickMosaic {pane: PaneName; conv: number; unit: unknown; res?: Sources | null; error?: string}
+interface Pick {geometry: Geometry; shape?: Maybe<Shape>; mosaics: PickMosaic[]; finding?: number}
 
-// A pane's map and what is on it: the cursor of the other pane, and the point picked
+// The finding form open: a new one from a mosaic of what a pane's window shows (its index in the pick), or one changed
+interface Draft {title: string; fields: FindingFields; pane: PaneName; mosaic: number; edit?: Finding; error?: string}
+
+// A pane's map and what is on it: the cursor of the other pane, the spot or area drawn, the findings, the drawing
 interface PaneMap {
     map: OlMap; legend: HTMLDivElement; layer: ThermalLayer | null; layerKey: string | null;
-    marks: VectorSource; cursor: Feature | null; marker: Feature | null;
+    marks: VectorSource; cursor: Feature | null; shape: VectorSource; findings: VectorSource; drawing: Drawing;
 }
 
 // What a pane's map shows: its values (key: which mosaic or difference) and how they are coloured
@@ -86,8 +102,13 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const [dragging, setDragging] = useState(false);
     const [diffs, setDiffs] = useState<Record<string, DiffInfo | null>>({});     // null: it could not be loaded
     const [under, setUnder] = useState<Record<PaneName, Maybe<Point>> | undefined>(undefined);
-    const [picking, setPicking] = useState<Record<PaneName, boolean>>({a: false, b: false});
+    const [tools, setTools] = useState<Record<PaneName, {tool: Tool | null; count: number}>>(
+        {a: {tool: null, count: 0}, b: {tool: null, count: 0}});
     const [picks, setPicks] = useState<Record<PaneName, Pick | null>>({a: null, b: null});
+    // The findings of the datasets shown, by dataset
+    const [findings, setFindings] = useState<Record<number, Finding[]>>({});
+    const [showFindings, setShowFindings] = useState(wanted.findings !== false);
+    const [draft, setDraft] = useState<Draft | null>(null);
     const [mapsMade, setMapsMade] = useState(false);
     const [curves, setCurves] = useState<Record<string, number[] | null>>({});      // null: it could not be loaded
     const [live, setLive] = useState<{where: PaneName | "shared"; changes: Partial<CompareStyle>} | null>(null);
@@ -102,9 +123,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, a: 0, b: 0});
 
+    // The findings a link asked to open, once their datasets' are in
+    const toOpen = useRef<Record<PaneName, Maybe<number>>>({a: wanted.a_finding, b: wanted.b_finding});
+
     // What the maps' handlers (set up once) read: this render's values
-    const now = useRef({panes, linked, picking, picks});
-    now.current = {panes, linked, picking, picks};
+    const now = useRef({panes, linked, picks, findings, list});
+    now.current = {panes, linked, picks, findings, list};
 
     const palettes = panes?.a.info.palettes || [];
     const key = panes ? diffKey(panes) : "";
@@ -157,6 +181,10 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
 
     useEffect(() => {
         start();
+        const keys = (e: KeyboardEvent) => {
+            if (NAMES.some((n) => drawingKey(e, maps.current[n]?.drawing || null))) syncTools();
+        };
+        document.addEventListener("keydown", keys);
         // The split follows the mouse while its handle is held
         const move = (e: MouseEvent) => {
             if (!drag.current || !body.current) return;
@@ -170,6 +198,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             clearTimeout(hover.current);
             document.removeEventListener("mousemove", move);
             document.removeEventListener("mouseup", up);
+            document.removeEventListener("keydown", keys);
             NAMES.forEach((n) => maps.current[n]?.map.setTarget(undefined));
         };
     }, []);
@@ -185,8 +214,23 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
 
     function setupMap(n: PaneName, el: HTMLDivElement, view?: View) {
         const {map: m, legend} = mosaicMap(el, basemaps, view);
+        const findingsShown = vectorLayer(m, 8);
+        const drawing = new Drawing({
+            map: m, toCoords, fromCoords: lonLatToMap, distance: (a, b) => getDistance(a, b),
+            onDone: (geometry, shape) => {
+                syncTools();
+                openSources(n, geometry, shape);
+            },
+            onChange: syncTools,
+            // A click with no tool on opens the finding there
+            onClick: (at) => {
+                const hit = findingAt(m, m.getPixelFromCoordinate(at), findingsShown);
+                const f = hit !== null && paneFindings(n).find((x) => x.id === hit);
+                if (f) openFinding(n, f);
+            },
+        });
         const pm: PaneMap = maps.current[n] = {map: m, legend, layer: null, layerKey: null, marks: vectorLayer(m, 20),
-                                               cursor: null, marker: null};
+                                               cursor: null, shape: vectorLayer(m, 9), findings: findingsShown, drawing};
         // The cursor marked in the other pane
         m.on("pointermove", (e) => {
             const o = maps.current[other(n)];
@@ -210,7 +254,22 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             });
             setUnder(undefined);
         });
-        m.on("click", (e) => { if (now.current.picking[n]) pick(n, e.coordinate); });
+    }
+
+    function syncTools() {
+        const of = (n: PaneName) => {
+            const d = maps.current[n]?.drawing;
+            return {tool: d ? d.tool() : null, count: d ? d.count() : 0};
+        };
+        setTools({a: of("a"), b: of("b")});
+    }
+
+    // A drawing tool put on in a pane (or away): the other pane's put away
+    function pickTool(n: PaneName, x: Tool | null) {
+        maps.current[other(n)]?.drawing.stop();
+        if (x) maps.current[n]?.drawing.start(x);
+        else maps.current[n]?.drawing.stop();
+        syncTools();
     }
 
     function pointOf(p: PaneState, at: Coordinate): Promise<Point | null> {
@@ -228,47 +287,161 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         });
     }
 
-    function sourcesOf(p: PaneState, at: Coordinate): Promise<Sources | null> {
-        return sendJson(sourcesUrl(api, p.conv, p.tab), "POST", {geometry: {type: "Point", coordinates: mapToLonLat(at)}})
-            .then((res) => readJson<Sources>(res)).then((r) => r.ok ? r.data : null, () => null);
+    function sourcesOf(p: PaneState, geometry: Geometry): Promise<{res: Sources | null; error?: string}> {
+        return sendJson(sourcesUrl(api, p.conv, p.tab), "POST", {geometry}).then((res) => readJson<Sources>(res))
+            .then((r) => r.ok ? {res: r.data} : {res: null, error: errorText(r.data, "Could not find the frames.")},
+                  () => ({res: null}));
     }
 
-    // The source frames at a point of the pane: its mosaic's, or A's and B's for the difference
-    function pick(n: PaneName, at: Coordinate) {
-        const p = now.current.panes, pm = maps.current[n];
-        if (!p || !pm) return;
+    // The spot or area drawn in a pane on its map (none for a finding, which its own layer draws)
+    function showShape(n: PaneName, geometry: Geometry | null) {
+        const pm = maps.current[n];
+        if (!pm) return;
+        pm.shape.clear();
+        if (!geometry) return;
+        if (geometry.type === "Point") {
+            const f = pointFeature(lonLatToMap(geometry.coordinates));
+            f.setStyle(PICKED);
+            return pm.shape.addFeature(f);
+        }
+        const read = new GeoJSON().readFeature({type: "Feature", geometry, properties: {}}, {featureProjection: "EPSG:3857"});
+        (Array.isArray(read) ? read : [read]).forEach((x) => { x.setStyle(SOURCES_SHAPE); pm.shape.addFeature(x as Feature); });
+    }
+
+    // The source frames of a spot or an area of the pane: its mosaic's, or A's and B's for the difference
+    function openSources(n: PaneName, geometry: Geometry, shape?: Maybe<Shape>) {
+        const p = now.current.panes;
+        if (!p) return;
         const which: PaneName[] = p[n].diff ? ["a", "b"] : [n], asking_ = ++asked.current[n];
-        if (pm.marker) pm.marks.removeFeature(pm.marker);
-        pm.marker = pointFeature(at);
-        pm.marker.setStyle(PICKED);
-        pm.marks.addFeature(pm.marker);
+        showShape(n, geometry);
         const mosaics = which.map((x) => ({pane: x, conv: p[x].conv, unit: p[x].info.unit}));
-        setPicks((s) => ({...s, [n]: {at, mosaics}}));
-        Promise.all(which.map((x) => sourcesOf(p[x], at))).then((found) => {
+        setPicks((s) => ({...s, [n]: {geometry, shape, mosaics}}));
+        Promise.all(which.map((x) => sourcesOf(p[x], geometry))).then((found) => {
             if (asking_ !== asked.current[n]) return;
-            setPicks((s) => ({...s, [n]: {at, mosaics: mosaics.map((m, i) => ({...m, res: found[i]}))}}));
+            setPicks((s) => ({...s, [n]: {geometry, shape, mosaics: mosaics.map((m, i) => ({...m, ...found[i]}))}}));
         });
     }
 
     function closePick(n: PaneName) {
         asked.current[n]++;
-        const pm = maps.current[n];
-        if (pm?.marker) pm.marks.removeFeature(pm.marker);
-        if (pm) pm.marker = null;
+        showShape(n, null);
         setPicks((s) => ({...s, [n]: null}));
+    }
+
+    // The dataset of a conversion compared
+    const datasetOf = (conv: number) => now.current.list.find((c) => c.id === conv)?.dataset;
+
+    // The datasets whose findings a pane draws: its mosaic's, or A's and B's for the difference
+    function paneDatasets(n: PaneName): number[] {
+        const p = now.current.panes;
+        if (!p) return [];
+        const out: number[] = [];
+        (p[n].diff ? NAMES : [n]).forEach((x) => {
+            const d = datasetOf(p[x].conv);
+            if (d !== undefined && !out.includes(d)) out.push(d);
+        });
+        return out;
+    }
+
+    const paneFindings = (n: PaneName) => paneDatasets(n).flatMap((d) => now.current.findings[d] || []);
+
+    // The pane whose mosaic a finding of a dataset is shown on, in a pane (A's first for the difference)
+    function mosaicFor(n: PaneName, dataset: number): PaneName | null {
+        const p = now.current.panes;
+        if (!p) return null;
+        return (p[n].diff ? NAMES : [n]).find((x) => datasetOf(p[x].conv) === dataset) || null;
+    }
+
+    // A dataset's findings
+    async function loadFindings(dataset: number) {
+        try {
+            const r = await readJson<{findings?: Finding[]}>(await fetch(findingsUrl(api, dataset), {credentials: "same-origin"}));
+            if (r.ok) setFindings((s) => ({...s, [dataset]: r.data.findings || []}));
+        } catch {
+            // they stay as they were
+        }
+    }
+
+    // A finding in a pane's window with its kept frames (centre: the map moves to it)
+    function openFinding(n: PaneName, f: Finding, centre = false) {
+        const p = now.current.panes, x = mosaicFor(n, f.dataset);
+        if (!p || !x) return;
+        asked.current[n]++;
+        showShape(n, null);
+        setPicks((s) => ({...s, [n]: {geometry: f.geometry, finding: f.id,
+                                      mosaics: [{pane: x, conv: p[x].conv, unit: p[x].info.unit, res: findingSources(f)}]}}));
+        if (centre) maps.current[n]?.map.getView().animate({center: centreOf(f), duration: 250});
+    }
+
+    async function saveFinding(v: FindingFields) {
+        const d = draft, p = panes, pick = picks[d?.pane || "a"];
+        if (!d || !p) return;
+        if (!v.name.trim()) return setDraft({...d, error: "Name the finding to save it"});
+        let r, dataset: Maybe<number>;
+        if (d.edit) {
+            dataset = d.edit.dataset;
+            r = await readJson<Finding>(await sendJson(findingsUrl(api, dataset, d.edit.id), "PATCH",
+                {...fieldsBody(v, d.edit.frames), kept: v.kept || d.edit.frames.map((x) => x.frame)}));
+        } else {
+            const m = pick?.mosaics[d.mosaic];
+            dataset = m && datasetOf(m.conv);
+            if (!pick || !m || dataset === undefined) return;
+            r = await readJson<Finding>(await sendJson(findingsUrl(api, dataset), "POST", {...fieldsBody(v, m.res?.frames),
+                conversion: m.conv, tab: p[m.pane].tab, geometry: pick.geometry, shape: pick.shape, parameters: {}}));
+        }
+        if (!r.ok) return setDraft({...d, fields: v, error: errorText(r.data, "Could not save the finding.")});
+        setDraft(null);
+        await loadFindings(dataset);
+        openFinding(d.pane, r.data);
     }
 
     // A pane's map sized again when the split moves
     useEffect(() => { NAMES.forEach((n) => maps.current[n]?.map.updateSize()); }, [split, mapsMade]);
 
-    // The points picked asked again when what the panes show changes
+    // The spots and areas drawn asked again when what the panes show changes; a finding kept open where its dataset still is
     const shownKey = panes ? key + ":" + panes.a.diff + ":" + panes.b.diff : "";
     const firstShown = useRef(true);
     useEffect(() => {
         if (!shownKey) return;
         if (firstShown.current) { firstShown.current = false; return; }
-        NAMES.forEach((n) => { const p = now.current.picks[n]; if (p) pick(n, p.at); });
+        NAMES.forEach((n) => {
+            const p = now.current.picks[n];
+            if (!p) return;
+            if (p.finding === undefined) return openSources(n, p.geometry, p.shape);
+            const f = paneFindings(n).find((x) => x.id === p.finding);
+            if (f) openFinding(n, f);
+            else closePick(n);
+        });
     }, [shownKey]);
+
+    // The findings of the datasets shown, each asked once (again after a change), and those a link asked to open
+    const shownDatasets = panes ? Array.from(new Set(NAMES.map((n) => datasetOf(panes[n].conv))))
+        .filter((d): d is number => d !== undefined) : [];
+    useEffect(() => {
+        shownDatasets.forEach((d) => {
+            const k = "findings:" + d;
+            if (d in findings || asking.current[k]) return;
+            asking.current[k] = true;
+            loadFindings(d).then(() => { delete asking.current[k]; });
+        });
+    }, [shownDatasets.join()]);
+    useEffect(() => {
+        if (!mapsMade) return;
+        NAMES.forEach((n) => {
+            const id_ = toOpen.current[n], wantedIn = paneDatasets(n);
+            if (!id_ || !wantedIn.every((d) => d in findings)) return;
+            toOpen.current[n] = null;
+            const f = paneFindings(n).find((x) => x.id === id_);
+            if (f) openFinding(n, f, true);
+        });
+    }, [findings, mapsMade]);
+
+    // Each pane's findings on its map, the one open there drawn thicker
+    const drawnFindings = panes && list.length ? {a: showFindings ? paneFindings("a") : [], b: showFindings ? paneFindings("b") : []} : null;
+    useEffect(() => {
+        if (!drawnFindings || !mapsMade) return;
+        NAMES.forEach((n) => drawFindings(maps.current[n]!.findings, drawnFindings[n], picks[n]?.finding ?? null));
+    }, [JSON.stringify(drawnFindings), picks.a?.finding, picks.b?.finding, mapsMade]);
 
     // The difference, asked once for each pair of mosaics while a pane shows it; its palette and reach start from it
     const anyDiff = !!panes && (panes.a.diff || panes.b.diff);
@@ -390,9 +563,10 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     useEffect(() => {
         if (!panes) return;
         const view = {a: panes.a.conv, b: panes.b.conv, a_tab: panes.a.tab, b_tab: panes.b.tab, split,
-                      diff: panes.a.diff ? "a" as const : panes.b.diff ? "b" as const : "" as const};
+                      diff: panes.a.diff ? "a" as const : panes.b.diff ? "b" as const : "" as const, findings: showFindings,
+                      a_finding: picks.a?.finding ?? toOpen.current.a, b_finding: picks.b?.finding ?? toOpen.current.b};
         history.replaceState(null, "", location.pathname + compareQuery(view, id));
-    }, [shownKey, split]);
+    }, [shownKey, split, showFindings, picks.a?.finding, picks.b?.finding]);
 
     function setPane(n: PaneName, changes: Partial<PaneState>) {
         setPanes((s) => s && {...s, [n]: {...s[n], ...changes}});
@@ -453,13 +627,18 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const conversion = (conv: number) => list.find((c) => c.id === conv);
     const frameUrl = (conv: number) => publicUrl + "conversion/" + conv + "/frame?frame=";
 
-    // The frames that saw the point picked in a pane, coloured as each mosaic is
+    // The frames that saw the spot or area drawn in a pane, coloured as each mosaic is, each mosaic's saved as a finding
+    // of its dataset
     function pickedGroups(n: PaneName): SourceGroup[] {
-        return picks[n]!.mosaics.map((m, i) => {
+        const pick = picks[n]!;
+        return pick.mosaics.map((m, i) => {
             const c = conversion(m.conv), s = styleOf(m.pane);
+            const savable = pick.finding === undefined && m.res && m.res.reason !== "outside_raster";
             // As the pane's mosaic is named: its conversion and tab
-            return {title: (panes![n].diff ? (i ? "B" : "A") + " · " : "") + (c ? c.name + " · " : "") + tabLabel(panes![m.pane].tab),
-                    res: m.res, unit: m.unit, href: (f) => frameUrl(m.conv) + encodeURIComponent(f),
+            return {title: (panes![n].diff ? m.pane.toUpperCase() + " · " : "") + (c ? c.name + " · " : "") + tabLabel(panes![m.pane].tab),
+                    res: m.res, error: m.error, unit: m.unit, href: (f) => frameUrl(m.conv) + encodeURIComponent(f),
+                    about: savable ? <SaveFinding onSave={() => setDraft({title: "Save as finding", fields: blankFields(),
+                                                                          pane: n, mosaic: i})}/> : null,
                     values: (f) => frameDataUrl(api, m.conv, f),
                     curve: (f) => s.adjust.equalize ? frameCurveUrl(api, m.conv, f, s, m.unit) : "",
                     colouring: {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], range: rangeIn(s.range, m.unit),
@@ -467,11 +646,26 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         });
     }
 
+    // Above a finding's frames in a pane's window: what it is, to change or open in the viewer
+    function findingAbout(n: PaneName) {
+        const pick = picks[n], f = pick?.finding !== undefined ? paneFindings(n).find((x) => x.id === pick.finding) : null;
+        if (!pick || !f) return null;
+        return <FindingAbout f={f} viewer={publicUrl + "conversion/" + pick.mosaics[0].conv + "?finding=" + f.id}
+                             onEdit={() => setDraft({title: "Change finding", fields: fieldsOf(f), pane: n, mosaic: 0, edit: f})}/>;
+    }
+
+    // What the finding form keeps: the frames of the finding changed, or of the mosaic saved from
+    function draftFrames(d: Draft) {
+        if (d.edit) return d.edit.frames;
+        const res = picks[d.pane]?.mosaics[d.mosaic]?.res;
+        return res === undefined ? undefined : res?.frames ?? null;
+    }
+
     function paneView(n: PaneName) {
         const p = panes?.[n], d = diffs[key];
         const ownStyle = p && (p.diff ? !!p.diffStyle : !locked);
         const note = !p?.diff ? "" : d === null ? "Could not load the difference." : d && (!d.range || !d.bounds) ? NO_OVERLAP : "";
-        return (<div class={"compare-pane" + (picking[n] ? " picking" : "")} id={"pane-" + n} data-pane={n}
+        return (<div class={"compare-pane" + (tools[n].tool ? " picking" : "")} id={"pane-" + n} data-pane={n}
                      style={n === "a" ? {flexBasis: split + "%"} : undefined}>
             {p && <div class="compare-head">
                 <span class="compare-name">{n.toUpperCase()}</span>
@@ -486,9 +680,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     <option value="mosaic">Mosaic</option>
                     <option value="diff">Difference (A − B)</option>
                 </select>
-                <button type="button" name="pick" class={"button default small" + (picking[n] ? " active" : "")}
-                        aria-pressed={picking[n]} title="Click the map to see every frame that saw a point"
-                        onClick={() => setPicking((s) => ({...s, [n]: !s[n]}))}><Crosshairs/> Source frames</button>
+                <div class="compare-tools">
+                    <span class="text-muted">Source frames</span>
+                    <Toolbar tool={tools[n].tool} count={tools[n].count} tools={PANE_TOOLS} compact
+                             label={"The source frames of a spot or an area of pane " + n.toUpperCase()}
+                             onTool={(x) => pickTool(n, x)} onFinish={() => { maps.current[n]?.drawing.finish(); syncTools(); }}/>
+                </div>
             </div>}
             {p && ownStyle && (p.diff ?
                 <StyleBar key={n + ":diff"} style={p.diffStyle!} palettes={d?.palettes || []} what="the difference"
@@ -504,7 +701,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     <Readout point={under[n]} unit={p.info.unit} frameUrl={frameUrl(p.conv)} pinned={false} onFollow={() => undefined}/>}
             </div>}
             {p && picks[n] && <SourcesWindow name={"compare-" + n} anchor={mapEls[n].current} groups={pickedGroups(n)}
-                                             onClose={() => closePick(n)}/>}
+                                             about={findingAbout(n)} onClose={() => closePick(n)}/>}
         </div>);
     }
 
@@ -524,6 +721,9 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     <button type="button" id="lock" class={"button default" + (locked ? " active" : "")} aria-pressed={locked}
                             title="Both panes share one palette and range" onClick={toggleLocked}>
                         {locked ? <><Lock/> Shared palette</> : <><Unlock/> Each pane its own</>}</button>
+                    <button type="button" id="findings" class={"button default" + (showFindings ? " active" : "")}
+                            aria-pressed={showFindings} title="Show the datasets' findings in both panes"
+                            onClick={() => setShowFindings(!showFindings)}><Flag/> Findings</button>
                 </div>
             </div>
             {status && <div class={status.error ? "notice error" : "message"} id="status" role={status.error ? "alert" : undefined}>
@@ -544,6 +744,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     {paneView("b")}
                 </div>
             </div>
+            {draft && <FindingForm title={draft.title} fields={draft.fields} error={draft.error} onSave={saveFinding}
+                                   onCancel={() => setDraft(null)} frames={draftFrames(draft)}/>}
         </div>
     );
 }

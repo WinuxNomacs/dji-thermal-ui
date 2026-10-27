@@ -17,7 +17,7 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, Flag, Grid, Image, Images, Save, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, Grid, Image, Images, Save, Stop} from "../components/icons";
 import {Drawing, drawingKey} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
@@ -26,8 +26,8 @@ import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {SourcesWindow} from "../sources/window";
 import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, findingSources,
         findingsUrl} from "../findings/findings";
-import {drawFindings, findingAt} from "../findings/layer";
-import {FindingAbout, FindingForm, Findings} from "../findings/panel";
+import {centreOf, drawFindings, findingAt} from "../findings/layer";
+import {FindingAbout, FindingForm, Findings, SaveFinding} from "../findings/panel";
 import {type Colouring, isothermRange} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer} from "../map/map";
@@ -82,7 +82,7 @@ const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
 const fromCoords = (c: Coords): Coordinate => lonLatToMap(c);
 const WORLD = [-180, -85, 180, 85];
 const FOOTPRINT = new OlStyle({stroke: new Stroke({color: "rgba(255, 255, 255, 0.9)", width: 2})});
-const SOURCES_SHAPE = new OlStyle({stroke: new Stroke({color: "#ffea00", width: 2, lineDash: [6, 4]}),
+export const SOURCES_SHAPE = new OlStyle({stroke: new Stroke({color: "#ffea00", width: 2, lineDash: [6, 4]}),
                                    image: new CircleStyle({radius: 7, stroke: new Stroke({color: "#ffea00", width: 2})})});
 // The tabs whose spots and areas open their source frames, and the tools that draw them
 const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
@@ -457,12 +457,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         setSources({geometry: f.geometry, tab: SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : "as_converted",
                     res: findingSources(f), finding: f.id});
         const m = map.current;
-        if (centre && m) {
-            const ring = f.geometry.type === "Point" ? [f.geometry.coordinates as Coords] : (f.geometry.coordinates as Coords[][])[0];
-            const xs = ring.map((c) => fromCoords(c));
-            m.getView().animate({center: [xs.reduce((a, c) => a + c[0], 0) / xs.length, xs.reduce((a, c) => a + c[1], 0) / xs.length],
-                                 duration: 250});
-        }
+        if (centre && m) m.getView().animate({center: centreOf(f), duration: 250});
     }
 
     // The form, to save the spot or area in the window as a finding (named as its measurement is), or to change one
@@ -810,10 +805,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const f = sources?.finding ? findings.find((x) => x.id === sources.finding) : null;
         if (f) return <FindingAbout f={f} onEdit={() => editFinding(f)}/>;
         if (!sources?.res || sources.res.reason === "outside_raster") return null;
-        return (<div class="sources-actions">
-            <button type="button" class="button default small" name="save-finding" onClick={() => newFinding()}
-                    title="Keep this spot or area, its temperatures and frames, as a finding of the dataset"><Flag/> Save as finding</button>
-        </div>);
+        return <SaveFinding onSave={() => newFinding()}/>;
     }
 
     if (!v) {
