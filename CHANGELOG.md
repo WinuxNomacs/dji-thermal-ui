@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-27
+
 ### Added
 
 - Findings: a spot or an area of a mosaic saved on its dataset, with a name, notes, a severity and a status, its
