@@ -49,6 +49,7 @@ export interface Result {
     isotherm?: {share?: number | null} | null;
     profile?: Profile | null;
     histogram?: Histogram | null;
+    percentiles?: number[] | null;
     max_location?: Coords | null;
     min_location?: Coords | null;
 }

@@ -236,7 +236,7 @@ interface Report {
 }
 export interface Kind {
     frames?: number; oblique?: number; unusable?: number; width?: number; height?: number; gsd_m?: number;
-    report?: Report | null; normalization?: number[] | null;
+    report?: Report | null; normalization?: number[] | null; files?: string[];
 }
 
 // What dji-thermal-cli reports about a mosaic: how many frames, how well they agree and line up
