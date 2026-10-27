@@ -6,6 +6,12 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The pages are rebuilt in TypeScript and Preact, with Leaflet 1.9.4, and built with Vite. Bootstrap and Font
+  Awesome are gone: the app has its own stylesheet.
+- Light and dark pages, or the computer's own, chosen in the header.
+
 ### Fixed
 
 - The legends of the gray, rainbow, hot, magma, inferno, plasma, viridis and jet colour maps, and of the

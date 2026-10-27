@@ -38,6 +38,8 @@ from .raster.security import path_traversal_check
 PREFERENCES_KEY = 'conversion_settings'
 UNIT_KEY = 'unit'
 DEFAULT_UNIT = 'F'
+THEME_KEY = 'theme'
+THEMES = ('system', 'light', 'dark')     # system: the computer's own light or dark
 IMAGE_EXTENSIONS = ('.jpg', '.jpeg')
 MAX_FOLDER_DEPTH = 4    # subfolders kept from an uploaded folder (e.g. thermal/, 100MEDIA/)
 
@@ -162,6 +164,12 @@ def app_unit():
     """The unit temperatures are shown in (the preferences'), F when none is saved"""
     unit = Preferences.load().data.get(UNIT_KEY)
     return unit if unit in thermal_conversion.UNITS else DEFAULT_UNIT
+
+
+def app_theme():
+    """The pages' colours (the preferences'), the computer's own when none is saved"""
+    theme = Preferences.load().data.get(THEME_KEY)
+    return theme if theme in THEMES else THEMES[0]
 
 
 def defaults():
@@ -494,20 +502,24 @@ class PreferencesView(DatasetView):
             'defaults': defaults(),
             'unit': app_unit(),
             'units': list(thermal_conversion.UNITS),
+            'theme': app_theme(),
+            'themes': list(THEMES),
             'products': thermal_conversion.products(),
             'palettes': thermal_conversion.palettes(),
             'limits': thermal_conversion.LIMITS,
         })
 
     def put(self, request):
-        """Saves settings as the defaults for new conversions, and/or the unit temperatures are shown in"""
+        """Saves settings as the defaults for new conversions, and/or the unit temperatures are shown in, and/or the
+        pages' theme"""
         out = {}
-        if 'unit' in request.data:
-            unit = request.data.get('unit')
-            if unit not in thermal_conversion.UNITS:
-                raise ValidationError({'unit': "One of {}".format(", ".join(thermal_conversion.UNITS))})
-            save_preference(UNIT_KEY, unit)
-            out['unit'] = unit
+        for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES)):
+            if key in request.data:
+                value = request.data.get(key)
+                if value not in choices:
+                    raise ValidationError({key: "One of {}".format(", ".join(choices))})
+                save_preference(key, value)
+                out[key] = value
         if 'settings' in request.data or not out:
             settings, errors = thermal_conversion.parse_settings(request.data.get('settings'))
             if errors:
@@ -517,7 +529,7 @@ class PreferencesView(DatasetView):
         return Response(out)
 
     def delete(self, request):
-        """Back to dji-thermal-cli's defaults (the unit is kept)"""
+        """Back to dji-thermal-cli's defaults (the unit and the theme are kept)"""
         save_preference(PREFERENCES_KEY, None)
         return Response({'settings': defaults(), 'saved': False})
 

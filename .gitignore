@@ -226,5 +226,5 @@ ignored/
 # Personal editor and Claude settings
 .vscode/
 .claude/settings.local.json
-# Jest, jsdom, ESLint and leaflet for the tests (npm ci)
+# The front end's packages (npm ci)
 node_modules/

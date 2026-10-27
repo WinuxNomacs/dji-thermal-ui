@@ -172,3 +172,15 @@ def test_temperatures_are_in_fahrenheit_until_another_unit_is_chosen(api):
     api.put(PREFERENCES, {'settings': {'unit': 'C'}}, format='json')
     res = api.get(PREFERENCES)
     assert (res.data['settings']['unit'], res.data['unit']) == ('C', 'K')
+
+
+def test_the_pages_follow_the_computers_theme_until_light_or_dark_is_chosen(api):
+    res = api.get(PREFERENCES)
+    assert (res.data['theme'], res.data['themes']) == ('system', ['system', 'light', 'dark'])
+    assert api.put(PREFERENCES, {'theme': 'blue'}, format='json').status_code == 400
+
+    assert api.put(PREFERENCES, {'theme': 'dark'}, format='json').data == {'theme': 'dark'}
+    assert api.put(PREFERENCES, {'unit': 'C'}, format='json').data == {'unit': 'C'}
+    api.delete(PREFERENCES)
+    res = api.get(PREFERENCES)
+    assert (res.data['theme'], res.data['unit'], res.data['saved']) == ('dark', 'C', False)

@@ -1,12 +1,14 @@
 """Check built distributions hold only what should ship: python scripts/check_dist.py dist/
 
 Every file in the wheel and sdist must match an allowlist, so nothing local (editor or assistant settings, test data,
-the Jest tests, node_modules, build leftovers) can be published by accident. Also checks both carry the templates, the
-migrations, the scripts and the vendored libraries with their licences.
+the front end's sources and tests, node_modules, build leftovers) can be published by accident. Also checks both carry
+the templates, the migrations and the built front end (npm run build): each page's entry and files, and the
+licences of what is bundled into it.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 import tarfile
@@ -15,14 +17,10 @@ from pathlib import Path
 
 PY = r"dji_thermal_ui/(?:[a-z_0-9]+/)*[a-z_0-9]+\.py"
 TEMPLATES = r"dji_thermal_ui/templates/[a-z_]+\.html"
-STATIC = r"dji_thermal_ui/static/[a-z_]+\.(?:js|css)"
-VENDOR = (r"dji_thermal_ui/static/vendor/(?:"
-          r"bootstrap/(?:LICENSE|css/bootstrap\.min\.css)"
-          r"|fontawesome/(?:LICENSE\.txt|css/all\.min\.css|webfonts/fa-(?:regular-400|solid-900)\.woff2)"
-          r"|leaflet/(?:LICENSE|leaflet\.(?:js|css)|images/[a-z0-9-]+\.png))")
-PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}|{VENDOR}"
-VENDOR_LICENSES = r"src/dji_thermal_ui/static/vendor/(?:bootstrap/LICENSE|fontawesome/LICENSE\.txt|leaflet/LICENSE)"
-LICENSES = rf"LICENSE|{VENDOR_LICENSES}"
+STATIC = (r"dji_thermal_ui/static/(?:favicon\.svg"
+          r"|dist/(?:manifest\.json|THIRD-PARTY-LICENSES\.txt|assets/[A-Za-z0-9_.-]+\.(?:js|css|png|svg|woff2)))")
+PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}"
+LICENSES = r"LICENSE"
 WHEEL = re.compile(rf"(?:{PACKAGE})|dji_thermal_ui-[^/]+\.dist-info/(?:METADATA|WHEEL|RECORD|entry_points\.txt"
                    rf"|licenses/(?:{LICENSES}))")
 # uv_build keeps the original pyproject.toml as pyproject.toml.orig next to its normalized copy
@@ -31,42 +29,57 @@ REQUIRED = [
     "dji_thermal_ui/__init__.py",
     "dji_thermal_ui/cli.py",
     "dji_thermal_ui/analyzer/migrations/0001_initial.py",
-    "dji_thermal_ui/templates/base.html",
+    "dji_thermal_ui/templates/page.html",
     "dji_thermal_ui/templates/datasets.html",
-    "dji_thermal_ui/static/analyzer_core.js",
-    "dji_thermal_ui/static/viewer.js",
-    "dji_thermal_ui/static/vendor/bootstrap/css/bootstrap.min.css",
-    "dji_thermal_ui/static/vendor/fontawesome/css/all.min.css",
-    "dji_thermal_ui/static/vendor/leaflet/leaflet.js",
+    "dji_thermal_ui/static/favicon.svg",
+    "dji_thermal_ui/static/dist/manifest.json",
+    "dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",        # the licences of what is bundled, beside it
 ]
-LICENCE_FILES = {
-    "LICENSE",
-    "src/dji_thermal_ui/static/vendor/bootstrap/LICENSE",
-    "src/dji_thermal_ui/static/vendor/fontawesome/LICENSE.txt",
-    "src/dji_thermal_ui/static/vendor/leaflet/LICENSE",
-}
+# The pages' entries in the build's manifest (frontend/src/pages), each with its files in the distribution
+PAGES = ["datasets", "dataset", "viewer", "frame", "compare"]
+MANIFEST = "dji_thermal_ui/static/dist/manifest.json"
+LICENCE_FILES = {"LICENSE"}
+
+
+def build_problems(names: list[str], manifest: bytes | None, prefix: str = "") -> list[str]:
+    """What the build's manifest lacks: an entry for each page, and the files they load"""
+    if manifest is None:
+        return []           # reported as missing already
+    chunks = json.loads(manifest)
+    problems = []
+    for page in PAGES:
+        chunk = chunks.get(f"src/pages/{page}.tsx")
+        if not chunk or not chunk.get("isEntry"):
+            problems.append(f"no entry for the {page} page in the manifest")
+            continue
+        for f in [chunk["file"], *chunk.get("css", [])]:
+            if f"{prefix}dji_thermal_ui/static/dist/{f}" not in names:
+                problems.append(f"missing: the {page} page's {f}")
+    return problems
 
 
 def wheel_problems(path: Path) -> list[str]:
     with zipfile.ZipFile(path) as z:
         names = [n for n in z.namelist() if not n.endswith("/")]
+        manifest = z.read(MANIFEST) if MANIFEST in names else None
     problems = [f"unexpected file: {n}" for n in names if not WHEEL.fullmatch(n)]
     problems += [f"missing: {r}" for r in REQUIRED if r not in names]
     licences = {n.split("/licenses/", 1)[1] for n in names if "/licenses/" in n}
     problems += [f"missing licence: {lic}" for lic in sorted(LICENCE_FILES - licences)]
-    return problems
+    return problems + build_problems(names, manifest)
 
 
 def sdist_problems(path: Path) -> list[str]:
     with tarfile.open(path) as t:
         members = t.getmembers()
-    root = members[0].name.split("/", 1)[0]
-    names = [m.name.removeprefix(root + "/") for m in members if m.isfile()]
+        root = members[0].name.split("/", 1)[0]
+        names = [m.name.removeprefix(root + "/") for m in members if m.isfile()]
+        manifest = t.extractfile(f"{root}/src/{MANIFEST}").read() if f"src/{MANIFEST}" in names else None
     problems = [f"not a regular file or directory: {m.name}" for m in members if not (m.isfile() or m.isdir())]
     problems += [f"unexpected file: {n}" for n in names if not SDIST.fullmatch(n)]
     problems += [f"missing: src/{r}" for r in REQUIRED if f"src/{r}" not in names]
     problems += [f"missing licence: {lic}" for lic in sorted(LICENCE_FILES - set(names))]
-    return problems
+    return problems + build_problems(names, manifest, "src/")
 
 
 def main(argv: list[str]) -> int:

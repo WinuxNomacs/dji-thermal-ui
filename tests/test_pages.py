@@ -22,9 +22,9 @@ def conversion(d, name="Conversion 1"):
 def test_each_page_is_served_with_the_csrf_cookie(client):
     d = dataset()
     c = conversion(d)
-    for url, page_id in [("/", "ta-datasets"), ("/dataset/%d" % d.id, "ta-dataset"),
-                         ("/conversion/%d" % c.id, "ta-viewer"), ("/conversion/%d/frame" % c.id, "ta-frame"),
-                         ("/conversion/%d/compare" % c.id, "ta-compare")]:
+    for url, page_id in [("/", "app"), ("/dataset/%d" % d.id, "app"),
+                         ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "app"),
+                         ("/conversion/%d/compare" % c.id, "app")]:
         client.cookies.clear()
         res = client.get(url)
         assert res.status_code == 200, url
@@ -59,26 +59,30 @@ def test_the_viewer_and_compare_pages_carry_the_basemaps(client):
 
 def test_the_pages_show_temperatures_in_the_apps_unit(client):
     from rest_framework.test import APIClient
-    html = client.get("/").content.decode()
-    assert re.search(r'id="ta-unit" type="application/json">"F"<', html)
-    assert '<option value="F" selected>' in html
+    d = dataset()
+    assert 'data-unit="F"' in client.get("/").content.decode()
+    assert 'data-unit="F"' in client.get("/dataset/%d" % d.id).content.decode()
     APIClient().put(PREFERENCES, {'unit': 'K'}, format='json')
+    assert 'data-unit="K"' in client.get("/").content.decode()
+    assert 'data-unit="K"' in client.get("/dataset/%d" % d.id).content.decode()
+
+
+def test_a_rebuilt_page_loads_its_built_script_with_its_settings(client):
     html = client.get("/").content.decode()
-    assert re.search(r'id="ta-unit" type="application/json">"K"<', html)
-    assert '<option value="K" selected>' in html
+    assert '<div id="app" data-page="datasets" data-api="/api/" data-public="/" data-unit="F"' in html
+    assert '<script type="module" src="/static/dist/assets/datasets-a1.js"></script>' in html
+    d = dataset()
+    html = client.get("/dataset/%d" % d.id).content.decode()
+    assert '<div id="app" data-page="dataset" data-api="/api/"' in html and 'data-id="%d"' % d.id in html
+    assert '<script type="module" src="/static/dist/assets/dataset-f6.js"></script>' in html
 
 
-
-
-
-def test_every_script_and_stylesheet_a_page_loads_is_served(client):
+def test_every_page_loads_only_its_build_and_the_icon(client):
     c = conversion(dataset())
-    urls = set()
-    for page in ["/", "/dataset/%d" % c.dataset.id, "/conversion/%d" % c.id, "/conversion/%d/frame" % c.id,
-                 "/conversion/%d/compare" % c.id]:
-        urls.update(re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode()))
-    assert len(urls) >= 13
-    for url in sorted(urls):
-        res = client.get(url)
-        assert res.status_code == 200, url
-        res.close()
+    pages = {"/": "datasets-a1", "/dataset/%d" % c.dataset.id: "dataset-f6", "/conversion/%d" % c.id: "viewer-a7",
+             "/conversion/%d/frame" % c.id: "frame-c9", "/conversion/%d/compare" % c.id: "compare-e1"}
+    for page, script in pages.items():
+        urls = re.findall(r'(?:src|href)="(/static/[^"]+)"', client.get(page).content.decode())
+        # The tests' build is the stub manifest (tests/settings.py)
+        assert "/static/dist/assets/%s.js" % script in urls, page
+        assert all(u.startswith("/static/dist/") for u in urls if u != "/static/favicon.svg"), (page, urls)
