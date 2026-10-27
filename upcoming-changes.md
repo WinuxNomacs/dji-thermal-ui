@@ -193,7 +193,8 @@ Awesome 5) is rebuilt in two stages, each released on its own.
   a stub manifest, so they do not need a build.
 - **Packaging:** CI's build job builds the front end first (lint and pytest need no build: the stub manifest).
   `check_dist.py` requires the manifest, each page's entry and its files. A third-party licence file for the
-  bundle (Preact, Leaflet) is generated at build and shipped as a licence file. Checked: the sdist carries the
+  bundle (Preact, Leaflet) is generated at build and shipped beside it (not in `license-files`: a pattern that
+  matches nothing fails the build, and a clone is installed before its pages are built). Checked: the sdist carries the
   built files although they are gitignored, and `uv build` makes the wheel from it with no Node.
 - **Versions (npm, 2026-10-26), pinned exactly:** preact 11.0.2, @preact/signals 2.11.3, vite 8.3.5,
   @preact/preset-vite 2.10.6, typescript 6.0.3 (typescript-eslint 8.72.0 supports up to 6.0, so not 7),

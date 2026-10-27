@@ -58,14 +58,14 @@ def test_the_server_serves_the_home_page(threaded_jobs):
 
 
 def run_app(data_dir, port):
-    """Runs the command as a user would, until it serves the home page"""
+    """Runs the command as a user would, until it serves the API (the pages need the front end built)"""
     env = {k: v for k, v in os.environ.items() if k not in ("DJANGO_SETTINGS_MODULE", "DJI_THERMAL_UI_DATA_DIR")}
     proc = subprocess.Popen([sys.executable, "-m", "dji_thermal_ui", "--data-dir", str(data_dir), "--port", str(port),
                              "--no-browser"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     deadline = time.monotonic() + TIMEOUT
     while True:
         try:
-            assert get("http://%s:%d/" % (cli.HOST, port))[0] == 200
+            assert get("http://%s:%d/api/preferences" % (cli.HOST, port))[0] == 200
             return proc
         except OSError:
             if proc.poll() is not None or time.monotonic() > deadline:

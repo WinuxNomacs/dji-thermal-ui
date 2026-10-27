@@ -20,8 +20,7 @@ TEMPLATES = r"dji_thermal_ui/templates/[a-z_]+\.html"
 STATIC = (r"dji_thermal_ui/static/(?:favicon\.svg"
           r"|dist/(?:manifest\.json|THIRD-PARTY-LICENSES\.txt|assets/[A-Za-z0-9_.-]+\.(?:js|css|png|svg|woff2)))")
 PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}"
-BUNDLED_LICENSES = r"src/dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES\.txt"
-LICENSES = rf"LICENSE|{BUNDLED_LICENSES}"
+LICENSES = r"LICENSE"
 WHEEL = re.compile(rf"(?:{PACKAGE})|dji_thermal_ui-[^/]+\.dist-info/(?:METADATA|WHEEL|RECORD|entry_points\.txt"
                    rf"|licenses/(?:{LICENSES}))")
 # uv_build keeps the original pyproject.toml as pyproject.toml.orig next to its normalized copy
@@ -34,14 +33,12 @@ REQUIRED = [
     "dji_thermal_ui/templates/datasets.html",
     "dji_thermal_ui/static/favicon.svg",
     "dji_thermal_ui/static/dist/manifest.json",
+    "dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",        # the licences of what is bundled, beside it
 ]
 # The pages' entries in the build's manifest (frontend/src/pages), each with its files in the distribution
 PAGES = ["datasets", "dataset", "viewer", "frame", "compare"]
 MANIFEST = "dji_thermal_ui/static/dist/manifest.json"
-LICENCE_FILES = {
-    "LICENSE",
-    "src/dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",
-}
+LICENCE_FILES = {"LICENSE"}
 
 
 def build_problems(names: list[str], manifest: bytes | None, prefix: str = "") -> list[str]:
