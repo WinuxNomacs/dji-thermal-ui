@@ -598,7 +598,7 @@ describe("the Convert tab", () => {
         }
     });
 
-    it("opens a conversion's menu, and closes it on a click beside it or Escape", async () => {
+    it("opens a conversion's menu, and closes it on a click beside it, Escape or a link chosen", async () => {
         page(routes());
         await ticks();
         await openMenu();
@@ -611,6 +611,12 @@ describe("the Convert tab", () => {
         expect(card().querySelector(".menu-items")).toBeNull();
         await openMenu();
         key(document.body, "Escape");
+        await ticks();
+        expect(card().querySelector(".menu-items")).toBeNull();
+        await openMenu();
+        const download = menuItem("Download all")!;
+        download.addEventListener("click", (e) => e.preventDefault());     // jsdom does not download
+        click(download);
         await ticks();
         expect(card().querySelector(".menu-items")).toBeNull();
     });

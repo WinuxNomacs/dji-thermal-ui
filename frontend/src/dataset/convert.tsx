@@ -206,7 +206,8 @@ function Card({c, defaults, base, viewer, fresh, act}: CardProps) {
 
     const item = (what: string, label: string, cls?: string) => (
         <li><button type="button" class={cls} data-action={what} onClick={() => { setMenu(false); act(what, c); }}>{label}</button></li>);
-    const link = (href: string, label: string) => <li><a href={href}>{label}</a></li>;
+    // closed when chosen: a download leaves the page where it is
+    const link = (href: string, label: string) => <li><a href={href} onClick={() => setMenu(false)}>{label}</a></li>;
     const pct = Math.round(((c.status === "converting" ? c.progress : c.mosaic_progress) || 0) * 100);
 
     return (<div class={"conversion" + (fresh ? " fresh" : "")} data-id={c.id}>
