@@ -583,7 +583,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .finding-frames .chip { margin-left: 6px; }
 .finding-about { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
 .finding-about-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.finding-about-head button { margin-left: auto; }
+.finding-about-actions { margin-left: auto; display: flex; gap: 4px; }
 .finding-notes { margin: 4px 0 0; white-space: pre-wrap; }
 .sources-actions { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 .measurement-params { font-size: 11px; }
@@ -654,6 +654,9 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .compare-name { font-weight: 600; }
 .compare-map { height: calc(100vh - 300px); min-height: 320px; border-radius: var(--radius); }
 .compare-pane.picking .compare-map { cursor: crosshair; }
+.compare-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.compare-tools .measure-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; }
+.compare-tools .tool-hint { margin: 0; }
 .compare-readout { min-height: 3em; margin-top: 4px; font-size: 13px; }
 /* The source frames pop-out: a window over the page, moved by its title */
 .sources-window {

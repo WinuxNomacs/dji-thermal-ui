@@ -1,5 +1,6 @@
 // The findings on a map: each spot or area in a white-and-black dashed outline that reads on any palette (a spot as a
 // ringed dot), labelled with a tag in its severity's colour holding its name; the one opened drawn thicker.
+import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
 import GeoJSON from "ol/format/GeoJSON";
 import type OlMap from "ol/Map";
@@ -10,6 +11,8 @@ import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import Text from "ol/style/Text";
+import {lonLatToMap} from "../map/map";
+import {type Coords} from "../measure/measure";
 import {type Finding, SEVERITY_COLORS} from "./findings";
 
 function styles(f: Finding, opened: boolean): Style[] {
@@ -51,4 +54,11 @@ export function findingAt(map: OlMap, pixel: Pixel, source: VectorSource): numbe
         if (found === null && source.hasFeature(x as Feature) && typeof x.get("finding") === "number") found = x.get("finding");
     }, {hitTolerance: 4});
     return found;
+}
+
+// Where a finding is on the map: a spot's place, an area's outline's mean point
+export function centreOf(f: Finding): Coordinate {
+    const ring = f.geometry.type === "Point" ? [f.geometry.coordinates as Coords] : (f.geometry.coordinates as Coords[][])[0];
+    const xs = ring.map((c) => lonLatToMap(c));
+    return [xs.reduce((a, c) => a + c[0], 0) / xs.length, xs.reduce((a, c) => a + c[1], 0) / xs.length];
 }

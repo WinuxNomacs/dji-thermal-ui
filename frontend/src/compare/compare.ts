@@ -32,13 +32,15 @@ export interface DiffInfo {
 }
 
 // The view kept in the URL (?b=&a=&a_tab=&b_tab=&diff=a|b&split=)
-export interface CompareView {a?: number; b?: number; a_tab?: string; b_tab?: string; diff?: "" | PaneName; split?: number}
+// findings: false when they are hidden; a_finding, b_finding: the finding open in each pane
+export interface CompareView {a?: number; b?: number; a_tab?: string; b_tab?: string; diff?: "" | PaneName; split?: number;
+                              findings?: boolean; a_finding?: number | null; b_finding?: number | null}
 
 export function clampSplit(share: number): number {
     return Math.round(Math.max(SPLIT_LIMITS[0], Math.min(SPLIT_LIMITS[1], share)));
 }
 
-// What the URL gave: the conversions, tabs and difference given, the split between its limits
+// What the URL gave: the conversions, tabs and difference given, the split between its limits, the findings
 export function readCompare(search: string): CompareView {
     const params: Record<string, string> = {};
     String(search || "").replace(/^\?/, "").split("&").forEach((pair) => {
@@ -52,10 +54,12 @@ export function readCompare(search: string): CompareView {
     (["a", "b"] as PaneName[]).forEach((k) => {
         if (/^[0-9]+$/.test(params[k] || "")) out[k] = parseInt(params[k], 10);
         if (params[k + "_tab"]) out[k === "a" ? "a_tab" : "b_tab"] = params[k + "_tab"];
+        if (/^[1-9][0-9]*$/.test(params[k + "_finding"] || "")) out[k === "a" ? "a_finding" : "b_finding"] = parseInt(params[k + "_finding"], 10);
     });
     if (params.diff === "a" || params.diff === "b") out.diff = params.diff;
     const split = parseFloat(params.split);
     if (!isNaN(split)) out.split = clampSplit(split);
+    if (params.findings === "0") out.findings = false;
     return out;
 }
 
@@ -66,6 +70,9 @@ export function compareQuery(view: CompareView, pageId: number): string {
     parts.push("a_tab=" + encodeURIComponent(view.a_tab || ""), "b_tab=" + encodeURIComponent(view.b_tab || ""));
     if (view.diff) parts.push("diff=" + view.diff);
     if (view.split !== undefined && view.split !== 50) parts.push("split=" + view.split);
+    if (view.findings === false) parts.push("findings=0");
+    if (view.a_finding) parts.push("a_finding=" + view.a_finding);
+    if (view.b_finding) parts.push("b_finding=" + view.b_finding);
     return "?" + parts.join("&");
 }
 

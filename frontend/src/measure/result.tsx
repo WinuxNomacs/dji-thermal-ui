@@ -17,10 +17,11 @@ interface ToolbarProps {
     onFinish: () => void;
     tools?: [Tool, string][];           // the tools offered: all of them unless given
     label?: string;
+    compact?: boolean;                  // the hint only as a tooltip, where there is no room to write it
 }
 
 // The tools, with the one on marked and its hint, and Finish for a line or an area
-export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "Measuring tools"}: ToolbarProps) {
+export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "Measuring tools", compact = false}: ToolbarProps) {
     return (<div class="measure-toolbar">
         <div class="button-group tools" role="group" aria-label={label}>
             {tools.map(([t, label]) => {
@@ -30,7 +31,7 @@ export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "
                                 onClick={() => onTool(tool === t ? null : t)}><ToolIcon/> {label}</button>);
             })}
         </div>
-        {tool && <div class="tool-hint">{HINTS[tool]}{" "}
+        {tool && <div class="tool-hint" title={compact ? HINTS[tool] : undefined}>{!compact && HINTS[tool]}{" "}
             {(tool === "line" || tool === "area") &&
                 <button type="button" class="button primary small" disabled={count < (tool === "line" ? 2 : 3)}
                         onClick={onFinish}>Finish</button>}{" "}

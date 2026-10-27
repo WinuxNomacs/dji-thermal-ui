@@ -22,6 +22,7 @@ export interface SourceGroup {
     curve: (frame: string) => string;       // its tone curve with equalization, "" without
     colouring: Colouring;
     href: (frame: string) => string;        // its frame page
+    about?: ComponentChildren;              // above its frame, while it is shown (after the window's own)
 }
 
 interface Props {
@@ -178,6 +179,6 @@ export function SourcesWindow({groups, name, anchor, about, onClose}: Props) {
             {groups.map((x, k) => <button key={k} type="button" class={k === g ? "active" : ""} aria-pressed={k === g}
                                           title={x.title} onClick={() => setG(k)}>{x.title}</button>)}
         </div>}
-        <div class="sources-body">{about}{body}</div>
+        <div class="sources-body">{about}{group?.about}{body}</div>
     </div>);
 }

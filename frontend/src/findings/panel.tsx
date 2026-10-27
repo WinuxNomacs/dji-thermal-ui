@@ -1,7 +1,7 @@
 // The findings' form (saving a spot or an area as a finding, or changing one) and their list in the viewer's panel,
 // with the switch that shows or hides them all on the map and each one's own.
 import {useLayoutEffect, useRef, useState} from "preact/hooks";
-import {Eye, EyeOff, Pencil, Trash} from "../components/icons";
+import {Eye, EyeOff, Flag, Map as MapIcon, Pencil, Trash} from "../components/icons";
 import {type Maybe} from "../core/format";
 import {frameName, type SourceFrame} from "../sources/sources";
 import {type Finding, type FindingFields, SEVERITIES, SEVERITY_COLORS, severityLabel, STATUSES, statusLabel,
@@ -134,15 +134,26 @@ export function Findings({items, shown, hidden, opened, onShown, onHide, onOpen,
     </div>);
 }
 
-// A finding as the source frames window heads it: its severity, status, notes and figures
-export function FindingAbout({f, onEdit}: {f: Finding; onEdit: () => void}) {
+// A finding as the source frames window heads it: its severity, status, notes and figures (viewer: a link to it there)
+export function FindingAbout({f, onEdit, viewer}: {f: Finding; onEdit: () => void; viewer?: string}) {
     return (<div class="finding-about">
         <div class="finding-about-head">
             <SeverityChip severity={f.severity}/> <strong>{f.name}</strong>
             <span class="text-muted">{statusLabel(f.status)}</span>
-            <button type="button" class="button default small" name="edit" onClick={onEdit}><Pencil/> Change</button>
+            <span class="finding-about-actions">
+                {viewer && <a class="button default small" href={viewer} title="Open the finding in the viewer"><MapIcon/> Viewer</a>}
+                <button type="button" class="button default small" name="edit" onClick={onEdit}><Pencil/> Change</button>
+            </span>
         </div>
         <div class="measurement-figure">{temperaturesText(f.temperatures)}</div>
         {f.notes && <p class="finding-notes">{f.notes}</p>}
+    </div>);
+}
+
+// Above the source frames of a spot or an area: the button that saves it as a finding
+export function SaveFinding({onSave}: {onSave: () => void}) {
+    return (<div class="sources-actions">
+        <button type="button" class="button default small" name="save-finding" onClick={onSave}
+                title="Keep this spot or area, its temperatures and frames, as a finding of the dataset"><Flag/> Save as finding</button>
     </div>);
 }
