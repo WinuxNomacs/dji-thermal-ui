@@ -31,7 +31,8 @@ from zipstream.ng import ZipStream
 
 from . import basemaps, jobs, places, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .downloads import download_file_response, download_file_stream
-from .models import Preferences, Project, ThermalConversion, ThermalDataset, ThermalMeasurement
+from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
+                     ThermalDataset, ThermalMeasurement)
 from .raster.security import path_traversal_check
 
 PREFERENCES_KEY = 'conversion_settings'
@@ -117,6 +118,7 @@ def project_summary(project):
         'conversion_count': len(conversions),
         'mosaic_count': sum(1 for c in conversions if c.mosaic_status == 'ready'),
         'measurement_count': ThermalMeasurement.objects.filter(conversion__dataset__project=project).count(),
+        'finding_count': Finding.objects.filter(dataset__project=project).count(),
         'size': int(kept * 1024 * 1024),
         'created_at': project.created_at,
         'updated_at': project.updated_at,
@@ -124,10 +126,26 @@ def project_summary(project):
 
 
 def project_detail(project):
-    """A project with where each of its datasets was flown"""
+    """A project with where each of its datasets was flown, and its datasets' findings"""
     out = project_summary(project)
     out['areas'] = [{'dataset': d.id, 'name': d.name, 'ring': ring} for d in project.datasets.all()
                     for ring in [thermal_analysis.flight_area(d.analysis)] if ring]
+    out['findings'] = project_findings(project)
+    return out
+
+
+def project_findings(project):
+    """A project's findings, each with its dataset's name and the conversion it opens on: the one its temperatures
+    were read on, or the dataset's latest with mosaics when that one has none (none when no conversion has them)"""
+    shown = {}
+    for c in ThermalConversion.objects.filter(dataset__project=project, status='ready', mosaic_status='ready'):
+        shown.setdefault(c.dataset_id, []).append(c.id)
+    out = []
+    for f in Finding.objects.filter(dataset__project=project).select_related('conversion', 'dataset'):
+        ids = shown.get(f.dataset_id) or []
+        item = finding_json(f)
+        item.update(dataset_name=f.dataset.name, opens=f.conversion_id if f.conversion_id in ids else max(ids, default=None))
+        out.append(item)
     return out
 
 
@@ -188,6 +206,7 @@ def summary(dataset):
         'conversions_ready': sum(1 for c in conversions if c.status == 'ready'),
         'mosaic_count': sum(1 for c in conversions if c.mosaic_status == 'ready'),
         'measurement_count': ThermalMeasurement.objects.filter(conversion__dataset=dataset).count(),
+        'finding_count': dataset.findings.count(),
         'busy': busy,
         'analyzed_at': dataset.analyzed_at,
         'created_at': dataset.created_at,
@@ -1041,6 +1060,20 @@ class MosaicPointView(DatasetView):
         return Response(mosaic_point(request, conversion, tab, lon, lat))
 
 
+def frame_sources(conversion, path, geometry):
+    """The frames that saw a checked spot or area of a mosaic (path: its GeoTIFF), each with when it was taken:
+    {frames, reason, kind, geometry, models}"""
+    from . import thermal_sources
+
+    models = thermal_sources.read_models(path)
+    out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models)
+    times = {r['path']: r.get('time') or "" for r in thermal_measure.frame_rows(conversion)}
+    for f in out['frames']:
+        f['time'] = times.get(f['frame'], "")
+    out.update(kind=geometry['type'], geometry=geometry, models=models is not None)
+    return out
+
+
 class MosaicSourcesView(DatasetView):
     def post(self, request, pk, tab):
         """
@@ -1049,8 +1082,6 @@ class MosaicSourcesView(DatasetView):
         knows every frame that saw it (built with dji-thermal-cli 1.5.0 or later), else it lists only those it used.
         A spot also gets the mosaic's values there (point, as MosaicPointView's).
         """
-        from . import thermal_sources
-
         conversion = get_conversion(pk)
         path, _band = mosaic_raster(conversion, tab)
         try:
@@ -1059,12 +1090,7 @@ class MosaicSourcesView(DatasetView):
             raise ValidationError({'error': str(e)}) from None
         if geometry['type'] not in ('Point', 'Polygon'):
             raise ValidationError({'error': "The geometry is a spot or an area"})
-        models = thermal_sources.read_models(path)
-        out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models)
-        times = {r['path']: r.get('time') or "" for r in thermal_measure.frame_rows(conversion)}
-        for f in out['frames']:
-            f['time'] = times.get(f['frame'], "")
-        out.update(kind=geometry['type'], geometry=geometry, models=models is not None)
+        out = frame_sources(conversion, path, geometry)
         if geometry['type'] == 'Point':
             out['point'] = mosaic_point(request, conversion, tab, *geometry['coordinates'])
         return Response(out)
@@ -1403,6 +1429,153 @@ class MeasurementDetailView(DatasetView):
     def delete(self, request, pk, mid):
         _c, m = get_measurement(pk, mid)
         m.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+FINDING_TABS = ('as_converted', 'harmonized')
+# What a finding keeps of what its spot or area measured
+FINDING_TEMPERATURES = ('min', 'max', 'mean', 'surroundings', 'delta_t', 'value', 'valid_pixels', 'area')
+
+
+def get_finding(pk, fid):
+    try:
+        return Finding.objects.select_related('conversion').get(pk=fid, dataset_id=get_dataset(pk).id)
+    except Finding.DoesNotExist:
+        raise NotFound() from None
+
+
+def finding_json(f):
+    return {'id': f.id, 'dataset': f.dataset_id, 'name': f.name, 'notes': f.notes, 'severity': f.severity,
+            'status': f.status, 'geometry': f.geometry, 'shape': f.shape, 'conversion': f.conversion_id,
+            'conversion_name': f.conversion.name if f.conversion else "", 'tab': f.tab, 'temperatures': f.temperatures,
+            'frames': f.frames, 'models': f.models_known, 'created_at': f.created_at, 'updated_at': f.updated_at}
+
+
+def finding_fields(data, partial):
+    """The fields a finding is saved or changed with (partial: only those given)"""
+    out = {}
+    if not partial or 'name' in data:
+        name = str(data.get('name') or "").strip()
+        if not name or len(name) > MAX_NAME_LENGTH:
+            raise ValidationError({'name': "A name of 1 to {} characters is required".format(MAX_NAME_LENGTH)})
+        out['name'] = name
+    if 'notes' in data:
+        notes = data.get('notes') or ""
+        if not isinstance(notes, str):
+            raise ValidationError({'notes': "Notes are text"})
+        if len(notes) > MAX_DESCRIPTION_LENGTH:
+            raise ValidationError({'notes': "That is longer than {} characters".format(MAX_DESCRIPTION_LENGTH)})
+        out['notes'] = notes.strip()
+    for field, choices in (('severity', FINDING_SEVERITIES), ('status', FINDING_STATUSES)):
+        if field in data:
+            if data[field] not in dict(choices):
+                raise ValidationError({field: "The {} is one of {}".format(field, ", ".join(dict(choices)))})
+            out[field] = data[field]
+    return out
+
+
+def kept_frames(frames, kept):
+    """A finding's frames, each marked kept when its name is in kept (None: all of them)"""
+    if kept is not None and (not isinstance(kept, list) or not all(isinstance(k, str) for k in kept)):
+        raise ValidationError({'kept': "The frames kept are a list of their names"})
+    return [dict(f, kept=kept is None or f['frame'] in kept) for f in frames]
+
+
+def finding_temperatures(values):
+    """What a finding keeps of a measure's {result, unit, approximate} (and the parameters it was corrected with)"""
+    result = values.get('result') or {}
+    out = {k: result[k] for k in FINDING_TEMPERATURES if result.get(k) is not None}
+    out.update(unit=values.get('unit') or 'C', approximate=bool(values.get('approximate')))
+    return out
+
+
+def finding_from_measurement(dataset, mid):
+    """A saved measurement's spot or area, as a finding is made from it: (conversion, tab, geometry, shape,
+    temperatures)"""
+    try:
+        m = ThermalMeasurement.objects.select_related('conversion').get(pk=int(mid), conversion__dataset=dataset)
+    except (TypeError, ValueError, ThermalMeasurement.DoesNotExist):
+        raise ValidationError({'measurement': "That measurement does not exist"}) from None
+    if m.target not in FINDING_TABS:
+        raise ValidationError({'measurement': "Only a measurement on a mosaic can be saved as a finding"})
+    if m.geometry.get('type') not in ('Point', 'Polygon'):
+        raise ValidationError({'measurement': "Only a spot or an area can be saved as a finding"})
+    values = m.values or {}
+    temperatures = finding_temperatures(values)
+    if m.parameters:
+        temperatures['parameters'] = m.parameters
+    return m.conversion, m.target, m.geometry, values.get('shape'), temperatures
+
+
+def finding_drawn(dataset, data):
+    """A spot or area drawn on a mosaic, measured as a finding is made from it: (conversion, tab, geometry, shape,
+    temperatures)"""
+    try:
+        conversion = dataset.conversions.get(pk=int(data.get('conversion')))
+    except (TypeError, ValueError, ThermalConversion.DoesNotExist):
+        raise ValidationError({'conversion': "That conversion does not exist"}) from None
+    tab = data.get('tab')
+    if tab not in FINDING_TABS:
+        raise ValidationError({'tab': "The temperatures are read on a mosaic (as_converted, harmonized)"})
+    asked = {'target': tab, 'geometry': data.get('geometry'), 'parameters': data.get('parameters')}
+    _t, _f, geometry, parameters, _i = analysis_request(conversion, asked)
+    if geometry is None or geometry['type'] not in ('Point', 'Polygon'):
+        raise ValidationError({'error': "A finding is a spot or an area"})
+    try:
+        shape = thermal_measure.check_shape(data.get('shape'), geometry)
+    except thermal_measure.MeasureError as e:
+        raise ValidationError({'error': str(e)}) from None
+    temperatures = finding_temperatures(analysis(conversion, tab, "", geometry, parameters, None))
+    if parameters:
+        temperatures['parameters'] = parameters
+    return conversion, tab, geometry, shape, temperatures
+
+
+class FindingsView(DatasetView):
+    def get(self, request, pk):
+        """The dataset's findings, oldest first"""
+        dataset = get_dataset(pk)
+        return Response({'findings': [finding_json(f) for f in dataset.findings.select_related('conversion')]})
+
+    def post(self, request, pk):
+        """
+        Saves a spot or an area as a finding (name, notes, severity, status): drawn on a conversion's mosaic
+        (conversion, tab, geometry, shape, parameters: the correction, as MeasureView's), its temperatures measured
+        there; or a saved measurement's (measurement: its id), its figures copied. The frames that saw it are found
+        on that mosaic, the ones named in kept kept (all without it).
+        """
+        dataset = get_dataset(pk)
+        fields = finding_fields(request.data, partial=False)
+        if request.data.get('measurement') not in (None, ""):
+            conversion, tab, geometry, shape, temperatures = finding_from_measurement(dataset, request.data['measurement'])
+        else:
+            conversion, tab, geometry, shape, temperatures = finding_drawn(dataset, request.data)
+        if not temperatures.get('valid_pixels'):
+            raise ValidationError({'error': "The finding is outside the mosaic"})
+        path, _band = mosaic_raster(conversion, tab)
+        found = frame_sources(conversion, path, geometry)
+        f = Finding.objects.create(dataset=dataset, conversion=conversion, tab=tab, geometry=geometry, shape=shape,
+                                   temperatures=temperatures, frames=kept_frames(found['frames'], request.data.get('kept')),
+                                   models_known=found['models'], **fields)
+        return Response(finding_json(f), status=status.HTTP_201_CREATED)
+
+
+class FindingDetailView(DatasetView):
+    def patch(self, request, pk, fid):
+        """Changes a finding's name, notes, severity or status, or the frames kept (kept: their names)"""
+        f = get_finding(pk, fid)
+        fields = finding_fields(request.data, partial=True)
+        if 'kept' in request.data:
+            fields['frames'] = kept_frames(f.frames, request.data['kept'])
+        if not fields:
+            raise ValidationError({'error': "Give a name, notes, a severity, a status or the frames kept"})
+        for k, v in fields.items():
+            setattr(f, k, v)
+        f.save(update_fields=list(fields) + ['updated_at'])
+        return Response(finding_json(f))
+
+    def delete(self, request, pk, fid):
+        get_finding(pk, fid).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
