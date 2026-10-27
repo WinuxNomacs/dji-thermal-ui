@@ -25,7 +25,7 @@ export interface FileRow {
     [key: string]: unknown;
 }
 
-export interface Finding {
+export interface Problem {
     code: string;
     severity: string;
     message: string;
@@ -52,7 +52,7 @@ export interface Camera {model?: string; width?: number; height?: number; serial
 
 export interface Analysis {
     files?: FileRow[];
-    findings?: Finding[];
+    findings?: Problem[];
     cameras?: Camera[];
     webodm?: Plan | null;
     version?: string;
@@ -85,8 +85,8 @@ export function overview(a: Analysis): Overview {
 }
 
 // The problems each file is named in: {path: [finding, ...]}
-export function flagsByFile(findings: Finding[] | undefined): Record<string, Finding[]> {
-    const out: Record<string, Finding[]> = {};
+export function flagsByFile(findings: Problem[] | undefined): Record<string, Problem[]> {
+    const out: Record<string, Problem[]> = {};
     (findings || []).forEach((f) => (f.files || []).forEach((p) => (out[p] = out[p] || []).push(f)));
     return out;
 }

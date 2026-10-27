@@ -73,6 +73,7 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
                         <thead><tr>
                             <th>Name</th><th>Location</th><th>Datasets</th>
                             <th title="Conversions of its datasets">Conversions</th>
+                            <th title="Findings saved on its datasets">Findings</th>
                             <th title="The disk space its datasets take in the app">Size</th><th>Created</th>
                             <th><span class="sr-only">Actions</span></th>
                         </tr></thead>
@@ -88,6 +89,7 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
                                     </span>}</td>
                                     <td>{p.dataset_count}</td>
                                     <td>{p.conversion_count || ""}</td>
+                                    <td>{p.finding_count || ""}</td>
                                     <td>{p.size ? formatBytes(p.size) : ""}</td>
                                     <td>{formatDate(p.created_at)}</td>
                                     <td class="actions">

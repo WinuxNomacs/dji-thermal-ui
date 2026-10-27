@@ -102,3 +102,9 @@ export const MoveTo = (p: Props) => (
     <Icon {...p}><path d="M3 7h6l2 2h10v10H3z"/><path d="M10 14h6M13 11l3 3-3 3"/></Icon>);
 export const Search = (p: Props) => (
     <Icon {...p}><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/></Icon>);
+export const Eye = (p: Props) => (
+    <Icon {...p}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></Icon>);
+export const EyeOff = (p: Props) => (
+    <Icon {...p}><path d="M9.9 5.2A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.6 3.6M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/>
+        <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/></Icon>);
+export const Flag = (p: Props) => (<Icon {...p}><path d="M4 22V4M4 4h13l-2 4 2 4H4"/></Icon>);

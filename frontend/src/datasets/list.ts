@@ -22,6 +22,7 @@ export interface Dataset {
     conversions_ready?: number;
     mosaic_count?: number;
     measurement_count?: number;
+    finding_count?: number;
     last_activity?: string | null;
     created_at?: string | null;
 }
@@ -41,6 +42,7 @@ const SORT_KEYS: Record<string, (d: Dataset) => SortValue> = {
     files: (d) => d.file_count,
     problems: (d) => d.analyzed ? (d.errors || 0) * 1e6 + (d.warnings || 0) : null,
     conversions: (d) => d.conversion_count ? (d.conversions_ready || 0) * 1e6 + d.conversion_count : null,
+    findings: (d) => d.finding_count || null,
     size: (d) => d.size,
     activity: (d) => d.last_activity || null,
     created: (d) => d.created_at || null,

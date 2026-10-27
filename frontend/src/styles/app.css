@@ -560,6 +560,32 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .measurements li > .icon-button:nth-last-of-type(2) { right: 24px; }
 .measurements li > .icon-button:nth-last-of-type(3) { right: 48px; }
 .measurements input[type="checkbox"] { margin-right: 4px; vertical-align: -2px; }
+.measurements li:has(> button[name="finding"]) { padding-right: 100px; }
+.measurements li > .icon-button:nth-last-of-type(4) { right: 72px; }
+/* The findings: the switch, then a line each like a saved measurement's; hidden ones muted */
+.findings-switch { display: block; margin-bottom: 6px; }
+.findings { list-style: none; padding: 0; margin: 0; }
+.findings li { position: relative; padding: 4px 76px 4px 6px; border-radius: 3px; }
+.findings li.active { background: var(--accent-soft); }
+.findings li.off > :not(.icon-button) { opacity: 0.55; }
+.findings li > .icon-button { position: absolute; top: 2px; }
+.findings li > .icon-button:last-of-type { right: 0; }
+.findings li > .icon-button:nth-last-of-type(2) { right: 24px; }
+.findings li > .icon-button:nth-last-of-type(3) { right: 48px; }
+.chip.severity { color: #fff; font-weight: 600; }
+.finding-choices { display: flex; gap: 12px; }
+.finding-choices .field { flex: 1; }
+.finding-choices select { width: 100%; }
+.finding-frames { border: 1px solid var(--border); border-radius: var(--radius); margin: 0; padding: 4px 8px 6px; }
+.finding-frames legend { padding: 0 4px; }
+.finding-frames ul { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow: auto; }
+.finding-frames li { padding: 2px 0; }
+.finding-frames .chip { margin-left: 6px; }
+.finding-about { padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
+.finding-about-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.finding-about-head button { margin-left: auto; }
+.finding-notes { margin: 4px 0 0; white-space: pre-wrap; }
+.sources-actions { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 .measurement-params { font-size: 11px; }
 /* Measured again with other parameters: the form under the measurement, across the whole line */
 .params-form { margin: 4px -70px 2px 0; padding: 6px; border-radius: 3px; background: var(--surface-2); }
@@ -689,3 +715,5 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     .compare-map { height: 50vh; }
     .datasets #search { width: 100%; flex: 1 1 160px; }
 }
+.project-findings { margin: 12px 0 16px; }
+.project-findings h2 { font-size: 16px; margin: 0 0 6px; }

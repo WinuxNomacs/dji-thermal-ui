@@ -36,6 +36,7 @@ export interface Dataset {
     conversion_count?: number;
     mosaic_count?: number;
     measurement_count?: number;
+    finding_count?: number;
     created_at?: string;
 }
 
@@ -201,6 +202,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
     const tab: Tab = !a?.files ? "convert" : chosen || "files";
     const ready = newestReady(d.conversions);
     const frames = ready ? publicUrl + "conversion/" + ready.id + "/frame" : null;
+    const mosaics = (d.conversions || []).find((c) => c.status === "ready" && c.mosaic_status === "ready");
     const serious = (a?.findings || []).filter((f) => f.severity !== "info").length;
     const convertCount = (d.conversions || []).length;
     const badges: Record<Tab, number | string> = {files: a?.files?.length || "", problems: serious || "", webodm: "",
@@ -225,7 +227,10 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                 <div>
                     <h1 id="name">{d.name}</h1>
                     <div class="subtitle">{formatDate(d.created_at)}{d.source === "folder" ?
-                        <> · read in place{d.folder && <> from <code>{d.folder}</code></>}</> : " · uploaded"}</div>
+                        <> · read in place{d.folder && <> from <code>{d.folder}</code></>}</> : " · uploaded"}
+                        {d.finding_count ? <> · {mosaics ? <a id="findings" href={publicUrl + "conversion/" + mosaics.id}
+                            title="Open its newest mosaics, where the findings are listed">{count(d.finding_count, "finding", "findings")}</a> :
+                            <span id="findings">{count(d.finding_count, "finding", "findings")}</span>}</> : null}</div>
                 </div>
                 <div class="page-actions">
                     {d.source === "upload" && !analyzing && !uploading && (

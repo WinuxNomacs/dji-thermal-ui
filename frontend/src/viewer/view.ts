@@ -3,6 +3,7 @@
 import {type FlightZone, formatNumber, type Maybe, zoneLabel} from "../core/format";
 import {convertDelta, convertTemp, formatDelta, formatTemp, userUnit} from "../core/units";
 import {type Measured, type ParamField, symbol, typedTemp} from "../measure/measure";
+import {hiddenText, readHidden} from "../findings/findings";
 
 export const TAB_LABELS: Record<string, string> = {as_converted: "As converted", harmonized: "Harmonized",
                                                    source_frame: "Source frame", view_angle: "View angle"};
@@ -22,7 +23,9 @@ export interface Stats {percentiles?: number[]; min?: number; max?: number}
 export interface MosaicTab {tab: string; kind?: string; stats?: Stats | null; bounds?: number[]; maxzoom?: number | null}
 export interface Adjust {gamma: number; equalize: boolean; sharpen: number}
 export interface Style {palette: string; range: [number, number]; adjust: Adjust; whole?: Measured | null}
-export interface View {tab?: string; palette?: string; frame?: string | null; range?: [number, number]; adjust?: Adjust}
+// The findings: findings false when they are hidden, hidden those hidden one by one, finding the one open
+export interface View {tab?: string; palette?: string; frame?: string | null; range?: [number, number]; adjust?: Adjust;
+                      findings?: boolean; hidden?: number[]; finding?: number | null}
 export type Extra = Record<string, Maybe<string | number>>;
 
 export function tabLabel(tab: string): string { return TAB_LABELS[tab] || tab; }
@@ -80,6 +83,10 @@ export function readView(search: string): View {
     if (sharpen >= 0 && sharpen <= SHARPEN_MAX) adjust.sharpen = sharpen;
     adjust.equalize = params.equalize === "1";
     if (adjustQuery(adjust)) out.adjust = adjust;
+    if (params.findings === "0") out.findings = false;
+    const hidden = readHidden(params.hide), finding = Number(params.finding);
+    if (hidden.length) out.hidden = hidden;
+    if (Number.isInteger(finding) && finding > 0) out.finding = finding;
     return out;
 }
 
@@ -92,6 +99,9 @@ export function viewQuery(view: View): string {
     const adjust = adjustQuery(view.adjust);
     if (adjust) parts.push(adjust.slice(1));
     if (view.frame) parts.push("frame=" + encodeURIComponent(view.frame));
+    if (view.findings === false) parts.push("findings=0");
+    if (view.hidden?.length) parts.push("hide=" + hiddenText(view.hidden));
+    if (view.finding) parts.push("finding=" + view.finding);
     return parts.length ? "?" + parts.join("&") : "";
 }
 
