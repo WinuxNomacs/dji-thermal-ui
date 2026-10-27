@@ -6,6 +6,21 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-27
+
+### Changed
+
+- The viewer, compare and frame pages use OpenLayers 10.11.0 instead of Leaflet. The server sends a mosaic's
+  tiles, a difference and a frame as their float32 values, and the browser colours them with WebGL. Changing the
+  palette, range, gamma, brightness, contrast, equalization, isotherm or sharpening redraws at once, with no new
+  tiles.
+
+### Removed
+
+- The API's PNG tiles (`mosaics/<tab>/tiles/`, `mosaics/<tab>/difference/tiles/`) and frame image
+  (`frame/image`), replaced by `mosaics/<tab>/data/`, `mosaics/<tab>/difference/data/` and `frame/data`. scipy is
+  no longer a dependency.
+
 ## [0.2.0] - 2026-10-27
 
 ### Changed

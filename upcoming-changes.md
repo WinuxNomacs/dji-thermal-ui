@@ -9,8 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **B2: the map pages on OpenLayers**, colouring the float32 mosaics and frames in the browser with WebGL.
-   Planned 2026-10-27. (Facelift)
+- Nothing planned: the next phase is chosen from Later with the user.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -235,6 +234,7 @@ Planned 2026-10-27.
   sharpening and the frame locator work. The look matches 0.2.0's, Esri's missing tiles included (see Basemaps).
   pytest passes on Windows from a clone of the branch.
 - **Release:** 0.3.0.
+- **Done:** see Done below.
 
 ## Basemaps
 
@@ -294,3 +294,13 @@ Planned 2026-10-27.
   found three bugs, fixed (one, the black legends of rio-tiler's colour maps, on `main` since A2). Release checks
   passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 129 pytest, 138 Vitest, ESLint) and on Windows
   from WSL (129 pytest from a fresh clone, smoke on 3.12 and 3.14).
+- **B2: the map pages on OpenLayers, release 0.3.0** (2026-10-27). The viewer, compare and frame pages on
+  OpenLayers 10.11.0 (`frontend/src/map/map.ts`), Leaflet removed. The server sends float32 values
+  (`data_response` in `analyzer/api.py`: `mosaics/<tab>/data/`, `mosaics/<tab>/difference/data/`, `frame/data`, with
+  `X-Width` and `X-Height`), and the browser colours them (`frontend/src/map/colour.ts`): a WebGL style with the
+  tone curve baked into the palette, the isotherm, and sharpening as a 5 × 5 kernel in the shader; the same on a
+  canvas for the compare page's picked frames (`colourValues`). The PNG tiles and frame image, the server's
+  colouring and scipy removed. Tests: Vitest (`frontend/tests`, 153, `colour.test.ts` new), pytest (129, the data
+  tiles in `tests/test_api_mosaics.py`). Release checks passed on Linux (check_dist, twine, smoke, ruff, 131 pytest
+  with the flight tests, 153 Vitest, ESLint) and on Windows from WSL (129 pytest from a fresh clone, smoke on 3.12
+  and 3.14).
