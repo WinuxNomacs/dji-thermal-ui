@@ -1,10 +1,11 @@
 // The dataset page's figures and its Files, Problems and WebODM plan tabs, drawn from the analysis
 import {useState} from "preact/hooks";
-import {formatBytes, formatDate, formatNumber, kindLabel, severityLabel} from "../core/format";
+import {type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, formatNumber, kindLabel, severityLabel,
+        zoneText} from "../core/format";
 import {formatTemp} from "../core/units";
 import {isImage} from "../core/upload";
 import {CaretDown, CaretUp, Check, Copy, Info, Lightbulb, Wand} from "../components/icons";
-import {type Analysis, captureTime, type FileColumn, FILE_COLUMNS, type FileRow, fileRows, type FilesView, flagsByFile,
+import {type Analysis, type FileColumn, FILE_COLUMNS, type FileRow, fileRows, type FilesView, flagsByFile,
         overview, type PlanOption} from "./files";
 
 const FILES_SHOWN = 12;     // files listed under a problem before "and N more"
@@ -12,7 +13,9 @@ const THUMBS_KEY = "thermalAnalyzer.thumbnails";     // the Files tab's Thumbnai
 
 const SEVERITY_CLASSES: Record<string, string> = {error: "danger", warning: "warning", info: "info"};
 
-export interface DatasetFigures {size?: number | null; analyzed_at?: string | null; analysis?: Analysis | null}
+export interface DatasetFigures {
+    size?: number | null; analyzed_at?: string | null; analysis?: Analysis | null; flight_zone?: FlightZone | null;
+}
 
 export function Figures({items}: {items: [string, string | number | null | undefined][]}) {
     return (<dl class="figures">
@@ -30,7 +33,11 @@ export function Overview({d}: {d: DatasetFigures}) {
     (a.cameras || []).forEach((c) => items.push(["Camera", (c.model || "?") + (c.width ? " · " + c.width + "×" + c.height : "") +
         (c.serial ? " · " + c.serial : "") + " · " + c.frames + " frame(s)"]));
     if (o.tmin !== undefined) items.push(["Temperatures", formatTemp(o.tmin, "C", 1) + " to " + formatTemp(o.tmax!, "C", 1)]);
-    if (o.first) items.push(["Captured", o.first === o.last ? o.first : o.first + " to " + o.last!.split(" ")[1]]);
+    if (o.first) {
+        const zone = d.flight_zone;
+        items.push(["Captured", formatCaptureRange(o.first, o.last) + " · " + zoneText(zone) +
+            (zone && zone.offset === null && zone.reason ? " (" + zone.reason.charAt(0).toLowerCase() + zone.reason.slice(1) + ")" : "")]);
+    }
     if (o.altitude !== null && o.altitude !== undefined) items.push(["Height (median)", formatNumber(o.altitude, 1, " m")]);
     if (o.frames) items.push(["With GPS", o.gps + " of " + o.frames]);
     items.push(["Size", formatBytes(d.size)]);
@@ -41,7 +48,7 @@ export function Overview({d}: {d: DatasetFigures}) {
 function cell(row: FileRow, col: FileColumn): string {
     const v = row[col.key] as number | string | null | undefined;
     if (col.key === "kind") return kindLabel(String(v));
-    if (col.key === "time") return captureTime(v);
+    if (col.key === "time") return formatCapture(v as string);
     if (col.key === "distance") {
         return formatNumber(v as number, 1, " m") + (row.lrf !== null && row.lrf !== undefined ? " / " + formatNumber(row.lrf, 1, " m") : "");
     }
@@ -60,10 +67,11 @@ interface FilesProps {
     setView: (v: FilesView) => void;
     frames: string | null;      // the frame page of the newest ready conversion, which the thermal rows open
     thumbs: string;             // the thumbnail URL, the file's name appended
+    zone?: FlightZone | null;   // the time zone the capture times are in
 }
 
 // The Files tab: all files, the thermal frames or those with problems, filtered by name and sorted by any column
-export function FilesTab({analysis, view, setView, frames, thumbs}: FilesProps) {
+export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesProps) {
     const [showThumbs, setShowThumbs] = useState(storedThumbs);
     const flags = flagsByFile(analysis.findings);
     const rows = fileRows(analysis, view);
@@ -97,9 +105,11 @@ export function FilesTab({analysis, view, setView, frames, thumbs}: FilesProps) 
                     {showThumbs && <th><span class="sr-only">Thumbnail</span></th>}
                     {FILE_COLUMNS.map((c) => {
                         const on = (view.sort || "path") === c.key;
-                        return (<th key={c.key} data-sort={c.key} title={c.title}
+                        const time = c.key === "time";
+                        return (<th key={c.key} data-sort={c.key} title={time ? zone?.reason || "The flight's local time" : c.title}
                                     aria-sort={on ? (view.desc ? "descending" : "ascending") : "none"}>
-                            <button type="button" class="sort" onClick={() => sortBy(c.key)}>{c.label}{on && " "}
+                            <button type="button" class="sort" onClick={() => sortBy(c.key)}>
+                                {time ? c.label + " (" + zoneText(zone) + ")" : c.label}{on && " "}
                                 {on && (view.desc ? <CaretDown class="icon sort-icon down"/> : <CaretUp class="icon sort-icon up"/>)}
                             </button></th>);
                     })}

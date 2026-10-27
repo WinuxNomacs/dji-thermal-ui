@@ -13,7 +13,7 @@ import OlStyle from "ol/style/Style";
 import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
-import {type Maybe} from "../core/format";
+import {type FlightZone, formatCapture, type Maybe, zoneText} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {ArrowLeft, ChevronLeft, ChevronRight, Download, Save} from "../components/icons";
@@ -48,6 +48,7 @@ export interface Frames {
     default_palette?: string;
     palettes?: Palette[];
     frames?: FrameEntry[];
+    flight_zone?: FlightZone | null;
 }
 
 // What is measured: the shape drawn (or a saved measurement shown) and what came back; res undefined while it is
@@ -576,7 +577,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             return {el: paneEls[i].current!, images: drawn ? [drawn] : [], shapes,
                     caption: both ? (i ? "Parameters changed" : "As converted") : ""};
         }));
-        const taken = takenText([entry?.time]), today = new Date().toISOString().slice(0, 10);
+        const taken = takenText([entry?.time], meta.flight_zone), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
             title: [meta.dataset_name, meta.name, frame].filter(Boolean).join(" · "),
             date: (taken ? "Taken " + taken + " · exported " : "Exported ") + today,
@@ -631,8 +632,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                     </select>
                     <button type="button" class="button default small" id="next" title="Next frame" disabled={at >= frames.length - 1}
                             onClick={() => step(1)}><ChevronRight/></button>
-                    <span class="message" id="about">{(entry?.time || "") + (inMosaics ? " · frame " + (entry!.mosaic! + 1) +
-                        " of the mosaics" : "")}</span>
+                    <span class="message" id="about">{[entry?.time ? formatCapture(entry.time) + " (" + zoneText(meta.flight_zone) + ")" : "",
+                        inMosaics ? "frame " + (entry!.mosaic! + 1) + " of the mosaics" : ""].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div class="viewer-body">
                     <div class="frame-panes">

@@ -1,10 +1,11 @@
-// The header every page has: the app's name, the unit temperatures are shown in and the theme, both saved for the
-// app. A new unit shows the page again in it; a new theme is applied at once.
-import {useState} from "preact/hooks";
+// The header every page has: the navigation pane's switch, the app's name, the unit temperatures are shown in and the
+// theme, both saved for the app (and on the preferences page too). A new unit shows the page again in it; a new theme
+// is applied at once.
+import {useEffect, useState} from "preact/hooks";
 import {sendJson} from "../core/api";
-import {applyTheme, type Theme} from "../core/theme";
+import {applyTheme, onTheme, type Theme} from "../core/theme";
 import {type Unit} from "../core/units";
-import {Monitor, Moon, Sun, Thermometer} from "./icons";
+import {Menu, Monitor, Moon, Sun, Thermometer} from "./icons";
 
 export interface HeaderProps {
     api: string;
@@ -13,6 +14,7 @@ export interface HeaderProps {
     theme: Theme;
     version: string;
     reload?: () => void;
+    nav?: {shown: boolean; toggle: () => void};
 }
 
 const THEME_CHOICES: {theme: Theme; label: string; Icon: typeof Sun}[] = [
@@ -21,21 +23,22 @@ const THEME_CHOICES: {theme: Theme; label: string; Icon: typeof Sun}[] = [
     {theme: "system", label: "As the computer", Icon: Monitor},
 ];
 
-async function save(api: string, preference: Record<string, string>): Promise<void> {
+export async function savePreference(api: string, preference: Record<string, string>): Promise<void> {
     const res = await sendJson(api + "preferences", "PUT", preference);
     if (!res.ok) throw new Error("not saved: " + res.status);
 }
 
-export function Header({api, publicUrl, unit, theme: initialTheme, version,
+export function Header({api, publicUrl, unit, theme: initialTheme, version, nav,
                         reload = () => window.location.reload()}: HeaderProps) {
     const [saving, setSaving] = useState(false);
     const [theme, setTheme] = useState(initialTheme);
+    useEffect(() => onTheme(setTheme), []);
 
     async function changeUnit(e: Event) {
         const select = e.currentTarget as HTMLSelectElement;
         setSaving(true);
         try {
-            await save(api, {unit: select.value});
+            await savePreference(api, {unit: select.value});
             reload();
         } catch {
             select.value = unit;
@@ -48,7 +51,7 @@ export function Header({api, publicUrl, unit, theme: initialTheme, version,
         setTheme(next);
         applyTheme(next);
         try {
-            await save(api, {theme: next});
+            await savePreference(api, {theme: next});
         } catch {
             setTheme(before);
             applyTheme(before);
@@ -57,7 +60,13 @@ export function Header({api, publicUrl, unit, theme: initialTheme, version,
 
     return (
         <header class="app-header">
-            <a class="app-name" href={publicUrl}><Thermometer/> Thermal Analyzer</a>
+            <div class="app-start">
+                {nav && <button type="button" class="icon-button" id="nav-toggle" aria-controls="app-nav"
+                                aria-expanded={nav.shown} title={nav.shown ? "Hide the navigation" : "Show the navigation"}
+                                aria-label={nav.shown ? "Hide the navigation" : "Show the navigation"}
+                                onClick={nav.toggle}><Menu/></button>}
+                <a class="app-name" href={publicUrl}><Thermometer/> Thermal Analyzer</a>
+            </div>
             <div class="app-settings">
                 <label for="app-unit">Temperatures in</label>
                 <select id="app-unit" value={unit} disabled={saving} onChange={changeUnit}>

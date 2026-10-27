@@ -9,14 +9,12 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **E3: the navigation pane and the preferences page**: a collapsible pane on the left with the projects, their
-   datasets and what is under them, and User Preferences (unit, theme, date and time locale). (Projects)
-2. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
-3. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
+1. **C1, here: dji-thermal-cli 1.5.0 pinned**, once it is published (built and released there; see C1). (Findings)
+2. **C2: the source frames pop-out**: a spot or area on the mosaic opens its source frames in a window on the page,
    on the viewer and the compare page; the Source frame tab opens it on a click. (Findings)
-4. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
+3. **C3: findings on the viewer**: a spot or area saved as a finding of the dataset, with its source frames, notes,
    severity, status and temperatures; shown or hidden; a measurement saved as a finding. (Findings)
-5. **C4: findings on the compare page.** (Findings)
+4. **C4: findings on the compare page.** (Findings)
 
 **Then**
 1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
@@ -512,6 +510,10 @@ Requested 2026-10-27 (`new.md`):
 
 ### E3: the navigation pane and preferences
 
+- **Built** (2026-10-27): see Done. The fallback changed while building: a frame's capture time is the drone's own
+  clock, not UTC, so without the UTC time it cannot be shown in the computer's time; it is shown as recorded and
+  labelled "time zone unknown" with why (the images do not record both times, or the dataset was analyzed before the
+  UTC time was kept: analyze it again). The PNG exports keep their fixed date format, with the zone added.
 - **The pane:** on the left of every page: the projects, under each its datasets, under each its conversions (with
   their viewer, compare and, later, report pages), and User Preferences last. Collapsible by level and as a whole
   (kept for the next visit), the current page highlighted, and over the page on narrow screens.
@@ -613,3 +615,13 @@ Requested 2026-10-27 (`new.md`):
   (the map stood in for). Checked live in headless Chromium against Nominatim, light, dark and 390 px wide: a search,
   a result picked, a point clicked and named, the project made and shown with its pin, the location cleared, the
   project deleted. No console errors and no failed requests.
+- **E3: the navigation pane and preferences** (2026-10-27). `/api/navigation` (projects, their datasets and
+  conversions, and which of a conversion's pages are ready), the `locale` preference, `/preferences`, and the flight's
+  time zone (`flight_zone` in the dataset, frames and mosaics APIs: the offset between the frames' recorded time and
+  their UTC time, `analyzer/thermal_analysis.py`). The pane with the toggle in the header, remembered shown and
+  unfolded, the current page marked, an overlay with a backdrop under 768 px, relisted after a change
+  (`frontend/src/components/nav-pane.tsx`, `core/navigation.ts`, `core/page.tsx`); User Preferences (unit, theme,
+  locale with an example, `frontend/src/preferences/`); dates in the locale and capture times in the flight's zone
+  (`core/format.ts`). Tests: `tests/test_navigation.py`, `tests/test_pages.py`, `frontend/tests/navigation.test.tsx`.
+  Checked live in headless Chromium on the user's data, light, dark and 390 px wide: the pane, hidden and kept, the
+  dataset analyzed again and shown in UTC−5, the locale and theme saved. No console errors and no failed requests.

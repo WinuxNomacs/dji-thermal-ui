@@ -12,7 +12,7 @@ import {getDistance} from "ol/sphere";
 import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
-import {type Maybe, mosaicLabel, type Stage} from "../core/format";
+import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {ArrowLeft, Columns, Download, Grid, Image, Save, Stop} from "../components/icons";
@@ -54,6 +54,7 @@ export interface Mosaics {
     frames?: string[];
     frame_colors?: number[];
     flown?: Maybe<string>[];
+    flight_zone?: FlightZone | null;
 }
 
 // What is measured: the shape drawn (or a saved measurement shown), on which mosaic, and what came back; res undefined
@@ -598,7 +599,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const shapes = saved.filter((x) => x.target === tab && x.geometry).map((x) => shapeOnMap(m, x.geometry!, fromCoords, x.name));
         if (current && !current.saved && current.target === tab && temperature) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
         const drawn = await snapshot(m, l.layer);
-        const taken = takenText(v.flown), today = new Date().toISOString().slice(0, 10);
+        const taken = takenText(v.flown, v.flight_zone), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
             title: [v.dataset_name, v.name, tabLabel(tab)].filter(Boolean).join(" · "),
             date: (taken ? "Flown " + taken + " · exported " : "Exported ") + today,
