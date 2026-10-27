@@ -734,4 +734,6 @@ show the minimum and maximum at its ends.
   dark: a spot saved from pane A, an area from pane B, a spot from B's mosaic of a difference (saved on conversion 2),
   a click on the map opening one, a change of status, the switch in the URL, a link opening one in pane B and its
   link to the viewer. The pane's tool hint pushed its map down: the toolbar now keeps it as a tooltip. No console
-  errors, no failed requests, no findings left.
+  errors, no failed requests, no findings left. Released as 0.6.0: release checks passed on Linux (check_dist, twine,
+  smoke on 3.12 and 3.14, ruff, 216 pytest with the flight tests, 223 Vitest, ESLint) and on Windows from WSL (214
+  pytest from a fresh clone, smoke).
