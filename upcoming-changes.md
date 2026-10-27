@@ -9,8 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **B2: the viewer on OpenLayers**, colouring the float32 mosaics in the browser with WebGL. To plan now that B1
-   is done. (Facelift)
+1. **B2: the map pages on OpenLayers**, colouring the float32 mosaics and frames in the browser with WebGL.
+   Planned 2026-10-27. (Facelift)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -201,16 +201,36 @@ Awesome 5) is rebuilt in two stages, each released on its own.
 - **Release:** 0.2.0.
 - **Done:** see Done below.
 
-### B2: the viewer on OpenLayers (to plan next)
+### B2: the map pages on OpenLayers
 
-- OpenLayers (10.11.0 today) with a WebGL tile layer reading the float32 mosaics, so the palette, range, gamma
-  and brightness/contrast change without new tiles. `ol/source/Google` later serves the Map Tiles (Basemaps).
-- **Open questions:**
-  - The mosaics have no overviews (`thermal_mosaics.py`). Serving them as COGs means a change in dji-thermal-cli,
-    made and released there first.
-  - Equalization needs the histogram, and sharpening needs neighbouring pixels: these may stay on the server or
-    need a custom shader.
-  - Do point readouts and measurements stay on the server's API?
+Planned 2026-10-27.
+
+- **Decisions (2026-10-27):** sharpening is done in the browser's shader, not on the server; the frame page moves
+  to OpenLayers too, so Leaflet is dropped.
+- **Map:** OpenLayers 10.11.0 (released 2026-10-04) replaces Leaflet on the viewer, compare and frame pages: the
+  basemaps (XYZ and WMS) and their switch, the scale bar, the legend, drawing measurements, the outlines and the
+  PNG export. `ol/source/Google` later serves the Map Tiles (Basemaps).
+- **Data tiles, not COGs:** the server sends float32 tiles (raw little-endian, NaN where there is no data, with
+  the same ETags) of what is drawn today: a mosaic tab's values read with rio-tiler (nearest pixel), temperatures
+  corrected for the emissivity and reflected temperature asked; the difference of two conversions; a frame's
+  temperatures as measured (with its changes). So the mosaics stay as dji-thermal-cli writes them (strip-laid,
+  five float32 bands, no overviews) and need no change there.
+- **Colouring in the browser:** a WebGL tile layer (`ol/layer/WebGLTile` over `ol/source/DataTile`) colours them
+  with a style built from the view: the palette (the API's colours), the range, gamma, brightness and contrast,
+  the isotherm (its pixels in the palette, the rest grey), the source frames each in their colour. Changing any of
+  these redraws without new tiles. Equalization applies the curve the server already gives (`/curve`), sampled
+  into the style.
+- **Sharpening** in the shader: the unsharp mask on the toned values, from neighbouring pixels read with the
+  style's band offsets (`['band', 1, dx, dy]`), its reach in tile pixels from the zoom as on the server. Tiles carry
+  a gutter (`DataTile`'s `gutter`) as wide as that reach, so tile edges show no seams. A hand-written shader only
+  if the style's expressions prove too limited.
+- **On the server's API still:** point readouts, measurements, the histogram and curve, the downloads. The
+  server's PNG tiles and frame images, and the colouring code only they use, are removed once nothing calls them.
+- **Tests:** the style builders, the curve's sampling, the tile decoding and the drawing's geometry in Vitest (jsdom
+  has no WebGL); the data tiles in pytest (shape, gutter, no data, correction, difference, ETag). The look is
+  checked in headless Chromium (software WebGL), compared side by side with 0.2.0's server-drawn tiles.
+- **Live check:** A3's walk-through on the 220 M4T frames, in light and in dark, and the Windows check.
+- **Release:** 0.3.0.
 
 ## Basemaps
 
