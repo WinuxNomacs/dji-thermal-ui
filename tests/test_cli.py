@@ -79,15 +79,29 @@ def stop(proc):
     proc.communicate(timeout=TIMEOUT)
 
 
+def journal_mode(path):
+    """The database's journal mode. Windows may hold a killed server's database files for a moment, which shows as a
+    disk I/O error: it is asked again until they are let go"""
+    deadline = time.monotonic() + 5
+    while True:
+        db = sqlite3.connect(path)
+        try:
+            return db.execute("PRAGMA journal_mode").fetchone()[0]
+        except sqlite3.OperationalError:
+            if time.monotonic() > deadline:
+                raise
+        finally:
+            db.close()
+        time.sleep(0.2)
+
+
 def test_the_command_makes_its_data_folder_and_keeps_its_secret_key_across_restarts(tmp_path):
     data = tmp_path / "data"
     port = free_port()
     stop(run_app(data, port))
     key = (data / "secret_key").read_text(encoding="utf-8")
     assert (data / "datasets").is_dir()
-    with sqlite3.connect(data / "db.sqlite3") as db:
-        assert db.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
-    db.close()
+    assert journal_mode(data / "db.sqlite3") == "wal"
 
     stop(run_app(data, port))
     assert (data / "secret_key").read_text(encoding="utf-8") == key
