@@ -12,6 +12,10 @@ its title.
 1. **J2: favourite filters**: the filter saved under a name, chosen from a dropdown, deleted but never overwritten.
    (Files filters)
 
+**Then**
+1. **K1: export a project**: the whole project or chosen flights, as a tarball. (Backup and restore)
+2. **K2: import a project**: as a new project, its name never reusing one in use. (Backup and restore)
+
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
    the plan's options, and follow it. This replaces the plugin's "Process in LuxODM". (Integration)
@@ -906,6 +910,47 @@ Requested 2026-10-28 (`new.md`), for the Files tab and the other tabs under a pr
 - **Columns:** Thermal frame and With problems are visible columns (a check mark), sorted and filtered like the rest.
 - **Favourites:** shared by all flights, saved server-side in `Preferences` (`file_filters`).
 - **Scope:** the Files tab only; no other table gets the filters.
+
+## Backup and restore
+
+Requested 2026-10-28 (`new.md`): back up and restore projects. A project is exported whole or with only some of its
+flights (all by default), preferably as a tarball. Importing must handle collisions at the project level: a project
+name already in use is never reused.
+
+### What it builds on
+
+- **A project's rows:** `Project` › `ThermalDataset` (flight) › `ThermalConversion` (dataset) › `ThermalMeasurement`,
+  and `Finding` on the flight (its `conversion` is optional). The flight and conversion `report` fields, the analysis,
+  results and mosaics are JSON on the rows.
+- **Its files:** `datasets/<id>/images/` (uploaded images; a folder flight reads them in place from `folder`), and
+  `datasets/<id>/conversions/<id>/` (TIFFs and mosaics). Thumbnails are made on request, not stored. Flight 1 here is
+  1.8 GB of images and 0.5 GB of conversion outputs.
+- **Paths in the JSON:** frames are named relative to the images folder, and the outputs relative to the conversion
+  folder, so they survive new ids (to be confirmed while building).
+- **Preferences** are app-wide (defaults, report author, favourite filters), not a project's.
+- **Jobs:** an analysis, conversion or mosaic still running has a `run_id` and a status that would be wrong elsewhere.
+
+### Proposed design
+
+- **The archive:** `<project>.tar` with `manifest.json` (the format version, the app version, the project, and its
+  flights, conversions, measurements and findings, with their old ids) and the files under `datasets/<old id>/`.
+  It is streamed to the browser as it is written, so no copy is made in the data folder.
+- **Export:** an "Export" button on the project page opens a dialog with a checkbox per flight (all checked), the
+  size each adds, and what to include. A flight still being analyzed or converted is not offered until it finishes.
+- **Import:** "Import project" on the projects page takes an archive. It is read and checked first (the manifest's
+  version, the paths staying inside the archive), then becomes a **new project** with new ids, the rows remapped.
+  A project of the same name gets a new name (see the decisions). Running statuses come in as canceled.
+- **Proposed phases:**
+  1. **K1: export**: the archive format, the streamed export, and the dialog.
+  2. **K2: import**: reading and checking an archive, the new project, collisions, and a round-trip test.
+
+### Decisions (2026-10-28)
+
+- **Contents:** everything: the rows, the images and the conversions' outputs, so a restore is ready to use at once.
+- **Folder flights:** their images are copied into the archive, and they come back as uploaded flights.
+- **A name in use:** the import dialog says so and proposes a free name ("Roof (2)"), which the user can change.
+  The import waits until the name is free.
+- **Format:** a plain `.tar`, not compressed.
 
 ## Integration
 
