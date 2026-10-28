@@ -11,7 +11,7 @@ its title.
 **Up next**
 1. **D2: the mosaic report**, with its measurements and findings. (Reports)
 
-**Then** (proposed, order to confirm with the user)
+**Then** (after D2 and its release, 0.7.0)
 1. **F1: visual mosaics in dji-thermal-cli**, released there first. (RGB and thermal)
 2. **F2: visual mosaics and frames in the app**, on that release. (RGB and thermal)
 3. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
@@ -658,9 +658,9 @@ Requested 2026-10-28 (`new.md`):
 
 ### Open decisions (to ask when planning)
 
-- **Order:** before D2, or after it (as listed)?
-- **Test data:** which flight with both `_T` and `_V` images to use, and where it is (as dataset 6 came out of
-  LuxODM's volume).
+- **Order (decided 2026-10-28):** after D2 and its release.
+- **Test data (decided 2026-10-28):** the user provides a folder with a flight that has both `_T` and `_V` images,
+  before F1 is built. Its path is noted for this machine, as dataset 6 was.
 - **Cameras first:** the M4T only, or the H20T/H30T/M3T too. Do the `_W`/`_Z` cameras count, or only `_V`?
 - **Resolution:** the visual frames are about 6× the thermal ones' resolution. Should the mosaic be at its own GSD
   (large files, slow to build), at a cap (e.g. 2 cm/px), or at the thermal mosaic's GSD?
