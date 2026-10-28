@@ -261,3 +261,35 @@ def test_renaming_does_not_undo_what_a_running_analysis_wrote(api):
     d.refresh_from_db()
     assert (d.name, d.status, d.analysis) == ("Roof, east", 'ready', {'files': []})
     assert api.patch("{}/{}".format(DATASETS, d.id), {'name': ""}, format='json').status_code == 400
+
+
+def test_a_reports_text_is_saved_on_the_dataset_a_field_at_a_time(api):
+    d = dataset(name="Roof")
+    url = "{}/{}".format(DATASETS, d.id)
+    assert api.get(url).data['report'] == {}
+    res = api.patch(url, {'report': {'title': "Roof survey", 'date': "2026-10-28", 'appendix': True}}, format='json')
+    assert res.status_code == 200
+    res = api.patch(url, {'report': {'notes': "Wet insulation\nnear the north edge", 'date': ""}}, format='json')
+    assert res.data['report'] == {'title': "Roof survey", 'date': "", 'appendix': True,
+                                  'notes': "Wet insulation\nnear the north edge"}
+    assert res.data['name'] == "Roof"        # the name is left as it was
+    d.refresh_from_db()
+    assert d.report['title'] == "Roof survey" and d.name == "Roof"
+
+
+def test_a_reports_text_is_refused_when_it_is_not_what_the_report_holds(api):
+    url = "{}/{}".format(DATASETS, dataset().id)
+    for report in [{'title': "x" * 256}, {'notes': "x" * 10001}, {'author': 5}, {'date': "28.10.2026"},
+                   {'date': "2026-02-30"}, {'appendix': "yes"}, {'colour': "red"}, ["title"]]:
+        res = api.patch(url, {'report': report}, format='json')
+        assert res.status_code == 400, report
+        assert 'report' in res.data
+    assert api.get(url).data['report'] == {}
+
+
+def test_the_author_last_typed_on_a_report_is_kept_and_not_forgotten_by_a_blank_one(api):
+    url = "{}/{}".format(DATASETS, dataset().id)
+    api.patch(url, {'report': {'author': "  A. Inspector "}}, format='json')
+    assert analyzer_api.report_author() == "A. Inspector"
+    api.patch(url, {'report': {'author': ""}}, format='json')
+    assert analyzer_api.report_author() == "A. Inspector"

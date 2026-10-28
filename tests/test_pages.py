@@ -23,6 +23,7 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
     d = dataset()
     c = conversion(d)
     for url, page_id in [("/", "app"), ("/preferences", "app"), ("/project/%d" % d.project_id, "app"), ("/dataset/%d" % d.id, "app"),
+                         ("/dataset/%d/report" % d.id, "app"),
                          ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "app"),
                          ("/conversion/%d/compare" % c.id, "app")]:
         client.cookies.clear()
@@ -37,7 +38,7 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
 
 def test_an_unknown_dataset_or_conversion_is_a_404(client):
     c = conversion(dataset())
-    for url in ["/project/999", "/dataset/999", "/conversion/999", "/conversion/999/frame", "/conversion/999/compare",
+    for url in ["/project/999", "/dataset/999", "/dataset/999/report", "/conversion/999", "/conversion/999/frame", "/conversion/999/compare",
                 "/conversion/%d/compare?b=999" % c.id, "/conversion/%d/compare?b=x" % c.id]:
         assert client.get(url).status_code == 404, url
 
@@ -59,7 +60,7 @@ def test_compare_takes_two_conversions_of_different_datasets(client):
 
 def test_the_projects_project_viewer_and_compare_pages_carry_the_basemaps(client):
     c = conversion(dataset())
-    for url in ["/", "/project/%d" % c.dataset.project_id, "/conversion/%d" % c.id, "/conversion/%d/compare" % c.id]:
+    for url in ["/", "/project/%d" % c.dataset.project_id, "/dataset/%d/report" % c.dataset_id, "/conversion/%d" % c.id, "/conversion/%d/compare" % c.id]:
         assert 'id="ta-basemaps"' in client.get(url).content.decode()
 
 
@@ -101,3 +102,16 @@ def test_the_pages_show_dates_in_the_locale_chosen_or_the_computers(client):
     APIClient().put(PREFERENCES, {'locale': 'en-GB'}, format='json')
     assert 'data-locale="en-GB"' in client.get("/preferences").content.decode()
     assert "<title>User Preferences · Thermal Analyzer</title>" in client.get("/preferences").content.decode()
+
+
+def test_a_report_page_carries_its_project_and_the_author_last_typed(client):
+    from rest_framework.test import APIClient
+    p = Project.objects.create(name="Grain silos", location_lon=-88.0, location_lat=42.0, location_label="Farm Rd 4")
+    d = dataset(name="Roof")
+    d.project = p
+    d.save()
+    html = client.get("/dataset/%d/report" % d.id).content.decode()
+    assert "<title>Roof report · Thermal Analyzer</title>" in html
+    assert 'data-project-name="Grain silos" data-location="Farm Rd 4" data-author=""' in html
+    APIClient().patch("/api/datasets/%d" % d.id, {'report': {'author': "A. Inspector"}}, format='json')
+    assert 'data-author="A. Inspector"' in client.get("/dataset/%d/report" % dataset().id).content.decode()

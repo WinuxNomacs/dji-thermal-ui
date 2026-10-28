@@ -83,6 +83,9 @@ class ThermalDataset(models.Model):
                                 help_text=_("What dji-thermal-cli reported: the files, the problems it found, the WebODM plan"),
                                 verbose_name=_("Analysis"))
     analyzed_at = models.DateTimeField(null=True, blank=True, help_text=_("When the analysis finished"), verbose_name=_("Analyzed at"))
+    report = models.JSONField(default=dict, blank=True,
+                              help_text=_("The text typed on its report: title, author, date, notes, and whether the "
+                                          "frames' table is appended"), verbose_name=_("Report"))
     created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
     updated_at = models.DateTimeField(auto_now=True, help_text=_("Last modified date"), verbose_name=_("Updated at"))
 
