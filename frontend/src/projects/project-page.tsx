@@ -1,15 +1,16 @@
-// A project's page: its name, description and location, edited or deleted (with its datasets); where its datasets
+// A project's page: its name, description and location, edited, exported or deleted (with its datasets); where its datasets
 // were flown, on a map; its datasets' findings together; and its datasets
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask} from "../components/dialog";
-import {ArrowLeft, MapPin, Pencil, Trash} from "../components/icons";
+import {ArrowLeft, Download, MapPin, Pencil, Trash} from "../components/icons";
 import {formatDate} from "../core/format";
 import {type Finding, statusLabel, temperaturesText} from "../findings/findings";
 import {SeverityChip} from "../findings/panel";
 import {DatasetsPage} from "../datasets/datasets-page";
 import type {Basemap} from "../map/map";
 import {AreasMap} from "./areas-map";
+import {ExportDialog} from "./export-dialog";
 import {type ProjectDetail, projectDeleteText} from "./list";
 import {ProjectForm} from "./project-form";
 
@@ -47,6 +48,7 @@ export function ProjectPage({api, publicUrl, id, basemaps, nav = (url) => { loca
     const [project, setProject] = useState<ProjectDetail | null>(null);
     const [notice, setNotice] = useState("");
     const [editing, setEditing] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
     async function load() {
         try {
@@ -75,6 +77,8 @@ export function ProjectPage({api, publicUrl, id, basemaps, nav = (url) => { loca
             <div class="page-actions">
                 <button type="button" class="button default" id="edit-project" disabled={!p}
                         onClick={() => setEditing(true)}><Pencil/> Edit</button>
+                <button type="button" class="button default" id="export-project-button" disabled={!p}
+                        onClick={() => setExporting(true)}><Download/> Export</button>
                 <button type="button" class="button default" id="delete-project" disabled={!p}
                         onClick={remove}><Trash/> Delete</button>
             </div>
@@ -94,6 +98,7 @@ export function ProjectPage({api, publicUrl, id, basemaps, nav = (url) => { loca
         {p && (p.findings || []).length > 0 && <ProjectFindings items={p.findings!} publicUrl={publicUrl}/>}
         {editing && p && <ProjectForm api={api} project={p} basemaps={basemaps} onClose={() => setEditing(false)}
                                       onSaved={() => { setEditing(false); load(); }}/>}
+        {exporting && p && <ExportDialog api={api} project={p} onClose={() => setExporting(false)}/>}
     </>);
 
     return <DatasetsPage api={api} publicUrl={publicUrl} project={id} top={top} onChange={load} nav={nav}/>;

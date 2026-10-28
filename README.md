@@ -10,7 +10,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   flight was flown. A flight can be moved to another project. The flights made before projects existed are in the
   Default Project, which you can rename; one is made again whenever none is left. A project's location is found by
   searching an address or a place on OpenStreetMap, or by clicking the site on the map, and keeps the address.
-  A project's page lists its flights' findings together.
+  A project's page lists its flights' findings together. A project is exported (backed up) as a `.tar` with all its
+  flights or those chosen: their images (a folder flight's copied in), datasets, mosaics, measurements and findings.
 - **Flights:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
   drone takes with them (DJI's `_V` or `_W`, as on the Matrice 4T or the H20T/H30T) can be added too: the Files tab
   calls them visual.
@@ -169,6 +170,8 @@ The database (SQLite), the secret key and each flight's files (`datasets/<id>/`)
 `--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. A flight used in place
 from a folder reads its images there and never changes them. Deleting a flight deletes only what the app made.
 Deleting a project deletes its flights the same way, after saying how many there are and how much space is freed.
+A project's export is written straight to the browser's download, so it needs no room in the data folder; it holds
+`manifest.json` (the project's rows) and each flight's files under `datasets/<id>/`.
 
 ## Development
 
