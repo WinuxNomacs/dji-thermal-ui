@@ -1,7 +1,7 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {emptyText, frameName, hasSources, shareText, type SourceFrame, type Sources, sourcesUrl, stepped,
-        svgPoints} from "../src/sources/sources";
+import {emptyText, frameName, fromVisual, hasSources, ringToVisual, shareText, type SourceFrame, type Sources, sourcesUrl,
+        stepped, svgPoints, toVisual, type VisualPair} from "../src/sources/sources";
 import {type SourceGroup, SourcesWindow} from "../src/sources/window";
 import {click, key, server, ticks, valuesResponse} from "./helpers";
 
@@ -20,6 +20,10 @@ function group(res: Sources | null | undefined, extra: Partial<SourceGroup> = {}
     return {title: "", res, unit: "C", colouring: {colors: []}, values: (f) => "/values?frame=" + f, curve: () => "",
             href: (f) => "/conversion/9/frame?frame=" + f, ...extra};
 }
+
+// A visual frame 4 times the thermal one's pixels, moved by (100, 50), with a little perspective
+const PAIR: VisualPair = {frame: "100MEDIA/DJI_0001_V.JPG", width: 40, height: 32,
+                          homography: [4, 0, 100, 0, 4, 50, 0.001, 0, 1]};
 
 const win = () => document.querySelector(".sources-window") as HTMLElement;
 const current = () => win().querySelector(".sources-list button.active")!.getAttribute("data-frame");
@@ -54,6 +58,16 @@ describe("the source frames", () => {
         expect(svgPoints([[0, 0], [9, 7.25]])).toBe("0.5,0.5 9.5,7.8");
     });
 
+    it("are found in their visual pair through its homography, and back", () => {
+        const [x, y] = toVisual(PAIR, [10, 20])!;
+        expect([x, y]).toEqual([140 / 1.01, 130 / 1.01]);
+        const back = fromVisual(PAIR, [x, y])!;
+        expect(back[0]).toBeCloseTo(10, 9);
+        expect(back[1]).toBeCloseTo(20, 9);
+        expect(toVisual(PAIR, [-2000, 0])).toBeNull();
+        expect(ringToVisual(PAIR, [[0, 0], [-2000, 0], [1, 0]])).toEqual([[100, 50], [104 / 1.001, 50 / 1.001]]);
+    });
+
     it("say why none is listed", () => {
         expect(emptyText({...spot([]), reason: "outside_raster"})).toBe("Outside the mosaic.");
         expect(emptyText(spot([]))).toBe("No frame is known for this spot.");
@@ -77,6 +91,36 @@ describe("the source frames window", () => {
         expect(rows[1]).not.toContain("in the mosaic");
         expect(win().textContent).not.toContain("build the mosaics again");
         expect(document.activeElement).toBe(win());
+    });
+
+    it("shows a frame's visual pair on its switch, the spot where the visual camera saw it", async () => {
+        const frames = [{...FRAMES[0], visual: {...PAIR, homography: [4, 0, 0, 0, 4, 0, 0, 0, 1]}}, FRAMES[1]];
+        render(<SourcesWindow name="t" visual groups={[group(spot(frames), {visual: (f) => "/visual?frame=" + f})]}
+                              onClose={() => undefined}/>, byId("root"));
+        await ticks();
+        const img = win().querySelector(".frame-image.visual img") as HTMLImageElement;
+        expect(img.getAttribute("src")).toBe("/visual?frame=100MEDIA/DJI_0001_T.JPG");
+        expect(win().querySelector("canvas")).toBeNull();
+        // The thermal pixel (3, 4) is the visual (12, 16): its centre 12.5 of 40 across, 16.5 of 32 down
+        const mark = win().querySelector(".frame-mark") as HTMLElement;
+        expect([mark.style.left, mark.style.top]).toEqual(["31.25%", "51.56%"]);
+        // A frame without a pair shows its thermal frame, the switch off
+        key(win(), "ArrowRight");
+        await ticks();
+        expect(win().querySelector("canvas")).not.toBeNull();
+        expect((win().querySelector('.sources-camera button[name="visual"]') as HTMLButtonElement).disabled).toBe(true);
+        key(win(), "ArrowLeft");
+        await ticks();
+        click(win().querySelector('.sources-camera button[name="thermal"]')!);
+        await ticks();
+        expect(win().querySelector("canvas")!.dataset.values).toBe("/values?frame=100MEDIA/DJI_0001_T.JPG");
+        expect(win().querySelector('.sources-camera button[name="thermal"]')!.getAttribute("aria-pressed")).toBe("true");
+    });
+
+    it("has no camera switch where the frames have no visual pairs to show", async () => {
+        render(<SourcesWindow name="t" groups={[group(spot(FRAMES))]} onClose={() => undefined}/>, byId("root"));
+        await ticks();
+        expect(win().querySelector(".sources-camera")).toBeNull();
     });
 
     it("steps through the frames with its buttons, the arrow keys and the list", async () => {

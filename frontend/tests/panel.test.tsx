@@ -66,7 +66,7 @@ describe("the whole mosaic", () => {
 
 describe("the report", () => {
     it("links each of the mosaic's files for download", () => {
-        render(<Report kind={{files: ["mosaic.tif"]} as never} base="/api/conversions/3"/>, root());
+        render(<Report rows={[]} files={["mosaic.tif"]} base="/api/conversions/3"/>, root());
         expect(root().querySelector("a")!.getAttribute("href")).toBe("/api/conversions/3/download?file=mosaic.tif");
     });
 });

@@ -6,7 +6,7 @@ import {type Measured, type ParamField, symbol, typedTemp} from "../measure/meas
 import {hiddenText, readHidden} from "../findings/findings";
 
 export const TAB_LABELS: Record<string, string> = {as_converted: "As converted", harmonized: "Harmonized",
-                                                   source_frame: "Source frame", view_angle: "View angle"};
+                                                   source_frame: "Source frame", view_angle: "View angle", visual: "Visual"};
 export const TAB_HINTS: Record<string, string> = {
     as_converted: "Each pixel is one frame's own temperature, as the frames were converted.",
     harmonized: "Normalized: one ambient and reflected temperature for every frame, and each frame's offset against " +
@@ -14,6 +14,8 @@ export const TAB_HINTS: Record<string, string> = {
     source_frame: "Which frame each pixel comes from (the one that saw it closest to straight down), each frame in " +
         "its own colour: the seams are where the colours change.",
     view_angle: "How far from straight down each pixel was seen, in degrees.",
+    visual: "The visual camera's images, each placed where its thermal frame is: what the temperatures are of. " +
+        "Under the cursor are the temperatures as converted.",
 };
 export const TEMPERATURE_TABS = ["as_converted", "harmonized"];
 // The adjustments' limits and the legend's samples, as the server has them (thermal_measure)
@@ -261,6 +263,40 @@ interface Report {
 export interface Kind {
     frames?: number; oblique?: number; unusable?: number; width?: number; height?: number; gsd_m?: number;
     report?: Report | null; normalization?: number[] | null; files?: string[];
+}
+
+// The visual mosaic, as the server keeps it (thermal_mosaics.build_visual) and dji-thermal-cli reports it
+export interface VisualMosaic {
+    bounds?: number[]; minzoom?: number; maxzoom?: number; files?: string[];
+    frames?: number; skipped?: number; pairs?: number; width?: number; height?: number; gsd_m?: number;
+    unpaired_thermal?: number; unused_visual?: number;
+    report?: {frames_used?: number;
+              camera_offset?: {applied?: boolean; reason?: string; pairs_used?: number;
+                               boresight_deg?: {pitch?: number; yaw?: number};
+                               offset_before_m?: {median?: number}; residual_m?: {median?: number; p90?: number}}} | null;
+}
+
+const signed = (x: Maybe<number>, digits: number) => (x !== null && x !== undefined && x > 0 ? "+" : "") +
+    formatNumber(x, digits);
+const cm = (m: Maybe<number>) => formatNumber((m || 0) * 100, 1, " cm");
+
+// What dji-thermal-cli reports about the visual mosaic: its frames, its size and the cameras' offset it corrected
+export function visualRows(v: Maybe<VisualMosaic>): [string, string][] {
+    if (!v) return [];
+    const r = v.report || {}, rows: [string, string][] = [];
+    rows.push(["Frames", [(r.frames_used ?? v.pairs) + " placed as their thermal frames",
+        v.unused_visual ? v.unused_visual + " visual not used (their thermal frames are not in the mosaic)" : "",
+        v.unpaired_thermal ? v.unpaired_thermal + " thermal without a visual frame" : ""].filter(Boolean).join(", ")]);
+    rows.push(["Size", v.width + " × " + v.height + " px at " + formatNumber((v.gsd_m || 0) * 100, 1, " cm")]);
+    const off = r.camera_offset;
+    if (off && off.applied) {
+        rows.push(["Cameras' offset", "pitch " + signed(off.boresight_deg?.pitch, 2) + "°, yaw " +
+            signed(off.boresight_deg?.yaw, 2) + "° from " + off.pairs_used + " pairs: the mosaics " +
+            cm(off.offset_before_m?.median) + " apart before, " + cm(off.residual_m?.median) + " after (median)"]);
+    } else if (off) {
+        rows.push(["Cameras' offset", "not corrected" + (off.reason ? " (" + off.reason + ")" : "")]);
+    }
+    return rows;
 }
 
 // What dji-thermal-cli reports about a mosaic: how many frames, how well they agree and line up

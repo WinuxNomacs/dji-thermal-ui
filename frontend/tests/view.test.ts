@@ -5,7 +5,7 @@ import {setUserUnit} from "../src/core/units";
 import {gradientCss, gradientStops, paletteCss} from "../src/viewer/canvas";
 import {
     defaultRange, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
-    sliderPositions, SLIDERS, slidRange, styleGroup, takenText, dataUrl, toneShares, viewQuery,
+    sliderPositions, SLIDERS, slidRange, styleGroup, takenText, dataUrl, toneShares, viewQuery, visualRows,
 } from "../src/viewer/view";
 
 afterEach(() => setUserUnit("C"));
@@ -139,6 +139,16 @@ describe("the PNG export", () => {
 });
 
 describe("the report", () => {
+    it("lists the visual mosaic's frames and size, and why the cameras' offset was not corrected", () => {
+        expect(visualRows({pairs: 3, width: 300, height: 200, gsd_m: 0.006, unpaired_thermal: 2,
+                           report: {camera_offset: {applied: false, reason: "too few pairs to measure (3 of 5)"}}})).toEqual([
+            ["Frames", "3 placed as their thermal frames, 2 thermal without a visual frame"],
+            ["Size", "300 × 200 px at 0.6 cm"],
+            ["Cameras' offset", "not corrected (too few pairs to measure (3 of 5))"],
+        ]);
+        expect(visualRows(null)).toEqual([]);
+    });
+
     it("lists the frames, size and seams", () => {
         const rows = reportRows({frames: 10, oblique: 2, width: 100, height: 50, gsd_m: 0.05,
                                  report: {radiometric_seams: {pixels: 5, median_abs_c: 0.2, p95_abs_c: 1}}});

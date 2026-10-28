@@ -1,10 +1,12 @@
-// A conversion's frames, one at a time: the frame as converted (and beside it, measured again with other parameters),
-// its palette, range and image adjustments, the values under the cursor, measuring with the isotherm, the frame's
+// A conversion's frames, one at a time: the frame as converted (and beside it, measured again with other parameters)
+// or its visual pair (the shapes and the readout on it the thermal frame's), its palette, range and image adjustments, the values under the cursor, measuring with the isotherm, the frame's
 // figures, where the frames were taken, the measurements saved on it, and the frame as a PNG. ← and → step through
 // the frames. The view (frame, palette, range, adjustments) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
 import type OlMap from "ol/Map";
+import type ImageLayer from "ol/layer/Image";
+import type ImageStatic from "ol/source/ImageStatic";
 import type VectorSource from "ol/source/Vector";
 import CircleStyle from "ol/style/Circle";
 import Fill from "ol/style/Fill";
@@ -22,8 +24,9 @@ import {type Coords, type Geometry, isothermParam, isothermText, type Measured, 
         type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
 import {type Colouring, isothermRange, readValues} from "../map/colour";
-import {addLegend, fitBounds, frameMap, hoverTips, lonLatToMap, pointFeature, pointsMap, snapshot, ThermalLayer,
-        vectorLayer} from "../map/map";
+import {addLegend, fitBounds, frameImage, frameImageLayer, frameMap, hoverTips, lonLatToMap, pointFeature, pointsMap,
+        snapshot, ThermalLayer, vectorLayer} from "../map/map";
+import {fromVisual, toVisual, type VisualPair} from "../sources/sources";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, ScaleView, Section} from "../viewer/panel";
 import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
@@ -67,6 +70,11 @@ interface FrameValues {key: string; values: Float32Array; width: number; height:
 // The frame is in pixels, y downwards: the map's y is -y
 const toCoords = (at: Coordinate): Coords => [at[0], -at[1]];
 const fromCoords = (c: Coords): Coordinate => [c[0], -c[1]];
+// A place on the visual pair's map in the thermal frame's pixels, and back (far off the frames: off the map)
+const OFF: Coords = [NaN, NaN];
+const fromPair = (pair: VisualPair, at: Coordinate): Coords => fromVisual(pair, [at[0], -at[1]]) || OFF;
+const toPair = (pair: VisualPair, c: Coords): Coordinate => { const p = toVisual(pair, c); return p ? [p[0], -p[1]] : OFF; };
+const VISUAL_KEY = "thermal-analyzer.frame.visual";
 const isPlaced = (f: FrameEntry) => typeof f.lat === "number" && typeof f.lon === "number";
 
 // The same shape measured afresh (with another isotherm or other parameters)
@@ -112,6 +120,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const [measureError, setMeasureError] = useState("");
     // Each pane's values: as converted, and with the parameters changed
     const [values, setValues] = useState<(FrameValues | null)[]>([null, null]);
+    // The visual pair shown instead of the frame (where it has one), kept from frame to frame and visit to visit
+    const [visual, setVisualState] = useState(() => { try { return localStorage.getItem(VISUAL_KEY) === "1"; } catch { return false; } });
 
     const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const paneEls = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
@@ -119,6 +129,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // The two panes (the second shown only with parameters changed), their images and drawings
     const maps = useRef<OlMap[]>([]);
     const layers = useRef<ThermalLayer[]>([]);
+    const pairLayer = useRef<ImageLayer<ImageStatic> | null>(null);
+    // The visual pair shown on the first pane, which its drawing and readout then map to the frame's pixels
+    const shownPair = useRef<VisualPair | null>(null);
     const drawings = useRef<Drawing[]>([]);
     const legend = useRef<HTMLDivElement | null>(null);
     const locator = useRef<{map: OlMap; spots: VectorSource; fitted: boolean} | null>(null);
@@ -135,6 +148,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         : ["", ""];
     const entry = (meta?.frames || []).find((f) => f.path === frame);
     const placed = (meta?.frames || []).filter(isPlaced);
+    const pair = info?.frame === frame ? info?.visual || null : null;
+    const onPair = visual && !!pair;
+    shownPair.current = onPair ? pair : null;
 
     // What the maps' handlers (set up once) read: this render's values
     const now = useRef({frame, changes, meta, current});
@@ -248,10 +264,14 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // A pane's map (with the first one's view: the panes move together), its readout and its drawing
     function setupMap(i: number, el: HTMLDivElement) {
         const m = frameMap(el, maps.current[0]?.getView());     // no keyboard: the arrows step through the frames
+        // The first pane may show the visual pair: its places are the frame's pixels mapped through it
+        const to = (at: Coordinate): Coords => i === 0 && shownPair.current ? fromPair(shownPair.current, at) : toCoords(at);
+        const from = (c: Coords): Coordinate => i === 0 && shownPair.current ? toPair(shownPair.current, c) : fromCoords(c);
         m.on("pointermove", (e) => {
             if (e.dragging) return;
             clearTimeout(hover.current);
-            hover.current = setTimeout(() => readout(e.coordinate), HOVER_MS);
+            const at = to(e.coordinate);
+            hover.current = setTimeout(() => readout(at), HOVER_MS);
         });
         m.getViewport()?.addEventListener("mouseleave", () => {
             clearTimeout(hover.current);
@@ -259,7 +279,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             setPoint(undefined);
         });
         drawings.current[i] = new Drawing({
-            map: m, toCoords, fromCoords, pixels: true, distance: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]),
+            map: m, toCoords: to, fromCoords: from, pixels: true, distance: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]),
             onDone: (geometry, shape) => {
                 drawings.current.forEach((d) => { if (d.tool()) d.stop(); });
                 setCurrent({geometry, shape});
@@ -272,7 +292,10 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                 showIndex(coords && points ? nearestIndex(points, coords, true) : null, points);
             },
         });
-        if (i === 0) legend.current = addLegend(m);
+        if (i === 0) {
+            legend.current = addLegend(m);
+            pairLayer.current = frameImageLayer(m);
+        }
         maps.current[i] = m;
     }
 
@@ -308,10 +331,39 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                 layers.current[i].setColouring(colouring);
             }
         });
+        showPair();
         ms.forEach((m) => m.updateSize());
-        if (fit.current && fitBounds(ms[0], [0, -first.height, first.width, 0], true)) fit.current = false;
+        const extent = onPair ? [0, -pair!.height, pair!.width, 0] : [0, -first.height, first.width, 0];
+        if (fit.current && fitBounds(ms[0], extent, true)) fit.current = false;
         drawLocator();
-    }, [values[0]?.key, values[1]?.key, changed, JSON.stringify(colouring)]);
+    }, [values[0]?.key, values[1]?.key, changed, JSON.stringify(colouring), onPair, pair?.frame]);
+
+    // The first pane shows the visual pair instead of the frame's values, on the Visual switch
+    function showPair() {
+        const l = pairLayer.current;
+        if (!l) return;
+        if (onPair && frame) {
+            const url = base + "/frame/visual?frame=" + encodeURIComponent(frame);
+            if ((l.getSource() as ImageStatic | null)?.getUrl() !== url) l.setSource(frameImage(url, pair!.width, pair!.height));
+        }
+        l.setVisible(onPair);
+        layers.current[0]?.layer.setVisible(!onPair);
+    }
+
+    // The switch: the view stays on the same place, at the same scale on the ground
+    function setVisual(on: boolean) {
+        try { localStorage.setItem(VISUAL_KEY, on ? "1" : "0"); } catch { /* kept for this visit only */ }
+        const view = maps.current[0]?.getView(), c = view?.getCenter(), r = view?.getResolution();
+        if (pair && on !== onPair && view && c && r) {
+            const there = (p: Coordinate) => on ? toPair(pair, toCoords(p)) : fromCoords(fromPair(pair, p));
+            const a = there(c), b = there([c[0] + 100 * r, c[1]]);
+            if (a.every(isFinite) && b.every(isFinite)) {
+                view.setCenter(a);
+                view.setResolution(Math.hypot(b[0] - a[0], b[1] - a[1]) / 100);
+            } else fit.current = true;
+        }
+        setVisualState(on);
+    }
 
     // Where the frames were taken, on a small map: the frame shown highlighted, a click on another opens it
     function drawLocator() {
@@ -376,10 +428,10 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             if (current) d.show(current.geometry, current.res?.result, unit);
             else d.clear();
         });
-    }, [current, changed]);
+    }, [current, changed, onPair, pair?.frame]);
 
     // The colour scale on the first pane
-    const scale = scaleShown();
+    const scale = onPair ? null : scaleShown();
     useEffect(() => {
         if (!legend.current) return;
         render(scale ? <ScaleView scale={scale}/> : null, legend.current);
@@ -393,9 +445,11 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                                                                       adjust: style?.adjust}));
     }, [frame, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
 
-    function readout(at: Coordinate) {
+    // The values at a pixel of the frame (where the cursor is, on the frame or on its visual pair)
+    function readout(at: Coords) {
         const n = ++asked.current.point, q = now.current;
-        fetch(base + "/frame/point?frame=" + encodeURIComponent(q.frame || "") + "&x=" + at[0] + "&y=" + (-at[1]) +
+        if (!at.every(isFinite)) return setPoint(null);
+        fetch(base + "/frame/point?frame=" + encodeURIComponent(q.frame || "") + "&x=" + at[0] + "&y=" + at[1] +
               changesQuery(changesIn(q.changes, q.meta?.unit)), {credentials: "same-origin"})
             .then((res) => readJson<FramePoint>(res))
             .then((r) => { if (n === asked.current.point) setPoint(r.ok ? r.data : null); })
@@ -566,13 +620,14 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // yet) and colour scale, as a PNG. The frame is in pixels: there is no scale bar.
     async function exportPng() {
         if (!meta || !frame || !layers.current[0]) return;
-        const both = changed && !!maps.current[1] && !!layers.current[1];
+        const both = changed && !onPair && !!maps.current[1] && !!layers.current[1];
         const panes = await Promise.all((both ? [0, 1] : [0]).map(async (i) => {
-            const m = maps.current[i], drawn = await snapshot(m, layers.current[i].layer);
-            const shapes = saved.filter((x) => x.geometry).map((x) => shapeOnMap(m, x.geometry!, fromCoords, x.name));
-            if (current && !current.saved) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
+            const m = maps.current[i], drawn = await snapshot(m, i === 0 && onPair ? pairLayer.current! : layers.current[i].layer);
+            const from = i === 0 && onPair ? (c: Coords) => toPair(pair!, c) : fromCoords;
+            const shapes = saved.filter((x) => x.geometry).map((x) => shapeOnMap(m, x.geometry!, from, x.name));
+            if (current && !current.saved) shapes.push(shapeOnMap(m, current.geometry, from, ""));
             return {el: paneEls[i].current!, images: drawn ? [drawn] : [], shapes,
-                    caption: both ? (i ? "Parameters changed" : "As converted") : ""};
+                    caption: both ? (i ? "Parameters changed" : "As converted") : onPair ? "Visual: " + pair!.frame : ""};
         }));
         const taken = takenText([entry?.time], meta.flight_zone), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
@@ -629,16 +684,23 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                     </select>
                     <button type="button" class="button default small" id="next" title="Next frame" disabled={at >= frames.length - 1}
                             onClick={() => step(1)}><ChevronRight/></button>
+                    {pair && <div class="segmented frame-camera" role="group" aria-label="Camera">
+                        <button type="button" name="thermal" class={!onPair ? "active" : ""} aria-pressed={!onPair}
+                                onClick={() => setVisual(false)}>Thermal</button>
+                        <button type="button" name="visual" class={onPair ? "active" : ""} aria-pressed={onPair}
+                                title={"Its visual image, " + pair.frame} onClick={() => setVisual(true)}>Visual</button>
+                    </div>}
                     <span class="message" id="about">{[entry?.time ? formatCapture(entry.time) + " (" + zoneText(meta.flight_zone) + ")" : "",
                         inMosaics ? "frame " + (entry!.mosaic! + 1) + " of the mosaics" : ""].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div class="viewer-body">
                     <div class="frame-panes">
                         <div class="frame-pane">
-                            <div class="frame-pane-title">As converted</div>
+                            <div class="frame-pane-title" id="pane-title">{onPair ? "Visual · " + pair!.frame.split("/").pop() +
+                                " (the readout and the shapes are the thermal frame's)" : "As converted"}</div>
                             <div class="viewer-map frame-map" id="map" ref={paneEls[0]}/>
                         </div>
-                        <div class="frame-pane" id="changed-pane" hidden={!changed}>
+                        <div class="frame-pane" id="changed-pane" hidden={!changed || onPair}>
                             <div class="frame-pane-title">Parameters changed</div>
                             <div class="viewer-map frame-map" id="map-changed" ref={paneEls[1]}/>
                         </div>

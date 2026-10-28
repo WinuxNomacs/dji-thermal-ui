@@ -3,6 +3,7 @@
 import {type Maybe, formatNumber} from "../core/format";
 import {convertTemp} from "../core/units";
 import {type Histogram, type ParamField, symbol, typedTemp} from "../measure/measure";
+import {type VisualPair} from "../sources/sources";
 
 // The parameters a frame can be measured again with: [field, label, step, in the temperature unit, what the SDK reports
 // it as (info.params), the analysis' recorded value]
@@ -44,6 +45,7 @@ export interface FrameInfo {
     params?: Record<string, Maybe<number>>;
     stats?: FrameStats;
     changed?: FrameInfo | null;     // measured again with the parameters changed
+    visual?: VisualPair | null;     // its visual pair, when the visual mosaic has it
 }
 
 const isTemperature = (field: string) => CHANGES.some((c) => c[0] === field && c[3]);

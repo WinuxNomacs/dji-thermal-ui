@@ -627,6 +627,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 /* The frame page: two panes side by side, the frames drawn pixel by pixel */
 .frame-chooser { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
 .frame-chooser select { min-width: 0; flex: 0 1 auto; }
+.frame-camera { display: inline-flex; }
 .frame-panes { flex: 1 1 auto; min-width: 0; display: flex; gap: 8px; }
 .frame-pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 .frame-pane-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
@@ -697,6 +698,10 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 /* A frame drawn whole, with a spot's pixel (a ring on its centre) or an area's outline over it */
 .frame-image { position: relative; display: block; max-width: 100%; }
 .frame-image canvas { display: block; width: 100%; image-rendering: pixelated; }
+.frame-image img { display: block; width: 100%; height: auto; }
+/* A frame's camera: the thermal frame or its visual pair */
+.sources-camera { display: flex; margin-bottom: 6px; }
+.sources-camera button { flex: 1; }
 .frame-mark {
     position: absolute; width: 17px; height: 17px; margin: -8px 0 0 -8px; pointer-events: none;
     border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #000;

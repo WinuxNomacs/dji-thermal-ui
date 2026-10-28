@@ -179,6 +179,7 @@ def fake_visual(out):
     write_frame_models(tif.with_suffix('.json'), VISUAL_MODELS, frames=frames)
     (out / 'mosaic_visual_preview.png').write_bytes(b'\x89PNG' + b'0' * 96)
     report = {'frames_used': 2, 'frames_contributing': 2, 'pairing': 'exposure time',
+              'thermal_frames_without_visual': [], 'visual_frames_unused': ['100MEDIA/DJI_0003_V.JPG'],
               'camera_offset': {'applied': True, 'pairs_measured': 5, 'pairs_used': 5,
                                 'boresight_deg': {'pitch': 0.25, 'yaw': -0.29}, 'offset_before_m': {'median': 0.1},
                                 'residual_m': {'median': 0.026, 'p90': 0.045}}}

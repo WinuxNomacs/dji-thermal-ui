@@ -29,7 +29,8 @@ export function Overview({d}: {d: DatasetFigures}) {
     const a = d.analysis || {};
     if (!a.files) return null;
     const o = overview(a);
-    const items: [string, string][] = [["Thermal frames", o.frames + (o.other ? " (and " + o.other + " other file(s))" : "")]];
+    const others = [o.visual ? o.visual + " visual" : "", o.other ? o.other + " other file(s)" : ""].filter(Boolean);
+    const items: [string, string][] = [["Thermal frames", o.frames + (others.length ? " (and " + others.join(", ") + ")" : "")]];
     (a.cameras || []).forEach((c) => items.push(["Camera", (c.model || "?") + (c.width ? " · " + c.width + "×" + c.height : "") +
         (c.serial ? " · " + c.serial : "") + " · " + c.frames + " frame(s)"]));
     if (o.tmin !== undefined) items.push(["Temperatures", formatTemp(o.tmin, "C", 1) + " to " + formatTemp(o.tmax!, "C", 1)]);

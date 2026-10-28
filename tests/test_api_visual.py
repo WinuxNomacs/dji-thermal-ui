@@ -67,6 +67,7 @@ def test_a_conversion_builds_the_visual_mosaic_beside_the_thermal_ones(conversio
     assert v['files'] == ['mosaics/visual/mosaic_visual.json', 'mosaics/visual/mosaic_visual.tif',
                           'mosaics/visual/mosaic_visual_preview.png']
     assert (v['frames'], v['skipped'], v['pairs']) == (2, 0, 2)
+    assert (v['unpaired_thermal'], v['unused_visual']) == (0, 1)
     assert v['report']['camera_offset']['applied'] is True
     assert not os.path.exists(os.path.join(c.data_dir(), 'mosaics', 'harmonized', 'mosaic_visual.tif'))
     assert 'visual' not in c.mosaics['kinds']

@@ -8,7 +8,7 @@ import {convertTemp, unitSymbol, userUnit} from "../core/units";
 import {Histogram} from "../measure/charts";
 import {type Measured, symbol, temp} from "../measure/measure";
 import {colorCss, gradientCss, type Scale} from "./canvas";
-import {type Adjust, EMISSIVITY_RANGE, gammaSlider, type Kind, type MosaicTab, reflectedRange, reportRows, scaleTicks,
+import {type Adjust, EMISSIVITY_RANGE, gammaSlider, type MosaicTab, reflectedRange, scaleTicks,
         SLIDERS, TAB_HINTS} from "./view";
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
@@ -231,8 +231,9 @@ export function Whole({whole, unit}: {whole: Maybe<Measured>; unit: unknown}) {
 }
 
 // What dji-thermal-cli reports about the mosaic, and its files to download
-export function Report({kind, base}: {kind: Maybe<Kind>; base: string}) {
-    const rows = reportRows(kind), files = (kind && kind.files) || [];
+// A mosaic's report (rows: as reportRows or visualRows give them) and its files to download
+export function Report({rows, files, base}: {rows: [string, string][]; files: Maybe<string[]>; base: string}) {
+    files = files || [];
     return (<>
         {rows.length > 0 && <table class="table values"><tbody>
             {rows.map(([k, v]) => <tr key={k}><th>{k}</th><td>{v}</td></tr>)}

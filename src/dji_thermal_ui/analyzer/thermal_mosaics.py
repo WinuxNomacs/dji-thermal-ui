@@ -233,6 +233,8 @@ def build_visual(report, thermal_raster, out_dir, stripped, compression):
         'bounds': [west, south, east, north], 'raster': relative(tif, out_dir),
         'files': sorted(relative(p, out_dir) for p in moved),
         'frames': report.frames, 'skipped': report.skipped, 'pairs': len(pairs),
+        'unpaired_thermal': len(m.report.get('thermal_frames_without_visual') or []),
+        'unused_visual': len(m.report.get('visual_frames_unused') or []),
         'gsd_m': m.grid.gsd, 'width': m.grid.width, 'height': m.grid.height, 'report': trimmed(m.report),
     })
 
