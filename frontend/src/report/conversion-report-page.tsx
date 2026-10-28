@@ -10,7 +10,7 @@ import {type Conversion} from "../dataset/conversions";
 import {type Analysis} from "../dataset/files";
 import {differences, type Settings} from "../dataset/settings";
 import {type Finding, findingsUrl} from "../findings/findings";
-import {readValues} from "../map/colour";
+import {readValues, SEAMS} from "../map/colour";
 import {DATA_GUTTER, rasterPixel, type Values} from "../map/map";
 import {type Measured, type Measurement, measurementFigure, shapeLabel, targetLabel} from "../measure/measure";
 import {ResultView} from "../measure/result";
@@ -20,7 +20,7 @@ import {type Mosaics} from "../viewer/viewer-page";
 import {type Ask, drawFigures, type Mark, type Source} from "./figures";
 import {FindingsSection} from "./findings";
 import {closeUpExtent, colouringOf, findingMark, included, legendOf, type MosaicReportText, onMosaic, reportStyle,
-        temperatureStyle, viewText} from "./mosaic-report";
+        temperatureStyle, underOf, viewText} from "./mosaic-report";
 import {numbered, todayText} from "./report";
 import {ReportBar, ReportField, TitleBlock, type Typed, useReportText} from "./text";
 
@@ -133,7 +133,10 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     useEffect(() => {
         if (!ready || !style || curve === undefined || !text) return;
         const marks = [...shownItems.filter((m) => m.target !== "frame" && m.geometry).map(mark), ...found.map(findingMark)];
-        figures({values: tiles(tab)!, colouring: colouringOf(v!, tab, style, curve), legend: legendOf(v!, tab, style, curve)},
+        const under = underOf(v!, tab, style), shares = under.style === style ? curve : null;
+        figures({values: tiles(under.tab)!, colouring: colouringOf(v!, under.tab, under.style, shares),
+                 legend: legendOf(v!, under.tab, under.style, shares),
+                 over: under.seams ? {values: tiles(tab)!, colouring: SEAMS} : undefined},
                 [{key: "main", title: viewText(v!, tab, style), marks}], MAIN);
     }, [ready, curve, marksKey]);
 

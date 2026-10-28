@@ -2,7 +2,7 @@
 // findings: the view saved with it (the viewer's, else the mosaics' first tab as it opens), how that colours the
 // values, the colour scale, what each close-up is fitted to, and the findings on the mosaic. Plain functions, no DOM.
 import {boundingExtent, buffer, getHeight, getWidth} from "ol/extent";
-import {type Colouring} from "../map/colour";
+import {type Colouring, SEAMS} from "../map/colour";
 import {lonLatToMap} from "../map/map";
 import {type Coords, type Geometry, type Measurement} from "../measure/measure";
 import {type Finding, SEVERITY_COLORS} from "../findings/findings";
@@ -38,6 +38,13 @@ export function temperatureStyle(v: Mosaics, tab: string, style: Style): Style {
     return isTemperatureTab(tab) ? style : defaultStyle(v, "as_converted");
 }
 
+// What the report's mosaic is drawn from: the tab's own values, but on the Source frame tab the as converted
+// mosaic's, coloured as the temperatures are, with the seams between its frames over it (as the viewer draws it)
+export function underOf(v: Mosaics, tab: string, style: Style): {tab: string; style: Style; seams: boolean} {
+    if (tab !== "source_frame" || !(v.tabs || []).some((t) => t.tab === "as_converted")) return {tab, style, seams: false};
+    return {tab: "as_converted", style: temperatureStyle(v, tab, style), seams: true};
+}
+
 const paletteOf = (v: Mosaics, key: string) => (v.palettes || []).find((p) => p.key === key)?.color_map || [];
 
 // The palette's share at values across the range: the equalization's curve (the server's), else the tone curve's
@@ -47,7 +54,7 @@ export function sharesOf(style: Style, curve: number[] | null): number[] | null 
 }
 
 export function colouringOf(v: Mosaics, tab: string, style: Style, curve: number[] | null): Colouring {
-    if (tab === "source_frame") return {colors: v.frame_colors || [], index: true};
+    if (tab === "source_frame") return SEAMS;
     return {colors: paletteOf(v, style.palette), range: style.range, shares: sharesOf(style, curve), sharpen: style.adjust.sharpen};
 }
 
@@ -57,9 +64,12 @@ export function legendOf(v: Mosaics, tab: string, style: Style, curve: number[] 
             caption: tab === "view_angle" ? "View angle, °" : "Temperature, " + symbol()};
 }
 
-// The view in words: the mosaic, its palette, its range and the adjustments made
-export function viewText(v: Mosaics, tab: string, style: Style): string {
-    const parts = [tabLabel(tab)];
+// The view in words: the mosaic, its palette, its range and the adjustments made (on the Source frame tab, those of
+// the mosaic under the seams)
+export function viewText(v: Mosaics, shownTab: string, shownStyle: Style): string {
+    const parts = [tabLabel(shownTab)];
+    const {tab, style, seams} = underOf(v, shownTab, shownStyle);
+    if (seams) parts.push("the seams between its frames over the " + tabLabel(tab));
     if (tab !== "source_frame") {
         const palette = (v.palettes || []).find((p) => p.key === style.palette);
         const [lo, hi] = shownRange(tab, style.range, v.unit), u = tab === "view_angle" ? "°" : " " + symbol();

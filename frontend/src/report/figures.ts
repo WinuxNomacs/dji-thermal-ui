@@ -21,8 +21,9 @@ export interface Mark {geometry: Geometry; name: string; color?: string}
 // A figure: its title, what it is fitted to (in the map's coordinates; the whole mosaic or frame when none), its marks
 export interface Ask {key: string; title: string; extent?: number[] | null; marks: Mark[]}
 
-// What the figures are drawn from: the values, how they are coloured, the colour scale under them
-export interface Source {values: Values; colouring: Colouring; legend: Scale | null}
+// What the figures are drawn from: the values, how they are coloured, the colour scale under them, and other values
+// drawn over them (the seams between the source frames)
+export interface Source {values: Values; colouring: Colouring; legend: Scale | null; over?: {values: Values; colouring: Colouring}}
 
 export interface Size {width: number; height: number}
 
@@ -44,6 +45,7 @@ async function draw(source: Source, asks: Ask[], size: Size): Promise<Record<str
     const map = frame ? frameMap(el, undefined, false) :
         new OlMap({target: el, controls: [], interactions: [], view: new View({center: [0, 0], zoom: 2, maxZoom: MAX_ZOOM})});
     const layer = new ThermalLayer(map, v, source.colouring);
+    const over = source.over ? new ThermalLayer(map, source.over.values, source.over.colouring, false) : null;
     const whole = v.kind === "frame" ? [0, -v.height, v.width, 0] : mercatorBounds(v.bounds);
     const fromCoords = (c: Coords): Coordinate => frame ? [c[0], -c[1]] : lonLatToMap(c);
     const out: Record<string, string | null> = {};
@@ -54,14 +56,16 @@ async function draw(source: Source, asks: Ask[], size: Size): Promise<Record<str
             await rendered(map);
             let image = null;
             for (let i = 0; i < SNAPSHOT_TRIES && !image; i++) image = await snapshot(map, layer.layer, SNAPSHOT_MS);
+            const overImage = image && over ? await snapshot(map, over.layer, SNAPSHOT_MS) : null;
             const shapes = ask.marks.map((m) => ({...shapeOnMap(map, m.geometry, fromCoords, m.name), color: m.color}));
-            const canvas = viewCanvas({title: ask.title, date: "", panes: [{el, images: image ? [image] : [], shapes}],
+            const canvas = viewCanvas({title: ask.title, date: "", panes: [{el, images: image ? [image, overImage].filter((x) => !!x) : [], shapes}],
                                        legend: source.legend, scale: frame ? null : scaleBar(metresPerPixel(map), 120),
                                        ratio: 2, north: !frame});
             out[ask.key] = image ? canvas.toDataURL("image/png") : null;
         }
     } finally {
         layer.remove();
+        over?.remove();
         map.setTarget(undefined);
         el.remove();
     }

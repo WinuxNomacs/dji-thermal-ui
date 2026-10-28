@@ -27,6 +27,9 @@ export interface Colouring {
     seams?: boolean;                        // only the seams, where the value (a source frame) changes; the rest clear
 }
 
+// The source frame index drawn as the seams between the frames, to lay over a mosaic
+export const SEAMS: Colouring = {colors: [], seams: true};
+
 // A seam is drawn two pixels wide, light on the one side and dark on the other, to show over any palette
 const SEAM_LIGHT: Rgba = [255, 255, 255, 1], SEAM_DARK: Rgba = [20, 20, 20, 1];
 // The neighbours the seam's light side (right and below) and dark side (left and above) are found with
