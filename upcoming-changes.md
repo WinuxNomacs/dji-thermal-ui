@@ -9,8 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **I3: the frames explorer**: the frame page with a list or thumbnails of the frames chosen in the pane, the first
-   selected, the frame page's view of it on the right. See "Naming and the explorer". (Naming)
+- Nothing planned: new requests arrive in `new.md`.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1148,3 +1147,13 @@ Requested 2026-10-28 (`new.md`):
   `viewer/tab-labels.ts`, so the pane imports no viewer code. Tests: `tests/test_navigation.py`,
   `frontend/tests/navigation.test.tsx`, `frontend/tests/frame.test.tsx`. Checked live on dataset 1: 151 in the
   mosaic and 176 oblique, the viewer's tab followed, the lists stepped through with →.
+- **I3: the frames explorer** (2026-10-28). The frame page lists its frames (the pane's list, or all) beside the
+  frame, in capture order (`captureOrder` in `frame/frame.ts`), the first shown, as a list or thumbnails (the
+  dataset's `thumbnail`, a switch kept in localStorage `thermal-analyzer.frame.thumbnails`), the frame shown kept in
+  sight (`frame/frame-list.tsx`); it replaces the frame picker. Each frame says what its list does not
+  (`frameTag`): not converted, in the mosaic, oblique above the mosaics' pitch limit (the frames API's `max_pitch`,
+  from `thermal_mosaics.max_pitch`, which the mosaics use too) or left out as unusable. Tests:
+  `frontend/tests/frame.test.tsx`, `tests/test_api_measurements.py`. Checked live on dataset 1, light and dark: 176
+  oblique frames in capture order (all tagged oblique, as the mosaic's report counts them), 151 in the mosaic, ← →
+  keeping the frame in sight and the list in the URL, the thumbnails loading as they scroll in and the switch kept
+  over a reload, the list above the frame at 700 px; no errors.

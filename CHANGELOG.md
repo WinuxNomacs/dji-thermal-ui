@@ -16,6 +16,10 @@ All notable changes are recorded here. The format follows
 - The navigation pane: under each dataset, its Tools (Compare, Report), its Mosaics (unfolding to each of the
   viewer's tabs) and its Frames (unfolding to "In the mosaic" and "Oblique", with their counts). The frame page
   opened from a list shows only its frames. The page shown is marked down to the viewer's tab.
+- The frame page is a frames explorer: its frames (those of the pane's list, or all) are listed beside the frame, in
+  the order they were taken, the first shown, as a list or as thumbnails (remembered by the browser). Each says
+  whether it is in the mosaic, oblique (with its angle), left out as unusable or not converted. The list replaces the
+  frame picker; ← → still step through it.
 
 - The viewer: the Source frame tab draws the mosaic with a line along each seam between its frames, instead of each
   frame in its own colour (in the PNG export too). The As converted tab is called Mosaic, there and on the compare
