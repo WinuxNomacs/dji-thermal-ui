@@ -40,9 +40,15 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   thumbnails of their kept frames. A table of every frame can be appended. Open it with the dataset page's Report
   button or from the navigation pane. The title, author, date and notes are typed on the page and saved with the
   dataset; the last author typed fills in new reports. It always prints light, without the app's header and controls.
+- **Mosaic report:** a conversion's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer
+  showed it when its Report button was pressed (that view is saved with the report), with the saved measurements
+  and the dataset's findings drawn and numbered, the colour scale, a scale bar and north. Each measurement follows
+  with a close-up on its mosaic or frame, its figures, profile and histogram, and a comment; one can be left out.
+  Then come the findings on the mosaic with their kept frames, and the conversion's settings and how the mosaic was
+  made. A measurement's comment is also shown in the viewer's list and exported in the CSV and GeoJSON.
 - **Compare:** two conversions side by side, or their difference, from any dataset, the project's listed first.
 - **Navigation:** a pane on the left of every page lists the projects, their datasets with each dataset's report,
-  and each conversion's mosaics, frames and compare page. Each level folds, and the whole pane hides; over a narrow
+  and each conversion's mosaics, frames, compare page and report. Each level folds, and the whole pane hides; over a narrow
   screen it opens on top of the page.
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, and the locale dates and times are written in (the computer's, or one chosen). A flight's capture times
