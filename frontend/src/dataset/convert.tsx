@@ -73,7 +73,7 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) 
     const adjusted = GIMBAL.some((g) => value(g[0]) !== "") || SIDES.some((s) => value("replace_" + s) !== "") ||
         !!form.checks.strip_location;
 
-    return (<form class="settings-form" onSubmit={(e) => e.preventDefault()}>
+    return (<form class="settings-form" id="settings-form" onSubmit={(e) => e.preventDefault()}>
         <fieldset><legend>Colours</legend>
             <Field ctx={ctx} name="palette" label="Palette">
                 <select name="palette" value={value("palette")} onChange={(e) => setValue("palette", e.currentTarget.value)}>
@@ -354,8 +354,9 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
             <p class="text-muted">Convert the images with dji-thermal-cli into a dataset: each dataset is kept beside the others, to
                 compare settings. {meta!.saved ? "Starting from your saved defaults." : "Starting from dji-thermal-cli's defaults."}</p>
             <div class="convert-summary"><span>Settings:</span> <Chips diffs={diffs}/>
-                {!open && <button type="button" class="button default small" id="edit-settings" onClick={() => setOpen(true)}>
-                    Edit settings</button>}</div>
+                <button type="button" class="button default small" id="edit-settings" aria-expanded={open}
+                        aria-controls="settings-form" onClick={() => setOpen(!open)}>
+                    {open ? "Hide settings" : "Edit settings"}</button></div>
             {open && <SettingsForm meta={meta!} form={form!} setForm={setForm} diffs={diffs} analysis={dataset.analysis}
                                    reset={(key) => fill(resetSetting(settings, meta!.defaults, key))}/>}
             <div class="convert-actions">

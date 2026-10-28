@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The Convert tab's settings, once opened with Edit settings, fold away again: the button stays, as Hide settings,
+  and the values chosen are kept.
+
 ### Added
 
 - System Settings › Storage, below User Preferences in the navigation pane (System Settings folds away, by its name

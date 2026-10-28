@@ -1320,6 +1320,10 @@ Requested 2026-10-28 (`new.md`):
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **Fix: the Convert tab's settings fold again** (2026-10-28, reported by the user). Edit settings disappeared once
+  the form was open; it stays now, as Hide settings, and folds the form away with its values kept
+  (`dataset/convert.tsx`). Test: `frontend/tests/dataset.test.tsx`. Checked live on 8080 on flight 1, light and dark,
+  nothing sent.
 - **Fix: System Settings folds** (2026-10-28, reported by the user: once unfolded it could not be folded again).
   In the pane, System Settings is a button (`nav-settings-toggle`, its name and a chevron) that folds Storage away,
   kept with the pane's other folds (`settings` in its stored keys), and unfolded when the Storage page is shown.
