@@ -127,7 +127,7 @@ describe("the mosaic report", () => {
         expect(($("#report-title") as HTMLInputElement).value).toBe("Roof · Nadir");
         expect(($("#report-author") as HTMLInputElement).value).toBe("A. Inspector");
         expect(text(".report-project")).toContain("Silos · Farm Rd 4 · dataset Roof · conversion Nadir · flown 2026-10-12 18:29–18:31");
-        expect(text("#report-mosaic .report-caption")).toContain("As converted · Iron red palette · 20.0 to 30.0 °C");
+        expect(text("#report-mosaic .report-caption")).toContain("Mosaic · Iron red palette · 20.0 to 30.0 °C");
         // The figures: the mosaic, and each measurement's close-up on its own mosaic or frame
         expect(asked().sort()).toEqual(["m4", "m5", "m6", "main"]);
         expect($("#report-mosaic img")!.getAttribute("src")).toBe("data:image/png;base64,main");

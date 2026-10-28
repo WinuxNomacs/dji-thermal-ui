@@ -1,7 +1,7 @@
 // How the browser colours the values the server sends (data tiles and frames: float32, NO_DATA where there are none),
 // as the server drew its images (thermal_measure.colorize): over a range, toned by the image's curve (gamma, or the
 // equalization's), sharpened with an unsharp mask, an isotherm's pixels in the palette and the rest in grey, or each
-// source frame in its own colour. Plain functions, no DOM: the style a WebGL tile layer is drawn with.
+// source frame in its own colour, or the seams between the source frames as lines. Plain functions, no DOM: the style a WebGL tile layer is drawn with.
 import type {ExpressionValue} from "ol/expr/expression";
 
 // Below this is no data (the server's NO_DATA is -1e30: WebGL cannot test for NaN)
@@ -24,7 +24,13 @@ export interface Colouring {
     sharpen?: number;                       // the unsharp mask's amount (0: none)
     isotherm?: [number, number] | null;     // the values drawn in the palette, the rest in grey
     index?: boolean;                        // each value its own colour (the source frames): colors[value mod length]
+    seams?: boolean;                        // only the seams, where the value (a source frame) changes; the rest clear
 }
+
+// A seam is drawn two pixels wide, light on the one side and dark on the other, to show over any palette
+const SEAM_LIGHT: Rgba = [255, 255, 255, 1], SEAM_DARK: Rgba = [20, 20, 20, 1];
+// The neighbours the seam's light side (right and below) and dark side (left and above) are found with
+const SEAM_LIGHT_SIDE = [[1, 0], [0, 1]], SEAM_DARK_SIDE = [[-1, 0], [0, -1]];
 
 const rgba = (encoded: number): Rgba => {
     const c = encoded >>> 0;
@@ -98,6 +104,15 @@ function sharpened(): ExpressionValue {
 // pixels drawn, updated as the map zooms)
 export function colourStyle(c: Colouring, sigma = 1): {color: ExpressionValue; variables: Record<string, number>} {
     const v = value(), none: ExpressionValue = [0, 0, 0, 0];
+    if (c.seams) {
+        // where the frame changes between two pixels with data (the mosaic's edge is not a seam)
+        const changed = (sides: number[][]): ExpressionValue => ["any", ...sides.map(([dx, dy]): ExpressionValue => {
+            const n = value(dx, dy);
+            return ["all", [">=", n, NO_DATA], ["!=", ["round", n], ["round", v]]];
+        })];
+        return {color: ["case", ["<", v, NO_DATA], none, changed(SEAM_LIGHT_SIDE), SEAM_LIGHT, changed(SEAM_DARK_SIDE),
+                        SEAM_DARK, none], variables: {noData: NO_DATA_BELOW}};
+    }
     if (c.index) {
         const colors = c.colors.map(rgba);
         return {color: ["case", ["<", v, NO_DATA], none, ["palette", ["%", ["round", v], colors.length], colors]],
@@ -132,6 +147,20 @@ export function colourValues(values: Float32Array, width: number, height: number
     const out = new Uint8ClampedArray(width * height * 4);
     const at = (x: number, y: number) => x < 0 || y < 0 || x >= width || y >= height ? -Infinity : values[y * width + x];
     const put = (i: number, rgb: Rgba) => { out.set([rgb[0], rgb[1], rgb[2], 255], i * 4); };
+    if (c.seams) {
+        const changed = (x: number, y: number, sides: number[][]) => sides.some(([dx, dy]) => {
+            const n = at(x + dx, y + dy);
+            return n >= NO_DATA_BELOW && Math.round(n) !== Math.round(at(x, y));
+        });
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (!(at(x, y) >= NO_DATA_BELOW)) continue;
+                if (changed(x, y, SEAM_LIGHT_SIDE)) put(y * width + x, SEAM_LIGHT);
+                else if (changed(x, y, SEAM_DARK_SIDE)) put(y * width + x, SEAM_DARK);
+            }
+        }
+        return out;
+    }
     if (c.index) {
         const colors = c.colors.map(rgba), n = colors.length;
         values.forEach((v, i) => { if (v >= NO_DATA_BELOW && n) put(i, colors[((Math.round(v) % n) + n) % n]); });

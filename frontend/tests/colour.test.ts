@@ -99,6 +99,14 @@ describe("the WebGL style", () => {
         expect(s.variables).toEqual({noData: -1e29});
         expect(JSON.stringify(s.color)).toContain('["%",["round",["band",1,0,0]],2]');
     });
+
+    it("draws the seams from the neighbouring pixels, and nothing else", () => {
+        const s = colourStyle({colors: [], seams: true}), color = JSON.stringify(s.color);
+        expect(s.variables).toEqual({noData: -1e29});
+        ["[\"band\",1,1,0]", "[\"band\",1,0,1]", "[\"band\",1,-1,0]", "[\"band\",1,0,-1]"]
+            .forEach((n) => expect(color).toContain(n));
+        expect(color).not.toContain("palette");
+    });
 });
 
 describe("the colouring without WebGL", () => {
@@ -130,5 +138,14 @@ describe("the colouring without WebGL", () => {
         const rgba = colourValues(new Float32Array([0, 1, 2]), 3, 1, {colors: [0x112233ff, 0x445566ff], index: true});
         expect([pixel(rgba, 0), pixel(rgba, 1), pixel(rgba, 2)])
             .toEqual([[0x11, 0x22, 0x33, 255], [0x44, 0x55, 0x66, 255], [0x11, 0x22, 0x33, 255]]);
+    });
+
+    it("draws a seam light on one side and dark on the other, and none at the mosaic's edge", () => {
+        // frames 0 | 1 side by side, a pixel with no data at the end of each row
+        const values = new Float32Array([0, 0, 1, 1, NONE, 0, 0, 1, 1, NONE]);
+        const rgba = colourValues(values, 5, 2, {colors: [], seams: true});
+        const row = (y: number) => [0, 1, 2, 3, 4].map((x) => pixel(rgba, y * 5 + x)[3] ? pixel(rgba, y * 5 + x)[0] : null);
+        expect(row(0)).toEqual([null, 255, 20, null, null]);
+        expect(row(1)).toEqual(row(0));
     });
 });

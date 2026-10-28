@@ -1,4 +1,4 @@
-// The mosaic viewer: a conversion's mosaics on a map (as converted, harmonized, the source frames, the view angles
+// The mosaic viewer: a conversion's mosaics on a map (as converted, harmonized, the source frames' seams, the view angles
 // and the visual mosaic), with their palette, range and image adjustments, the values under the cursor, measuring with the isotherm
 // and the thermal correction, the saved measurements, the source frames of a spot or an area in a window, the
 // dataset's findings, and the mosaic as a PNG; kept up to date while the mosaics are built. The view (tab, palette,
@@ -13,14 +13,13 @@ import CircleStyle from "ol/style/Circle";
 import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
 import {getDistance} from "ol/sphere";
-import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {ArrowLeft, Columns, Download, FileText, Grid, Image, Images, Save, Stop} from "../components/icons";
-import {Drawing, drawingKey} from "../measure/drawing";
+import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
@@ -35,9 +34,9 @@ import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPe
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
-        Readout, Report, ScaleView, Section, Whole} from "./panel";
+        Readout, Report, Section, Whole} from "./panel";
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
-        extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
+        type Extra, extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
         readView, reportRows, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
         TAB_HINTS, takenText, toneShares, viewQuery, type VisualMosaic, visualRows} from "./view";
 
@@ -95,6 +94,8 @@ const VISUAL = "visual";
 // The tabs whose spots and areas open their source frames, and the tools that draw them
 const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
 const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
+// The Source frame tab: the as converted mosaic drawn, with the seams between its frames over it
+const SEAMS: Colouring = {colors: [], seams: true};
 
 // A tab's palette and range before any is chosen
 export function defaultStyle(v: Mosaics, tab: string): Style {
@@ -174,7 +175,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const layer = useRef<ThermalLayer | null>(null);
     const visualTiles = useRef<TileLayer<XYZ> | null>(null);
     const visualKey = useRef("");
-    const legend = useRef<HTMLDivElement | null>(null);
+    const seams = useRef<ThermalLayer | null>(null);
     const drawing = useRef<Drawing | null>(null);
     const footprint = useRef<VectorSource | null>(null);
     const sourcesShape = useRef<VectorSource | null>(null);
@@ -185,20 +186,26 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const ready = isReady(v);
     const unit = v?.unit;
     const t = v && tab ? (v.tabs || []).find((x) => x.tab === tab) : undefined;
+    // The tab whose values are drawn: the Source frame tab's are the as converted mosaic's, its own the seams
+    const onSeams = tab === "source_frame";
+    const drawnTab = onSeams && (v?.tabs || []).some((x) => x.tab === "as_converted") ? "as_converted" : tab;
+    const d = drawnTab === tab ? t : (v?.tabs || []).find((x) => x.tab === drawnTab);
     const temperature = !!tab && isTemperatureTab(tab);
     const group = tab ? styleGroup(tab) : "";
     const style: Style | null = v && tab ? styles[group] || defaultStyle(v, tab) : null;
     const shown: Style | null = style && {...style, ...live};
     const params = unit !== undefined ? correctionParams(correction, unit) : {};
     const paramsKey = JSON.stringify(params);
-    const values: Values | null = t && tab ? {kind: "tiles", url: dataUrl(api, id, tab, params), bounds: t.bounds || WORLD,
-                                              maxZoom: (t.maxzoom || 20) + 1, gutter: DATA_GUTTER,
-                                              pixel: rasterPixel(t.bounds, v?.kinds?.[t.kind || ""]?.width)} : null;
+    const tiles = (x: MosaicTab, extra?: Extra): Values =>
+        ({kind: "tiles", url: dataUrl(api, id, x.tab, extra), bounds: x.bounds || WORLD, maxZoom: (x.maxzoom || 20) + 1,
+          gutter: DATA_GUTTER, pixel: rasterPixel(x.bounds, v?.kinds?.[x.kind || ""]?.width)});
+    const values: Values | null = d ? tiles(d, params) : null;
+    const seamValues: Values | null = onSeams && t ? tiles(t) : null;
     const colouring = colouringOf(shown);
 
     // What the map's handlers (set up once) read: this render's values
-    const now = useRef({tab, visual, params, current, pinned, drawFor, findings});
-    now.current = {tab, visual, params, current, pinned, drawFor, findings};
+    const now = useRef({tab, visual, params, current, pinned, outlined, drawFor, findings});
+    now.current = {tab, visual, params, current, pinned, outlined, drawFor, findings};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -244,8 +251,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     useEffect(() => {
         load();
-        // Enter finishes the shape being drawn and Esc cancels it
-        const keys = (e: KeyboardEvent) => { if (drawingKey(e, drawing.current)) syncTools(); };
+        // Enter finishes the shape being drawn and Esc cancels it; else Esc lets go of the spot or frame kept
+        const keys = (e: KeyboardEvent) => {
+            if (drawingKey(e, drawing.current)) return syncTools();
+            if (e.key === "Escape" && now.current.pinned && !inField(e.target)) follow();
+        };
         document.addEventListener("keydown", keys);
         return () => {
             clearTimeout(timer.current);
@@ -261,11 +271,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         setTools({tool: d ? d.tool() : null, count: d ? d.count() : 0});
     }
 
-    // The map, once there are mosaics to show: the basemaps, the mosaic's values, the legend and the drawing
+    // The map, once there are mosaics to show: the basemaps, the mosaic's values and the drawing
     useEffect(() => {
         if (!ready || map.current || !mapEl.current || !t || !values || !colouring) return;
-        const made = mosaicMap(mapEl.current, basemaps), m = map.current = made.map;
-        legend.current = made.legend;
+        const m = map.current = mosaicMap(mapEl.current, basemaps).map;
         footprint.current = vectorLayer(m, 5);
         sourcesShape.current = vectorLayer(m, 9);
         findingsShown.current = vectorLayer(m, 8);
@@ -302,18 +311,21 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 showIndex(coords && points ? nearestIndex(points, coords) : null, points);
             },
             // A click with no tool on opens the finding there, else keeps the values there (and its frame's link)
-            // until the next click; on the Source frame and Visual tabs it opens the frames that saw it too
+            // until the next click; on the Source frame and Visual tabs it opens the frames that saw it too. A click
+            // on the frame kept (outlined) lets go of it instead.
             onClick: (at) => {
                 const hit = findingsShown.current && findingAt(m, m.getPixelFromCoordinate(at), findingsShown.current);
                 const f = hit !== null && now.current.findings.find((x) => x.id === hit);
                 if (f) return openFinding(f);
+                const kept = now.current.pinned ? now.current.outlined : null;
                 setPinned(true);
                 now.current.pinned = true;
                 clearTimeout(hover.current);
-                readout(at, true);
-                if (now.current.tab === "source_frame" || now.current.visual) {
-                    openSources({type: "Point", coordinates: toCoords(at)});
-                }
+                readout(at, true, kept).then((shown) => {
+                    if (shown && (now.current.tab === "source_frame" || now.current.visual)) {
+                        openSources({type: "Point", coordinates: toCoords(at)});
+                    }
+                });
             },
         });
         loadSaved();
@@ -344,6 +356,20 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (values) layer.current?.setValues(values);
         if (colouring) layer.current?.setColouring(colouring);
     }, [JSON.stringify(values), JSON.stringify(colouring)]);
+
+    // The seams over the mosaic, on the Source frame tab only
+    useEffect(() => {
+        const m = map.current;
+        if (!m) return;
+        if (!seamValues) {
+            seams.current?.remove();
+            seams.current = null;
+        } else if (seams.current) {
+            seams.current.setValues(seamValues);
+        } else {
+            seams.current = new ThermalLayer(m, seamValues, SEAMS, false);
+        }
+    }, [JSON.stringify(seamValues), ready]);
 
     // The legend's curve with equalization: the server's (from the whole mosaic's histogram)
     useEffect(() => {
@@ -417,13 +443,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (findingsShown.current) drawFindings(findingsShown.current, drawn, opened);
     }, [JSON.stringify(drawn), opened, ready]);
 
-    // The colour scale on the map
+    // The colour scale, in the panel and the PNG (not on the map: the panel shows it)
     const scale = scaleShown();
-    useEffect(() => {
-        if (!legend.current) return;
-        render(scale ? <ScaleView scale={scale}/> : null, legend.current);
-        legend.current.hidden = !scale;
-    }, [JSON.stringify(scale), ready]);
 
     // The view in the URL, so that a reload or a copied link keeps it: the tab, its palette, range and adjustments,
     // the frame outlined, and the findings shown and open
@@ -436,17 +457,29 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     }, [ready, tab, visual, outlined, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust),
         showFindings, hidden.join(), opened]);
 
-    function readout(at: Coordinate, pin = false) {
+    // The values at a point, kept (and its frame outlined) when pinned; kept: the frame outlined before, let go of
+    // when the point is on it again. Resolves to whether the point's values are shown (not let go of, nor moved on).
+    function readout(at: Coordinate, pin = false, kept: string | null = null): Promise<boolean> {
         const n = ++asked.current.point, q = now.current, [lon, lat] = mapToLonLat(at);
-        fetch(base + "/mosaics/" + q.tab + "/point?lon=" + lon + "&lat=" + lat +
-              extraQuery(q.params), {credentials: "same-origin"})
+        return fetch(base + "/mosaics/" + q.tab + "/point?lon=" + lon + "&lat=" + lat +
+                     extraQuery(q.params), {credentials: "same-origin"})
             .then((res) => readJson<Point>(res))
             .then((r) => {
-                if (n !== asked.current.point) return;    // the cursor moved on
+                if (n !== asked.current.point) return false;    // the cursor moved on
+                const frame = r.ok && r.data.valid && r.data.frame || null;
+                if (pin && kept && frame === kept) {
+                    follow();
+                    return false;
+                }
                 setPoint(r.ok ? r.data : null);
-                if (pin) outline(r.ok && r.data.valid && r.data.frame || null);
+                if (pin) outline(frame);
+                return true;
             })
-            .catch(() => { if (n === asked.current.point) setPoint(null); });
+            .catch(() => {
+                if (n !== asked.current.point) return false;
+                setPoint(null);
+                return true;
+            });
     }
 
     // The frames that saw a spot or an area of the mosaic shown (or, on the View angle tab, of the as converted one;
@@ -614,7 +647,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     // it is dragged)
     function colouringOf(s: Style | null): Colouring | null {
         if (!s || !v || !tab) return null;
-        if (tab === "source_frame") return {colors: v.frame_colors || [], index: true};
+        if (onSeams) return frameColouring();
         return {colors: (v.palettes || []).find((p) => p.key === s.palette)?.color_map || [], range: s.range,
                 shares: shares(s.adjust), sharpen: s.adjust.sharpen, isotherm: temperature ? isothermRange(isoValue) : null};
     }
@@ -638,10 +671,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The colour scale as the tab's palette and range now are, or null on a tab without one
     function scaleShown(): Scale | null {
-        if (!shown || !v || tab === "source_frame" || visual) return null;
-        const colors = (v.palettes || []).find((p) => p.key === shown.palette)?.color_map || [];
-        return {colors, shown: shownRange(tab!, shown.range, unit), shares: shares(shown.adjust),
-                caption: tab === "view_angle" ? "View angle, °" : "Temperature, " + symbol()};
+        const s = onSeams ? frameStyle() : shown;
+        if (!s || !v || !drawnTab || visual) return null;
+        const colors = (v.palettes || []).find((p) => p.key === s.palette)?.color_map || [];
+        return {colors, shown: shownRange(drawnTab, s.range, unit), shares: shares(s.adjust),
+                caption: drawnTab === "view_angle" ? "View angle, °" : "Temperature, " + symbol()};
     }
 
     function chooseTab(chosen: string) {
@@ -923,7 +957,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         {visual ? <p class="hint" id="visual-hint">{TAB_HINTS[VISUAL]}</p> :
                             <Controls tab={t} palette={shown.palette} palettes={v.palettes || []} scale={scale} unit={unit}
                                       range={rangeText || rangeFields(shown.range)} rangeError={rangeError}
-                                      frames={(v.frames || []).length} frameColors={v.frame_colors}
+                                      frames={(v.frames || []).length}
                                       onPalette={(palette) => setStyle({palette})} onRange={typedRange} onAuto={() => auto()}/>}
                         {tab !== "source_frame" && !visual && <Section name="image" title="Image">
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
@@ -932,6 +966,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                            onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
                                            onReset={() => auto(true)}/>
                         </Section>}
+                        <Section name="cursor" title="Pointer info">
+                            <div class="readout" id="readout">
+                                <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
+                            </div>
+                        </Section>
                         {SOURCES_TABS.includes(tab!) && <Section name="sources" title="Source frames">
                             <Toolbar tool={drawFor === "sources" ? tools.tool : null} count={tools.count} tools={SOURCES_TOOLS}
                                      label="Source frames tools" onTool={(x) => pickTool(x, "sources")}
@@ -939,11 +978,6 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                             <p class="message">{tab === "source_frame" || visual ? "Click the mosaic, or draw a spot or an area, " :
                                 "Draw a spot or an area "}to see every frame that saw it{visual ? ", thermal and visual" : ""}.</p>
                         </Section>}
-                        <Section name="cursor" title="Under the cursor">
-                            <div class="readout" id="readout">
-                                <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
-                            </div>
-                        </Section>
                         {temperature && !visual && <>
                             <Section name="measure" title="Measure">
                                 <Toolbar tool={drawFor === "measure" ? tools.tool : null} count={tools.count}

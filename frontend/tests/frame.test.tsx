@@ -140,7 +140,8 @@ describe("the frame page", () => {
         expect($("[data-section=info]")!.textContent).toContain("640 × 512 px");
         expect($("[data-section=parameters]")!.textContent).toContain("The distance is the rangefinder.");
         expect(($("input[name=emissivity]") as HTMLInputElement).value).toBe("0.91");
-        expect($(".map-legend")!.textContent).toContain("Temperature, °C");
+        expect($(".map-legend")).toBeNull();
+        expect($(".viewer-panel .scale, .frame-panel .scale")!.textContent).toContain("Temperature, °C");
         expect(location.search).toBe("?palette=dji_ironred&min=17&max=28&frame=thermal%2Fa_T.JPG");
         expect(calls(fetchFn)).toContain("GET " + BASE + "/measurements?frame=" + enc(A));
     });
@@ -159,7 +160,7 @@ describe("the frame page", () => {
         expect(image.getSource()!.getImageExtent()).toEqual([0, -3024, 4032, 0]);
         expect([image.getVisible(), values.getVisible()]).toEqual([true, false]);
         expect(byId("pane-title").textContent).toBe("Visual · a_V.JPG (the readout and the shapes are the thermal frame's)");
-        expect($(".map-legend")!.textContent).toBe("");
+        expect($(".map-legend")).toBeNull();
         expect(localStorage.getItem("thermal-analyzer.frame.visual")).toBe("1");
         // B has no visual pair: its frame is shown, without the switch
         click(byId("next"));
@@ -189,7 +190,7 @@ describe("the frame page", () => {
         expect(image.getVisible()).toBe(true);
         // The frame stays shown on the first pane, with its colour scale
         expect(frameMap_.getLayers().getArray().find((l) => l instanceof WebGLTileLayer)!.getVisible()).toBe(true);
-        expect($(".map-legend")!.textContent).toContain("Temperature");
+        expect($(".map-legend")).toBeNull();
         // Each view follows the other through the pair (here four visual pixels to a frame's)
         frameMap_.getView().setCenter([100, -50]);
         frameMap_.getView().setResolution(1);
