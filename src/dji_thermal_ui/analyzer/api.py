@@ -19,6 +19,7 @@ from functools import lru_cache
 
 import numpy as np
 
+from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
@@ -31,7 +32,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, jobs, places, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from . import backup, basemaps, restore, jobs, places, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
                      ThermalDataset, ThermalMeasurement)
@@ -527,6 +528,73 @@ class ProjectArchiveView(DatasetView):
         response['Content-Length'] = len(archive)
         return response
 
+
+
+class ImportListView(DatasetView):
+    def post(self, request):
+        """Starts an import of an archive of ?size bytes, refused when the data folder has not the room for it"""
+        try:
+            size = int(request.data.get('size'))
+        except (TypeError, ValueError):
+            size = 0
+        if size <= 0:
+            raise ValidationError({'error': "Choose a project archive (.tar)"})
+        free = shutil.disk_usage(settings.DATA_DIR).free
+        if size > free:
+            raise ValidationError({'error': "The data folder has {} free, the archive needs {}".format(
+                restore_size(free), restore_size(size))})
+        i = restore.start(size)
+        return Response({'id': i.id, 'received': 0}, status=status.HTTP_201_CREATED)
+
+
+def restore_size(n):
+    return "{:.1f} GB".format(n / 1e9) if n >= 1e9 else "{:.0f} MB".format(n / 1e6)
+
+
+def get_import(import_id):
+    i = restore.get(import_id)
+    if i is None:
+        raise NotFound({'error': "That import is no longer here: start it again"})
+    return i
+
+
+class ImportDetailView(DatasetView):
+    def put(self, request, import_id):
+        """A piece of the archive, starting at ?offset: what was received, and the archive's project as soon as its
+        manifest is read. A damaged archive ends the import."""
+        i = get_import(import_id)
+        try:
+            offset = int(request.query_params.get('offset', ''))
+        except ValueError:
+            raise ValidationError({'error': "Give the piece's offset"}) from None
+        length = int(request.META.get('CONTENT_LENGTH') or 0)
+        try:
+            if not restore.receive(i, offset, request.stream, length):
+                return Response({'error': "A piece is missing", 'received': i.received}, status=status.HTTP_409_CONFLICT)
+        except restore.RestoreError as e:
+            restore.discard(i)
+            raise ValidationError({'error': str(e)}) from None
+        m = i.reader.manifest
+        return Response({'received': i.received, 'project': restore.summary(m) if m else None})
+
+    def post(self, request, import_id):
+        """The archive received made into a new project named name (a name no project has)"""
+        i = get_import(import_id)
+        name = project_fields(request.data, partial=False)['name']
+        if Project.objects.filter(name=name).exists():
+            raise ValidationError({'name': "A project is already named “{}”".format(name)})
+        try:
+            project = restore.finish(i, name)
+        except restore.RestoreError as e:
+            if i.received == i.size:    # nothing more will come: the import is over
+                restore.discard(i)
+            raise ValidationError({'error': str(e)}) from None
+        return Response(project_detail(project), status=status.HTTP_201_CREATED)
+
+    def delete(self, request, import_id):
+        """Stops an import, its staging folder removed"""
+        restore.discard(get_import(import_id))
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class NavigationView(DatasetView):
     def get(self, request):
