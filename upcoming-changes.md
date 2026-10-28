@@ -453,6 +453,16 @@ Planned 2026-10-27, from Later ("a report of a dataset or a mosaic"), after the 
   the frames' settings and temperature ranges; the conversions made; and, once C3 is built, the findings.
 - The report's text saved on the dataset. Print styles: no header or controls, always light, figures kept whole on
   a page.
+- **Decisions (2026-10-28):**
+  - **The frames:** a summary in the body: each setting's distinct values with their frame counts (emissivity,
+    distance, humidity, reflection, ambient), and the lowest, median and highest of the frames' temperatures. A full
+    table of the frames is an appendix, switched on per report, and the switch is saved.
+  - **The author:** typed on the report; the last one used is kept in the preferences and fills in new reports.
+  - **The findings:** a table, each numbered on the frames' map, with thumbnails of their kept frames.
+  - **The WebODM plan:** its coverage figures only. The task options and commands stay on the dataset page.
+- **Built as:** the text in a `report` field on the dataset (title, author, date, notes, appendix), changed with
+  the dataset's PATCH; the page `/dataset/<id>/report` (`frontend/src/report/`), with a Report button on the dataset
+  page and a Report entry in the navigation pane; print styles in `app.css`.
 
 ### D2: the mosaic report
 
