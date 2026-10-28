@@ -7,6 +7,7 @@ import os
 import shutil
 import sqlite3
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -45,6 +46,32 @@ def data_folder(path, projects=(), migrations=None):
     db.commit()
     db.close()
     return path
+
+
+def copy_database(source, path):
+    """A copy of a database (with what is still in its WAL), both connections closed"""
+    src, dst = sqlite3.connect(source), sqlite3.connect(path)
+    try:
+        src.backup(dst)
+    finally:
+        src.close()
+        dst.close()
+
+
+def opened(path):
+    """A connection to a database a stopped server made: Windows may hold its files for a moment after, which shows as
+    a disk I/O error, so it is asked again until they are let go"""
+    deadline = time.monotonic() + 5
+    while True:
+        db = sqlite3.connect(path)
+        try:
+            db.execute("SELECT 1 FROM analyzer_project").fetchall()
+            return db
+        except sqlite3.OperationalError:
+            db.close()
+            if time.monotonic() > deadline:
+                raise
+        time.sleep(0.2)
 
 
 def current(path):
@@ -198,9 +225,7 @@ def test_the_projects_chosen_from_a_set_aside_folder_are_imported_with_their_fil
     other = Project.objects.create(name="Not chosen")
     replaced = tmp_path / "replaced-2026-10-28"
     replaced.mkdir()
-    db = sqlite3.connect(connection.settings_dict['NAME'])
-    db.backup(sqlite3.connect(replaced / "db.sqlite3"))
-    db.close()
+    copy_database(connection.settings_dict['NAME'], replaced / "db.sqlite3")
     files = tree(c.dataset.data_dir())
     shutil.move(c.dataset.data_dir(), replaced / "datasets" / str(c.dataset_id))
     digest = hashlib.sha256((replaced / "db.sqlite3").read_bytes()).hexdigest()
@@ -225,9 +250,7 @@ def test_an_import_that_fails_leaves_the_set_aside_files_where_they_were(api, tm
     c = flight(api)
     replaced = tmp_path / "replaced"
     replaced.mkdir()
-    db = sqlite3.connect(connection.settings_dict['NAME'])
-    db.backup(sqlite3.connect(replaced / "db.sqlite3"))
-    db.close()
+    copy_database(connection.settings_dict['NAME'], replaced / "db.sqlite3")
     shutil.move(c.dataset.data_dir(), replaced / "datasets" / str(c.dataset_id))
     files = tree(replaced / "datasets")
     monkeypatch.setattr(ThermalConversion, "update_size", lambda self: (_ for _ in ()).throw(OSError("disk gone")))
@@ -318,7 +341,7 @@ def test_the_command_moves_the_data_folder_asked_before_serving_from_it(tmp_path
     env = {"DJI_THERMAL_UI_CONFIG_DIR": str(config)}
     stop(run_app(source, free_port(), extra_env=env))            # a data folder made by the app
     stop(run_app(target, free_port(), extra_env=env))            # and another, with a project of its own
-    db = sqlite3.connect(target / "db.sqlite3")
+    db = opened(target / "db.sqlite3")
     db.execute("INSERT INTO analyzer_project (name, description, location_label, created_at, updated_at) "
                "VALUES ('Barn', '', '', '2026-10-28 00:00:00', '2026-10-28 00:00:00')")
     barn = db.execute("SELECT id FROM analyzer_project WHERE name = 'Barn'").fetchone()[0]
@@ -339,7 +362,9 @@ def test_the_command_moves_the_data_folder_asked_before_serving_from_it(tmp_path
     assert (config / "data-dir").read_text(encoding="utf-8") == str(target)
     assert not (config / "move.json").exists()
     assert Path(result['replaced'], "db.sqlite3").is_file()
-    names = [n for (n,) in sqlite3.connect(target / "db.sqlite3").execute("SELECT name FROM analyzer_project")]
+    db = opened(target / "db.sqlite3")
+    names = [n for (n,) in db.execute("SELECT name FROM analyzer_project")]
+    db.close()
     assert "Barn" in names
 
 
