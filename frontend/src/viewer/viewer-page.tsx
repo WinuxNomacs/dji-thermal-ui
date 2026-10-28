@@ -17,7 +17,7 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, Grid, Image, Images, Save, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, FileText, Grid, Image, Images, Save, Stop} from "../components/icons";
 import {Drawing, drawingKey} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
@@ -89,7 +89,7 @@ const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
 const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
 
 // A tab's palette and range before any is chosen
-function defaultStyle(v: Mosaics, tab: string): Style {
+export function defaultStyle(v: Mosaics, tab: string): Style {
     const group = styleGroup(tab), t = (v.tabs || []).find((x) => x.tab === tab);
     return {palette: group === "view_angle" ? "viridis" : v.default_palette || "",
             range: defaultRange(t, group === "temperature" ? v.unit : undefined), adjust: defaultAdjust()};
@@ -113,9 +113,11 @@ interface Props {
     datasetId: number;
     datasetName: string;
     basemaps: Basemap[];
+    nav?: (url: string) => void;
 }
 
-export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps}: Props) {
+export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps,
+                            nav = (url) => { location.href = url; }}: Props) {
     const base = api + "conversions/" + id;
     const frameUrl = publicUrl + "conversion/" + id + "/frame?frame=";
     const [wanted] = useState(() => readView(location.search));
@@ -800,6 +802,17 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (error) setNotice(error);
     }
 
+    // The mosaic report, with the view shown: saved with the report first
+    async function openReport() {
+        if (!tab || !style) return;
+        const marks = {findings: showFindings, hidden};
+        const view = tab === "source_frame" ? {tab, ...marks} :
+            {tab, ...marks, palette: style.palette, range: style.range, adjust: style.adjust};
+        const r = await readJson(await sendJson(base, "PATCH", {report: {view}}));
+        if (!r.ok) return setNotice(errorText(r.data, "Could not open the report."));
+        nav(publicUrl + "conversion/" + id + "/report");
+    }
+
     // Above the window's frame: the finding shown, or the button that saves the spot or area as one
     function sourcesAbout() {
         const f = sources?.finding ? findings.find((x) => x.id === sources.finding) : null;
@@ -835,6 +848,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     {ready && <button type="button" class="button default" id="png" onClick={exportPng}
                                       title="The mosaic as shown, with its saved measurements and colour scale (the basemap is left out)">
                         <Download/> Export PNG</button>}
+                    {ready && <button type="button" class="button default" id="report" onClick={openReport}
+                                      title="A report of this mosaic as shown, its measurements and findings, to print or save as PDF">
+                        <FileText/> Report</button>}
                     {v.status === "ready" && v.mosaic_status !== "building" &&
                         <button type="button" class="button default" id="build"
                                 onClick={() => action("/mosaics", "Could not build the mosaics.")}>

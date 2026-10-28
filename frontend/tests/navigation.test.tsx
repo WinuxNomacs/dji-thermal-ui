@@ -81,11 +81,12 @@ describe("the navigation pane", () => {
         expect(fold("c7")).toBeNull();
         click(fold("c9"));
         await ticks(2);
-        expect(links().slice(5, 9)).toEqual(["Built", "Mosaics", "Frames", "Compare"]);
+        expect(links().slice(5, 10)).toEqual(["Built", "Mosaics", "Frames", "Compare", "Report"]);
         expect($('a[href="/conversion/9/compare"]')).not.toBeNull();
+        expect($('a[href="/conversion/9/report"]')).not.toBeNull();
         click(fold("c8"));
         await ticks(2);
-        expect(links().slice(9, 11)).toEqual(["Converted", "Frames"]);
+        expect(links().slice(10, 12)).toEqual(["Converted", "Frames"]);
         // Folded again, with what is under it
         click(fold("p2"));
         await ticks(2);

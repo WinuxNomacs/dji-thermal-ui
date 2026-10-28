@@ -35,17 +35,17 @@ export function gradientCss(encoded: number[] | null | undefined, shares?: numbe
     return stops.length ? "linear-gradient(to right, " + stops.join(", ") + ")" : "";
 }
 
-export interface CanvasShape {type: string; name: string; points: [number, number][]}
+export interface CanvasShape {type: string; name: string; points: [number, number][]; color?: string}
 // An image drawn where it is on the page (the values as a map drew them)
 export interface Placed {image: CanvasImageSource; rect: DOMRect}
 export interface Pane {el: HTMLElement; images: Placed[]; caption?: string; shapes?: CanvasShape[]}
 export interface Scale {colors: number[]; shown: [number, number]; caption: string; shares?: number[] | null}
 
-// A measurement on the image as it is on the map (the drawing's colours), its name beside it
+// A measurement on the image as it is on the map (the drawing's colours, or its own), its name beside it
 export function drawShape(g: CanvasRenderingContext2D, s: CanvasShape): void {
     const pts = s.points;
     if (!pts || !pts.length) return;
-    g.strokeStyle = "#00e5ff";
+    g.strokeStyle = s.color || "#00e5ff";
     g.lineWidth = 2;
     g.beginPath();
     if (s.type === "Point") {
@@ -54,8 +54,10 @@ export function drawShape(g: CanvasRenderingContext2D, s: CanvasShape): void {
         pts.forEach((p, i) => { if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
         if (s.type === "Polygon") {
             g.closePath();
-            g.fillStyle = "rgba(0, 229, 255, 0.1)";
-            g.fill();
+            if (!s.color) {
+                g.fillStyle = "rgba(0, 229, 255, 0.1)";
+                g.fill();
+            }
         }
     }
     g.stroke();
@@ -70,10 +72,10 @@ export function drawShape(g: CanvasRenderingContext2D, s: CanvasShape): void {
 
 // The view as an image, drawn in the browser on a canvas: a title and the date above; each pane's own images
 // (the mosaic's values, the frame's, as drawn) where they are on the page, its measurements drawn over them, named; below,
-// the scale bar and the colour scale. The basemap is left out: its tiles come from elsewhere and can't be
-// copied into an image.
+// the scale bar and the colour scale, and north (a map's, always up) when asked. The basemap is left out: its tiles
+// come from elsewhere and can't be copied into an image.
 export function viewCanvas(o: {title: string; date: string; panes: Pane[]; legend: Scale | null;
-                                scale: {px: number; label: string} | null; ratio?: number}): HTMLCanvasElement {
+                                scale: {px: number; label: string} | null; ratio?: number; north?: boolean}): HTMLCanvasElement {
     const HEAD = 46, FOOT = 58, GAP = 8, PAD = 12, CAPTION = o.panes.some((p) => p.caption) ? 18 : 0;
     const boxes: {pane: Pane; rect: DOMRect; x: number}[] = [];
     let x = 0, height = 0;
@@ -151,6 +153,21 @@ export function viewCanvas(o: {title: string; date: string; panes: Pane[]; legen
             g.textAlign = t.at < 0.1 ? "left" : t.at > 0.9 ? "right" : "center";
             g.fillText(t.label, left + t.at * w, bottom + 48);
         });
+        g.textAlign = "left";
+    }
+    if (o.north) {
+        const x = width - PAD - 8;
+        g.fillStyle = "#222";
+        g.beginPath();
+        g.moveTo(x, 6);
+        g.lineTo(x + 7, 26);
+        g.lineTo(x, 21);
+        g.lineTo(x - 7, 26);
+        g.closePath();
+        g.fill();
+        g.font = "bold 11px sans-serif";
+        g.textAlign = "center";
+        g.fillText("N", x, 39);
         g.textAlign = "left";
     }
     return canvas;

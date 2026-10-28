@@ -32,7 +32,7 @@ export const projectKey = (id: number) => "p" + id;
 export const datasetKey = (id: number) => "d" + id;
 export const conversionKey = (id: number) => "c" + id;
 
-const CONVERSION_PAGES = ["viewer", "frame", "compare"];
+const CONVERSION_PAGES = ["viewer", "frame", "compare", "conversion_report"];
 
 // The items above the page shown, which are expanded so that it can be seen: its project, dataset and conversion
 export function pathTo(projects: NavProject[], current: Current): string[] {
@@ -51,13 +51,14 @@ export function pathTo(projects: NavProject[], current: Current): string[] {
     return [];
 }
 
-// A conversion's pages, as the pane offers them: its mosaics once built, its frames once converted, and comparing
-// its mosaics with another's
+// A conversion's pages, as the pane offers them: its mosaics once built, its frames once converted, comparing
+// its mosaics with another's, and its mosaic report
 export function conversionPages(c: NavConversion, publicUrl: string): {page: string; label: string; href: string}[] {
     const base = publicUrl + "conversion/" + c.id;
     const out: {page: string; label: string; href: string}[] = [];
     if (c.mosaics) out.push({page: "viewer", label: "Mosaics", href: base});
     if (c.frames) out.push({page: "frame", label: "Frames", href: base + "/frame"});
     if (c.mosaics) out.push({page: "compare", label: "Compare", href: base + "/compare"});
+    if (c.mosaics) out.push({page: "conversion_report", label: "Report", href: base + "/report"});
     return out;
 }

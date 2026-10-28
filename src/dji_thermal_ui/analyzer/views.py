@@ -62,6 +62,15 @@ def viewer_page(request, conversion_id):
 
 
 @ensure_csrf_cookie
+def conversion_report(request, conversion_id):
+    """A conversion's mosaic report, laid out to be printed to PDF"""
+    conversion = conversion_or_404(conversion_id)
+    return page(request, "conversion_report.html", title=conversion.name + " report", entry="conversion_report",
+                conversion=conversion, dataset=conversion.dataset, project=conversion.dataset.project,
+                author=report_author())
+
+
+@ensure_csrf_cookie
 def frame_page(request, conversion_id):
     conversion = conversion_or_404(conversion_id)
     return page(request, "frame.html", title=conversion.name, entry="frame", conversion=conversion,

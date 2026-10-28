@@ -184,6 +184,9 @@ class ThermalConversion(models.Model):
     created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
     finished_at = models.DateTimeField(null=True, blank=True, help_text=_("When the conversion finished"),
                                        verbose_name=_("Finished at"))
+    report = models.JSONField(default=dict, blank=True,
+                              help_text=_("Its mosaic report's text and view: title, author, date, notes, the view "
+                                          "shown, and the measurements left out"), verbose_name=_("Report"))
 
     class Meta:
         verbose_name = _("Thermal conversion")
@@ -237,6 +240,8 @@ class ThermalMeasurement(models.Model):
                                   help_text=_("The measurement parameters changed for it, if any"),
                                   verbose_name=_("Parameters"))
     values = models.JSONField(default=dict, blank=True, help_text=_("What was measured"), verbose_name=_("Values"))
+    comment = models.TextField(blank=True, default="", help_text=_("What the user wrote about it"),
+                               verbose_name=_("Comment"))
     created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
 
     class Meta:

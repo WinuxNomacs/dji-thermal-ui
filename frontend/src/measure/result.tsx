@@ -181,6 +181,7 @@ export function Measurements(props: MeasurementsProps) {
                 <span class="text-muted">{shapeLabel(r, m.values?.shape) + " · " + targetLabel(m)}</span>
                 <div class="measurement-figure">{measurementFigure(m, unit)}</div>
                 {params && <div class="measurement-params text-muted">Measured with {params}</div>}
+                {m.comment && <div class="measurement-comment text-muted">{m.comment}</div>}
                 {fields.length > 0 && <button type="button" class="icon-button" title="Measure again with other parameters"
                                               onClick={() => props.onEdit(editing === m.id ? null : m.id)}><Sliders/></button>}
                 {props.onFinding && m.target !== "frame" && (m.geometry?.type === "Point" || m.geometry?.type === "Polygon") &&

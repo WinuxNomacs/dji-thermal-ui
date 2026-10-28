@@ -9,9 +9,9 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **D2: the mosaic report**, with its measurements and findings. (Reports)
+1. **Release 0.7.0** (the reports), then F1 below.
 
-**Then** (after D2 and its release, 0.7.0)
+**Then**
 1. **F1: visual mosaics in dji-thermal-cli**, released there first. (RGB and thermal)
 2. **F2: visual mosaics and frames in the app**, on that release. (RGB and thermal)
 3. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
@@ -470,11 +470,35 @@ Planned 2026-10-27, from Later ("a report of a dataset or a mosaic"), after the 
 
 ### D2: the mosaic report
 
+- **Built** (2026-10-28): see Done.
+
 - `/conversion/<id>/report`, opened from the viewer with its view: the contents decided above, and the dataset's
   findings on this mosaic with their kept frames. Each measurement's comment saved on the measurement (shown in the
   viewer and in the CSV and GeoJSON too).
 - Tests for both: pytest for the pages and the saved text; Vitest for the sections from the data; a live check
   printing each to PDF with Playwright and looking at the pages.
+- **Decisions (2026-10-28):**
+  - **The view** (tab, palette, range, adjustments) is saved with the report. The viewer's Report button saves the
+    view it shows, then opens the report; the pane's entry opens the saved view.
+  - **The mosaic on white**, as in the PNG export: the coloured mosaic with the measurements and findings drawn on
+    it, the colour scale, a scale bar and north. No basemap.
+  - **The measurements:** every saved measurement of the conversion, on the mosaics and on frames. A switch on the
+    report leaves one out, and the switch is saved.
+  - **The findings:** every finding of the dataset that lies on the mosaic, numbered on the figure, with the
+    conversion its temperatures were read on and its kept frames.
+- **Design:**
+  - **Text and view:** a `report` field on the conversion (title, author, date, notes, view, left out), changed with
+    its PATCH like the dataset's. The author is shared with D1 (`report_author`).
+  - **The figures are images:** WebGL canvases do not print reliably. A hidden map draws the mosaic (`ThermalLayer`)
+    fitted to the mosaic, then to each measurement's extent, and `snapshot` and `viewCanvas` (the PNG export's)
+    make each into an image on the page. Frame measurements are drawn on their frame (`frameMap`, the frame's
+    values).
+  - **The measurements' table and charts:** `Profile` and `Histogram` (SVG, which prints).
+  - **A comment on each measurement:** a `comment` field, typed on the report, shown in the viewer's saved list, in
+    the CSV and the GeoJSON.
+  - **Settings and method:** the conversion's settings that differ from the defaults (`settings.ts`), the mosaic's
+    kind and what it means (`TAB_HINTS`), the normalization, and dji-thermal-cli's version (each conversion's
+    results already record it).
 
 ## Projects
 
@@ -844,3 +868,26 @@ Requested 2026-10-28 (`new.md`):
   fixed from it: the date as large as the title, a setting listing dozens of values, the appendix wider than the page.
   No console errors, no failed requests; the finding deleted and the report's text put back (`{}`). The author was
   not typed live, as the preference cannot be cleared through the API (its saving is covered by pytest).
+- **D2: the mosaic report** (2026-10-28, branch `d2-mosaic-report`): `/conversion/<id>/report`
+  (`views.conversion_report`, `templates/conversion_report.html`, entry `pages/conversion_report.tsx`).
+  - **Page:** `frontend/src/report/conversion-report-page.tsx`, with the view, colouring, close-up extents and
+    findings on the mosaic in `mosaic-report.ts`.
+  - **Figures:** `figures.ts` draws them off the page with a `ThermalLayer` of its own and makes them into images
+    with `snapshot` and `viewCanvas`, one map at a time. The page cannot be printed until they are drawn.
+  - **Shared with D1:** `text.tsx` (the text saved as typed, the title block, the bar) and `findings.tsx`.
+  - **Server:** the conversion's `report` field (title, author, date, notes, view, left_out; migration 0006),
+    changed with its PATCH (`parse_report` with `MOSAIC_REPORT`, the view checked by `report_view`), and the
+    measurement's `comment` (its PATCH, the CSV's Comment column, the GeoJSON's property).
+  - **Viewer:** a Report button saves the view shown, then opens the report. The pane lists the report under each
+    conversion with mosaics. `viewCanvas` gained north and coloured marks.
+  - **Tests:** pytest in `test_api_conversions.py`, `test_api_measurements.py`, `test_pages.py` and `test_vite.py`
+    (222 passed). Vitest in `frontend/tests/mosaic-report.test.tsx` (its figures mocked: jsdom has no WebGL), the
+    viewer's Report button and the pane (247 passed). ESLint and ruff are clean.
+  - **Live check:** in headless Chromium on dataset 1's conversion 2, light and dark, with three temporary
+    measurements (a line, an area, a spot on a frame) and a finding. The viewer's Report button saved the
+    harmonized view, the four figures were drawn, a comment was typed, a measurement left out, and the report
+    printed to A4 and Letter and looked at.
+  - **Fixed from the live check:** every figure undrawn on the first run (the image is now waited for 10 s and
+    asked for again once), and the caption and the profile's hint in the print.
+  - **Left as found:** no console errors or failed requests; the measurements and finding deleted, the report's
+    text put back (`{}`).

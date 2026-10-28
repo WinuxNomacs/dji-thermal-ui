@@ -13,6 +13,14 @@ All notable changes are recorded here. The format follows
   up, the conversions, the findings with their kept frames' thumbnails, notes, and a table of every frame when
   appended. Its title, author, date and notes are typed on the page and saved on the dataset; the last author typed
   fills in new reports. Opened from the dataset page's Report button and the navigation pane.
+- A conversion's mosaic report, to print or save as PDF: the mosaic as shown in the viewer when its Report button
+  was pressed (the view is saved with the report), with the measurements and the dataset's findings numbered on it,
+  the colour scale, a scale bar and north; each measurement with a close-up on its mosaic or frame, its figures and
+  charts, and a comment (a measurement can be left out); the findings on the mosaic; the settings and the method.
+  Also in the navigation pane under each conversion with mosaics.
+- A comment on each saved measurement, typed on the mosaic report, shown in the viewer's list, and in the CSV
+  and GeoJSON exports.
+- The PNG export's image can carry north and marks in colours of their own (used by the reports).
 
 ### Changed
 

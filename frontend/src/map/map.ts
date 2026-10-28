@@ -235,10 +235,11 @@ export class ThermalLayer {
     };
 }
 
-// The values as drawn on the map (the basemap left out), where they are on the page; null when none were drawn
-export function snapshot(map: OlMap, layer: WebGLTileLayer): Promise<{image: HTMLCanvasElement; rect: DOMRect} | null> {
+// The values as drawn on the map (the basemap left out), where they are on the page; null when none were drawn within
+// wait milliseconds
+export function snapshot(map: OlMap, layer: WebGLTileLayer, wait = 3000): Promise<{image: HTMLCanvasElement; rect: DOMRect} | null> {
     return new Promise((resolve) => {
-        const timer = setTimeout(() => { layer.un("postrender", copy); resolve(null); }, 3000);
+        const timer = setTimeout(() => { layer.un("postrender", copy); resolve(null); }, wait);
         function copy(e: {context?: unknown}) {
             clearTimeout(timer);
             const src = (e.context as WebGLRenderingContext | undefined)?.canvas as HTMLCanvasElement | undefined;

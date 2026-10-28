@@ -753,6 +753,14 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .report .table { font-size: .9em; }
 .report-files { font-size: .75em !important; }
 .print-only { display: none; }
+.report-figure { display: block; width: 100%; height: auto; border: 1px solid var(--border); margin: 8px 0; }
+.report-measurement { margin: 16px 0; padding-top: 8px; border-top: 1px solid var(--border); }
+.report-measurement h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 1.05em; margin: 0 0 4px; }
+.report-measurement .report-figure { max-width: 140mm; }
+.report-measurement.left-out { opacity: .55; }
+.report-leave-out { margin-left: auto; font-weight: normal; font-size: .85em; }
+.report-comment textarea { font-size: .9em; }
+.measurement-comment { white-space: pre-wrap; font-size: .85em; }
 
 @page { margin: 15mm; }
 
@@ -763,14 +771,15 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     .report { max-width: none; font-size: 10pt; }
     .print-only { display: block; }
     .report-field input, .report-field textarea, .report-field .report-label { display: none; }
-    .report-field.empty, .report-section.empty { display: none; }
+    .report-field.empty, .report-section.empty, .report-measurement.left-out, .report .profile-readout { display: none; }
+    .report-figure { border: none; }
     .report-head .report-title .report-value { font-size: 20pt; font-weight: 600; }
     .report-byline { gap: 24px; }
     .report-byline .report-field { flex: 0 0 auto; margin: 0; }
     .report-notes .report-value { white-space: pre-wrap; }
     .report-map { height: 100mm; }
     .report-map .ol-zoom, .report-map .ol-attribution button, .report-map .map-basemaps { display: none !important; }
-    .report-keep, .report .figures, .report tr, .report .finding { break-inside: avoid; }
+    .report-keep, .report .figures, .report tr, .report .finding, .report svg { break-inside: avoid; }
     .report h2, .report h3 { break-after: avoid; }
     .report-appendix { break-before: page; }
     .report .table-scroll { overflow: visible; }

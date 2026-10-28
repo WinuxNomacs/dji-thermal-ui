@@ -263,6 +263,7 @@ def conversion_summary(c):
 def conversion_detail(c):
     out = conversion_summary(c)
     out['results'] = c.results or {}
+    out['report'] = c.report or {}
     return out
 
 
@@ -314,14 +315,23 @@ def report_author():
     return Preferences.load().data.get(REPORT_AUTHOR_KEY) or ""
 
 
-def parse_report(value, saved):
+DATASET_REPORT = ('title', 'author', 'date', 'notes', 'appendix')
+MOSAIC_REPORT = ('title', 'author', 'date', 'notes', 'view', 'left_out')
+VIEW_KEYS = {'tab': str, 'palette': str, 'range': list, 'adjust': dict, 'findings': bool, 'hidden': list}
+MAX_LEFT_OUT = 1000
+
+
+def parse_report(value, saved, keys=DATASET_REPORT):
     """A report's text, changed: the keys sent replace those saved (a title, author and notes are text, the date a
-    YYYY-MM-DD day or "", the appendix a yes or no; null forgets one, which the page then fills in again)"""
+    YYYY-MM-DD day or "", the appendix a yes or no; a mosaic report's view as the viewer's URL has it, and the ids of
+    the measurements it leaves out; null forgets one, which the page then fills in again)"""
     if not isinstance(value, dict):
-        raise ValidationError({'report': "An object of title, author, date, notes and appendix"})
+        raise ValidationError({'report': "An object of " + ", ".join(keys)})
     out = dict(saved or {})
     for key, v in value.items():
-        if v is None and key in ('title', 'author', 'date', 'notes', 'appendix'):
+        if key not in keys:
+            raise ValidationError({'report': "Unknown: {}".format(key)})
+        if v is None:
             out.pop(key, None)
         elif key in ('title', 'author', 'notes'):
             limit = MAX_DESCRIPTION_LENGTH if key == 'notes' else MAX_NAME_LENGTH
@@ -336,9 +346,42 @@ def parse_report(value, saved):
             if not isinstance(v, bool):
                 raise ValidationError({'report': "The appendix is true or false"})
             out[key] = v
+        elif key == 'view':
+            out[key] = report_view(v)
         else:
-            raise ValidationError({'report': "Unknown: {}".format(key)})
+            if not isinstance(v, list) or len(v) > MAX_LEFT_OUT or \
+                    not all(isinstance(i, int) and not isinstance(i, bool) and i > 0 for i in v):
+                raise ValidationError({'report': "The measurements left out are their ids"})
+            out[key] = sorted(set(v))
     return out
+
+
+def report_view(v):
+    """A mosaic report's view, checked: what the viewer's URL keeps (tab, palette, range, adjust, findings, hidden)"""
+    def refuse():
+        raise ValidationError({'report': "The view is the viewer's: " + ", ".join(VIEW_KEYS)})
+    if not isinstance(v, dict) or len(json.dumps(v)) > 2000:
+        refuse()
+    for key, x in v.items():
+        if not isinstance(x, VIEW_KEYS.get(key, type(None))) or isinstance(x, str) and len(x) > 64:
+            refuse()
+    r = v.get('range')
+    if r is not None and not (len(r) == 2 and all(isinstance(n, (int, float)) and not isinstance(n, bool) and
+                                                  np.isfinite(n) for n in r) and r[0] < r[1]):
+        refuse()
+    a = v.get('adjust')
+    if a is not None and not (set(a) <= {'gamma', 'equalize', 'sharpen'} and
+                              all(isinstance(n, (int, float)) for n in a.values())):
+        refuse()
+    if not all(isinstance(i, int) and not isinstance(i, bool) for i in v.get('hidden') or []):
+        refuse()
+    return v
+
+
+def remember_author(report):
+    """Keeps the author typed on a report for new ones (a blank one forgets nothing)"""
+    if report.get('author', '').strip():
+        save_preference(REPORT_AUTHOR_KEY, report['author'].strip())
 
 
 def parse_day(text):
@@ -528,8 +571,7 @@ class DatasetDetailView(DatasetView):
         if 'report' in request.data:
             dataset.report = parse_report(request.data['report'], dataset.report)
             fields.append('report')
-            if dataset.report.get('author', '').strip():
-                save_preference(REPORT_AUTHOR_KEY, dataset.report['author'].strip())
+            remember_author(dataset.report)
         if 'project' in request.data:
             dataset.project_id = project_id_of(request.data['project'])
             fields.append('project')
@@ -674,13 +716,22 @@ class ConversionDetailView(DatasetView):
         return Response(conversion_detail(check_stale(get_conversion(pk))))
 
     def patch(self, request, pk):
+        """Renames the conversion, or changes its mosaic report's text and view (the author typed is kept for new
+        reports)"""
         conversion = get_conversion(pk)
-        name = str(request.data.get('name', '')).strip()
-        if not name:
-            raise ValidationError({'name': "A name is required"})
-        conversion.name = name[:255]
-        # Only the name: a running conversion writes the rest
-        conversion.save(update_fields=['name'])
+        fields = []
+        if 'report' in request.data:
+            conversion.report = parse_report(request.data['report'], conversion.report, MOSAIC_REPORT)
+            fields.append('report')
+            remember_author(conversion.report)
+        if 'name' in request.data or not fields:
+            name = str(request.data.get('name', '')).strip()
+            if not name:
+                raise ValidationError({'name': "A name is required"})
+            conversion.name = name[:255]
+            fields.append('name')
+        # Only these: a running conversion writes the rest
+        conversion.save(update_fields=fields)
         return Response(conversion_detail(conversion))
 
     def delete(self, request, pk):
@@ -1388,7 +1439,7 @@ def profile_frames(conversion, geometry):
 
 def measurement_json(m):
     return {'id': m.id, 'name': m.name, 'target': m.target, 'frame': m.frame, 'geometry': m.geometry,
-            'parameters': m.parameters, 'values': m.values, 'created_at': m.created_at}
+            'parameters': m.parameters, 'values': m.values, 'comment': m.comment, 'created_at': m.created_at}
 
 
 class MeasureView(DatasetView):
@@ -1448,11 +1499,17 @@ def get_measurement(pk, mid):
 class MeasurementDetailView(DatasetView):
     def patch(self, request, pk, mid):
         """
-        Renames a measurement (name), or measures it again with other parameters (parameters: as MeasureView's, {}
-        for the conversion's own), on the same target, frame, geometry and isotherm
+        Renames a measurement (name), changes its comment, or measures it again with other parameters (parameters: as
+        MeasureView's, {} for the conversion's own), on the same target, frame, geometry and isotherm
         """
         conversion, m = get_measurement(pk, mid)
         fields = []
+        if 'comment' in request.data:
+            comment = request.data.get('comment')
+            if not isinstance(comment, str) or len(comment) > MAX_DESCRIPTION_LENGTH:
+                raise ValidationError({'comment': "Text of {} characters at most".format(MAX_DESCRIPTION_LENGTH)})
+            m.comment = comment
+            fields.append('comment')
         if 'name' in request.data:
             name = str(request.data.get('name') or "").strip()
             if not name or len(name) > MAX_NAME_LENGTH:
@@ -1471,7 +1528,7 @@ class MeasurementDetailView(DatasetView):
             m.parameters, m.values = parameters, values
             fields += ['parameters', 'values']
         if not fields:
-            raise ValidationError({'error': "Give a name or parameters"})
+            raise ValidationError({'error': "Give a name, a comment or parameters"})
         m.save(update_fields=fields)
         return Response(measurement_json(m))
 
@@ -1634,7 +1691,7 @@ CSV_COLUMNS = (('name', "Name"), ('target', "Measured on"), ('frame', "Frame"), 
                ('isotherm_share', "Isotherm share"), ('length', "Length"), ('area', "Area"),
                ('size_unit', "Length / area unit"), ('valid_pixels', "Pixels"), ('distance', "Distance"),
                ('temperature', "Temperature"), ('source_frame', "Source frame"), ('parameters', "Parameters changed"),
-               ('approximate', "Approximate"), ('geometry', "Geometry"), ('created_at', "Saved at"))
+               ('approximate', "Approximate"), ('comment', "Comment"), ('geometry', "Geometry"), ('created_at', "Saved at"))
 
 
 def csv_number(value, digits):
@@ -1685,6 +1742,7 @@ def csv_rows(m, unit='C', profile=True):
             'valid_pixels': r.get('valid_pixels'), 'distance': None, 'temperature': None, 'source_frame': None,
             'parameters': json.dumps(parameters(m.parameters)) if m.parameters and (which == 'changed' or m.target != 'frame') else "",
             'approximate': "yes" if v.get('approximate') else "",
+            'comment': m.comment if which == 'result' else "",
             'geometry': json.dumps(m.geometry),
             'created_at': m.created_at.isoformat(),
         })
