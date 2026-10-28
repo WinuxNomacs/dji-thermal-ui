@@ -113,7 +113,79 @@ def fake_make_mosaic(path, output_dir, settings=None, options=None, compression=
     result = fake_mosaic(Path(output_dir), options.units[0], options.normalize)
     if as_converted_dir is not None:
         result.as_converted = fake_mosaic(Path(as_converted_dir), options.units[0], False)
+    # The visual mosaic, beside the harmonized one, when asked for and the dataset has visual frames (both mosaics
+    # then have frame models)
+    if options.visual and any(Path(path).rglob('*_V.JPG')):
+        for m in (result, result.as_converted):
+            if m is not None:
+                write_frame_models(m.files[0][1], THERMAL_MODELS)
+        result.visual = fake_visual(Path(output_dir))
+    elif options.visual:
+        result.visual_note = "no visual frames (JPEGs with a DJI camera pose that are not thermal)"
     return result
+
+
+VISUAL_FILES = ('100MEDIA/DJI_0001_V.JPG', '100MEDIA/DJI_0002_V.JPG')
+# Both frames' cameras 30 m above the middle of the mosaic, looking down with the image's top to the north:
+# NED -> the camera's (forward, right, down)
+NADIR = [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]
+# (file, width, height, focal, camera's move from the middle (east, north, up) in metres, its turn about down in
+# radians): the thermal frames, then the visual ones (wider, turned a little, exposed a little later)
+THERMAL_MODELS = [('100MEDIA/DJI_0001_T.JPG', 640, 512, 1000.0, (0, 0, 0), 0.0),
+                  ('100MEDIA/DJI_0002_T.JPG', 640, 512, 1000.0, (0.4, 0, 0), 0.0)]
+VISUAL_MODELS = [('100MEDIA/DJI_0001_V.JPG', 4032, 3024, 2900.0, (0.3, -0.2, 0.1), 0.004),
+                 ('100MEDIA/DJI_0002_V.JPG', 4032, 3024, 2900.0, (0.7, -0.2, 0.1), 0.004)]
+
+
+def frame_models(models):
+    """Frame models as dji-thermal-cli's sidecars have them, for the fake mosaic's place and frames"""
+    import numpy as np
+    from pyproj import Transformer
+    to_lonlat = Transformer.from_crs('EPSG:32616', 'EPSG:4326', always_xy=True)
+    centre = np.array(MOSAIC_ORIGIN) + [1.6, -1.6]
+    frames = []
+    for k, (name, w, h, f, (east, north, up), turn) in enumerate(models):
+        c, s = np.cos(turn), np.sin(turn)
+        ned = np.array(NADIR) @ np.array([[c, s, 0], [-s, c, 0], [0, 0, 1]])
+        camera = centre + [east, north]
+        corners = camera + np.array([[-12, 10], [12, 10], [12, -10], [-12, -10]])
+        frames.append({'index': k, 'file': name, 'width': w, 'height': h, 'focal_px': f,
+                       'principal_point_px': [(w - 1) / 2, (h - 1) / 2], 'camera_utm': camera.tolist(),
+                       'height_m': 30.0 + up, 'local_to_utm': [[1.0, 0.0], [0.0, 1.0]], 'ned_to_camera': ned.tolist(),
+                       'alignment_shift_m': [0.0, 0.0], 'alignment_rotation_rad': 0.0,
+                       'footprint_lonlat': np.column_stack(to_lonlat.transform(*corners.T)).tolist()})
+    return {'version': 1, 'crs': 'EPSG:32616', 'surface': None, 'frames': frames}
+
+
+def write_frame_models(sidecar, models, **info):
+    import json
+    Path(sidecar).write_text(json.dumps(dict(info, frame_models=frame_models(models))))
+
+
+def fake_visual(out):
+    """The files and report of make_mosaic's visual mosaic: 4 bands (red, green, blue, alpha; no frame in a corner)
+    on the thermal mosaic's grid"""
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+    tif = out / 'mosaic_visual.tif'
+    rgba = np.zeros((4, 64, 64), np.uint8)
+    rgba[0], rgba[1], rgba[2], rgba[3] = 200, np.arange(64, dtype=np.uint8)[None, :] * 4, 40, 255
+    rgba[:, :8, :8] = 0
+    with rasterio.open(tif, 'w', driver='GTiff', width=64, height=64, count=4, dtype='uint8', crs='EPSG:32616',
+                       transform=from_origin(MOSAIC_ORIGIN[0], MOSAIC_ORIGIN[1], 0.05, 0.05)) as dst:
+        dst.write(rgba)
+    frames = [{'index': k, 'file': v, 'thermal_file': t[0]} for k, (v, t) in enumerate(zip(VISUAL_FILES, THERMAL_MODELS))]
+    write_frame_models(tif.with_suffix('.json'), VISUAL_MODELS, frames=frames)
+    (out / 'mosaic_visual_preview.png').write_bytes(b'\x89PNG' + b'0' * 96)
+    report = {'frames_used': 2, 'frames_contributing': 2, 'pairing': 'exposure time',
+              'camera_offset': {'applied': True, 'pairs_measured': 5, 'pairs_used': 5,
+                                'boresight_deg': {'pitch': 0.25, 'yaw': -0.29}, 'offset_before_m': {'median': 0.1},
+                                'residual_m': {'median': 0.026, 'p90': 0.045}}}
+    return SimpleNamespace(mosaic=SimpleNamespace(grid=SimpleNamespace(gsd=0.05, width=64, height=64), report=report,
+                                                  frames=frames),
+                           file=tif, sidecar=tif.with_suffix('.json'), preview=out / 'mosaic_visual_preview.png',
+                           preview_reduction=1, frames=2, skipped=0)
 
 
 def fake_mosaic(out, unit, normalize):
@@ -129,7 +201,8 @@ def fake_mosaic(out, unit, normalize):
                                                   report=report),
                            files=[(tif, tif.with_suffix('.json'))], preview=out / 'mosaic_preview.png',
                            palette='ironred', preview_range_c=(10.0, 30.0), frames=2, oblique=0, unusable=0,
-                           not_thermal=0, normalize_ambient_c=(27.1, 27.2) if normalize else None, as_converted=None)
+                           not_thermal=0, normalize_ambient_c=(27.1, 27.2) if normalize else None, as_converted=None,
+                           visual=None, visual_note="")
 
 
 def mosaic_temperature(col):
@@ -221,10 +294,10 @@ def uploaded(client, names=('100MEDIA/DJI_0001_T.JPG', '100MEDIA/DJI_0002_T.JPG'
     return d
 
 
-def converted(client, settings=None):
-    """A dataset of two frames converted with the settings given, and its mosaics built: the conversion, and the mock of
-    make_mosaic"""
-    d = uploaded(client)
+def converted(client, settings=None, names=None):
+    """A dataset of two frames (or of the files named) converted with the settings given, and its mosaics built: the
+    conversion, and the mock of make_mosaic"""
+    d = uploaded(client, names) if names else uploaded(client)
     with mock.patch('dji_thermal_cli.api.process', side_effect=fake_process), \
             mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=fake_make_mosaic) as make, \
             mock.patch('dji_thermal_cli.tsdk.open', side_effect=fake_rjpeg):

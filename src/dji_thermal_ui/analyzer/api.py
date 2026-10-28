@@ -49,6 +49,7 @@ IMAGE_EXTENSIONS = ('.jpg', '.jpeg')
 MAX_FOLDER_DEPTH = 4    # subfolders kept from an uploaded folder (e.g. thermal/, 100MEDIA/)
 MAX_NAME_LENGTH = 255
 MAX_DESCRIPTION_LENGTH = 10000
+VISUAL_FRAME_QUALITY = 90               # a visual frame as the pages show it
 REPORT_AUTHOR_KEY = 'report_author'     # the author last typed on a report, which fills in new ones
 
 
@@ -199,6 +200,7 @@ def summary(dataset):
         'size': int(dataset.size * 1024 * 1024),
         'thermal': files.get('thermal', 0),
         'not_thermal': sum(n for k, n in files.items() if k != 'thermal'),
+        'visual': sum(1 for r in a.get('files') or [] if thermal_analysis.is_visual(r)),
         'errors': s.get('error', 0),
         'warnings': s.get('warning', 0),
         'infos': s.get('info', 0),
@@ -954,7 +956,9 @@ def viewer(conversion):
                 'kinds': {kind: {key: v for key, v in k.items() if key not in ('raster',)} for kind, k in kinds.items()},
                 'palettes': palettes, 'default_palette': default_palette(conversion, palettes) if kinds else None,
                 'baselines': {kind: thermal_measure.mosaic_baseline(conversion, kind) for kind in kinds},
-                'frame_colors': encoded(frame_colormap()[i] for i in range(FRAME_COLORS))})
+                'frame_colors': encoded(frame_colormap()[i] for i in range(FRAME_COLORS)),
+                'visual': {k: v for k, v in m['visual'].items() if k != 'raster'} if m.get('visual') else None,
+                'visual_note': m.get('visual_note') or ""})
     return out
 
 
@@ -1161,15 +1165,17 @@ class MosaicPointView(DatasetView):
 
 
 def frame_sources(conversion, path, geometry):
-    """The frames that saw a checked spot or area of a mosaic (path: its GeoTIFF), each with when it was taken:
-    {frames, reason, kind, geometry, models}"""
+    """The frames that saw a checked spot or area of a mosaic (path: its GeoTIFF), each with when it was taken and its
+    visual pair (or None): {frames, reason, kind, geometry, models}"""
     from . import thermal_sources
 
     models = thermal_sources.read_models(path)
     out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models)
     times = {r['path']: r.get('time') or "" for r in thermal_measure.frame_rows(conversion)}
+    pairs = thermal_mosaics.read_visual_pairs(conversion.data_dir())
     for f in out['frames']:
         f['time'] = times.get(f['frame'], "")
+        f['visual'] = pairs.get(f['frame'])
     out.update(kind=geometry['type'], geometry=geometry, models=models is not None)
     return out
 
@@ -1828,7 +1834,8 @@ class FramesView(DatasetView):
 
 class FrameView(DatasetView):
     def get(self, request, pk):
-        """One frame as the conversion converted it (?frame=), and measured again with the parameters given"""
+        """One frame as the conversion converted it (?frame=), and measured again with the parameters given; its visual
+        pair, when the visual mosaic has it (see thermal_mosaics.visual_pairs)"""
         from .thermal_analysis import clean
         conversion = get_conversion(pk)
         rel = request.query_params.get('frame') or ""
@@ -1836,6 +1843,7 @@ class FrameView(DatasetView):
         out = frame_info(conversion, rel, frame_measured(conversion, rel))
         if changes:
             out['changed'] = frame_info(conversion, rel, frame_measured(conversion, rel, changes))
+        out['visual'] = thermal_mosaics.read_visual_pairs(conversion.data_dir()).get(rel)
         return Response(clean(out))
 
 
@@ -1847,6 +1855,70 @@ class FrameDataView(DatasetView):
         rel = request.query_params.get('frame') or ""
         values = frame_measured(conversion, rel, changes_of(request.query_params))['values']
         return data_response(values, np.isfinite(values), None, 'private, max-age=600')
+
+
+class FrameVisualView(DatasetView):
+    def get(self, request, pk):
+        """A thermal frame's visual pair (?frame=, the thermal frame) as a JPEG, at most ?size= pixels across (default:
+        its own size), without its metadata"""
+        from PIL import Image
+        from django.http import HttpResponse
+        conversion = get_conversion(pk)
+        pair = thermal_mosaics.read_visual_pairs(conversion.data_dir()).get(request.query_params.get('frame') or "")
+        if not pair:
+            raise NotFound({'error': "The frame has no visual pair"})
+        try:
+            size = int(request.query_params.get('size') or 0)
+        except ValueError:
+            raise ValidationError({'error': "size is a number of pixels"}) from None
+        root = conversion.dataset.images_dir()
+        try:
+            path = path_traversal_check(os.path.join(root, pair['frame']), root)
+        except SuspiciousFileOperation:
+            raise NotFound() from None
+        if not os.path.isfile(path):
+            raise NotFound({'error': "The visual frame is not there any more"})
+        out = io.BytesIO()
+        with Image.open(path) as im:
+            if size > 0:
+                im.draft('RGB', (size, size))
+                im = im.convert('RGB')
+                im.thumbnail((size, size))
+            im.convert('RGB').save(out, 'JPEG', quality=VISUAL_FRAME_QUALITY)
+        response = HttpResponse(out.getvalue(), content_type="image/jpeg")
+        response['Cache-Control'] = 'private, max-age=600'
+        return response
+
+
+class VisualTileView(DatasetView):
+    def get(self, request, pk, z, x, y):
+        """A tile of the conversion's visual mosaic: a PNG, transparent where no frame saw the ground"""
+        from django.http import HttpResponse
+        from rio_tiler.errors import TileOutsideBounds
+        from .raster.tiler import ZOOM_EXTRA_LEVELS, get_zoom_safe, not_modified, raster_etag
+        conversion = get_conversion(pk)
+        path = thermal_mosaics.visual_raster(conversion.data_dir(), conversion.mosaics or {})
+        if not path or not os.path.isfile(path):
+            raise NotFound()
+        etag = raster_etag(request, path, viewer_code_fingerprint())
+        cached = not_modified(request, etag)
+        if cached is not None:
+            return cached
+        z, x, y = int(z), int(x), int(y)
+        with thermal_mosaics.open_raster(path) as src:
+            minzoom, maxzoom = get_zoom_safe(src)
+            if not src.tile_exists(tile_x=x, tile_y=y, tile_z=z) or \
+                    z < minzoom - ZOOM_EXTRA_LEVELS or z > maxzoom + ZOOM_EXTRA_LEVELS:
+                raise NotFound()
+            try:
+                tile = src.tile(x, y, z, indexes=(1, 2, 3), resampling_method='bilinear',
+                                reproject_method='bilinear')
+            except TileOutsideBounds:
+                raise NotFound() from None
+        res = HttpResponse(tile.render(img_format='PNG'), content_type='image/png')
+        res['ETag'] = etag
+        res['Cache-Control'] = 'private, no-cache'
+        return res
 
 
 class FrameCurveView(DatasetView):

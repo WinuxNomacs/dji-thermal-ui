@@ -49,6 +49,16 @@ def rounded(v, digits):
     return round(v, digits) if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) else None
 
 
+# DJI's name for a visual camera's image of a capture (wide: _W), beside the thermal one's _T
+VISUAL_NAME = re.compile(r'_[VW]\.jpe?g$', re.IGNORECASE)
+
+
+def is_visual(row):
+    """Whether a file of the analysis is a visual image: not thermal, and named as DJI names them. Only what the pages
+    call it: dji-thermal-cli finds the visual frames by what they hold"""
+    return row.get('kind') == 'not_thermal' and bool(VISUAL_NAME.search(row.get('path') or ""))
+
+
 def file_row(report, root):
     """One file of the dataset: what it is and, for a thermal image, what the Files table shows"""
     row = {'path': relative(report.path, root), 'kind': report.status.kind, 'reason': report.status.reason or ""}
