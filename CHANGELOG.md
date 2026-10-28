@@ -13,6 +13,10 @@ All notable changes are recorded here. The format follows
   Flight › Dataset. New datasets are named "Dataset 1", "Dataset 2"…; names given before stay. Links, the API and the
   data folder are unchanged.
 
+- The navigation pane: under each dataset, its Tools (Compare, Report), its Mosaics (unfolding to each of the
+  viewer's tabs) and its Frames (unfolding to "In the mosaic" and "Oblique", with their counts). The frame page
+  opened from a list shows only its frames. The page shown is marked down to the viewer's tab.
+
 - The viewer: the Source frame tab draws the mosaic with a line along each seam between its frames, instead of each
   frame in its own colour (in the PNG export too). The As converted tab is called Mosaic, there and on the compare
   page, in the reports and in the measurements. "Under the cursor" is "Pointer info", above "Source frames" (and on

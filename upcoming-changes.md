@@ -9,12 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **I2: the navigation**: under each dataset (conversion), Tools (Compare, Report), Mosaics (each mosaic) and
-   Frames (In the mosaic, Oblique). See "Naming and the explorer". (Naming)
-
-**Then**
 1. **I3: the frames explorer**: the frame page with a list or thumbnails of the frames chosen in the pane, the first
-   selected, the frame page's view of it on the right. (Naming)
+   selected, the frame page's view of it on the right. See "Naming and the explorer". (Naming)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1142,3 +1138,13 @@ Requested 2026-10-28 (`new.md`):
   new datasets' default name "Dataset N" (`api.py`). The README calls them so throughout; CLAUDE.md says which name
   is which. Tests: the strings updated in `frontend/tests/` and `tests/`. Checked live on every page: what still says
   otherwise is a name saved before ("Conversion 1") or dji-thermal-cli's own problem text ("dataset median").
+- **I2: the navigation** (2026-10-28). Under each dataset, Tools (Compare, Report), Mosaics (each viewer tab, a
+  `?tab=` link) and Frames ("In the mosaic" and "Oblique", `frame?list=mosaic|oblique`, with counts; one list for a
+  dataset without mosaics). The navigation API gives a built conversion's `tabs`, `in_mosaic` and `oblique` (left out
+  for their angle or as unusable) (`nav_conversion` in `api.py`); the pane's items and the marked one are worked out
+  in `core/navigation.ts` (`conversionItems`, `trailTo`, `markedItem`), the deepest item seen is marked, and the
+  viewer says when its tab changes (`partChanged`). The frame page shows only the list's frames (`listFrames` in
+  `frame/frame.ts`) and keeps `list` in its URL; I3 makes it the explorer. The tab labels are in
+  `viewer/tab-labels.ts`, so the pane imports no viewer code. Tests: `tests/test_navigation.py`,
+  `frontend/tests/navigation.test.tsx`, `frontend/tests/frame.test.tsx`. Checked live on dataset 1: 151 in the
+  mosaic and 176 oblique, the viewer's tab followed, the lists stepped through with →.
