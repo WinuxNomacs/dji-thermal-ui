@@ -157,9 +157,9 @@ ul { padding-left: 20px; }
 .nav-row a:hover { background: var(--hover); text-decoration: none; }
 .nav-row.current { box-shadow: inset 3px 0 var(--accent); background: var(--accent-soft); }
 .nav-row.current a { color: var(--accent); font-weight: 600; }
-.nav-home, .nav-preferences .nav-row { padding-left: 12px; gap: 6px; }
-.nav-home .icon, .nav-preferences .icon { color: var(--muted); }
-.nav-home a, .nav-preferences a { font-weight: 600; }
+.nav-home, .nav-preferences .nav-row, .nav-settings > .nav-row { padding-left: 12px; gap: 6px; }
+.nav-home .icon, .nav-preferences .icon, .nav-settings > .nav-row .icon { color: var(--muted); }
+.nav-home a, .nav-preferences a, .nav-settings > .nav-row a { font-weight: 600; }
 .nav-preferences { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
 .nav-fold, .nav-fold-space { flex: none; width: 22px; height: 22px; }
 .nav-fold {
@@ -869,3 +869,10 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     .report .table.files th, .report .table.files td { white-space: normal; padding: 2px 4px; font-size: 7pt; }
     a { color: inherit; text-decoration: none; }
 }
+
+/* System Settings › Storage */
+.storage-folder code { overflow-wrap: anywhere; }
+.storage-table .num { text-align: right; white-space: nowrap; }
+.storage-table .storage-project td:first-child { font-weight: 600; }
+.storage-table .storage-flight td:first-child { padding-left: 24px; }
+.storage-table tfoot th { border-bottom: none; }

@@ -6,6 +6,13 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- System Settings › Storage, below User Preferences in the navigation pane: the data folder's path, its size on disk
+  as measured now and the free space on its drive, broken down by project and flight, with the database, files left
+  behind by flights no longer there, and the rest. A flight read in place says how much its images take where they
+  are.
+
 ### Changed
 
 - A thermal image of a format that cannot be read is called an "Unsupported image type" (it was "Unsupported

@@ -14,8 +14,7 @@ its title.
    The app's label for them, "Unsupported image type", is merged already.
 
 **Then**
-1. **L1: the Storage page**: System Settings › Storage, the data folder and its size on disk, per project. (Storage)
-2. **L2: moving the data folder**: to another folder, a data folder there offering its projects to import. (Storage)
+1. **L2: moving the data folder**: to another folder, a data folder there offering its projects to import. (Storage)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1321,6 +1320,13 @@ Requested 2026-10-28 (`new.md`):
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **L1: the Storage page** (2026-10-28). `analyzer/storage.py` (`measure`: the data folder walked when asked, each
+  file the database's, a flight's by `datasets/<id>/`, left behind by a flight no longer there, or other; a folder
+  flight's images measured where they are; the drive's free space), `api/storage`, the page `settings/storage`
+  (`storage/storage-page.tsx`: `storageRows`, `share`), System Settings › Storage in the pane (`nav-pane.tsx`,
+  the `HardDrive` icon). Tests: `tests/test_api_storage.py`, `tests/test_pages.py`, `frontend/tests/storage.test.tsx`,
+  `navigation.test.tsx`. Checked live on 8081 on the user's data, light and dark: the total equal to `du -sb` of the
+  data folder (2,365,087,602 bytes), the pane's Storage marked, no overflow at 600 px, no errors.
 - **Release 0.8.0** (2026-10-28): F2 to K2, the report's seams and the two fixes below (the changelog's two Changed
   sections made one). Release checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 273 pytest
   with the flight tests, 300 Vitest, ESLint) and on Windows from WSL (264 pytest from a fresh clone, 9 skipped;

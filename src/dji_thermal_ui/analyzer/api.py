@@ -32,7 +32,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, restore, jobs, places, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from . import backup, basemaps, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
                      ThermalDataset, ThermalMeasurement)
@@ -909,6 +909,12 @@ class ConversionDownloadView(DatasetView):
                     zs.add_path(full, thermal_analysis.relative(full, out_dir))
         name = download_name("{}-{}".format(conversion.dataset.name, conversion.name)) + ".zip"
         return download_file_stream(request, zs, 'attachment', download_filename=name)
+
+
+class StorageView(DatasetView):
+    def get(self, request):
+        """The data folder's size on disk now, per project (storage.measure)"""
+        return Response(storage.measure())
 
 
 class PreferencesView(DatasetView):

@@ -1,5 +1,5 @@
 // The navigation pane on the left of every page: the projects, under each its datasets, under each its conversions
-// with their tools, mosaics and frames, and User Preferences last. Each level folds; what is folded is kept for the
+// with their tools, mosaics and frames, then User Preferences and System Settings (Storage). Each level folds; what is folded is kept for the
 // next visit, and the page shown is always unfolded to and marked (down to the viewer's tab or the frame page's list
 // it shows). The pane lists again when a page says what it lists has changed.
 import {type ComponentChildren} from "preact";
@@ -7,7 +7,7 @@ import {useEffect, useState} from "preact/hooks";
 import {conversionHref, conversionItems, conversionKey, type Current, datasetKey, fetchNavigation, markedItem,
         type NavItem, type NavProject, onNavigationChanged, onPartChanged, partOf, pathTo, projectKey,
         trailTo} from "../core/navigation";
-import {ChevronDown, ChevronRight, Cog, Folder} from "./icons";
+import {ChevronDown, ChevronRight, Cog, Folder, HardDrive} from "./icons";
 
 const EXPANDED_KEY = "thermal-analyzer.nav.expanded";
 
@@ -152,6 +152,13 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
                     <Cog/><a href={publicUrl + "preferences"} aria-current={is("preferences") ? "page" : undefined}
                              onClick={onNavigate}>User Preferences</a>
                 </div>
+            </li>
+            <li class="nav-item level-0 nav-settings">
+                <div class="nav-row">
+                    <HardDrive/><a href={publicUrl + "settings/storage"} onClick={onNavigate}>System Settings</a>
+                </div>
+                <ul><Item {...item} level={1} href={publicUrl + "settings/storage"} label="Storage"
+                          current={is("storage")}/></ul>
             </li>
         </ul>
     </nav>);

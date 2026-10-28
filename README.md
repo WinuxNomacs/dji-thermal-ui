@@ -88,6 +88,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   header, and the locale dates and times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
+- **System Settings › Storage:** where the data folder is, its size on disk as measured when the page opens (and
+  again on asking) and the free space on its drive, with each project and its flights, the database and the rest.
+  A flight read in place from a folder says how much its images take there, outside the data folder's total.
 
 It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
 are no logins or accounts.
@@ -170,7 +173,8 @@ The database (SQLite), the secret key and each flight's files (`datasets/<id>/`)
 - Linux: `~/.local/share/dji-thermal-ui`
 - Windows: `%LOCALAPPDATA%\dji-thermal-ui`
 
-`--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. A flight used in place
+`--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. System Settings › Storage
+shows which folder is used and what takes room in it. A flight used in place
 from a folder reads its images there and never changes them. Deleting a flight deletes only what the app made.
 Deleting a project deletes its flights the same way, after saying how many there are and how much space is freed.
 A project's export is written straight to the browser's download, so it needs no room in the data folder; it holds
