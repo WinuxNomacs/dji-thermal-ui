@@ -34,6 +34,12 @@ interface Props {
 
 const HINT = "The R-JPEGs of a flight (the _T.JPG files). Visible images can be included: they are listed, not analyzed.";
 
+// What is said when files were chosen but none is an image a flight takes (TIFFs, a converted dataset's outputs...)
+export function noImagesText(files: File[]): string {
+    return "None of the " + count(files.length, "file", "files") + " chosen is a JPEG: a flight is made of a DJI " +
+        "drone's R-JPEGs (the _T.JPG files), and other files (TIFFs among them) are left out.";
+}
+
 export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onClose, onError, load}: Props) {
     const [name, setName] = useState("");
     const [source, setSource] = useState<"upload" | "folder">("upload");
@@ -61,6 +67,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
     function choose(files: File[]) {
         setChosen(files);
         const images = files.filter(isImage);
+        setError(files.length && !images.length ? noImagesText(files) : "");
         if (images.length) {
             setName((n) => n || images[0].webkitRelativePath.split("/")[0] || "Thermal flight");
         }
@@ -143,7 +150,9 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
     async function create() {
         const n = name.trim(), path = folder.trim();
         if (!n) return setError("Give the flight a name.");
-        if (source === "upload" && !chosen.some(isImage)) return setError("Choose the images to upload.");
+        if (source === "upload" && !chosen.some(isImage)) {
+            return setError(chosen.length ? noImagesText(chosen) : "Choose the images to upload.");
+        }
         if (source === "folder" && !path) return setError("Enter the folder's path.");
         setError("");
         setStage("working");
@@ -193,7 +202,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
                                    onChange={(e) => choose(Array.from(e.currentTarget.files || []))}/></label>
                         <label class={"button default" + (locked ? " disabled" : "")}><Folder/> Choose a folder
                             <input type="file" id="new-dir" hidden disabled={locked}
-                                   {...{webkitdirectory: ""}}
+                                   {...{webkitdirectory: true}}
                                    onChange={(e) => choose(Array.from(e.currentTarget.files || []))}/></label>
                     </div>
                     <p class="help" id="new-chosen">

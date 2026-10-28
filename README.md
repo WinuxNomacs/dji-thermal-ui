@@ -16,7 +16,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   use gets a free one ("Roof (2)"), which you can change. Its folder flights come back as uploaded ones.
 - **Flights:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
   drone takes with them (DJI's `_V` or `_W`, as on the Matrice 4T or the H20T/H30T) can be added too: the Files tab
-  calls them visual.
+  calls them visual. Other files, such as TIFFs (a converted dataset's temperatures among them), cannot make a flight
+  and are left out.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a flight.
 - **Files tab:** a flight's files, sorted by any column and filtered by conditions on any of them (Height ≤ 21,
   Min > 32 °F, Kind is one of Thermal…), every one of which a file shown matches: numbers in the unit shown,

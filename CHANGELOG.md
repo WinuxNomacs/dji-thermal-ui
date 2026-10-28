@@ -76,6 +76,9 @@ All notable changes are recorded here. The format follows
 
 ### Fixed
 
+- New Flight's "Choose a folder" opened a file picker, in which a folder could not be chosen: it picks a folder
+  again. Files chosen with no JPEG among them (TIFFs, for one) are now told apart: the dialog says that a flight is
+  made of R-JPEGs, instead of asking to choose the images.
 - A test of the command waits for Windows to let go of the database files of the server it stopped (it failed now
   and then on Windows with Python 3.14).
 

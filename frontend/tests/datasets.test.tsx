@@ -248,6 +248,36 @@ describe("the datasets list", () => {
         expect(nav).toHaveBeenCalledWith("/dataset/8");
     });
 
+    it("picks a folder with Choose a folder", async () => {
+        // As browsers have it (jsdom does not): a yes or no reflected in the attribute, so "" would turn it off
+        Object.defineProperty(HTMLInputElement.prototype, "webkitdirectory", {configurable: true,
+            get() { return this.hasAttribute("webkitdirectory"); },
+            set(on: unknown) { if (on) this.setAttribute("webkitdirectory", ""); else this.removeAttribute("webkitdirectory"); }});
+        try {
+            page(server({[LIST_URL]: {datasets: []}}));
+            await ticks();
+            click(byId("new-dataset-button"));
+            await ticks();
+            expect(byId("new-dir").hasAttribute("webkitdirectory")).toBe(true);
+        } finally {
+            delete (HTMLInputElement.prototype as {webkitdirectory?: boolean}).webkitdirectory;
+        }
+    });
+
+    it("says that files chosen without a JPEG among them cannot make a flight, when chosen and on Create", async () => {
+        const fetchFn = server({[LIST_URL]: {datasets: []}});
+        page(fetchFn);
+        await choose(["a_T_temp_c.tiff", "b_T_temp_c.tiff"]);
+        const said = "None of the 2 files chosen is a JPEG: a flight is made of a DJI drone's R-JPEGs (the _T.JPG files), " +
+            "and other files (TIFFs among them) are left out.";
+        expect(byId("new-chosen").textContent).toBe("0 image(s), 0 B (2 other file(s) left out)");
+        expect(byId("new-error").textContent).toBe(said);
+        click(byId("new-create"));
+        await ticks();
+        expect(byId("new-error").textContent).toBe(said);
+        expect(fetchFn.mock.calls.map((c) => c[0])).not.toContain(API + "datasets");
+    });
+
     it("says why a dataset could not be created", async () => {
         page(server({[LIST_URL]: {datasets: []},
                      ["POST " + API + "datasets"]: () => jsonResponse({name: ["A name is required"]}, false)}));
