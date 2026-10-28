@@ -51,7 +51,7 @@ machine. Keep it short; edit in place.
 
 ## Commands
 
-- `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1:8765 and opens the browser; `--data-dir`, `--port`,
+- `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1:8080 and opens the browser; `--data-dir`, `--port`,
   `--no-browser`).
 - `uv run pytest`, `uv run ruff check`. Set `DJI_THERMAL_FLIGHT_DIR` to a folder of one flight's R-JPEGs to run
   the `flight` tests too (with its visual `_V` images beside them, the visual mosaic's too).

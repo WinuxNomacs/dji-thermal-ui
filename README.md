@@ -86,13 +86,13 @@ From a clone, for development: `uv sync` and `npm ci && npm run build` (the page
 dji-thermal-ui
 ```
 
-This serves the app on http://127.0.0.1:8765 and opens it in the browser. Press Ctrl+C to stop it. A job still
+This serves the app on http://127.0.0.1:8080 and opens it in the browser. Press Ctrl+C to stop it. A job still
 running when the server stops is marked as interrupted the next time it starts.
 
 | Option | |
 |---|---|
 | `--data-dir DIR` | the folder for the database and the datasets (see below) |
-| `--port PORT` | the port to serve on (default 8765) |
+| `--port PORT` | the port to serve on (default 8080) |
 | `--no-browser` | do not open the browser |
 | `--version` | print the version |
 

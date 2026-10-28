@@ -145,7 +145,7 @@ and then verified (see the user's rules). Personal settings stay in uncommitted 
   Extensions needed: Python, Pylance, Ruff (`charliermarsh.ruff`), ESLint.
 - **Node:** `npm ci` for Jest, jsdom, ESLint and leaflet (tests only), pinned in `package-lock.json`.
 - **Browser checks (A3):** the Playwright MCP, added to this project in local scope (`claude mcp add --scope
-  local`), headless Chromium, against `http://127.0.0.1:8765`. It needs no login.
+  local`), headless Chromium, against `http://127.0.0.1:8080`. It needs no login.
 - **Claude permissions (`.claude/settings.local.json`, uncommitted):** `uv sync`, `uv run pytest`, `uv run ruff`,
   `uv run dji-thermal-ui`, `npx jest`, `npm run -s lint`, and `git` status, diff, log and branch, without a prompt
   each time.
