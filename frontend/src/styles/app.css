@@ -404,6 +404,15 @@ th .kind-button .icon.on { color: var(--accent); }
 .kind-picker .menu-items { left: 0; right: auto; min-width: 180px; padding: 4px 0; font-weight: normal; }
 .kind-items label { display: block; padding: 3px 12px; white-space: nowrap; cursor: pointer; }
 .kind-items label:hover { background: var(--hover); }
+.favourites .menu-items { left: 0; right: auto; min-width: 220px; max-width: 360px; }
+.favourite { display: flex; align-items: center; }
+.favourite .favourite-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.favourite .favourite-delete { width: auto; padding: 4px 10px; color: var(--muted); }
+.favourite .favourite-delete:hover { color: var(--danger); }
+.favourite-name .icon.unchosen { visibility: hidden; }
+#favourites .icon.on { color: var(--accent); }
+.menu-items button:disabled { color: var(--muted); cursor: default; background: none; }
+.menu-items .menu-note { padding: 4px 16px; white-space: normal; }
 .table.files td.flag { text-align: center; }
 .files-shown { margin-left: auto; font-size: 12px; }
 .files-hint { font-size: 12px; margin: 0 0 6px; }
