@@ -6,7 +6,8 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserLocale} from "../src/core/format";
 import {setUserUnit} from "../src/core/units";
-import {changesIn, type FrameInfo, frameLabel, listFrames, listTitle, newConversionUrl, readChanges, valuesUrl} from "../src/frame/frame";
+import {captureOrder, changesIn, type FrameInfo, frameTag, listFrames, listTitle, newConversionUrl, readChanges, valuesUrl} from "../src/frame/frame";
+import {shortName} from "../src/frame/frame-list";
 import {FramePage, type Frames} from "../src/frame/frame-page";
 import {FrameReadout, Info} from "../src/frame/panel";
 import {calls, click, key, server, ticks, valuesResponse} from "./helpers";
@@ -16,6 +17,7 @@ const BASE = API + "conversions/9";
 const A = "thermal/a_T.JPG", B = "thermal/b_T.JPG";
 const FRAMES: Frames = {
     name: "Nadir", dataset_name: "Roof", description: "temp_c tiff", unit: "C", normalized: true, default_palette: "dji_ironred",
+    mosaic_status: "ready", max_pitch: -80,
     palettes: [{key: "dji_ironred", label: "DJI ironred", color_map: [0x000000, 0xff0000]},
                {key: "magma", label: "Magma", color_map: [0x000004, 0xfcfdbf]}],
     flight_zone: {offset: -300},
@@ -34,6 +36,9 @@ const enc = encodeURIComponent;
 
 const $ = (sel: string) => document.querySelector(sel);
 const byId = (id: string) => document.getElementById(id)!;
+// The frame shown, as the explorer's list marks it, and the frames it lists
+const shownFrame = () => ($("#frames [aria-current=true]") as HTMLElement | null)?.dataset.path;
+const listed = () => [...document.querySelectorAll<HTMLElement>("#frames button")].map((b) => b.dataset.path);
 // What a pane's map shows: the URL of its values
 const valuesOf = (pane: string) => byId(pane).dataset.values || "";
 const type = (el: Element, value: string) => {
@@ -77,10 +82,31 @@ afterEach(() => {
 });
 
 describe("the frame helpers", () => {
-    it("label a frame with whether it is in the mosaics, oblique or not converted", () => {
-        expect(frameLabel(FRAMES.frames![0])).toBe("thermal/a_T.JPG (in the mosaics)");
-        expect(frameLabel(FRAMES.frames![1])).toBe("thermal/b_T.JPG (oblique, -45°, not converted)");
-        expect(frameLabel({path: "c.JPG", pitch: -90, converted: true, mosaic: null})).toBe("c.JPG");
+    it("tag a frame with what its list does not say: not converted, in the mosaic, or why the mosaics left it out", () => {
+        const [a, b] = FRAMES.frames!;
+        const oblique = {path: "c.JPG", pitch: -45, converted: true, mosaic: null};
+        const unusable = {path: "d.JPG", pitch: -90, converted: true, mosaic: null};
+        expect(frameTag(a, null, -80, true)).toBe("in the mosaic");
+        expect(frameTag(a, "mosaic", -80, true)).toBe("");
+        expect(frameTag(b, "oblique", -80, true)).toBe("not converted");
+        expect(frameTag(oblique, "oblique", -80, true)).toBe("oblique, -45°");
+        // Above another pitch limit
+        expect(frameTag(oblique, "oblique", -40, true)).toBe("left out as unusable");
+        expect(frameTag(unusable, "oblique", -80, true)).toBe("left out as unusable");
+        expect(frameTag({...unusable, pitch: null}, "oblique", null, true)).toBe("left out as unusable");
+        // Before the mosaics are built nothing is left out yet
+        expect(frameTag(oblique, null, -80, false)).toBe("");
+    });
+
+    it("name a frame under its thumbnail by the end of its name, where a flight's names differ", () => {
+        expect(shortName("100MEDIA/DJI_20261022163543_0156_T.JPG")).toBe("…_0156_T.JPG");
+        expect(shortName("thermal/a_T.JPG")).toBe("a_T.JPG");
+    });
+
+    it("put the frames in the order they were taken, those without a time last", () => {
+        const at = (path: string, time?: string) => ({path, time});
+        expect(captureOrder([at("c", "2026:10:12 18:30:10"), at("z"), at("b", "2026:10:12 18:29:50"), at("a"),
+                             at("a2", "2026:10:12 18:29:50")]).map((f) => f.path)).toEqual(["a2", "b", "c", "a", "z"]);
     });
 
     it("list the frames the mosaics placed, or those converted they left out, or all for none or an empty list", () => {
@@ -140,7 +166,7 @@ describe("the frame page", () => {
         const fetchFn = server(routes());
         await open(fetchFn);
         expect(byId("name").textContent).toBe("Nadir: frames");
-        expect((byId("frame") as HTMLSelectElement).value).toBe(A);
+        expect(shownFrame()).toBe(A);
         // Captured in the flight's local time, labelled with its zone, in the locale chosen
         expect(byId("about").textContent).toBe("12/10/2026, 18:29:50 (UTC−5) · frame 1 of the mosaics");
         expect(byId("mosaics").getAttribute("href")).toBe("/conversion/9?frame=thermal%2Fa_T.JPG");
@@ -220,7 +246,7 @@ describe("the frame page", () => {
     it("opens the frame, palette and range a link asks for", async () => {
         history.replaceState(null, "", "/conversion/9/frame?palette=magma&min=18&max=32&frame=" + enc(B));
         await open(server(routes()));
-        expect((byId("frame") as HTMLSelectElement).value).toBe(B);
+        expect(shownFrame()).toBe(B);
         expect((byId("palette") as HTMLSelectElement).value).toBe("magma");
         expect(byId("mosaics").getAttribute("href")).toBe("/conversion/9");
         expect(valuesOf("map")).toBe(BASE + "/frame/data?frame=" + enc(B));
@@ -231,9 +257,42 @@ describe("the frame page", () => {
         history.replaceState(null, "", "/conversion/9/frame?list=mosaic");
         await open(server(routes()));
         expect(byId("name").textContent).toBe("Nadir: frames in the mosaic");
-        expect([...document.querySelectorAll("#frame option")].map((o) => (o as HTMLOptionElement).value)).toEqual([A]);
+        expect(listed()).toEqual([A]);
         expect((byId("next") as HTMLButtonElement).disabled).toBe(true);
         expect(location.search).toMatch(/^\?palette=.*&frame=thermal%2Fa_T.JPG&list=mosaic$/);
+    });
+
+    it("lists the frames in the order they were taken, the first shown, as a list or thumbnails kept for the next visit", async () => {
+        const C = "thermal/c_T.JPG";
+        const frames = {...FRAMES, frames: [...FRAMES.frames!, {path: C, pitch: -40, time: "2026:10:12 18:29:40", converted: true,
+                                                                   mosaic: null, recorded: {}}]};
+        const fetchFn = server(routes({[BASE + "/frames"]: frames, [BASE + "/frame?frame=" + enc(C)]: {...INFO, frame: C},
+                                       [BASE + "/measurements?frame=" + enc(C)]: {measurements: []},
+                                       [BASE + "/frame/data?frame=" + enc(C)]: valuesResponse(4, 3)}));
+        await open(fetchFn);
+        expect(listed()).toEqual([C, A, B]);
+        expect(shownFrame()).toBe(C);
+        expect(byId("frame").textContent).toBe("c_T.JPG");
+        expect(byId("frame-count").textContent).toBe("3 frames");
+        expect([...document.querySelectorAll("#frames .frame-item-about")].map((e) => e.textContent)).toEqual([
+            "18:29:40 · oblique, -40°", "18:29:50 · in the mosaic", "18:30:10 · not converted"]);
+        expect($("#frames img")).toBeNull();
+        // Choosing one shows it
+        click($("#frames [data-path='" + B + "']")!);
+        await ticks(40);
+        expect(shownFrame()).toBe(B);
+        expect(calls(fetchFn)).toContain("GET " + BASE + "/frame?frame=" + enc(B));
+        expect(location.search).toContain("frame=thermal%2Fb_T.JPG");
+        // As thumbnails, remembered
+        click($(".frame-list-head button[name=thumbnails]")!);
+        await ticks();
+        expect($(".frame-list-head [aria-pressed=true]")!.textContent).toBe("Thumbnails");
+        expect([...document.querySelectorAll("#frames img")].map((i) => i.getAttribute("src"))).toEqual(
+            [C, A, B].map((f) => API + "datasets/5/thumbnail?file=" + enc(f)));
+        expect(localStorage.getItem("thermal-analyzer.frame.thumbnails")).toBe("1");
+        render(null, byId("root"));
+        await open(fetchFn);
+        expect($("#frames.thumbs img")).not.toBeNull();
     });
 
     it("measures the frame again with the parameters changed, beside it as converted", async () => {
@@ -267,16 +326,16 @@ describe("the frame page", () => {
         expect((byId("prev") as HTMLButtonElement).disabled).toBe(true);
         key(document.body, "ArrowRight");
         await ticks(40);
-        expect((byId("frame") as HTMLSelectElement).value).toBe(B);
+        expect(shownFrame()).toBe(B);
         expect(byId("about").textContent).toBe("12/10/2026, 18:30:10 (UTC−5)");
         expect(calls(fetchFn)).toContain("GET " + BASE + "/frame?frame=" + enc(B));
         expect(location.search).toContain("frame=thermal%2Fb_T.JPG");
         key($("input[name=emissivity]")!, "ArrowLeft");
         await ticks();
-        expect((byId("frame") as HTMLSelectElement).value).toBe(B);
+        expect(shownFrame()).toBe(B);
         click(byId("prev"));
         await ticks(40);
-        expect((byId("frame") as HTMLSelectElement).value).toBe(A);
+        expect(shownFrame()).toBe(A);
     });
 
     it("shows the measurements saved on the frame and measures one again with other parameters", async () => {

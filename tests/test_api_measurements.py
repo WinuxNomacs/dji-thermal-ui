@@ -360,6 +360,8 @@ def test_frames_are_measured_as_converted_and_again_with_parameters_changed(api)
     # Where they were taken, for the frame page's map
     assert (frames['frames'][0]['lat'], frames['frames'][0]['lon']) == (42.1, -88.07)
     assert (frames['unit'], frames['normalized'], frames['default_palette']) == ('C', False, 'dji_ironred')
+    # dji-thermal-cli's pitch limit, as the conversion sets none
+    assert frames['max_pitch'] == -80.0
 
     rel = '100MEDIA/DJI_0002_T.JPG'
     frame = "{}/{}/frame".format(CONVERSIONS, c.id)

@@ -42,6 +42,15 @@ PERCENTILES = (2, 98)
 ABSOLUTE_ZERO = {'C': -273.15, 'F': -459.67, 'K': 0.0}
 # dji-thermal-cli's mosaic default (nadir frames), unless the conversion sets its own pitch limit
 DEFAULT_MAX_PITCH = -80.0
+
+
+def max_pitch(options):
+    """The highest pitch a frame may be at for the mosaics to place it (-90: straight down): the conversion's, else
+    dji-thermal-cli's"""
+    limit = options.get('max_pitch')
+    return DEFAULT_MAX_PITCH if limit is None else limit
+
+
 # Long per-pair or per-frame lists of the report, left out of what is kept (the JSON sidecar has them all)
 REPORT_DETAIL = ('pairs_detail', 'frames', 'per_frame')
 
@@ -267,8 +276,7 @@ def build(conversion, run):
     args = api_arguments(options)
     settings, unit = args['settings'], options.get('unit') or 'C'
     stripped = bool(options.get('strip_location'))
-    max_pitch = options.get('max_pitch')
-    max_pitch = DEFAULT_MAX_PITCH if max_pitch is None else max_pitch
+    pitch_limit = max_pitch(options)
     # Asked for unless switched off (conversions made before it was offered build it too)
     visual = options.get('visual', True) is not False
 
@@ -300,7 +308,7 @@ def build(conversion, run):
     kind_dirs = {kind: os.path.join(out_dir, MOSAICS_DIR, kind) for kind, _ in KINDS}
     # The harmonized mosaic, and the as converted one from the same layout (aligned once)
     harmonized = api.make_mosaic(root, kind_dirs['harmonized'], settings,
-                                 api.MosaicOptions(max_pitch=max_pitch, normalize=True, units=(unit,), visual=visual),
+                                 api.MosaicOptions(max_pitch=pitch_limit, normalize=True, units=(unit,), visual=visual),
                                  compression=args['compression'], jobs=django_settings.THERMAL_PROCESSES,
                                  progress=progress,
                                  as_converted_dir=kind_dirs['as_converted'])
