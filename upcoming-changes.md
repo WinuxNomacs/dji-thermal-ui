@@ -13,6 +13,10 @@ its title.
    ordinary JPEGs. Built and merged in dji-thermal-cli (`release/1.6.1`); pinned here once the user publishes it.
    The app's label for them, "Unsupported image type", is merged already.
 
+**Then**
+1. **L1: the Storage page**: System Settings › Storage, the data folder and its size on disk, per project. (Storage)
+2. **L2: moving the data folder**: to another folder, a data folder there offering its projects to import. (Storage)
+
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
    the plan's options, and follow it. This replaces the plugin's "Process in LuxODM". (Integration)
@@ -958,6 +962,48 @@ name already in use is never reused.
 - Files follow as `datasets/<old flight id>/images/<path in the analysis>` and
   `datasets/<old flight id>/conversions/<old id>/<path>` (the `viewer/` copies too). A folder flight's row still says
   `source` "folder" with its `folder`: K2 makes it an uploaded flight.
+
+## Storage
+
+Requested 2026-10-28 (`new.md`):
+- Add System Settings under User Preferences, with a subitem Storage. The Storage Management page displays where
+  project data is stored and offers to move it to another folder. If the new folder contains projects, the UI
+  offers to import them, from a list with all of them selected by default. The projects of the current folder are
+  migrated to the new one. It uses the backup and restore (K1 export, K2 import) as a dependency.
+- The page always reports the current size on disk, with a per-project breakdown.
+
+### What it builds on
+
+- **The data folder** (`datadir.py`): `--data-dir`, else `DJI_THERMAL_UI_DATA_DIR`, else platformdirs' user data
+  folder. It holds `db.sqlite3` (WAL: `-wal` and `-shm` beside it), `secret_key`, `datasets/<id>/` and, during an
+  import, `imports/`. Django reads it once, at start (`settings.DATA_DIR`): the database cannot change under a
+  running server.
+- **Sizes:** each flight's and dataset's `size` (`update_size`), summed per project on the projects page. A folder
+  flight's images are read in place and are not in the data folder.
+- **Backup and restore:** `backup.py` writes a project's archive (manifest, then its files) from this database;
+  `restore.py` makes one into a new project here (new ids, folder flights made uploaded, links remapped).
+- **The pane:** User Preferences is one item at the bottom (`nav-pane.tsx`); pages under it would be a new group.
+
+### Proposed phases
+
+- **L1: the Storage page** (`/settings/storage`): the data folder's path; its size on disk measured when the page
+  opens (the database, the flights' files per project, then anything else), each project with its flights and
+  datasets; folder flights' images listed apart as "read in place, not in the data folder". Read only.
+- **L2: moving the data folder:** a folder typed in (the browser cannot pick a folder on the server's disk), checked
+  first (writable, enough room, empty or a data folder of this app), then moved while no job runs. The app
+  remembers the new folder in a small file in its configuration folder (platformdirs' user config folder), read at
+  start after `--data-dir` and the environment variable (which still win). The server restarts itself on the same
+  port and the page reloads. A data folder there: its projects listed, all selected, the chosen ones imported with
+  restore (exported from its database with backup, unpacked here).
+
+### Decisions (2026-10-28)
+
+- **The pane:** System Settings is its own item below User Preferences, unfolding to Storage.
+- **The current projects:** their files are moved as they are (the database, the secret key and the flights'
+  files: same ids and links, folder flights still read in place). Backup and restore import the new folder's
+  projects.
+- **What the new folder held:** once its chosen projects are imported, its old database and files are set aside in a
+  subfolder there (`replaced-<date>/`), nothing deleted; the page says so.
 
 ## Integration
 
