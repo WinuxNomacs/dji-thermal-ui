@@ -6,6 +6,11 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A thermal image of a format that cannot be read is called an "Unsupported image type" (it was "Unsupported
+  camera"), on the Files tab and in its filter.
+
 ## [0.8.0] - 2026-10-28
 
 ### Added

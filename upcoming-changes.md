@@ -8,7 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned; new requests go here.
+**Up next**
+1. **dji-thermal-cli 1.6.1 pinned**: FLIR radiometric JPEGs (the Zenmuse XT2's) reported as unsupported, not as
+   ordinary JPEGs. Built and merged in dji-thermal-cli (`release/1.6.1`); pinned here once the user publishes it.
+   The app's label for them, "Unsupported image type", is merged already.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
