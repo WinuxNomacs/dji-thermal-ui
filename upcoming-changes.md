@@ -11,6 +11,11 @@ its title.
 **Up next**
 1. **D2: the mosaic report**, with its measurements and findings. (Reports)
 
+**Then** (proposed, order to confirm with the user)
+1. **F1: visual mosaics in dji-thermal-cli**, released there first. (RGB and thermal)
+2. **F2: visual mosaics and frames in the app**, on that release. (RGB and thermal)
+3. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
+
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
    the plan's options, and follow it. This replaces the plugin's "Process in LuxODM". (Integration)
@@ -592,6 +597,76 @@ show the minimum and maximum at its ends.
 - **Scale:** `scaleTicks` gives the two ends as well as the round ticks between them.
 - **Tests:** Vitest for the ticks (ends, ticks near an end dropped) and the sliders (the image's style changes while
   dragging); a live check in the browser, light and dark.
+
+## RGB and thermal
+
+Requested 2026-10-28 (`new.md`):
+- dji-thermal-cli should make mosaics of DJI's non-thermal (visual, RGB) images too. The Matrice 4T and the Zenmuse
+  H20T/H30T series capture a route in thermal and visual at once, and comparing the visual and thermal mosaics, and
+  their frames, would help in the app.
+- The app should compare visual and thermal mosaics, building on the first. dji-thermal-cli's changes stay separate
+  from the app's: the CLI must always work standalone, and the app uses its Python API (`api.py`) rather than
+  duplicating its work.
+
+### What it builds on
+
+- **dji-thermal-cli 1.5.0 (`mosaic.py`)** builds mosaics without ODM:
+  - **Placement:** each frame is placed from its pose (GPS, height and gimbal angles read from its XMP by `read_pose`).
+    The camera's focal length in pixels comes from `focal_length_px(model, ...)`.
+  - **Refinement:** the placements are refined by aligning overlaps with phase correlation, optionally over a DSM.
+  - **Output:** a single-band float32 temperature GeoTIFF with frame models (each frame's footprint, for the source
+    frames).
+  - **What carries over:** posing, placing, the grid, the DSM and the frame models do not depend on what a pixel
+    holds. Compositing, normalization, the PNG views and the alignment's input are specific to temperatures.
+- **dji-thermal-cli's analysis** already recognizes a visual image: a valid JPEG without thermal data is
+  `not_thermal` (`dataset.py`). DJI names a capture's pair `..._0001_T.JPG` and `..._0001_V.JPG` (and `_W`/`_Z` for the
+  wide and zoom cameras on some drones).
+- **The app:**
+  - **Datasets:** they keep every uploaded JPEG and list the visual ones as "not thermal". The Files tab shows them.
+  - **Mosaics:** the viewer and compare page take a mosaic's float32 data tiles and colour them in WebGL. A visual
+    mosaic needs RGB tiles instead: the server's PNG/JPEG tiles, or the image itself as a tile layer.
+  - **Compare page:** two panes kept in step (`compare/`), which F3 would extend with a visual pane, a swipe or an
+    overlay.
+  - **Source frames window and frame page:** they show the thermal frames that saw a spot. The paired `_V` frame
+    could be shown beside each one.
+- **Test data:** the 220 M4T frames in `ignored/` and dataset 1 are thermal only. A flight with both `_T` and `_V`
+  images is needed for development and the live checks.
+
+### Proposed phases
+
+- **F1 (dji-thermal-cli, its own repo and release, e.g. 1.6.0):** visual mosaics.
+  - **Frames and cameras:** read the visual frames' poses (the same XMP), and the intrinsics of the visual cameras of
+    the supported drones (M4T wide; M3T, H20T and H30T wide), with tests.
+  - **Pairing:** pair `_V` with `_T` by capture.
+  - **Compositing:** an RGB composite (uint8, 3 bands with alpha) at a chosen GSD.
+  - **Placement:** optionally use the thermal mosaic's refined placements (the pair shares a gimbal), so the two
+    mosaics line up.
+  - **Output:** a GeoTIFF with frame models.
+  - **Interfaces:** a CLI option (e.g. `mosaic --visual`) and the same in the Python API. No UI work.
+  - **Release:** the user pushes and tags it there.
+- **F2 (app):** pin the new dji-thermal-cli.
+  - **Building:** a conversion builds the visual mosaic beside its thermal mosaics, when the dataset has visual
+    frames.
+  - **Showing:** the viewer gains a Visual tab, as RGB tiles under the basemap switch; the frame page and source frames
+    window show each frame's visual pair.
+  - **Tests:** pytest for the tiles and pairing; Vitest for the tab and the pairs; a live check on a dataset with
+    both.
+- **F3 (app):** compare visual and thermal.
+  - **Panes:** on the compare page, either pane can show a conversion's visual mosaic, beside a thermal one.
+  - **Overlay:** a swipe or opacity overlay of the two on one map, with measurements and findings drawn over both.
+  - **Frames:** a frame and its pair side by side on the frame page.
+
+### Open decisions (to ask when planning)
+
+- **Order:** before D2, or after it (as listed)?
+- **Test data:** which flight with both `_T` and `_V` images to use, and where it is (as dataset 6 came out of
+  LuxODM's volume).
+- **Cameras first:** the M4T only, or the H20T/H30T/M3T too. Do the `_W`/`_Z` cameras count, or only `_V`?
+- **Resolution:** the visual frames are about 6× the thermal ones' resolution. Should the mosaic be at its own GSD
+  (large files, slow to build), at a cap (e.g. 2 cm/px), or at the thermal mosaic's GSD?
+- **Registration:** should the visual mosaic reuse the thermal placements (lined up by construction), or align itself
+  (sharper, but possibly offset from the thermal one)?
+- **Overlay in F3:** side by side only, a swipe, an opacity blend, or all three.
 
 ## Integration
 
