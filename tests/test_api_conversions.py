@@ -7,9 +7,10 @@ import zipfile
 from types import SimpleNamespace
 from unittest import mock
 
+from dji_thermal_ui.analyzer import api as analyzer_api
 from dji_thermal_ui.analyzer import thermal_conversion as conversion
 from dji_thermal_ui.analyzer.models import ThermalConversion
-from tests.fakes import CONVERSIONS, DATASETS, PREFERENCES, dataset, fake_process, uploaded
+from tests.fakes import CONVERSIONS, DATASETS, PREFERENCES, converted, dataset, fake_process, uploaded
 
 
 def test_settings_are_checked_and_completed_from_dji_thermal_clis_defaults():
@@ -184,3 +185,33 @@ def test_the_pages_follow_the_computers_theme_until_light_or_dark_is_chosen(api)
     api.delete(PREFERENCES)
     res = api.get(PREFERENCES)
     assert (res.data['theme'], res.data['unit'], res.data['saved']) == ('dark', 'C', False)
+
+
+def test_a_mosaic_reports_text_view_and_measurements_left_out_are_saved_on_the_conversion(api):
+    c, _ = converted(api)
+    url = "{}/{}".format(CONVERSIONS, c.id)
+    assert api.get(url).data['report'] == {}
+    view = {'tab': 'harmonized', 'palette': 'ironbow', 'range': [10, 30.5],
+            'adjust': {'gamma': 1.2, 'equalize': True, 'sharpen': 1}, 'findings': False, 'hidden': [3]}
+    res = api.patch(url, {'report': {'title': "Roof, harmonized", 'author': "A. Inspector", 'view': view,
+                                     'left_out': [7, 2, 7]}}, format='json')
+    assert res.status_code == 200, res.data
+    assert res.data['report'] == {'title': "Roof, harmonized", 'author': "A. Inspector", 'view': view, 'left_out': [2, 7]}
+    assert res.data['name'] == c.name                   # the name is left as it was
+    assert analyzer_api.report_author() == "A. Inspector"
+    res = api.patch(url, {'report': {'left_out': [], 'view': None}}, format='json')
+    assert res.data['report'] == {'title': "Roof, harmonized", 'author': "A. Inspector", 'left_out': []}
+    # Renaming still works, and leaves the report as it was
+    assert api.patch(url, {'name': "Nadir"}, format='json').data['report']['title'] == "Roof, harmonized"
+
+
+def test_a_mosaic_report_refuses_what_it_does_not_hold(api):
+    c, _ = converted(api)
+    url = "{}/{}".format(CONVERSIONS, c.id)
+    for report in [{'appendix': True}, {'colour': 1}, {'left_out': [0]}, {'left_out': ["3"]}, {'left_out': 3},
+                   {'view': "tab=harmonized"}, {'view': {'zoom': 3}}, {'view': {'range': [30, 10]}},
+                   {'view': {'range': [1]}}, {'view': {'tab': 5}}, {'view': {'adjust': {'gamma': "x"}}},
+                   {'view': {'hidden': ["a"]}}, {'view': {'palette': "x" * 65}}, {'date': "yesterday"}]:
+        res = api.patch(url, {'report': report}, format='json')
+        assert res.status_code == 400, report
+    assert api.get(url).data['report'] == {}

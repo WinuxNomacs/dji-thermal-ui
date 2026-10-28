@@ -13,6 +13,7 @@ urlpatterns = [
     path("dataset/<int:dataset_id>/report", views.dataset_report, name="dataset-report"),
     path("conversion/<int:conversion_id>", views.viewer_page, name="viewer"),
     path("conversion/<int:conversion_id>/frame", views.frame_page, name="frame"),
+    path("conversion/<int:conversion_id>/report", views.conversion_report, name="conversion-report"),
     path("conversion/<int:conversion_id>/compare", views.compare_page, name="compare"),
     # The static files, served by the app itself: it runs without DEBUG and has no web server in front of it
     re_path(r"^static/(?P<path>.*)$", serve, {"document_root": settings.STATIC_DIR}),

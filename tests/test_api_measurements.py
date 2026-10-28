@@ -228,6 +228,16 @@ def test_measurements_are_saved_listed_exported_renamed_and_deleted(api):
 
     detail = "{}/{}".format(url, m['id'])
     assert api.patch(detail, {'name': 'Roof edge'}, format='json').data['name'] == 'Roof edge'
+    # A comment, kept with it and exported
+    assert m['comment'] == ""
+    res = api.patch(detail, {'comment': "Wet insulation, seen again in May"}, format='json')
+    assert (res.data['comment'], res.data['name']) == ("Wet insulation, seen again in May", 'Roof edge')
+    assert csv_rows(api, c)[0]['Comment'] == "Wet insulation, seen again in May"
+    geo = json.loads(api.get("{}/{}/measurements.geojson".format(CONVERSIONS, c.id)).content)
+    assert geo['features'][0]['properties']['comment'] == "Wet insulation, seen again in May"
+    for bad in (5, None, "x" * 10001):
+        assert api.patch(detail, {'comment': bad}, format='json').status_code == 400
+    assert api.get(url).data['measurements'][0]['comment'] == "Wet insulation, seen again in May"
 
     assert api.delete(detail).status_code == 204
     assert not ThermalMeasurement.objects.filter(pk=m['id']).exists()

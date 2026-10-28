@@ -495,8 +495,8 @@ Planned 2026-10-27, from Later ("a report of a dataset or a mosaic"), after the 
   - **A comment on each measurement:** a `comment` field, typed on the report and in the viewer's saved list, in the
     CSV and the GeoJSON.
   - **Settings and method:** the conversion's settings that differ from the defaults (`settings.ts`), the mosaic's
-    kind and what it means (`TAB_HINTS`), the normalization, and dji-thermal-cli's version. Conversions record that
-    version from now on; older ones say that it was not recorded.
+    kind and what it means (`TAB_HINTS`), the normalization, and dji-thermal-cli's version (each conversion's
+    results already record it).
 
 ## Projects
 

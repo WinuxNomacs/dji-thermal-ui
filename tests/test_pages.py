@@ -25,7 +25,7 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
     for url, page_id in [("/", "app"), ("/preferences", "app"), ("/project/%d" % d.project_id, "app"), ("/dataset/%d" % d.id, "app"),
                          ("/dataset/%d/report" % d.id, "app"),
                          ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "app"),
-                         ("/conversion/%d/compare" % c.id, "app")]:
+                         ("/conversion/%d/compare" % c.id, "app"), ("/conversion/%d/report" % c.id, "app")]:
         client.cookies.clear()
         res = client.get(url)
         assert res.status_code == 200, url
@@ -38,7 +38,7 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
 
 def test_an_unknown_dataset_or_conversion_is_a_404(client):
     c = conversion(dataset())
-    for url in ["/project/999", "/dataset/999", "/dataset/999/report", "/conversion/999", "/conversion/999/frame", "/conversion/999/compare",
+    for url in ["/project/999", "/dataset/999", "/dataset/999/report", "/conversion/999", "/conversion/999/frame", "/conversion/999/compare", "/conversion/999/report",
                 "/conversion/%d/compare?b=999" % c.id, "/conversion/%d/compare?b=x" % c.id]:
         assert client.get(url).status_code == 404, url
 
@@ -115,3 +115,10 @@ def test_a_report_page_carries_its_project_and_the_author_last_typed(client):
     assert 'data-project-name="Grain silos" data-location="Farm Rd 4" data-author=""' in html
     APIClient().patch("/api/datasets/%d" % d.id, {'report': {'author': "A. Inspector"}}, format='json')
     assert 'data-author="A. Inspector"' in client.get("/dataset/%d/report" % dataset().id).content.decode()
+
+
+def test_a_mosaic_report_page_carries_its_dataset_and_project(client):
+    c = conversion(dataset(name="Roof"), name="Nadir")
+    html = client.get("/conversion/%d/report" % c.id).content.decode()
+    assert "<title>Nadir report · Thermal Analyzer</title>" in html
+    assert 'data-dataset="%d" data-dataset-name="Roof" data-project-name="Default Project"' % c.dataset_id in html
