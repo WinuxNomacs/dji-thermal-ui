@@ -94,6 +94,10 @@ describe("the report's figures", () => {
         expect(s[1].values).toEqual([{text: "5.0 m", frames: 2}, {text: "10.0 m", frames: 1}]);
         expect(s[2]).toMatchObject({values: [{text: "70 %", frames: 2}], missing: 1});
         expect(s[3].values).toEqual([{text: "23.0 °C", frames: 3}]);
+        expect(s[0].range).toBeUndefined();
+        // Many values (measured at each frame) are given as their range
+        const many = settingsSummary([20, 21.5, 22, 23, 24, 25, 26.2].map((t, i) => ({path: "f" + i, kind: "thermal", ambient: t})));
+        expect(many[0].range).toEqual({from: "20.0 °C", to: "26.2 °C"});
         expect(settingsSummary([{path: "a", kind: "thermal"}])).toEqual([]);
         expect(settingsSummary(undefined)).toEqual([]);
     });
@@ -190,7 +194,8 @@ describe("the dataset report", () => {
         await vi.advanceTimersByTimeAsync(0);
         await ticks();
         expect($$(".report-files tbody tr").map((r) => r.children[0].textContent))
-            .toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG", "thermal/c_T.JPG"]);
+            .toEqual(["a_T.JPG", "b_T.JPG", "c_T.JPG"]);
+        expect($$(".report-files th").map((x) => x.textContent)).not.toContain("Kind");
         const patches = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH");
         expect(patches.map((c) => JSON.parse(c[1]!.body as string))).toEqual([{report: {appendix: true}}]);
     });
@@ -203,6 +208,7 @@ describe("the dataset report", () => {
 
     it("says what a dataset not analyzed, without positions or findings, has none of", async () => {
         await page({...DATASET, analysis: {}, flight_area: null, conversions: []});
+        expect($(".report-head")).not.toBeNull();
         expect(text("#report-dataset")).toContain("Not analyzed");
         expect(text("#report-where")).toContain("None of the frames records where it was taken");
         expect($("#report-map")).toBeNull();

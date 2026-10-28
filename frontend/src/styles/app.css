@@ -730,12 +730,12 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .report { max-width: 210mm; }
 .report-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .report-bar .report-saved { margin-left: auto; }
-.report-title { margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--text); }
+.report-head { margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--text); }
 .report-field { display: block; margin-bottom: 8px; }
 .report-field .report-label { display: block; font-size: .85em; color: var(--muted); }
 .report-field input, .report-field textarea { width: 100%; font: inherit; color: var(--text); background: var(--surface);
     border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; }
-.report-title .report-field input { font-size: 1.6em; font-weight: 600; }
+.report-head .report-title input { font-size: 1.6em; font-weight: 600; }
 .report-byline { display: flex; flex-wrap: wrap; gap: 16px; }
 .report-byline .report-field { flex: 1 1 200px; }
 .report-byline .report-field input { font-size: 1em; font-weight: normal; }
@@ -764,7 +764,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     .print-only { display: block; }
     .report-field input, .report-field textarea, .report-field .report-label { display: none; }
     .report-field.empty, .report-section.empty { display: none; }
-    .report-title .report-value { font-size: 20pt; font-weight: 600; }
+    .report-head .report-title .report-value { font-size: 20pt; font-weight: 600; }
     .report-byline { gap: 24px; }
     .report-byline .report-field { flex: 0 0 auto; margin: 0; }
     .report-notes .report-value { white-space: pre-wrap; }
@@ -774,5 +774,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     .report h2, .report h3 { break-after: avoid; }
     .report-appendix { break-before: page; }
     .report .table-scroll { overflow: visible; }
+    .report .table { width: 100%; }
+    .report .table.files th, .report .table.files td { white-space: normal; padding: 2px 4px; font-size: 7pt; }
     a { color: inherit; text-decoration: none; }
 }

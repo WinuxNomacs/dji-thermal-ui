@@ -36,7 +36,13 @@ export const SETTINGS: Setting[] = [
     {key: "ambient", label: "Ambient temperature", show: (v) => formatTemp(v, "C", 1)},
 ];
 
-export interface SettingValues {setting: Setting; values: {text: string; frames: number}[]; missing: number}
+// A setting with more values than this is given as its range (a temperature measured at each frame)
+export const VALUES_LISTED = 6;
+
+export interface SettingValues {
+    setting: Setting; values: {text: string; frames: number}[]; missing: number;
+    range?: {from: string; to: string};     // with more values than VALUES_LISTED: the lowest and the highest
+}
 
 // Each setting's values across the frames, the most frames first, with how many frames do not record it; settings no
 // frame records are left out
@@ -45,15 +51,18 @@ export function settingsSummary(files: FileRow[] | undefined): SettingValues[] {
     return SETTINGS.map((setting) => {
         const counts = new Map<string, number>();
         let missing = 0;
+        const numbers: number[] = [];
         frames.forEach((f) => {
             const v = f[setting.key];
             if (!present(v)) { missing++; return; }
+            numbers.push(v);
             const text = setting.show(v);
             counts.set(text, (counts.get(text) || 0) + 1);
         });
         const values = [...counts].map(([text, n]) => ({text, frames: n}))
             .sort((a, b) => b.frames - a.frames || a.text.localeCompare(b.text, undefined, {numeric: true}));
-        return {setting, values, missing};
+        return {setting, values, missing, ...(values.length > VALUES_LISTED ?
+            {range: {from: setting.show(Math.min(...numbers)), to: setting.show(Math.max(...numbers))}} : {})};
     }).filter((s) => s.values.length);
 }
 

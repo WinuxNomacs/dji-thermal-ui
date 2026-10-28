@@ -50,8 +50,8 @@ def dataset_page(request, dataset_id):
 def dataset_report(request, dataset_id):
     """A dataset's report, laid out to be printed to PDF"""
     dataset = get_object_or_404(ThermalDataset.objects.select_related('project'), pk=dataset_id)
-    return page(request, "dataset-report.html", title=dataset.name + " report", dataset=dataset, project=dataset.project,
-                entry="dataset-report", author=report_author(), basemaps=page_basemaps(API))
+    return page(request, "dataset_report.html", title=dataset.name + " report", dataset=dataset, project=dataset.project,
+                entry="dataset_report", author=report_author(), basemaps=page_basemaps(API))
 
 
 @ensure_csrf_cookie

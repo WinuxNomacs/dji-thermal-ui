@@ -31,6 +31,8 @@ import {fileOf, framePositions, numbered, type ReportText, reportText, settingsS
 const SAVE_MS = 600;            // typing pauses this long before the text is saved
 const THUMBS_SHOWN = 6;         // a finding's kept frames shown before "and N more"
 const MAX_FIT_ZOOM = 19;
+// The appendix's columns: the Files tab's, but its kind (each is a thermal frame), to fit the page's width
+const APPENDIX_COLUMNS = FILE_COLUMNS.filter((c) => c.key !== "kind");
 
 type Field = "title" | "author" | "date" | "notes";
 
@@ -200,7 +202,7 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
             </div>
             {notice && <div class="notice error no-print" role="alert">{notice}</div>}
 
-            <header class="report-title">
+            <header class="report-head">
                 {field("title", "Title")}
                 <div class="report-byline">
                     {field("author", "Author")}
@@ -248,7 +250,9 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                 {settings.length ? <table class="table report-settings">
                     <thead><tr><th>Setting</th><th>Values (frames)</th></tr></thead>
                     <tbody>{settings.map((s) => (<tr key={s.setting.key}><td>{s.setting.label}</td>
-                        <td>{s.values.map((v) => v.text + " (" + v.frames + ")").join(", ")}
+                        <td>{s.range ? s.range.from + " to " + s.range.to + " (" + count(s.values.length, "value", "values") +
+                                " across " + s.values.reduce((n, v) => n + v.frames, 0) + " frames)" :
+                            s.values.map((v) => v.text + " (" + v.frames + ")").join(", ")}
                             {s.missing > 0 && <span class="text-muted">, not recorded ({s.missing})</span>}</td></tr>))}</tbody>
                 </table> : <p class="text-muted">The frames record none of their settings.</p>}
                 {temperatures.length > 0 && <>
@@ -306,9 +310,10 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
             {text.appendix && files && (<section class="report-section report-appendix" id="report-appendix-table">
                 <h2>Appendix: the frames</h2>
                 <table class="table files report-files">
-                    <thead><tr>{FILE_COLUMNS.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
+                    <thead><tr>{APPENDIX_COLUMNS.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
                     <tbody>{thermalFrames(files).map((r) => (<tr key={r.path}>
-                        {FILE_COLUMNS.map((c) => <td key={c.key}>{cell(r, c)}</td>)}</tr>))}</tbody>
+                        {APPENDIX_COLUMNS.map((c) => <td key={c.key}>{c.key === "path" ? r.path.split("/").pop() : cell(r, c)}</td>)}
+                    </tr>))}</tbody>
                 </table>
             </section>)}
         </div>

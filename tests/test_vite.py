@@ -1,5 +1,6 @@
 """{% vite_entry %}: a page loads its script built by Vite, with the stylesheets and chunks it imports"""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -32,3 +33,15 @@ def test_a_missing_build_or_entry_says_what_to_do(settings, tmp_path):
     settings.VITE_MANIFEST = STUB
     with pytest.raises(ManifestError, match="src/pages/nowhere.tsx"):
         render("nowhere")
+
+
+def test_each_page_the_views_serve_is_an_entry_vite_builds():
+    # The stub manifest lists the entries by hand: a page named as vite.config.mts skips would pass here and fail in
+    # the build. Its entries are frontend/src/pages/<name>.tsx with names of a-z and _.
+    root = Path(__file__).resolve().parent.parent
+    views = (root / "src/dji_thermal_ui/analyzer/views.py").read_text()
+    entries = set(re.findall(r'entry="([^"]+)"', views))
+    assert "dataset_report" in entries
+    for entry in entries:
+        assert re.fullmatch(r"[a-z_]+", entry), entry
+        assert (root / "frontend/src/pages" / (entry + ".tsx")).is_file(), entry

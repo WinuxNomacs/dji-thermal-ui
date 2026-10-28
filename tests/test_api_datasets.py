@@ -275,6 +275,9 @@ def test_a_reports_text_is_saved_on_the_dataset_a_field_at_a_time(api):
     assert res.data['name'] == "Roof"        # the name is left as it was
     d.refresh_from_db()
     assert d.report['title'] == "Roof survey" and d.name == "Roof"
+    # Forgotten, a field is filled in again by the page
+    res = api.patch(url, {'report': {'title': None, 'date': None, 'notes': None, 'appendix': None}}, format='json')
+    assert res.data['report'] == {}
 
 
 def test_a_reports_text_is_refused_when_it_is_not_what_the_report_holds(api):

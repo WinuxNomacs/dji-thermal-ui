@@ -11,7 +11,7 @@
                           "imports": ["_shared-b2.js", "_leaflet-d4.js"]},
   "src/pages/compare.tsx": {"file": "assets/compare-e1.js", "src": "src/pages/compare.tsx", "isEntry": true,
                             "imports": ["_shared-b2.js", "_leaflet-d4.js"]},
-  "src/pages/dataset-report.tsx": {"file": "assets/dataset-report-a7.js", "src": "src/pages/dataset-report.tsx",
+  "src/pages/dataset_report.tsx": {"file": "assets/dataset_report-a7.js", "src": "src/pages/dataset_report.tsx",
                                    "isEntry": true, "imports": ["_shared-b2.js", "_leaflet-d4.js"]},
   "src/pages/preferences.tsx": {"file": "assets/preferences-f2.js", "src": "src/pages/preferences.tsx", "isEntry": true,
                                 "imports": ["_shared-b2.js"]},

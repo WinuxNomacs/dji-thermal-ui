@@ -316,12 +316,14 @@ def report_author():
 
 def parse_report(value, saved):
     """A report's text, changed: the keys sent replace those saved (a title, author and notes are text, the date a
-    YYYY-MM-DD day or "", the appendix a yes or no)"""
+    YYYY-MM-DD day or "", the appendix a yes or no; null forgets one, which the page then fills in again)"""
     if not isinstance(value, dict):
         raise ValidationError({'report': "An object of title, author, date, notes and appendix"})
     out = dict(saved or {})
     for key, v in value.items():
-        if key in ('title', 'author', 'notes'):
+        if v is None and key in ('title', 'author', 'date', 'notes', 'appendix'):
+            out.pop(key, None)
+        elif key in ('title', 'author', 'notes'):
             limit = MAX_DESCRIPTION_LENGTH if key == 'notes' else MAX_NAME_LENGTH
             if not isinstance(v, str) or len(v) > limit:
                 raise ValidationError({'report': "The {} is text of {} characters at most".format(key, limit)})

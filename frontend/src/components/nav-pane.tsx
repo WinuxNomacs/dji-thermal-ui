@@ -109,7 +109,7 @@ export function NavPane({api, publicUrl, current, onNavigate, onClose}: NavPaneP
                                   href={publicUrl + "dataset/" + d.id} label={d.name || "(untitled)"}
                                   current={is("dataset", d.id)}>
                                 <ul><Item key="report" {...item} level={3} href={publicUrl + "dataset/" + d.id + "/report"}
-                                          label="Report" current={is("dataset-report", d.id)}/>
+                                          label="Report" current={is("dataset_report", d.id)}/>
                                     {d.conversions.map((c) => {
                                         const pages = conversionPages(c, publicUrl);
                                         const here = pages.some((x) => is(x.page, c.id));

@@ -93,7 +93,7 @@ describe("the navigation pane", () => {
     });
 
     it("unfolds a dataset's report to it and marks it, even for a dataset without conversions", async () => {
-        await pane({page: "dataset-report", id: 4});
+        await pane({page: "dataset_report", id: 4});
         expect(fold("p2").getAttribute("aria-expanded")).toBe("true");
         expect(fold("d4").getAttribute("aria-expanded")).toBe("true");
         expect(currentLink()).toBe("Report");
