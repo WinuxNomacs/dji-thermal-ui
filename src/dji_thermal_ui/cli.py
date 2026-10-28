@@ -17,8 +17,8 @@ PORT = 8080
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="dji-thermal-ui",
-                                description="Analyze, convert, mosaic and measure DJI thermal datasets in the browser.")
-    p.add_argument("--data-dir", help="the folder for the database and the datasets (default: the user data folder)")
+                                description="Analyze, convert, mosaic and measure DJI thermal flights in the browser.")
+    p.add_argument("--data-dir", help="the folder for the database and the flights (default: the user data folder)")
     p.add_argument("--port", type=int, default=PORT,
                    help="the port to serve on, on 127.0.0.1 (default: %d)" % PORT)
     p.add_argument("--no-browser", action="store_true", help="do not open the browser")

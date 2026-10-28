@@ -1,29 +1,29 @@
 # dji-thermal-ui
 
-Analyze, convert, mosaic and measure DJI thermal datasets in the browser, on your own computer.
+Analyze, convert, mosaic and measure DJI thermal flights in the browser, on your own computer.
 
 dji-thermal-ui is a local web app built on [dji-thermal-cli](https://github.com/WinuxNomacs/dji-thermal-cli). It
 does the work with dji-thermal-cli and shows the results in the browser, so neither ODM nor the DJI Thermal SDK is
 needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM fork, now standing on its own.
 
-- **Projects:** a site's datasets together, with a name, a description and a location, and a map of where each
-  dataset was flown. A dataset can be moved to another project. The datasets made before projects existed are in the
+- **Projects:** a site's flights together, with a name, a description and a location, and a map of where each
+  flight was flown. A flight can be moved to another project. The flights made before projects existed are in the
   Default Project, which you can rename; one is made again whenever none is left. A project's location is found by
   searching an address or a place on OpenStreetMap, or by clicking the site on the map, and keeps the address.
-  A project's page lists its datasets' findings together.
-- **Datasets:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
+  A project's page lists its flights' findings together.
+- **Flights:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
   drone takes with them (DJI's `_V` or `_W`, as on the Matrice 4T or the H20T/H30T) can be added too: the Files tab
   calls them visual.
-- **Analysis:** the files, cameras and problems dji-thermal-cli finds in a dataset.
-- **Conversions:** temperature images with any of dji-thermal-cli's settings. You can keep several side by side,
-  cancel one, or download it.
+- **Analysis:** the files, cameras and problems dji-thermal-cli finds in a flight.
+- **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
+  mosaics. You can keep several side by side, cancel one, or download it.
 - **Mosaics:** the viewer's tabs are Mosaic (the temperatures as converted), Harmonized, Source frame (the mosaic
   with a line along each seam between the frames it is made of) and View angle, over a street map or Esri's or
   Mapbox's satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma,
   equalization and sharpening, redrawn as their sliders are dragged; the colour scale, in the panel, is labelled with
   its range's ends. Pointer info gives the values under the cursor; a click keeps them and outlines the frame there,
   and Esc or a second click on that frame lets go of it.
-- **Visual mosaic:** when a dataset has visual images, a conversion builds their mosaic with the thermal ones (the
+- **Visual mosaic:** when a flight has visual images, a dataset builds their mosaic with the thermal ones (the
   convert form's "And the visual mosaic", on by default), at the visual camera's own resolution. dji-thermal-cli
   places each visual image where its thermal frame is in the thermal mosaic, after measuring and correcting the
   small angle between the two cameras, so the two mosaics line up. The viewer shows it on its Visual tab, Pointer info
@@ -39,37 +39,37 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   Source frames tool, click the Source frame tab, or open a measurement's; on the compare page, draw a spot or an area
   in a pane. Mosaics
   built before 0.5.0 list only the frames they used: build them again to list every frame.
-- **Findings:** a spot or an area of a mosaic kept on its dataset, with a name, notes, a severity and a status, the
+- **Findings:** a spot or an area of a mosaic kept on its flight, with a name, notes, a severity and a status, the
   temperatures measured when it was saved and the frames that saw it (all of them, or those you pick). Save one from
   the source frames window or from a saved spot or area measurement. The viewer draws them on the map, outlined and
   tagged in their severity's colour; click one, or its line in the Findings list, to open it with its frames. They
   can all be hidden with one switch, or one by one, and a link keeps which are shown and which is open. On the
-  compare page each pane draws its datasets' findings, opened with a click or a link and changed there, and a spot
-  or an area drawn in a pane is saved on the dataset of its mosaic (for a difference, the mosaic picked in the
+  compare page each pane draws its flights' findings, opened with a click or a link and changed there, and a spot
+  or an area drawn in a pane is saved on the flight of its mosaic (for a difference, the mosaic picked in the
   window).
-- **Dataset report:** a page laid out to print, or save as PDF from the browser's print dialog, on A4 or Letter.
-  It holds the dataset's figures, a map of where its frames were taken with its findings numbered, the coverage,
-  the problems found, the frames' settings and temperatures summed up, the conversions, and the findings with
-  thumbnails of their kept frames. A table of every frame can be appended. Open it with the dataset page's Report
+- **Flight report:** a page laid out to print, or save as PDF from the browser's print dialog, on A4 or Letter.
+  It holds the flight's figures, a map of where its frames were taken with its findings numbered, the coverage,
+  the problems found, the frames' settings and temperatures summed up, the datasets, and the findings with
+  thumbnails of their kept frames. A table of every frame can be appended. Open it with the flight page's Report
   button or from the navigation pane. The title, author, date and notes are typed on the page and saved with the
-  dataset; the last author typed fills in new reports. It always prints light, without the app's header and controls.
-- **Mosaic report:** a conversion's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer
+  flight; the last author typed fills in new reports. It always prints light, without the app's header and controls.
+- **Mosaic report:** a dataset's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer
   showed it when its Report button was pressed (that view is saved with the report), with the saved measurements
-  and the dataset's findings drawn and numbered, the colour scale, a scale bar and north. Each measurement follows
+  and the flight's findings drawn and numbered, the colour scale, a scale bar and north. Each measurement follows
   with a close-up on its mosaic or frame, its figures, profile and histogram, and a comment; one can be left out.
-  Then come the findings on the mosaic with their kept frames, and the conversion's settings and how the mosaic was
+  Then come the findings on the mosaic with their kept frames, and the dataset's settings and how the mosaic was
   made. A measurement's comment is also shown in the viewer's list and exported in the CSV and GeoJSON.
-- **Compare:** two conversions side by side, one over the other, or their difference, from any dataset, the
-  project's listed first. A pane can show a conversion's visual mosaic. "Overlay (A over B)" draws pane A's mosaic
+- **Compare:** two datasets side by side, one over the other, or their difference, from any flight, the
+  project's listed first. A pane can show a dataset's visual mosaic. "Overlay (A over B)" draws pane A's mosaic
   over pane B's in one pane, faded with an opacity slider and cut at a swipe line dragged across it: visual over
   thermal, or two thermal mosaics.
-- **Navigation:** a pane on the left of every page lists the projects, their datasets with each dataset's report,
-  and each conversion's mosaics, frames, compare page and report. Each level folds, and the whole pane hides; over a narrow
+- **Navigation:** a pane on the left of every page lists the projects, their flights with each flight's report,
+  and each dataset's mosaics, frames, compare page and report. Each level folds, and the whole pane hides; over a narrow
   screen it opens on top of the page.
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, and the locale dates and times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
-  clocks (a dataset analyzed by an earlier version of the app is analyzed again for it).
+  clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
 
 It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
 are no logins or accounts.
@@ -111,7 +111,7 @@ running when the server stops is marked as interrupted the next time it starts.
 
 | Option | |
 |---|---|
-| `--data-dir DIR` | the folder for the database and the datasets (see below) |
+| `--data-dir DIR` | the folder for the database and the flights (see below) |
 | `--port PORT` | the port to serve on (default 8080) |
 | `--no-browser` | do not open the browser |
 | `--version` | print the version |
@@ -147,14 +147,14 @@ is used instead of it, and removing that one goes back to it.
 
 ## Where the data lives
 
-The database (SQLite), the secret key and each dataset's files (`datasets/<id>/`) are kept in one data folder:
+The database (SQLite), the secret key and each flight's files (`datasets/<id>/`) are kept in one data folder:
 
 - Linux: `~/.local/share/dji-thermal-ui`
 - Windows: `%LOCALAPPDATA%\dji-thermal-ui`
 
-`--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. A dataset used in place
-from a folder reads its images there and never changes them. Deleting a dataset deletes only what the app made.
-Deleting a project deletes its datasets the same way, after saying how many there are and how much space is freed.
+`--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. A flight used in place
+from a folder reads its images there and never changes them. Deleting a flight deletes only what the app made.
+Deleting a project deletes its flights the same way, after saying how many there are and how much space is freed.
 
 ## Development
 

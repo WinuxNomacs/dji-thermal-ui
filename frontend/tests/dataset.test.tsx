@@ -226,7 +226,7 @@ describe("the dataset page", () => {
     it("says when the dataset could not be loaded", async () => {
         page(server({[URL]: () => jsonResponse({}, false)}));
         await ticks();
-        expect($(".notice.error[role=alert]")!.textContent).toBe("Could not load the dataset.");
+        expect($(".notice.error[role=alert]")!.textContent).toBe("Could not load the flight.");
     });
 
     it("shows only the Convert tab before the analysis", async () => {
@@ -236,7 +236,7 @@ describe("the dataset page", () => {
         expect($$("[role=tab]").map((t) => t.getAttribute("data-tab"))).toEqual(["convert"]);
         expect(selected()).toBe("convert");
         expect(byId("analyze").textContent).toContain("Analyze");
-        expect($(".convert-tab")!.textContent).toContain("No conversions yet.");
+        expect($(".convert-tab")!.textContent).toContain("No datasets yet.");
     });
 
     it("opens the tab a link names", async () => {
@@ -300,7 +300,7 @@ describe("the dataset page", () => {
 
         click(byId("delete"));
         await ticks();
-        expect(dialog()!.textContent).toContain("Delete dataset");
+        expect(dialog()!.textContent).toContain("Delete flight");
         press("Cancel");
         await ticks();
         expect(calls(fetchFn)).not.toContain("DELETE " + URL);
@@ -576,7 +576,7 @@ describe("the Convert tab", () => {
         click(byId("convert-save"));
         await ticks();
         expect(body(fetchFn.mock.calls.find((c) => c[1]?.method === "PUT")![1]).settings.emissivity).toBe(0.95);
-        expect($(".convert-message")!.textContent).toBe("Saved: new conversions start from these settings.");
+        expect($(".convert-message")!.textContent).toBe("Saved: new datasets start from these settings.");
         expect($(".convert-settings")!.textContent).toContain("Starting from your saved defaults.");
         click(byId("convert-reset"));
         await ticks();
@@ -722,7 +722,7 @@ describe("the Convert tab", () => {
         expect(dialog()!.textContent).toContain("Delete Nadir and its files? This cannot be undone.");
         press("Delete");
         await ticks();
-        expect($(".convert-message.text-danger")!.textContent).toBe("Could not delete the conversion.");
+        expect($(".convert-message.text-danger")!.textContent).toBe("Could not delete the dataset.");
         await openMenu();
         click(menuItem("Delete")!);
         await ticks();

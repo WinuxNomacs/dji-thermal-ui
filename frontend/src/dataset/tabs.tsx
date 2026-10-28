@@ -144,7 +144,7 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
 export function ProblemsTab({analysis, showFile}: {analysis: Analysis; showFile?: (path: string) => void}) {
     const findings = analysis.findings || [];
     if (!findings.length) {
-        return <p class="text-success none"><Check/> dji-thermal-cli found no problems in this dataset.</p>;
+        return <p class="text-success none"><Check/> dji-thermal-cli found no problems in this flight.</p>;
     }
     return (<div class="problems-tab">
         {findings.map((f) => {
@@ -194,7 +194,7 @@ function OptionsTable({options}: {options?: Record<string, PlanOption>}) {
 // (Convert with these opens the Convert tab with the plan's settings)
 export function PlanTab({analysis, convert}: {analysis: Analysis; convert: () => void}) {
     const p = analysis.webodm;
-    if (!p) return <p class="text-muted">No plan: the dataset has no thermal frames to plan with.</p>;
+    if (!p) return <p class="text-muted">No plan: the flight has no thermal frames to plan with.</p>;
     const c = p.coverage || {};
     const args = (p.odm_arguments || []).join(" ");
     return (<div class="plan-tab">

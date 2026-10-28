@@ -296,7 +296,7 @@ def convert(conversion_id, run_id):
     try:
         if not os.path.isdir(root):
             raise Exception("The folder {} does not exist".format(root)
-                            if dataset.source == 'folder' else "The dataset has no images")
+                            if dataset.source == 'folder' else "The flight has no images")
         args = api_arguments(conversion.options)
         # Each image is reported once when it is written. Normalizing first compares the frames' overlaps, stage by
         # stage: the page shows the stage while the progress is 0

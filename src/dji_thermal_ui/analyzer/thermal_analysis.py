@@ -159,7 +159,7 @@ def analyze_dataset(dataset_id, run_id):
     try:
         if not os.path.isdir(root):
             raise Exception("The folder {} does not exist".format(root)
-                            if dataset.source == 'folder' else "The dataset has no images")
+                            if dataset.source == 'folder' else "The flight has no images")
 
         total = max(1, len(api.scan(root).jpegs))
         state = {'done': 0, 'written': time.time()}
@@ -232,7 +232,7 @@ def flight_zone(analysis):
     minutes east of UTC} or, when it is not known, {'offset': None, 'reason': why}"""
     rows = [r for r in (analysis or {}).get('files') or [] if r.get('kind') == 'thermal']
     if rows and not any('utc' in r for r in rows):
-        return {'offset': None, 'reason': "Analyze the dataset again to find the time zone it was flown in"}
+        return {'offset': None, 'reason': "Analyze the flight again to find the time zone it was flown in"}
     offsets = Counter()
     for r in rows:
         local, utc = recorded_time(r.get('time')), recorded_time(r.get('utc'))

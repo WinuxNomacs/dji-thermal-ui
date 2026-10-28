@@ -62,7 +62,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
         setChosen(files);
         const images = files.filter(isImage);
         if (images.length) {
-            setName((n) => n || images[0].webkitRelativePath.split("/")[0] || "Thermal dataset");
+            setName((n) => n || images[0].webkitRelativePath.split("/")[0] || "Thermal flight");
         }
     }
 
@@ -88,7 +88,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
         if (stageRef.current === "idle") return close();
         if (stageRef.current !== "uploading" && stageRef.current !== "failed") return;
         const m = made.current!;
-        const yes = await ask("Cancel the new dataset?", ["The images sent so far are deleted with the dataset."],
+        const yes = await ask("Cancel the new flight?", ["The images sent so far are deleted with the flight."],
                               "Delete it", "danger");
         // The upload may have ended while the question was asked
         if (!yes || made.current !== m || (stageRef.current !== "uploading" && stageRef.current !== "failed")) return;
@@ -98,9 +98,9 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
         try {
             await m.sending;
             const r = await readJson(await sendJson(api + "datasets/" + m.dataset.id, "DELETE"));
-            if (!r.ok) onError(errorText(r.data, "Could not delete the canceled dataset."));
+            if (!r.ok) onError(errorText(r.data, "Could not delete the canceled flight."));
         } catch {
-            onError("Could not delete the canceled dataset.");
+            onError("Could not delete the canceled flight.");
         }
         close();
         load();
@@ -142,7 +142,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
 
     async function create() {
         const n = name.trim(), path = folder.trim();
-        if (!n) return setError("Give the dataset a name.");
+        if (!n) return setError("Give the flight a name.");
         if (source === "upload" && !chosen.some(isImage)) return setError("Choose the images to upload.");
         if (source === "folder" && !path) return setError("Enter the folder's path.");
         setError("");
@@ -150,7 +150,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
         try {
             const r = await readJson<{id: number}>(await sendJson(api + "datasets", "POST",
                                                                   {name: n, source, folder: path, project}));
-            if (!r.ok) throw new Error(errorText(r.data, "Could not create the dataset."));
+            if (!r.ok) throw new Error(errorText(r.data, "Could not create the flight."));
             made.current = {dataset: r.data, saved: 0, failed: []};
             if (source === "folder") {
                 stageRef.current = "idle";
@@ -172,7 +172,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
     return (
         <div class="dialog" id="new-dataset">
             <div class="dialog-inner" role="dialog" aria-modal="true" aria-labelledby="new-dataset-title">
-                <h2 id="new-dataset-title">New thermal dataset</h2>
+                <h2 id="new-dataset-title">New thermal flight</h2>
                 <div class="field">
                     <label for="new-name">Name</label>
                     <input type="text" id="new-name" maxLength={255} value={name} disabled={locked}

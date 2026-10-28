@@ -17,7 +17,7 @@ export const CHANGES: [string, string, string, boolean, string, string][] = [
 // The parameters a saved measurement can be measured again with
 export const PARAM_FIELDS: ParamField[] = CHANGES.map((c) => [c[0], c[1], c[2], c[3]]);
 export const DISTANCE_SOURCES: Record<string, string> = {rangefinder: "the rangefinder", embedded: "the embedded value",
-                                                         option: "the conversion's"};
+                                                         option: "the dataset's"};
 
 export type Changes = Record<string, number>;
 

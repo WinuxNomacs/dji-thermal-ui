@@ -259,7 +259,7 @@ def build(conversion, run):
     root, out_dir = dataset.images_dir(), conversion.data_dir()
     if not os.path.isdir(root):
         raise Exception("The folder {} does not exist".format(root)
-                        if dataset.source == 'folder' else "The dataset has no images")
+                        if dataset.source == 'folder' else "The flight has no images")
     remove(conversion)
     os.makedirs(os.path.join(out_dir, VIEWER_DIR), exist_ok=True)
 

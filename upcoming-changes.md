@@ -9,10 +9,12 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing yet.
+1. **I2: the navigation**: under each dataset (conversion), Tools (Compare, Report), Mosaics (each mosaic) and
+   Frames (In the mosaic, Oblique). See "Naming and the explorer". (Naming)
 
 **Then**
-- Nothing yet.
+1. **I3: the frames explorer**: the frame page with a list or thumbnails of the frames chosen in the pane, the first
+   selected, the frame page's view of it on the right. (Naming)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -814,6 +816,48 @@ Requested 2026-10-28 (`new.md`):
 - **Panel:** "Under the cursor" becomes "Pointer info", above "Source frames", on the viewer (and on the frame page,
   for the same name).
 
+## Naming and the explorer
+
+Requested 2026-10-28 (`new.md`):
+- Rename Conversion to Dataset, as that is its core concept ("I'm open to suggestions, but Conversion is not an
+  intuitive UI term").
+- Navigation: Mosaics becomes an expandable menu listing the mosaics of the conversion unfolded, each opening on the
+  right. Compare gets two items, Converted and Not Converted: choosing one shows a list or thumbnails of those images
+  to the right, the first one selected and shown whole in the far right pane; an "explorer" kind of UI.
+
+### What it builds on
+
+- **Names:** the UI has Project › Dataset (the R-JPEGs uploaded or used in place, analyzed) › Conversion (the
+  temperature images made with one set of settings, and their mosaics). "Dataset" is taken: renaming Conversion to it
+  needs the dataset another name. The models, URLs and API say `dataset` and `conversion`.
+- **The pane:** `components/nav-pane.tsx`, its items from `conversionPages()` in `core/navigation.ts` (Mosaics,
+  Frames, Compare, Report).
+- **Mosaics:** the viewer's tabs (Mosaic, Harmonized, Source frame, View angle, Visual), each a `?tab=` link.
+- **Compare today:** two mosaics side by side, their difference, or one over the other (`compare/`).
+- **Images:** the dataset's thumbnails (`datasets/<id>/thumbnail`), a conversion's files and what it skipped
+  (`thermal_conversion`: `converted`, `skipped`), and the frame page's colouring of a converted frame.
+- **What "not converted" turned out to be:** dataset 1's conversion 1 converted all 327 thermal frames and skipped
+  none; its mosaic placed 151 and left out 176 as oblique (`kinds.*.oblique`, and `unusable`). The frames the user
+  means are those left out of the mosaic, which are converted all the same.
+
+### Decisions (2026-10-28)
+
+- **Names:** Project › Flight › Dataset: the R-JPEGs uploaded or used in place are a Flight, a conversion (its
+  settings, temperature images and mosaics) is a Dataset. Only what is seen changes (labels, titles, messages,
+  reports, export file names): the URLs, the API, the database and the code keep `dataset` and `conversion`, so links
+  and saved views keep working. Names already saved (such as "Conversion 1") stay as they are; new ones are named
+  "Dataset N".
+- **The pane, under each dataset (conversion):** Tools first (Compare, the mosaics side by side as now, and Report),
+  then Mosaics (unfolding to each mosaic, the viewer's tabs), then Frames (unfolding to In the mosaic and Oblique).
+  Compare and the reports are tools; mosaics and frames are the two ways of analyzing the images. The oblique frames
+  matter: their angles show defects a nadir view misses.
+- **Frames lists:** "In the mosaic" (the frames the mosaic placed) and "Oblique" (those it left out for their angle,
+  and the few left out as unusable, marked why), with their counts.
+- **The explorer:** choosing a list shows its frames to the right of the pane, as a list or as thumbnails (a switch,
+  remembered), in capture order, the first selected; the selected frame is shown on the far right as the frame page
+  shows it today (palette, range, Pointer info, measuring, Thermal/Visual/Both), and ← → step through the list. The
+  list replaces the frame page's own frame picker.
+
 ## Integration
 
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
@@ -1092,3 +1136,9 @@ Requested 2026-10-28 (`new.md`):
   dark: the tabs, Esc and a second click letting go (the window left open), the seams at two zooms and in the PNG,
   the frame page without its map scale, and the compare page's scales. No console errors or failed requests.
   - **Not changed:** the mosaic report still draws its Source frame figure in the frames' colours.
+- **I1: the names** (2026-10-28). Every visible string says flight for a `dataset` and dataset for a `conversion`:
+  the pages in `frontend/src` (lists, the flight page and its Convert tab, the reports, the viewer, compare, frame,
+  findings and preferences), the server's messages (`api.py`, `thermal_*.py`, `views.py`), the command's help, and
+  new datasets' default name "Dataset N" (`api.py`). The README calls them so throughout; CLAUDE.md says which name
+  is which. Tests: the strings updated in `frontend/tests/` and `tests/`. Checked live on every page: what still says
+  otherwise is a name saved before ("Conversion 1") or dji-thermal-cli's own problem text ("dataset median").

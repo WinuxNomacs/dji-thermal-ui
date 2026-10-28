@@ -70,7 +70,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             try {
                 const [rc, rv, rm] = await Promise.all([get<Detail>(base), get<Mosaics>(base + "/mosaics"),
                                                         get<{measurements: Measurement[]}>(base + "/measurements")]);
-                if (!rc.ok || !rv.ok) return setNotice("Could not load the conversion.");
+                if (!rc.ok || !rv.ok) return setNotice("Could not load the dataset.");
                 const s = rc.data.report || {};
                 setC(rc.data);
                 setV(rv.data);
@@ -84,7 +84,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                 if (rf.ok) setFindings(rf.data.findings || []);
                 setLoaded(true);
             } catch {
-                setNotice("Could not load the conversion.");
+                setNotice("Could not load the dataset.");
             }
         })();
         return () => Object.values(commentTimers.current).forEach(clearTimeout);
@@ -196,10 +196,10 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             <ReportBar back={viewer} backLabel={c.name} saved={commentSaved || saved} print={print} waiting={waiting}/>
             {notice && <div class="notice error no-print" role="alert">{notice}</div>}
 
-            <TitleBlock text={text} change={change}>{projectName}{place && <> · {place}</>} · dataset {datasetName} ·
-                conversion {c.name}{taken && <> · flown {taken}</>}</TitleBlock>
+            <TitleBlock text={text} change={change}>{projectName}{place && <> · {place}</>} · flight {datasetName} ·
+                dataset {c.name}{taken && <> · flown {taken}</>}</TitleBlock>
 
-            {!ready ? <p class="text-muted">The mosaics are not built: build them on the dataset page's Convert tab.</p> : <>
+            {!ready ? <p class="text-muted">The mosaics are not built: build them on the flight page's Convert tab.</p> : <>
                 <section class="report-section report-keep" id="report-mosaic">
                     <h2>The mosaic</h2>
                     <p class="report-caption no-print">{viewText(v, tab, style!)}. <a href={viewer}>Change the view in the
@@ -248,7 +248,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             <section class="report-section report-keep" id="report-method">
                 <h2>Settings and method</h2>
                 <dl class="figures">
-                    <div><dt>Conversion</dt><dd>{c.name}{c.description && " · " + c.description}</dd></div>
+                    <div><dt>Dataset</dt><dd>{c.name}{c.description && " · " + c.description}</dd></div>
                     <div><dt>Changed from the defaults</dt><dd>{diffs.length ? diffs.map((x) => x.text).join("; ") : "None"}</dd></div>
                     {ready && <div><dt>Mosaic</dt><dd>{tabLabel(tab)}{TAB_HINTS[tab] && ": " + TAB_HINTS[tab]}</dd></div>}
                     <div><dt>dji-thermal-cli</dt><dd>{c.results?.version || "Not recorded"}</dd></div>

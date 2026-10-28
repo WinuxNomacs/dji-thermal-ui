@@ -105,10 +105,10 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
         clearTimeout(timer.current);
         try {
             const r = await readJson<Dataset>(await fetch(url, {credentials: "same-origin"}));
-            if (!r.ok) return setNotice("Could not load the dataset.");
+            if (!r.ok) return setNotice("Could not load the flight.");
             show(r.data);
         } catch {
-            setNotice("Could not load the dataset.");
+            setNotice("Could not load the flight.");
         }
     }
 
@@ -134,17 +134,17 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
     }
 
     async function rename() {
-        const name = await askName("Rename dataset", d!.name);
+        const name = await askName("Rename flight", d!.name);
         if (!name) return;
         const r = await readJson<Dataset>(await sendJson(url, "PATCH", {name}));
-        setNotice(r.ok ? "" : errorText(r.data, "Could not rename the dataset."));
+        setNotice(r.ok ? "" : errorText(r.data, "Could not rename the flight."));
         if (r.ok) show(r.data);
     }
 
     async function remove() {
-        if (!await ask("Delete dataset", deleteText(d!), "Delete", "danger")) return;
+        if (!await ask("Delete flight", deleteText(d!), "Delete", "danger")) return;
         const r = await readJson(await sendJson(url, "DELETE"));
-        if (!r.ok) return setNotice(errorText(r.data, "Could not delete the dataset."));
+        if (!r.ok) return setNotice(errorText(r.data, "Could not delete the flight."));
         nav(projectUrl);
     }
 
@@ -234,7 +234,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                 </div>
                 <div class="page-actions">
                     {d.source === "upload" && !analyzing && !uploading && (
-                        <label class="button default" id="add-images" title="Add images to this dataset"><Plus/> Add images
+                        <label class="button default" id="add-images" title="Add images to this flight"><Plus/> Add images
                             <input type="file" multiple accept=".jpg,.jpeg,image/jpeg" hidden onChange={chooseImages}/></label>)}
                     {!analyzing && !uploading && (
                         <button type="button" class="button default" id="analyze"
@@ -243,8 +243,8 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                     {analyzing && <button type="button" class="button default" id="cancel"
                                           onClick={() => action("/cancel", "Could not cancel the analysis.")}><Stop/> Cancel</button>}
                     <a class="button default" id="report" href={publicUrl + "dataset/" + id + "/report"}
-                       title="A report of this dataset, to print or save as PDF"><FileText/> Report</a>
-                    <button type="button" class="button default" id="copy-link" title="Copy a link to this dataset"
+                       title="A report of this flight, to print or save as PDF"><FileText/> Report</a>
+                    <button type="button" class="button default" id="copy-link" title="Copy a link to this flight"
                             onClick={copyLink}>{copied ? <><Check/> Copied</> : <><Link/> Copy link</>}</button>
                     <button type="button" class="icon-button" id="rename" title="Rename" aria-label="Rename"
                             onClick={rename}><Pencil/></button>

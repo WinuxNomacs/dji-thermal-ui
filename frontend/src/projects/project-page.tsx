@@ -28,7 +28,7 @@ function ProjectFindings({items, publicUrl}: {items: Finding[]; publicUrl: strin
         <h2>Findings</h2>
         <div class="table-scroll">
             <table class="table" id="findings">
-                <thead><tr><th>Severity</th><th>Name</th><th>Dataset</th><th>Status</th><th>Temperatures</th><th>Saved</th></tr></thead>
+                <thead><tr><th>Severity</th><th>Name</th><th>Flight</th><th>Status</th><th>Temperatures</th><th>Saved</th></tr></thead>
                 <tbody>{items.map((f) => (<tr key={f.id} data-id={f.id}>
                     <td><SeverityChip severity={f.severity}/></td>
                     <td>{f.opens ? <a href={publicUrl + "conversion/" + f.opens + "?finding=" + f.id}>{f.name}</a> : f.name}

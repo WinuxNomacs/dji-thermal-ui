@@ -129,14 +129,14 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
         (async () => {
             try {
                 const r = await readJson<ReportDataset>(await fetch(url, {credentials: "same-origin"}));
-                if (!r.ok) return setNotice("Could not load the dataset.");
+                if (!r.ok) return setNotice("Could not load the flight.");
                 setD(r.data);
                 setText(reportText(r.data.report, r.data.name, author, today));
                 document.title = r.data.name + " report · Thermal Analyzer";
                 const f = await readJson<{findings: Finding[]}>(await fetch(findingsUrl(api, id), {credentials: "same-origin"}));
                 if (f.ok) setFindings(f.data.findings || []);
             } catch {
-                setNotice("Could not load the dataset.");
+                setNotice("Could not load the flight.");
             }
         })();
     }, []);
@@ -164,11 +164,11 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
             </ReportBar>
             {notice && <div class="notice error no-print" role="alert">{notice}</div>}
 
-            <TitleBlock text={text} change={change}>{projectName}{place && <> · {place}</>} · dataset {d.name}</TitleBlock>
+            <TitleBlock text={text} change={change}>{projectName}{place && <> · {place}</>} · flight {d.name}</TitleBlock>
 
             <section class="report-section" id="report-dataset">
-                <h2>The dataset</h2>
-                {a.files ? <Overview d={d}/> : <p class="text-muted">Not analyzed: analyze the dataset for its figures.</p>}
+                <h2>The flight</h2>
+                {a.files ? <Overview d={d}/> : <p class="text-muted">Not analyzed: analyze the flight for its figures.</p>}
                 {d.source === "folder" && d.folder && <p class="text-muted">Read in place from <code>{d.folder}</code>.</p>}
             </section>
 
@@ -222,7 +222,7 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
             </section>)}
 
             <section class="report-section" id="report-conversions">
-                <h2>Conversions</h2>
+                <h2>Datasets</h2>
                 {conversions.length ? <table class="table report-conversions">
                     <thead><tr><th>Name</th><th>Settings</th><th>Status</th><th>Mosaics</th><th>Finished</th></tr></thead>
                     <tbody>{conversions.map((c) => (<tr key={c.id}><td>{c.name}</td><td>{c.description}</td>

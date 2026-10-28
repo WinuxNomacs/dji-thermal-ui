@@ -50,7 +50,7 @@ def test_conversions_are_kept_side_by_side_with_their_settings_results_and_downl
         assert second.status_code == 201
 
     first = ThermalConversion.objects.get(pk=res.data['id'])
-    assert (first.status, first.name, first.file_count, first.run_id) == ('ready', "Conversion 1", 2, "")
+    assert (first.status, first.name, first.file_count, first.run_id) == ('ready', "Dataset 1", 2, "")
     assert first.results['converted'] == 2
     row = first.results['files'][0]
     assert (row['path'], row['outputs'], row['distance_source']) == \
@@ -60,7 +60,7 @@ def test_conversions_are_kept_side_by_side_with_their_settings_results_and_downl
 
     detail = api.get("{}/{}".format(DATASETS, d.id)).data
     listed = detail['conversions']
-    assert [c['name'] for c in listed] == ["Defaults", "Conversion 1"]
+    assert [c['name'] for c in listed] == ["Defaults", "Dataset 1"]
     # With the defaults they're compared against, in the app's unit
     assert detail['defaults']['outputs'] == ['temp_c:tiff', 'pseudo:png']
     assert detail['defaults']['unit'] == 'F'
@@ -71,7 +71,7 @@ def test_conversions_are_kept_side_by_side_with_their_settings_results_and_downl
     assert res.status_code == 200
     with zipfile.ZipFile(io.BytesIO(b"".join(res.streaming_content))) as z:
         assert sorted(z.namelist()) == ['100MEDIA/DJI_0001_T_temp_c.tiff', '100MEDIA/DJI_0002_T_temp_c.tiff']
-    assert 'filename=Roof-Conversion_1.zip' in res['Content-Disposition']
+    assert 'filename=Roof-Dataset_1.zip' in res['Content-Disposition']
     res = api.get("{}/{}/download".format(CONVERSIONS, first.id), {'file': '100MEDIA/DJI_0002_T_temp_c.tiff'})
     assert res.status_code == 200
     assert (b"".join(res.streaming_content) if res.streaming else res.content)[:3] == b'II*'

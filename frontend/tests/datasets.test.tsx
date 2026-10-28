@@ -96,10 +96,10 @@ describe("the datasets list", () => {
         expect(row(5).querySelector("a")!.textContent).toBe("<i>x</i>");
         expect(row(5).textContent).toContain("2 thermal · 1 other");
         expect(row(5).querySelector(".badge.warning")!.textContent).toBe("1");
-        expect(row(5).querySelector("[title='2 conversions ready of 3']")!.textContent).toBe("2/3");
+        expect(row(5).querySelector("[title='2 datasets ready of 3']")!.textContent).toBe("2/3");
         expect(row(5).querySelector(".rename")!.getAttribute("aria-label")).toBe("Rename");
         expect(row(5).querySelector(".delete")!.getAttribute("aria-label")).toBe("Delete");
-        expect(row(6).querySelector(".text-success[title='1 conversion ready of 1']")).not.toBeNull();
+        expect(row(6).querySelector(".text-success[title='1 dataset ready of 1']")).not.toBeNull();
         expect(row(6).querySelector("svg[role=img] title")!.textContent).toBe("Read in place from /data/flight3");
         expect(row(7).querySelector<HTMLElement>(".progress-bar")!.style.width).toBe("30%");
         expect(row(7).querySelector(".analyze")).toBeNull();
@@ -157,13 +157,13 @@ describe("the datasets list", () => {
         type(byId("search"), "nothing");
         await ticks();
         expect(byId("datasets")).toBeNull();
-        expect(byId("message").textContent).toBe("No datasets match the search.");
+        expect(byId("message").textContent).toBe("No flights match the search.");
     });
 
     it("says when the datasets could not be loaded", async () => {
         page(vi.fn(() => Promise.reject(new Error("offline"))) as unknown as ReturnType<typeof server>);
         await ticks();
-        expect($("[role=alert]")!.textContent).toBe("Could not load the datasets.");
+        expect($("[role=alert]")!.textContent).toBe("Could not load the flights.");
         expect(byId("message")).toBeNull();
     });
 
@@ -171,10 +171,10 @@ describe("the datasets list", () => {
         page(server({[LIST_URL]: {datasets: []}}));
         expect(byId("message").textContent).toBe("Loading…");
         await ticks();
-        expect(byId("message").textContent).toMatch(/No datasets in this project yet/);
+        expect(byId("message").textContent).toMatch(/No flights in this project yet/);
         click(byId("new-dataset-button"));
         await ticks();
-        expect(byId("new-dataset-title").textContent).toBe("New thermal dataset");
+        expect(byId("new-dataset-title").textContent).toBe("New thermal flight");
         expect(byId("new-upload").hidden).toBe(false);
         expect(byId("new-folder").hidden).toBe(true);
         click(byId("new-cancel"));
@@ -325,7 +325,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
         await ticks();
         const text = dialog()!.textContent;
         expect(text).toContain("“Roof” and its 3 images are deleted.");
-        expect(text).toContain("With it: 2 conversions, 1 mosaic and 14 measurements.");
+        expect(text).toContain("With it: 2 datasets, 1 mosaic and 14 measurements.");
         expect(text).toContain("cannot be undone");
         press("Cancel");
         await ticks();
@@ -421,7 +421,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
 
         click(byId("new-cancel"));
         await ticks();
-        expect(dialog()!.textContent).toContain("The images sent so far are deleted with the dataset.");
+        expect(dialog()!.textContent).toContain("The images sent so far are deleted with the flight.");
         press("Delete it");
         await ticks(60);
         expect(calls(fetchFn)).toContain("DELETE " + API + "datasets/8");

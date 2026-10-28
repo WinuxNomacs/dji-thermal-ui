@@ -532,13 +532,13 @@ def frame_file(conversion, rel):
     """The full path of one of the conversion's frames (one its dataset's analysis lists), or MeasureError"""
     from .raster.security import path_traversal_check
     if not rel or rel not in {r['path'] for r in frame_rows(conversion)}:
-        raise MeasureError("Not a frame of this dataset")
+        raise MeasureError("Not a frame of this flight")
     root = conversion.dataset.images_dir()
     path = os.path.join(root, rel)
     try:
         path_traversal_check(path, root)
     except Exception:
-        raise MeasureError("Not a frame of this dataset") from None
+        raise MeasureError("Not a frame of this flight") from None
     if not os.path.isfile(path):
         raise MeasureError("The frame is not there any more")
     return path

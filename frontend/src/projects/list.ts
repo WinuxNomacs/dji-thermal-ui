@@ -27,9 +27,9 @@ export interface ProjectDetail extends Project {areas: Area[]; findings?: Findin
 
 // What deleting a project takes with it, paragraph by paragraph
 export function projectDeleteText(p: Project): string[] {
-    if (!p.dataset_count) return ["“" + p.name + "” has no datasets.", "This cannot be undone."];
-    const with_ = [count(p.dataset_count, "dataset", "datasets")];
-    if (p.conversion_count) with_.push(count(p.conversion_count, "conversion", "conversions"));
+    if (!p.dataset_count) return ["“" + p.name + "” has no flights.", "This cannot be undone."];
+    const with_ = [count(p.dataset_count, "flight", "flights")];
+    if (p.conversion_count) with_.push(count(p.conversion_count, "dataset", "datasets"));
     if (p.mosaic_count) with_.push(count(p.mosaic_count, "mosaic", "mosaics"));
     if (p.measurement_count) with_.push(count(p.measurement_count, "measurement", "measurements"));
     if (p.finding_count) with_.push(count(p.finding_count, "finding", "findings"));
@@ -37,7 +37,7 @@ export function projectDeleteText(p: Project): string[] {
     return [
         "“" + p.name + "” is deleted with its " + list + ".",
         (p.size ? formatBytes(p.size) + " of disk space is freed. " : "") +
-            "The images of datasets read from a folder stay in their folders.",
+            "The images of flights read from a folder stay in their folders.",
         "This cannot be undone.",
     ];
 }

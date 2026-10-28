@@ -158,7 +158,7 @@ export function deleteText(d: DeleteOf): string[] {
         (d.folder ? " (" + d.folder + ")" : "") + " is left as it is." :
         "“" + d.name + "” and its " + count(d.file_count || 0, "image", "images") + " are deleted."];
     const with_: string[] = [];
-    if (d.conversion_count) with_.push(count(d.conversion_count, "conversion", "conversions"));
+    if (d.conversion_count) with_.push(count(d.conversion_count, "dataset", "datasets"));
     if (d.mosaic_count) with_.push(count(d.mosaic_count, "mosaic", "mosaics"));
     if (d.measurement_count) with_.push(count(d.measurement_count, "measurement", "measurements"));
     if (d.finding_count) with_.push(count(d.finding_count, "finding", "findings"));
