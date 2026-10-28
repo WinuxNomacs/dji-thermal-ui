@@ -6,8 +6,10 @@ const STATUS_LABELS: Record<string, string> = {
 const SEVERITY_LABELS: Record<string, string> = {error: "Error", warning: "Warning", info: "Note"};
 const KIND_LABELS: Record<string, string> = {
     thermal: "Thermal", not_thermal: "Not thermal", not_jpeg: "Not a JPEG", corrupt: "Damaged",
-    unreadable: "Unreadable", unsupported: "Unsupported camera",
+    unreadable: "Unreadable", unsupported: "Unsupported camera", visual: "Visual",
 };
+// DJI's name for a visual camera's image of a capture (wide: _W), beside the thermal one's _T (the server's VISUAL_NAME)
+const VISUAL_NAME = /_[VW]\.jpe?g$/i;
 
 export type Maybe<T> = T | null | undefined;
 
@@ -112,6 +114,12 @@ export function statusLabel(d: StatusOf): string {
 }
 
 export function severityLabel(s: string): string { return SEVERITY_LABELS[s] || s; }
+// What a file of the analysis is: a visual image is one that is not thermal and is named as DJI names them (only what
+// the pages call it: dji-thermal-cli finds the visual frames by what they hold)
+export function fileKind(f: {kind?: string; path?: string}): string {
+    return f.kind === "not_thermal" && VISUAL_NAME.test(f.path || "") ? "visual" : f.kind || "";
+}
+
 export function kindLabel(k: string): string { return KIND_LABELS[k] || k; }
 
 // A normalization's or a mosaic's stage, as the jobs save it from dji-thermal-cli's "mosaic" events:
@@ -123,7 +131,8 @@ export interface Stage {
 
 const STAGES: Record<string, string> = {
     ambient: "reading ambient temperatures", frames: "reading frames", align: "aligning",
-    composite: "compositing", check: "checking alignment", write: "writing",
+    composite: "compositing", check: "checking alignment", write: "writing", visual_frames: "reading visual frames",
+    visual_offset: "measuring the cameras' offset", visual_composite: "compositing the visual mosaic",
 };
 
 export function stageText(s: Maybe<Stage>): string {

@@ -3,7 +3,7 @@
 import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
-import {formatNumber, mosaicLabel, stageText} from "../core/format";
+import {fileKind, formatNumber, mosaicLabel, stageText} from "../core/format";
 import {convertDelta, formatDelta, formatTemp, unitOf, unitSymbol, userUnit} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/icons";
@@ -56,6 +56,7 @@ interface FormProps {
 function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) {
     const u = unitSymbol(userUnit());
     const rec = recorded(analysis);
+    const visual = (analysis?.files || []).filter((f) => fileKind(f) === "visual").length;
     const marks: Record<string, Diff> = {};
     diffs.forEach((d) => { const f = markedField(d.key); if (f && (d.changed || d.offPlan)) marks[f] = d; });
     const value = (name: string) => form.values[name] ?? "";
@@ -100,6 +101,9 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) 
                     <option value="deflate">deflate</option><option value="none">none</option></select></Field>
             <Field ctx={ctx} name="mosaics" label="" help="Stitches the outputs into georeferenced mosaics, to view on a map.">
                 {check("mosaics", "Build the mosaics")}</Field>
+            {visual > 0 && !!form.checks.mosaics && <Field ctx={ctx} name="visual" label=""
+                                  help={"Stitches the " + visual + " visual images too, placed as their thermal frames are."}>
+                {check("visual", "And the visual mosaic")}</Field>}
         </fieldset>
         <details open><summary>Measurement</summary>
             <p class="text-muted">Empty keeps each image's own value.</p>

@@ -1,5 +1,6 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {fileKind} from "../src/core/format";
 import {setUserUnit} from "../src/core/units";
 import {type Conversion, parsePrefill, skipReasons} from "../src/dataset/conversions";
 import {DatasetPage} from "../src/dataset/dataset-page";
@@ -43,7 +44,7 @@ const DEFAULTS: Settings = {
     distance: "lrf", humidity: null, emissivity: null, reflected_temp: null, ambient_temp: null, unit: "C", range_min: null,
     range_max: null, palette: null, gimbal_yaw: null, gimbal_pitch: null, gimbal_roll: null, replace_above: null,
     replace_above_value: null, replace_below: null, replace_below_value: null, strip_location: false, normalize: false,
-    max_pitch: null, outputs: ["temp_c:tiff", "pseudo:png"], compression: "deflate", mosaics: true,
+    max_pitch: null, outputs: ["temp_c:tiff", "pseudo:png"], compression: "deflate", mosaics: true, visual: true,
 };
 const PREFERENCES = {
     settings: DEFAULTS, saved: false, defaults: DEFAULTS, palettes: ["whitehot", "ironred"],
@@ -167,6 +168,14 @@ describe("the dataset's files and conversions", () => {
         const view = {show: "all" as const, filter: "T.jpg THERMAL", sort: "path", desc: false};
         expect(fileRows(ANALYSIS, view).map((r) => r.path)).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
         expect(fileRows(ANALYSIS, {...view, filter: "a_ jpg"}).map((r) => r.path)).toEqual(["rgb/a_V.JPG", "thermal/a_T.JPG"]);
+    });
+
+    it("calls a JPEG that is not thermal and named as DJI names a visual image visual", () => {
+        expect(fileKind({path: "rgb/a_V.JPG", kind: "not_thermal"})).toBe("visual");
+        expect(fileKind({path: "rgb/a_W.jpeg", kind: "not_thermal"})).toBe("visual");
+        expect(fileKind({path: "rgb/a_Z.JPG", kind: "not_thermal"})).toBe("not_thermal");
+        expect(fileKind({path: "rgb/a_V.JPG", kind: "corrupt"})).toBe("corrupt");
+        expect(fileKind({path: "a_T.JPG", kind: "thermal"})).toBe("thermal");
     });
 
     it("sorts with what has nothing to sort by last, both ways", () => {
@@ -506,6 +515,34 @@ describe("the Convert tab", () => {
         await ticks();
         expect(card(11).classList.contains("fresh")).toBe(false);
         expect(calls(fetchFn).filter((c) => c === "GET " + URL).length).toBe(3);
+    });
+
+    it("offers the visual mosaic with the mosaics when the dataset has visual images, and sends it switched off", async () => {
+        const fetchFn = routes({...DETAIL, conversions: []}, {["POST " + URL + "/conversions"]: {...CONVERSION, id: 12}});
+        page(fetchFn);
+        await ticks();
+        const visual = $<HTMLInputElement>("input[name=visual]")!;
+        expect(visual.checked).toBe(true);
+        expect($(".field[data-field=visual]")!.textContent).toContain("1 visual image");
+        click($<HTMLInputElement>("input[name=mosaics]")!);
+        await ticks();
+        expect($("input[name=visual]")).toBeNull();
+        click($<HTMLInputElement>("input[name=mosaics]")!);
+        await ticks();
+        click($<HTMLInputElement>("input[name=visual]")!);
+        await ticks();
+        expect($(".convert-summary .chips")!.textContent).toBe("no visual mosaic");
+        click(byId("convert-start"));
+        await ticks();
+        const post = fetchFn.mock.calls.find((c) => c[0] === URL + "/conversions")!;
+        expect(body(post[1])).toEqual({name: "", settings: {...DEFAULTS, visual: false}});
+    });
+
+    it("does not offer the visual mosaic without visual images", async () => {
+        page(routes({...DETAIL, analysis: {...ANALYSIS, files: ANALYSIS.files!.filter((f) => f.kind === "thermal")},
+                     conversions: []}));
+        await ticks();
+        expect($("input[name=visual]")).toBeNull();
     });
 
     it("does not send settings the form cannot have, nor what the server refuses", async () => {

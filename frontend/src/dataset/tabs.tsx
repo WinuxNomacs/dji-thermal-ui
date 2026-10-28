@@ -1,6 +1,6 @@
 // The dataset page's figures and its Files, Problems and WebODM plan tabs, drawn from the analysis
 import {useState} from "preact/hooks";
-import {type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, formatNumber, kindLabel, severityLabel,
+import {type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, fileKind, formatNumber, kindLabel, severityLabel,
         zoneText} from "../core/format";
 import {formatTemp} from "../core/units";
 import {isImage} from "../core/upload";
@@ -47,7 +47,7 @@ export function Overview({d}: {d: DatasetFigures}) {
 
 export function cell(row: FileRow, col: FileColumn): string {
     const v = row[col.key] as number | string | null | undefined;
-    if (col.key === "kind") return kindLabel(String(v));
+    if (col.key === "kind") return kindLabel(fileKind(row));
     if (col.key === "time") return formatCapture(v as string);
     if (col.key === "distance") {
         return formatNumber(v as number, 1, " m") + (row.lrf !== null && row.lrf !== undefined ? " / " + formatNumber(row.lrf, 1, " m") : "");
@@ -118,7 +118,8 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
                 <tbody>
                     {rows.map((r) => {
                         const href = frames && r.kind === "thermal" ? frames + "?frame=" + encodeURIComponent(r.path) : null;
-                        return (<tr key={r.path} class={"kind-" + r.kind}>
+                        const kind = fileKind(r);
+                        return (<tr key={r.path} class={"kind-" + kind}>
                             {showThumbs && <td class="thumb">{isImage({name: r.path} as File) &&
                                 <img loading="lazy" alt="" src={thumbs + encodeURIComponent(r.path)}/>}</td>}
                             {FILE_COLUMNS.map((c) => (<td key={c.key}>
@@ -126,7 +127,7 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
                             <td>
                                 {(flags[r.path] || []).map((f) => (<><span class={"badge " + (SEVERITY_CLASSES[f.severity] || "")}
                                                                           title={f.message}>{f.code}</span> </>))}
-                                {r.kind !== "thermal" && r.reason && <span class="text-muted">{r.reason} </span>}
+                                {kind !== "thermal" && kind !== "visual" && r.reason && <span class="text-muted">{r.reason} </span>}
                                 {(r.warnings || []).map((w) => <span class="text-warning">{w} </span>)}
                             </td>
                         </tr>);
