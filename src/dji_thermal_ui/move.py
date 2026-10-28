@@ -24,6 +24,7 @@ RESULT = "move-result.json"
 DATABASE = "db.sqlite3"
 SET_ASIDE = "replaced-"
 MIGRATIONS = Path(__file__).resolve().parent / "analyzer" / "migrations"
+DEFAULT_PROJECT = "Default Project"          # models.DEFAULT_PROJECT_NAME, made by the app when there is no project
 
 # Set when the page asked for a move: the command restarts once the server has closed (SERVING: it is serving)
 RESTART = threading.Event()
@@ -65,18 +66,21 @@ def drive(path):
 
 def database_of(folder):
     """What a data folder's database says, read only: {projects: [{id, name, flights, size}], newer}; newer: it was
-    made by a dji-thermal-ui with migrations this one does not have. Raises sqlite3.Error."""
+    made by a dji-thermal-ui with migrations this one does not have. The Default Project the app made, still empty,
+    is not offered. Raises sqlite3.Error."""
     con = sqlite3.connect(Path(folder, DATABASE).as_uri() + "?mode=ro", uri=True)
     try:
-        projects = con.execute("SELECT id, name FROM analyzer_project ORDER BY name, id").fetchall()
+        projects = con.execute("SELECT id, name, description FROM analyzer_project ORDER BY name, id").fetchall()
         flights = con.execute("SELECT id, project_id FROM analyzer_thermaldataset").fetchall()
         applied = {n for (n,) in con.execute("SELECT name FROM django_migrations WHERE app = 'analyzer'")}
     finally:
         con.close()
     known = {p.stem for p in MIGRATIONS.glob("[0-9]*.py")}
     out = []
-    for pid, name in projects:
+    for pid, name, description in projects:
         ids = [f for f, p in flights if p == pid]
+        if not ids and name == DEFAULT_PROJECT and not (description or "").strip():
+            continue
         out.append({'id': pid, 'name': name, 'flights': len(ids),
                     'size': sum(folder_size(Path(folder, "datasets", str(f)))[0] for f in ids)})
     return {'projects': out, 'newer': bool(applied - known)}

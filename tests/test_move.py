@@ -32,11 +32,11 @@ def data_folder(path, projects=(), migrations=None):
     flights' files (a project: (name, {flight id: bytes of its files}))"""
     write(path / "secret_key", b"key")
     db = sqlite3.connect(path / "db.sqlite3")
-    db.executescript("CREATE TABLE analyzer_project (id INTEGER PRIMARY KEY, name TEXT);"
+    db.executescript("CREATE TABLE analyzer_project (id INTEGER PRIMARY KEY, name TEXT, description TEXT DEFAULT '');"
                      "CREATE TABLE analyzer_thermaldataset (id INTEGER PRIMARY KEY, project_id INTEGER);"
                      "CREATE TABLE django_migrations (app TEXT, name TEXT);")
     for pid, (name, flights) in enumerate(projects, 1):
-        db.execute("INSERT INTO analyzer_project VALUES (?, ?)", (pid, name))
+        db.execute("INSERT INTO analyzer_project (id, name) VALUES (?, ?)", (pid, name))
         for fid, size in flights.items():
             db.execute("INSERT INTO analyzer_thermaldataset VALUES (?, ?)", (fid, pid))
             write(path / "datasets" / str(fid) / "images" / "a_T.JPG", b"x" * size)
@@ -93,6 +93,14 @@ def test_a_data_folder_there_offers_its_projects_with_their_size(tmp_path):
     assert found['kind'] == 'data' and found['problems'] == []
     assert found['projects'] == [{'id': 2, 'name': "Barn", 'flights': 0, 'size': 0},
                                  {'id': 1, 'name': "Roof", 'flights': 2, 'size': 42}]
+
+
+def test_the_empty_default_project_the_app_made_there_is_not_offered(tmp_path):
+    from dji_thermal_ui.analyzer.models import DEFAULT_PROJECT_NAME
+    assert move.DEFAULT_PROJECT == DEFAULT_PROJECT_NAME
+    target = data_folder(tmp_path / "old", [(DEFAULT_PROJECT_NAME, {}), (DEFAULT_PROJECT_NAME, {3: 5}), ("Barn", {})])
+    found = move.inspect(str(target), current(tmp_path / "data"))
+    assert [(p['id'], p['name']) for p in found['projects']] == [(3, "Barn"), (2, DEFAULT_PROJECT_NAME)]
 
 
 def test_a_data_folder_of_a_newer_app_or_a_database_unread_is_refused(tmp_path):
@@ -287,10 +295,20 @@ def test_a_restart_is_only_asked_of_the_server_once_the_answer_is_sent(monkeypat
 
 def test_the_command_restarts_with_the_same_options_and_no_browser(monkeypatch):
     calls = []
-    monkeypatch.setattr(cli.os, "name", "posix")
+    monkeypatch.setattr(cli, "WINDOWS", False)
     monkeypatch.setattr(cli.os, "execv", lambda exe, args: calls.append((exe, args)))
     cli.restart(["--port", "9000"])
     assert calls == [(sys.executable, [sys.executable, "-m", "dji_thermal_ui", "--port", "9000", "--no-browser"])]
+
+
+def test_on_windows_the_command_restarts_as_a_new_process_that_waits_for_this_one(monkeypatch):
+    started = []
+    monkeypatch.setattr(cli, "WINDOWS", True)
+    monkeypatch.setattr(cli.subprocess, "Popen", lambda args, env: started.append((args, env)))
+    assert cli.restart(["--port", "9000", "--no-browser"]) == 0
+    (args, env), = started
+    assert args == [sys.executable, "-m", "dji_thermal_ui", "--port", "9000", "--no-browser"]
+    assert env[cli.RESTARTED_FROM] == str(os.getpid())
 
 
 def test_the_command_moves_the_data_folder_asked_before_serving_from_it(tmp_path):

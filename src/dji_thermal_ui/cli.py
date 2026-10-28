@@ -16,6 +16,8 @@ from .datadir import ENV_VAR, DataDirError
 
 HOST = "127.0.0.1"
 PORT = 8080
+RESTARTED_FROM = "DJI_THERMAL_UI_RESTARTED_FROM"     # the process a Windows restart replaces, waited for
+WINDOWS = os.name == "nt"
 
 
 def parse_args(argv=None):
@@ -78,6 +80,16 @@ def wait_for_port(port, seconds):
     return True
 
 
+def wait_for_exit(pid, seconds):
+    """Waits for the process a restart on Windows replaces to end: until it does, it holds the database's files"""
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(0x00100000, False, pid)          # SYNCHRONIZE
+    if handle:
+        kernel32.WaitForSingleObject(handle, int(seconds * 1000))
+        kernel32.CloseHandle(handle)
+
+
 def moved(plan):
     """Moves the data folder as the Storage page asked (move.perform), before the database is opened"""
     print("Moving the data folder from %s to %s..." % (plan.get('from'), plan.get('to')))
@@ -104,14 +116,17 @@ def restart(argv):
         args.append("--no-browser")
     print("Restarting...", flush=True)
     sys.stderr.flush()
-    if os.name == "nt":
-        subprocess.Popen(args)
+    if WINDOWS:
+        subprocess.Popen(args, env=dict(os.environ, **{RESTARTED_FROM: str(os.getpid())}))
         return 0
     os.execv(sys.executable, args)
 
 
 def main(argv=None):
     args = parse_args(argv)
+    replaced = os.environ.pop(RESTARTED_FROM, "")
+    if replaced.isdigit() and WINDOWS:
+        wait_for_exit(int(replaced), 30)
     plan = None if args.data_dir or os.environ.get(ENV_VAR) else move.take_plan()
     if not wait_for_port(args.port, 30 if plan else 0):
         print("Port %d on %s is in use: is dji-thermal-ui already running? Use --port to pick another." %
