@@ -6,39 +6,7 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
-### Fixed
-
-- New Flight's "Choose a folder" opened a file picker, in which a folder could not be chosen: it picks a folder
-  again. Files chosen with no JPEG among them (TIFFs, for one) are now told apart: the dialog says that a flight is
-  made of R-JPEGs, instead of asking to choose the images.
-
-### Changed
-
-- New names in what you see: a dataset (the images uploaded or read from a folder) is now a **flight**, and a
-  conversion (its images converted with one set of settings, and their mosaics) is now a **dataset**: Project ›
-  Flight › Dataset. New datasets are named "Dataset 1", "Dataset 2"…; names given before stay. Links, the API and the
-  data folder are unchanged.
-
-- The navigation pane: under each dataset, its Tools (Compare, Report), its Mosaics (unfolding to each of the
-  viewer's tabs) and its Frames (unfolding to "Mosaic" and "Oblique", with their counts). The frame page
-  opened from a list shows only its frames: Oblique lists those the mosaic left out, including those a conversion
-  with a pitch limit did not convert. The page shown is marked down to the viewer's tab.
-- The frame page is a frames explorer: its frames (those of the pane's list, or all) are listed beside the frame, in
-  the order they were taken, the first shown, as a list or as thumbnails (remembered by the browser). Each says
-  whether it is in the mosaic, oblique (with its angle), left out as unusable or not converted. The list replaces the
-  frame picker; ← → still step through it.
-- The flight's Files tab filters by conditions on any column instead of by name, each file shown matching every
-  one. The Kind column has a dropdown of checkboxes, and two new columns, Thermal frame and With problems, can be
-  sorted and filtered. All files, Thermal frames and With problems now set the filter they stand for, as a start to
-  change from. The filter is kept in the page's link.
-
-- The viewer: the Source frame tab draws the mosaic with a line along each seam between its frames, instead of each
-  frame in its own colour (in the PNG export and the mosaic report too). The As converted tab is called Mosaic, there and on the compare
-  page, in the reports and in the measurements. "Under the cursor" is "Pointer info", above "Source frames" (and on
-  the frame page). The viewer's and the frame page's maps no longer show the colour scale: the panel does.
-- A frame kept by a click on the viewer's map is let go with Esc or a second click on it.
-
-- The app serves on port 8080 by default (it was 8765). It stops cleanly, as with Ctrl+C, when sent SIGTERM.
+## [0.8.0] - 2026-10-28
 
 ### Added
 
@@ -76,12 +44,41 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- New names in what you see: a dataset (the images uploaded or read from a folder) is now a **flight**, and a
+  conversion (its images converted with one set of settings, and their mosaics) is now a **dataset**: Project ›
+  Flight › Dataset. New datasets are named "Dataset 1", "Dataset 2"…; names given before stay. Links, the API and the
+  data folder are unchanged.
+
+- The navigation pane: under each dataset, its Tools (Compare, Report), its Mosaics (unfolding to each of the
+  viewer's tabs) and its Frames (unfolding to "Mosaic" and "Oblique", with their counts). The frame page
+  opened from a list shows only its frames: Oblique lists those the mosaic left out, including those a conversion
+  with a pitch limit did not convert. The page shown is marked down to the viewer's tab.
+- The frame page is a frames explorer: its frames (those of the pane's list, or all) are listed beside the frame, in
+  the order they were taken, the first shown, as a list or as thumbnails (remembered by the browser). Each says
+  whether it is in the mosaic, oblique (with its angle), left out as unusable or not converted. The list replaces the
+  frame picker; ← → still step through it.
+- The flight's Files tab filters by conditions on any column instead of by name, each file shown matching every
+  one. The Kind column has a dropdown of checkboxes, and two new columns, Thermal frame and With problems, can be
+  sorted and filtered. All files, Thermal frames and With problems now set the filter they stand for, as a start to
+  change from. The filter is kept in the page's link.
+
+- The viewer: the Source frame tab draws the mosaic with a line along each seam between its frames, instead of each
+  frame in its own colour (in the PNG export and the mosaic report too). The As converted tab is called Mosaic,
+  there and on the compare page, in the reports and in the measurements. "Under the cursor" is "Pointer info", above "Source frames" (and on
+  the frame page). The viewer's and the frame page's maps no longer show the colour scale: the panel does.
+- A frame kept by a click on the viewer's map is let go with Esc or a second click on it.
+
+- The app serves on port 8080 by default (it was 8765). It stops cleanly, as with Ctrl+C, when sent SIGTERM.
+
 - dji-thermal-cli 1.6.0.
 - The flight tests take the visual images beside the thermal ones in `DJI_THERMAL_FLIGHT_DIR`, and check the visual
   mosaic with them.
 
 ### Fixed
 
+- New Flight's "Choose a folder" opened a file picker, in which a folder could not be chosen: it picks a folder
+  again. Files chosen with no JPEG among them (TIFFs, for one) are now told apart: the dialog says that a flight is
+  made of R-JPEGs, instead of asking to choose the images.
 - A test of the command waits for Windows to let go of the database files of the server it stopped (it failed now
   and then on Windows with Python 3.14).
 
