@@ -128,7 +128,7 @@ describe("the dataset report", () => {
         expect(($("#report-title") as HTMLInputElement).value).toBe("Roof");
         expect(($("#report-author") as HTMLInputElement).value).toBe("A. Inspector");
         expect(($("#report-date") as HTMLInputElement).value).toBe("2026-10-28");
-        expect(text(".report-project")).toBe("Silos · Farm Rd 4 · dataset Roof");
+        expect(text(".report-project")).toBe("Silos · Farm Rd 4 · flight Roof");
         expect(text("#report-dataset")).toContain("M4T");
         expect($("#report-map")).not.toBeNull();
         expect(text("#report-where")).toContain("3 frames with a position, and the findings by their numbers");
@@ -221,6 +221,6 @@ describe("the dataset report", () => {
 
     it("says when the dataset could not be loaded", async () => {
         await page({error: "gone"}, [], {[URL]: () => Promise.resolve(new Response("{}", {status: 404}))});
-        expect(text("[role=alert]")).toBe("Could not load the dataset.");
+        expect(text("[role=alert]")).toBe("Could not load the flight.");
     });
 });

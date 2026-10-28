@@ -318,7 +318,7 @@ describe("the compare page", () => {
 
     it("says when the conversion has no mosaics to compare", async () => {
         await open(server(routes({[API + "conversions/9/comparable"]: [[LIST[1]]]})));
-        expect(byId("status").textContent!.trim()).toBe("This conversion has no mosaics to compare.");
+        expect(byId("status").textContent!.trim()).toBe("This dataset has no mosaics to compare.");
         expect((document.querySelector(".compare-main") as HTMLElement).hidden).toBe(true);
     });
 

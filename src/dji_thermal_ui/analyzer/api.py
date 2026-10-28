@@ -597,7 +597,7 @@ class DatasetUploadView(DatasetView):
     def post(self, request, pk):
         dataset = get_dataset(pk)
         if dataset.source != 'upload':
-            raise ValidationError({'error': "This dataset reads a folder: there is nothing to upload"})
+            raise ValidationError({'error': "This flight reads a folder: there is nothing to upload"})
         if dataset.status == 'analyzing':
             raise ValidationError({'error': "Wait for the analysis to finish, or cancel it, before adding images"})
 
@@ -640,11 +640,11 @@ class DatasetAnalyzeView(DatasetView):
     def post(self, request, pk):
         dataset = check_stale(get_dataset(pk))
         if dataset.status == 'analyzing':
-            raise ValidationError({'error': "The dataset is already being analyzed"})
+            raise ValidationError({'error': "The flight is already being analyzed"})
         if dataset.source == 'folder' and not os.path.isdir(dataset.folder):
-            raise ValidationError({'error': "The dataset's folder no longer exists"})
+            raise ValidationError({'error': "The flight's folder no longer exists"})
         if dataset.source == 'upload' and not dataset.file_count:
-            raise ValidationError({'error': "Add images to the dataset first"})
+            raise ValidationError({'error': "Add images to the flight first"})
         return Response(detail(start_analysis(dataset)))
 
 
@@ -669,12 +669,12 @@ class DatasetThumbnailView(DatasetView):
         dataset = get_dataset(pk)
         rel = request.query_params.get('file') or ""
         if not rel or rel not in {r.get('path') for r in (dataset.analysis or {}).get('files') or []}:
-            raise NotFound({'error': "Not a file of this dataset"})
+            raise NotFound({'error': "Not a file of this flight"})
         root = dataset.images_dir()
         try:
             path = path_traversal_check(os.path.join(root, rel), root)
         except SuspiciousFileOperation:
-            raise NotFound({'error': "Not a file of this dataset"}) from None
+            raise NotFound({'error': "Not a file of this flight"}) from None
         if not os.path.isfile(path):
             raise NotFound({'error': "The file is not there any more"})
         out = io.BytesIO()
@@ -701,14 +701,14 @@ class ConversionListCreateView(DatasetView):
         """Converts the dataset's images with the settings given, as a new conversion kept beside the others"""
         dataset = get_dataset(pk)
         if dataset.source == 'folder' and not os.path.isdir(dataset.folder):
-            raise ValidationError({'error': "The dataset's folder no longer exists"})
+            raise ValidationError({'error': "The flight's folder no longer exists"})
         if dataset.source == 'upload' and not dataset.file_count:
-            raise ValidationError({'error': "Add images to the dataset first"})
+            raise ValidationError({'error': "Add images to the flight first"})
         settings, errors = thermal_conversion.parse_settings(request.data.get('settings'))
         if errors:
             raise ValidationError(errors)
         name = str(request.data.get('name', '') or '').strip() or \
-            "Conversion {}".format(dataset.conversions.count() + 1)
+            "Dataset {}".format(dataset.conversions.count() + 1)
         conversion = ThermalConversion.objects.create(dataset=dataset, name=name[:255], options=settings)
         return Response(conversion_detail(start_conversion(conversion)), status=status.HTTP_201_CREATED)
 
@@ -1255,7 +1255,7 @@ def compared_with(request, conversion):
     try:
         other = get_conversion(int(request.query_params.get('b')))
     except (TypeError, ValueError):
-        raise ValidationError({'b': "The conversion to compare with is required"}) from None
+        raise ValidationError({'b': "The dataset to compare with is required"}) from None
     tab = request.query_params.get('b_tab') or 'as_converted'
     return other, tab, temperature_raster(other, tab)
 
@@ -1625,7 +1625,7 @@ def finding_drawn(dataset, data):
     try:
         conversion = dataset.conversions.get(pk=int(data.get('conversion')))
     except (TypeError, ValueError, ThermalConversion.DoesNotExist):
-        raise ValidationError({'conversion': "That conversion does not exist"}) from None
+        raise ValidationError({'conversion': "That dataset does not exist"}) from None
     tab = data.get('tab')
     if tab not in FINDING_TABS:
         raise ValidationError({'tab': "The temperatures are read on a mosaic (as_converted, harmonized)"})

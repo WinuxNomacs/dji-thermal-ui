@@ -209,7 +209,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             if (!r.ok) return setNotice("Could not load the frames.");
             setMeta(r.data);
             const paths = (r.data.frames || []).map((f) => f.path);
-            if (!paths.length) return setStatus({text: "The dataset has no thermal frames to show."});
+            if (!paths.length) return setStatus({text: "The flight has no thermal frames to show."});
             chooseFrame(wanted.frame && paths.includes(wanted.frame) ? wanted.frame : paths[0]);
         } catch {
             setNotice("Could not load the frames.");

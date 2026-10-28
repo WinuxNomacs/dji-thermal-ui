@@ -282,6 +282,6 @@ describe("the frame page", () => {
 
     it("says when the dataset has no frames", async () => {
         await open(server(routes({[BASE + "/frames"]: {...FRAMES, frames: []}})));
-        expect(byId("status").textContent).toBe("The dataset has no thermal frames to show.");
+        expect(byId("status").textContent).toBe("The flight has no thermal frames to show.");
     });
 });

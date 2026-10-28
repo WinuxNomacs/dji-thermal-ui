@@ -71,10 +71,10 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
                 <div class="table-scroll">
                     <table class="table" id="projects">
                         <thead><tr>
-                            <th>Name</th><th>Location</th><th>Datasets</th>
-                            <th title="Conversions of its datasets">Conversions</th>
-                            <th title="Findings saved on its datasets">Findings</th>
-                            <th title="The disk space its datasets take in the app">Size</th><th>Created</th>
+                            <th>Name</th><th>Location</th><th>Flights</th>
+                            <th title="Datasets of its flights">Datasets</th>
+                            <th title="Findings saved on its flights">Findings</th>
+                            <th title="The disk space its flights take in the app">Size</th><th>Created</th>
                             <th><span class="sr-only">Actions</span></th>
                         </tr></thead>
                         <tbody>
@@ -96,7 +96,7 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
                                         <button type="button" class="icon-button edit" title="Edit" aria-label="Edit"
                                                 onClick={() => setEditing(p)}><Pencil/></button>
                                         <button type="button" class="icon-button delete"
-                                                title={"Delete, with its " + count(p.dataset_count, "dataset", "datasets")}
+                                                title={"Delete, with its " + count(p.dataset_count, "flight", "flights")}
                                                 aria-label="Delete" onClick={() => remove(p)}><Trash/></button>
                                     </td>
                                 </tr>

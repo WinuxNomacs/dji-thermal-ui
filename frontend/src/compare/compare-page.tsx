@@ -180,7 +180,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             const all = r.data || [], find = (x: Maybe<number>) => all.find((c) => c.id === x);
             setList(all);
             const a = (wanted.a !== undefined && find(wanted.a)) || find(id);
-            if (!a) return setStatus({text: "This conversion has no mosaics to compare."});
+            if (!a) return setStatus({text: "This dataset has no mosaics to compare."});
             const b = find(otherId) || a;
             const aTab = firstTab(a, wanted.a_tab);
             const bTab = b.id === a.id ? firstTab(b, wanted.b_tab, aTab) : firstTab(b, wanted.b_tab);
@@ -821,7 +821,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                             title="Both panes share one palette and range" onClick={toggleLocked}>
                         {locked ? <><Lock/> Shared palette</> : <><Unlock/> Each pane its own</>}</button>
                     <button type="button" id="findings" class={"button default" + (showFindings ? " active" : "")}
-                            aria-pressed={showFindings} title="Show the datasets' findings in both panes"
+                            aria-pressed={showFindings} title="Show the flights' findings in both panes"
                             onClick={() => setShowFindings(!showFindings)}><Flag/> Findings</button>
                 </div>
             </div>

@@ -261,6 +261,6 @@ export function MosaicStatus({v}: {v: {status: string; mosaic_status: string; mo
     if (v.status !== "ready") {
         return <div class="status text-muted" id="status">The images were not converted: there is nothing to make mosaics of.</div>;
     }
-    if (v.mosaic_status !== "ready") return <div class="status text-muted" id="status">This conversion has no mosaics.</div>;
+    if (v.mosaic_status !== "ready") return <div class="status text-muted" id="status">This dataset has no mosaics.</div>;
     return null;
 }

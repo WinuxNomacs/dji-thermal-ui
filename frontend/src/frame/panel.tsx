@@ -49,7 +49,7 @@ export function Params(p: ParamsProps) {
             <button type="button" class="button primary small" id="change-apply" onClick={p.onApply}><Refresh/> Measure again</button>
             {any && <>
                 <button type="button" class="button default small" id="change-clear" onClick={p.onClear}>Clear</button>
-                <a class="button default small" id="new-conversion" href={p.newUrl}><Play/> New conversion with these</a>
+                <a class="button default small" id="new-conversion" href={p.newUrl}><Play/> New dataset with these</a>
             </>}
         </div>
         <p class="message">dji-thermal-cli measures the frame again with the parameters changed: exact, as converting with

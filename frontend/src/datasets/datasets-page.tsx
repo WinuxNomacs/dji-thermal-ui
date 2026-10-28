@@ -17,10 +17,10 @@ const COLUMNS: {key: string; label: string; title?: string}[] = [
     {key: "status", label: "Status"},
     {key: "files", label: "Files"},
     {key: "problems", label: "Problems"},
-    {key: "conversions", label: "Conversions", title: "Conversions ready of all"},
+    {key: "conversions", label: "Datasets", title: "Datasets ready of all"},
     {key: "findings", label: "Findings", title: "Findings saved on its mosaics"},
     {key: "size", label: "Size"},
-    {key: "activity", label: "Last activity", title: "The latest creation, analysis or conversion"},
+    {key: "activity", label: "Last activity", title: "The latest creation, analysis or conversion to a dataset"},
     {key: "created", label: "Created"},
 ];
 
@@ -51,7 +51,7 @@ function ConversionsCell({d}: {d: Dataset}) {
     if (!d.conversion_count) return null;
     const ready = d.conversions_ready || 0;
     return (<span class={ready === d.conversion_count ? "text-success" : undefined}
-                  title={count(ready, "conversion", "conversions") + " ready of " + d.conversion_count}>
+                  title={count(ready, "dataset", "datasets") + " ready of " + d.conversion_count}>
         {ready}/{d.conversion_count}</span>);
 }
 
@@ -118,7 +118,7 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
             onChange?.();
             if (list.some((d) => d.status === "analyzing" || d.busy)) timer.current = setTimeout(load, POLL_MS);
         } catch {
-            setNotice("Could not load the datasets.");
+            setNotice("Could not load the flights.");
         }
     }
 
@@ -128,10 +128,10 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
     }, []);
 
     async function rename(d: Dataset) {
-        const name = await askName("Rename dataset", d.name);
+        const name = await askName("Rename flight", d.name);
         if (!name) return;
         const r = await readJson(await sendJson(api + "datasets/" + d.id, "PATCH", {name}));
-        setNotice(r.ok ? "" : errorText(r.data, "Could not rename the dataset."));
+        setNotice(r.ok ? "" : errorText(r.data, "Could not rename the flight."));
         load();
     }
 
@@ -150,13 +150,13 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
         }
         const others = projects.filter((p) => p.id !== project);
         if (!others.length) {
-            await dialog({title: "Move dataset", text: "There is no other project to move it to. Make one on the " +
+            await dialog({title: "Move flight", text: "There is no other project to move it to. Make one on the " +
                                                         "Projects page first."});
             return;
         }
         let to = others[0].id;
         const r = await dialog({
-            title: "Move dataset", text: "Move “" + d.name + "”, with its conversions and measurements, to:",
+            title: "Move flight", text: "Move “" + d.name + "”, with its datasets and measurements, to:",
             body: <div class="field"><select id="move-to" aria-label="Project"
                                              onChange={(e) => { to = Number(e.currentTarget.value); }}>
                 {others.map((p) => <option value={p.id}>{p.name}</option>)}</select></div>,
@@ -164,14 +164,14 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
         });
         if (r.button !== true) return;
         const res = await readJson(await sendJson(api + "datasets/" + d.id, "PATCH", {project: to}));
-        setNotice(res.ok ? "" : errorText(res.data, "Could not move the dataset."));
+        setNotice(res.ok ? "" : errorText(res.data, "Could not move the flight."));
         load();
     }
 
     async function remove(d: Dataset) {
-        if (!await ask("Delete dataset", deleteText(d), "Delete", "danger")) return;
+        if (!await ask("Delete flight", deleteText(d), "Delete", "danger")) return;
         const r = await readJson(await sendJson(api + "datasets/" + d.id, "DELETE"));
-        setNotice(r.ok ? "" : errorText(r.data, "Could not delete the dataset."));
+        setNotice(r.ok ? "" : errorText(r.data, "Could not delete the flight."));
         load();
     }
 
@@ -221,20 +221,20 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
 
     const shown = (datasets || []).filter((d) => matchesSearch(d, query.trim()));
     const message = datasets === null ? (notice ? "" : "Loading…") :
-        !datasets.length ? "No datasets in this project yet. Use New Dataset to analyze a flight's thermal images." :
-        !shown.length ? "No datasets match the search." : "";
+        !datasets.length ? "No flights in this project yet. Use New Flight to analyze a flight's thermal images." :
+        !shown.length ? "No flights match the search." : "";
 
     return (
         <div class="page datasets" onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave}
              onDrop={onDrop}>
             {top}
             <div class="page-header">
-                <h2>Datasets</h2>
+                <h2>Flights</h2>
                 <div class="page-actions">
-                    <input type="search" id="search" placeholder="Search datasets" aria-label="Search datasets"
+                    <input type="search" id="search" placeholder="Search flights" aria-label="Search flights"
                            value={query} onInput={(e) => setQuery(e.currentTarget.value)}/>
                     <button type="button" class="button primary" id="new-dataset-button" onClick={openNew}>
-                        <Plus/> New Dataset</button>
+                        <Plus/> New Flight</button>
                 </div>
             </div>
 
@@ -271,7 +271,7 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
             )}
 
             {hint && <div class="drop-hint" id="drop-hint"><Images/> Drop the images or their folder to make a new
-                dataset</div>}
+                flight</div>}
 
             {open && <NewDataset api={api} publicUrl={publicUrl} project={project} nav={nav} dropped={dropped}
                                  onStage={(s) => { stage.current = s; }}

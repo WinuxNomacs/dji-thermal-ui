@@ -282,7 +282,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
     useEffect(() => {
         (async () => {
             const r = await readJson<Meta>(await fetch(api + "preferences", {credentials: "same-origin"}));
-            if (!r.ok) return say("Could not load the conversion settings.", "text-danger");
+            if (!r.ok) return say("Could not load the settings.", "text-danger");
             setMeta(r.data);
             fill(r.data.settings, r.data);
         })();
@@ -322,7 +322,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         if (problem) return say(problem, "text-danger");
         const r = await readJson<Conversion>(await sendJson(api + "datasets/" + dataset.id + "/conversions", "POST",
                                                              {name: name.trim(), settings}));
-        if (!r.ok) return say(errorText(r.data, "Could not start the conversion."), "text-danger");
+        if (!r.ok) return say(errorText(r.data, "Could not start the conversion to a dataset."), "text-danger");
         setName("");
         setMessage(null);
         setFresh(r.data.id);
@@ -334,7 +334,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         const r = await readJson<Meta>(await sendJson(api + "preferences", "PUT", {settings}));
         if (!r.ok) return say(errorText(r.data, "Could not save your defaults."), "text-danger");
         setMeta({...meta!, ...r.data, saved: true});
-        say("Saved: new conversions start from these settings.", "text-success");
+        say("Saved: new datasets start from these settings.", "text-success");
     }
 
     async function resetDefaults() {
@@ -351,7 +351,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
 
     function settingsBlock() {
         return (<div class="convert-settings">
-            <p class="text-muted">Convert the images with dji-thermal-cli: every conversion is kept beside the others, to
+            <p class="text-muted">Convert the images with dji-thermal-cli into a dataset: each dataset is kept beside the others, to
                 compare settings. {meta!.saved ? "Starting from your saved defaults." : "Starting from dji-thermal-cli's defaults."}</p>
             <div class="convert-summary"><span>Settings:</span> <Chips diffs={diffs}/>
                 {!open && <button type="button" class="button default small" id="edit-settings" onClick={() => setOpen(true)}>
@@ -367,7 +367,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
                                  onClick={() => { setPlan(planSettings(args, meta!.defaults)); fill(planSettings(args, meta!.defaults));
                                      setOpen(true); say(<>The form has the WebODM plan's settings: <code>{args.join(" ")}</code></>); }}>
                     <Wand/> Use the WebODM plan's settings</button>}
-                <button type="button" class="button default" id="convert-save" title="New conversions start from these settings"
+                <button type="button" class="button default" id="convert-save" title="New datasets start from these settings"
                         onClick={save}><Save/> Save as defaults</button>
                 <button type="button" class="button default" id="convert-reset" onClick={resetDefaults}><Undo/> Reset to defaults</button>
             </div>
@@ -377,8 +377,8 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
 
     function conversionsBlock() {
         return (<>
-            <h2>Conversions</h2>
-            {!conversions.length && <p class="text-muted">No conversions yet.</p>}
+            <h2>Datasets</h2>
+            {!conversions.length && <p class="text-muted">No datasets yet.</p>}
             {conversions.map((c) => <Card key={c.id} c={c} defaults={meta?.defaults} base={base} viewer={viewer}
                                           fresh={c.id === fresh} act={act}/>)}
         </>);
@@ -395,14 +395,14 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         } else if (what === "mosaics") {
             r = await readJson(await sendJson(base + c.id + "/mosaics", "POST", {}));
         } else if (what === "rename") {
-            const n = await askName("Rename conversion", c.name);
+            const n = await askName("Rename dataset", c.name);
             if (!n) return;
             r = await readJson(await sendJson(base + c.id, "PATCH", {name: n}));
         } else if (what === "delete") {
-            if (!await ask("Delete conversion", "Delete " + c.name + " and its files? This cannot be undone.", "Delete", "danger")) return;
+            if (!await ask("Delete dataset", "Delete " + c.name + " and its files? This cannot be undone.", "Delete", "danger")) return;
             r = await readJson(await sendJson(base + c.id, "DELETE"));
         }
-        if (r && !r.ok) say(errorText(r.data, "Could not " + (what === "mosaics" ? "build the mosaics" : what + " the conversion") + "."),
+        if (r && !r.ok) say(errorText(r.data, "Could not " + (what === "mosaics" ? "build the mosaics" : what + " the dataset") + "."),
                             "text-danger");
         onChange();
     }

@@ -9,13 +9,11 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **I1: the names**: what you see says Flight for a dataset and Dataset for a conversion. See "Naming and the
-   explorer". (Naming)
+1. **I2: the navigation**: under each dataset (conversion), Tools (Compare, Report), Mosaics (each mosaic) and
+   Frames (In the mosaic, Oblique). See "Naming and the explorer". (Naming)
 
 **Then**
-1. **I2: the navigation**: under each dataset (conversion), Tools (Compare, Report), Mosaics (each mosaic) and
-   Frames (In the mosaic, Oblique). (Naming)
-2. **I3: the frames explorer**: the frame page with a list or thumbnails of the frames chosen in the pane, the first
+1. **I3: the frames explorer**: the frame page with a list or thumbnails of the frames chosen in the pane, the first
    selected, the frame page's view of it on the right. (Naming)
 
 **Later**
@@ -1138,3 +1136,9 @@ Requested 2026-10-28 (`new.md`):
   dark: the tabs, Esc and a second click letting go (the window left open), the seams at two zooms and in the PNG,
   the frame page without its map scale, and the compare page's scales. No console errors or failed requests.
   - **Not changed:** the mosaic report still draws its Source frame figure in the frames' colours.
+- **I1: the names** (2026-10-28). Every visible string says flight for a `dataset` and dataset for a `conversion`:
+  the pages in `frontend/src` (lists, the flight page and its Convert tab, the reports, the viewer, compare, frame,
+  findings and preferences), the server's messages (`api.py`, `thermal_*.py`, `views.py`), the command's help, and
+  new datasets' default name "Dataset N" (`api.py`). The README calls them so throughout; CLAUDE.md says which name
+  is which. Tests: the strings updated in `frontend/tests/` and `tests/`. Checked live on every page: what still says
+  otherwise is a name saved before ("Conversion 1") or dji-thermal-cli's own problem text ("dataset median").

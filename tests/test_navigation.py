@@ -81,7 +81,7 @@ def test_the_flight_is_in_the_time_zone_of_its_frames_two_clocks(times, offset):
     (None, "The images do not record the time zone they were taken in"),
     # Analyzed before the UTC time was kept
     ({'files': [{'path': "DJI_0001_T.JPG", 'kind': 'thermal', 'time': "2026:10:22 16:34:57"}]},
-     "Analyze the dataset again to find the time zone it was flown in"),
+     "Analyze the flight again to find the time zone it was flown in"),
 ])
 def test_a_flight_without_both_clocks_has_no_time_zone_and_says_why(analysis, reason):
     assert thermal_analysis.flight_zone(analysis) == {'offset': None, 'reason': reason}

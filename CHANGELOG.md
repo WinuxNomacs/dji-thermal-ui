@@ -8,6 +8,11 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- New names in what you see: a dataset (the images uploaded or read from a folder) is now a **flight**, and a
+  conversion (its images converted with one set of settings, and their mosaics) is now a **dataset**: Project ›
+  Flight › Dataset. New datasets are named "Dataset 1", "Dataset 2"…; names given before stay. Links, the API and the
+  data folder are unchanged.
+
 - The viewer: the Source frame tab draws the mosaic with a line along each seam between its frames, instead of each
   frame in its own colour (in the PNG export too). The As converted tab is called Mosaic, there and on the compare
   page, in the reports and in the measurements. "Under the cursor" is "Pointer info", above "Source frames" (and on

@@ -125,7 +125,7 @@ describe("the projects page", () => {
         click($(".delete")!);
         await ticks();
         const text = dialog()!.textContent;
-        expect(text).toContain("“Silos” is deleted with its 2 datasets, 3 conversions, 2 mosaics and 14 measurements.");
+        expect(text).toContain("“Silos” is deleted with its 2 flights, 3 datasets, 2 mosaics and 14 measurements.");
         expect(text).toContain("5.0 MB of disk space is freed.");
         expect(text).toContain("cannot be undone");
         press("Cancel");
@@ -139,10 +139,10 @@ describe("the projects page", () => {
     });
 
     it("words a delete for a project with nothing in it, or a dataset alone", () => {
-        expect(projectDeleteText(EMPTY)).toEqual(["“Default Project” has no datasets.", "This cannot be undone."]);
-        expect(projectDeleteText({...EMPTY, dataset_count: 1})[0]).toBe("“Default Project” is deleted with its 1 dataset.");
+        expect(projectDeleteText(EMPTY)).toEqual(["“Default Project” has no flights.", "This cannot be undone."]);
+        expect(projectDeleteText({...EMPTY, dataset_count: 1})[0]).toBe("“Default Project” is deleted with its 1 flight.");
         expect(projectDeleteText({...EMPTY, dataset_count: 1})[1]).toBe(
-            "The images of datasets read from a folder stay in their folders.");
+            "The images of flights read from a folder stay in their folders.");
     });
 });
 
@@ -157,7 +157,7 @@ describe("a project's page", () => {
         expect(byId("project-description").textContent).toBe(SILOS.description);
         expect($(".project-location")!.textContent).toContain("1 Farm Rd");
         expect(byId("project-map")).not.toBeNull();
-        expect(byId("message").textContent).toMatch(/No datasets in this project yet/);
+        expect(byId("message").textContent).toMatch(/No flights in this project yet/);
         expect($(".breadcrumb a")!.getAttribute("href")).toBe("/");
     });
 
@@ -212,7 +212,7 @@ describe("a project's page", () => {
         await ticks();
         click(byId("delete-project"));
         await ticks();
-        expect(dialog()!.textContent).toContain("“Silos” is deleted with its 2 datasets");
+        expect(dialog()!.textContent).toContain("“Silos” is deleted with its 2 flights");
         press("Delete");
         await ticks();
         expect(calls(fetchFn)).toContain("DELETE " + API + "projects/3");

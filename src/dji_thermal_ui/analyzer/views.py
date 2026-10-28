@@ -86,6 +86,6 @@ def compare_page(request, conversion_id):
         try:
             other = conversion_or_404(int(request.GET['b']))
         except ValueError:
-            raise Http404("No such conversion") from None
+            raise Http404("No such dataset") from None
     return page(request, "compare.html", title="Compare", entry="compare", conversion=conversion, other=other,
                 dataset=conversion.dataset, basemaps=page_basemaps(API))

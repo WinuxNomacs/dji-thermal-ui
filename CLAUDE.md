@@ -12,6 +12,8 @@ machine. Keep it short; edit in place.
 - One user, on their own computer: the server listens on 127.0.0.1 only, with no login, accounts or sharing.
 - Datasets of DJI R-JPEGs are analyzed, converted and made into mosaics with dji-thermal-cli (no ODM needed), then
   viewed, compared and measured in the browser.
+- **Names:** what the user sees says Project › Flight › Dataset; the code, URLs, API and database say project ›
+  `dataset` › `conversion`. A visible string says flight for a `dataset` and dataset for a `conversion`.
 - Processing with ODM is not done here. When it comes back, it goes through LuxODM's or WebODM's REST API, never by
   importing their code.
 

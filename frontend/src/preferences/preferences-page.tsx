@@ -94,7 +94,7 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
                 <select id="pref-unit" value={unit} disabled={saving} onChange={changeUnit}>
                     {UNITS.map(([u, label]) => <option key={u} value={u}>{label}</option>)}
                 </select>
-                <p class="help">Also in the header. A conversion's files keep the unit they were written in.</p>
+                <p class="help">Also in the header. A dataset's files keep the unit they were written in.</p>
             </div>
         </fieldset>
 

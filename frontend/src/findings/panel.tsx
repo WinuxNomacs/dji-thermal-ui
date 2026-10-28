@@ -154,6 +154,6 @@ export function FindingAbout({f, onEdit, viewer}: {f: Finding; onEdit: () => voi
 export function SaveFinding({onSave}: {onSave: () => void}) {
     return (<div class="sources-actions">
         <button type="button" class="button default small" name="save-finding" onClick={onSave}
-                title="Keep this spot or area, its temperatures and frames, as a finding of the dataset"><Flag/> Save as finding</button>
+                title="Keep this spot or area, its temperatures and frames, as a finding of the flight"><Flag/> Save as finding</button>
     </div>);
 }
