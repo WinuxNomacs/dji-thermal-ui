@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
-import {escapeHtml, formatBytes, median, mosaicLabel, stageText, statusLabel} from "../src/core/format";
+import {escapeHtml, fileKind, formatBytes, kindLabel, median, mosaicLabel, stageText, statusLabel} from "../src/core/format";
 import {convertDelta, convertTemp, formatDelta, formatTemp, setUserUnit, userUnit} from "../src/core/units";
 import {batchTimeout, batches, uploadFiles, uploadName} from "../src/core/upload";
 import {errorText, readJson} from "../src/core/api";
@@ -12,6 +12,12 @@ const parts = (opts: RequestInit) =>
     [...(opts.body as FormData).entries()].map(([k, v]) => [k, typeof v === "string" ? v : v.name]);
 
 describe("formatting", () => {
+    it("names a file's kind: a thermal image of a format not read is an unsupported image type, not \"not thermal\"", () => {
+        expect(kindLabel("unsupported")).toBe("Unsupported image type");
+        expect(kindLabel("not_thermal")).toBe("Not thermal");
+        expect(kindLabel(fileKind({path: "DJI_0001_V.JPG", kind: "not_thermal"}))).toBe("Visual");
+    });
+
     it("says which stage a normalization or a mosaic is at", () => {
         const align = {stage: "align", step: 3, steps: 6, round: 2, rounds: 3, done: 812, total: 1840, unit: "pairs"};
         expect(stageText(align)).toBe("step 3 of 6, aligning (round 2/3), 812/1840 pairs");
