@@ -331,67 +331,84 @@ def finish(i, name):
     with i.lock:
         if i.received != i.size or not i.reader.whole():
             raise RestoreError("The archive has not all been received")
-        m = i.reader.manifest
-        moved = []
-        os.makedirs(settings.DATASETS_DIR, exist_ok=True)
-        try:
-            with transaction.atomic():
-                if Project.objects.filter(name=name).exists():
-                    raise RestoreError("A project is already named “{}”".format(name))
-                p = m['project']
-                project = made(Project, {k: p[k] for k in ('description', 'location_lon', 'location_lat',
-                                                           'location_label') if k in p}, name=name)
-                for f in m['flights']:
-                    d = made(ThermalDataset, f, project_id=project.id, source='upload', folder="", run_id="",
-                             status='canceled' if f.get('status') == 'analyzing' else f.get('status', 'new'))
-                    staged = os.path.join(i.folder, 'datasets', str(f['id']))
-                    if os.path.isdir(staged):
-                        os.rename(staged, d.data_dir())
-                        moved.append(d.data_dir())
-                    conversions, measurements = {}, {}
-                    for c in f.get('conversions', []):
-                        conv = made(ThermalConversion, c, dataset_id=d.id, run_id="",
-                                    status='canceled' if c.get('status') == 'converting' else c.get('status', 'ready'),
-                                    mosaic_status='canceled' if c.get('mosaic_status') == 'building'
-                                    else c.get('mosaic_status', ''))
-                        conversions[c['id']] = conv
-                        old = os.path.join(d.data_dir(), 'conversions', str(c['id']))
-                        if os.path.isdir(old):
-                            os.rename(old, old + '.import')
-                        for mm in c.get('measurements', []):
-                            measurements[mm['id']] = made(ThermalMeasurement, mm, conversion_id=conv.id).id
-                    # The conversions' folders renamed in two steps: an old id may be another's new one
-                    for old_id, conv in conversions.items():
-                        old = os.path.join(d.data_dir(), 'conversions', str(old_id)) + '.import'
-                        if os.path.isdir(old):
-                            os.rename(old, conv.data_dir())
-                    findings = {}
-                    for x in f.get('findings', []):
-                        c = conversions.get(x.get('conversion_id'))
-                        findings[x['id']] = made(Finding, x, dataset_id=d.id, conversion_id=c and c.id).id
-                    # A mosaic report names the measurements it leaves out and the findings it hides
-                    for conv in conversions.values():
-                        report = dict(conv.report or {})
-                        if 'left_out' in report:
-                            report['left_out'] = remap(report['left_out'], measurements)
-                        if isinstance(report.get('view'), dict) and 'hidden' in report['view']:
-                            report['view'] = dict(report['view'], hidden=remap(report['view']['hidden'], findings))
-                        conv.report = report
-                        conv.update_size()
-                        conv.save(update_fields=['report', 'file_count', 'size'])
-                    d.update_size()
-                    d.save(update_fields=['file_count', 'size'])
-        except (ModelValidationError, IntegrityError, TypeError, ValueError, KeyError, AttributeError):
-            for d in moved:
-                shutil.rmtree(d, ignore_errors=True)
-            raise RestoreError("The archive's manifest is damaged") from None
-        except OSError as e:
-            for d in moved:
-                shutil.rmtree(d, ignore_errors=True)
-            raise RestoreError("Could not move the files into the data folder: {}".format(e)) from None
-        except BaseException:
-            for d in moved:
-                shutil.rmtree(d, ignore_errors=True)
-            raise
+        project = make_project(i.reader.manifest, i.folder, name)
     discard(i)
+    return project
+
+
+def make_project(m, folder, name, keep_folders=False):
+    """A manifest made into a new project named name: its rows with new ids, its flights' files moved from
+    folder/datasets/<old id>/ into the data folder. A folder flight comes in as an uploaded one, unless keep_folders
+    (its folder still read in place). A failure moves the files back to where they were. Returns the project."""
+    moved = []                                  # (where a folder went, where it was), undone in reverse
+    os.makedirs(settings.DATASETS_DIR, exist_ok=True)
+
+    def rename(old, new):
+        os.rename(old, new)
+        moved.append((new, old))
+
+    def undo():
+        for new, old in reversed(moved):
+            try:
+                os.rename(new, old)
+            except OSError:
+                pass
+
+    try:
+        with transaction.atomic():
+            if Project.objects.filter(name=name).exists():
+                raise RestoreError("A project is already named “{}”".format(name))
+            p = m['project']
+            project = made(Project, {k: p[k] for k in ('description', 'location_lon', 'location_lat',
+                                                       'location_label') if k in p}, name=name)
+            for f in m['flights']:
+                in_place = keep_folders and f.get('source') == 'folder' and f.get('folder')
+                d = made(ThermalDataset, f, project_id=project.id, source='folder' if in_place else 'upload',
+                         folder=f['folder'] if in_place else "", run_id="",
+                         status='canceled' if f.get('status') == 'analyzing' else f.get('status', 'new'))
+                staged = os.path.join(folder, 'datasets', str(f['id']))
+                if os.path.isdir(staged):
+                    rename(staged, d.data_dir())
+                conversions, measurements = {}, {}
+                for c in f.get('conversions', []):
+                    conv = made(ThermalConversion, c, dataset_id=d.id, run_id="",
+                                status='canceled' if c.get('status') == 'converting' else c.get('status', 'ready'),
+                                mosaic_status='canceled' if c.get('mosaic_status') == 'building'
+                                else c.get('mosaic_status', ''))
+                    conversions[c['id']] = conv
+                    old = os.path.join(d.data_dir(), 'conversions', str(c['id']))
+                    if os.path.isdir(old):
+                        rename(old, old + '.import')
+                    for mm in c.get('measurements', []):
+                        measurements[mm['id']] = made(ThermalMeasurement, mm, conversion_id=conv.id).id
+                # The conversions' folders renamed in two steps: an old id may be another's new one
+                for old_id, conv in conversions.items():
+                    old = os.path.join(d.data_dir(), 'conversions', str(old_id)) + '.import'
+                    if os.path.isdir(old):
+                        rename(old, conv.data_dir())
+                findings = {}
+                for x in f.get('findings', []):
+                    c = conversions.get(x.get('conversion_id'))
+                    findings[x['id']] = made(Finding, x, dataset_id=d.id, conversion_id=c and c.id).id
+                # A mosaic report names the measurements it leaves out and the findings it hides
+                for conv in conversions.values():
+                    report = dict(conv.report or {})
+                    if 'left_out' in report:
+                        report['left_out'] = remap(report['left_out'], measurements)
+                    if isinstance(report.get('view'), dict) and 'hidden' in report['view']:
+                        report['view'] = dict(report['view'], hidden=remap(report['view']['hidden'], findings))
+                    conv.report = report
+                    conv.update_size()
+                    conv.save(update_fields=['report', 'file_count', 'size'])
+                d.update_size()
+                d.save(update_fields=['file_count', 'size'])
+    except (ModelValidationError, IntegrityError, TypeError, ValueError, KeyError, AttributeError):
+        undo()
+        raise RestoreError("The archive's manifest is damaged") from None
+    except OSError as e:
+        undo()
+        raise RestoreError("Could not move the files into the data folder: {}".format(e)) from None
+    except BaseException:
+        undo()
+        raise
     return project

@@ -9,6 +9,8 @@ from pathlib import Path
 _data = tempfile.mkdtemp(prefix="dji-thermal-ui-tests-")
 atexit.register(shutil.rmtree, _data, ignore_errors=True)
 os.environ["DJI_THERMAL_UI_DATA_DIR"] = _data
+# Nor their config folder: a command they start never reads or writes the user's pointer or a move asked
+os.environ["DJI_THERMAL_UI_CONFIG_DIR"] = os.path.join(_data, "config")
 # The tests never see a Mapbox token of the user's: none from the environment, and .env only in their data folder
 os.environ.pop("MAPBOX_API_TOKEN", None)
 

@@ -2,10 +2,12 @@
 
 from pathlib import Path
 
-from .datadir import data_dir, secret_key
+from .datadir import chosen, data_dir, secret_key
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DATA_DIR = data_dir()
+# What chose it: 'environment' (--data-dir too), 'moved' (from the Storage page) or 'default'
+DATA_DIR_SET_BY = chosen()[1]
 DATASETS_DIR = DATA_DIR / "datasets"
 
 SECRET_KEY = secret_key(DATA_DIR)

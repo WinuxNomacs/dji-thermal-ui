@@ -63,6 +63,15 @@ def fresh_measurements():
 
 
 @pytest.fixture(autouse=True)
+def config_folder(monkeypatch, tmp_path_factory):
+    """The app's config folder (the pointer to a moved data folder, a move asked) is the test's own, never the user's"""
+    from dji_thermal_ui import datadir
+    folder = tmp_path_factory.mktemp("config")
+    monkeypatch.setattr(datadir, "config_dir", lambda: folder)
+    return folder
+
+
+@pytest.fixture(autouse=True)
 def empty_datasets_folder(settings):
     """Ids come back after each test's rollback, so a test's dataset folders are removed after it"""
     yield
