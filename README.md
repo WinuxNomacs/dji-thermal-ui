@@ -17,14 +17,17 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a dataset.
 - **Conversions:** temperature images with any of dji-thermal-cli's settings. You can keep several side by side,
   cancel one, or download it.
-- **Mosaics:** as converted, harmonized, by source frame or by view angle, over a street map or Esri's or Mapbox's
-  satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma, equalization
-  and sharpening, redrawn as their sliders are dragged; the colour scale is labelled with its range's ends.
+- **Mosaics:** the viewer's tabs are Mosaic (the temperatures as converted), Harmonized, Source frame (the mosaic
+  with a line along each seam between the frames it is made of) and View angle, over a street map or Esri's or
+  Mapbox's satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma,
+  equalization and sharpening, redrawn as their sliders are dragged; the colour scale, in the panel, is labelled with
+  its range's ends. Pointer info gives the values under the cursor; a click keeps them and outlines the frame there,
+  and Esc or a second click on that frame lets go of it.
 - **Visual mosaic:** when a dataset has visual images, a conversion builds their mosaic with the thermal ones (the
   convert form's "And the visual mosaic", on by default), at the visual camera's own resolution. dji-thermal-cli
   places each visual image where its thermal frame is in the thermal mosaic, after measuring and correcting the
-  small angle between the two cameras, so the two mosaics line up. The viewer shows it on its Visual tab, under the
-  cursor are the temperatures as converted, and a click opens the frames that saw the spot. It is in the downloads
+  small angle between the two cameras, so the two mosaics line up. The viewer shows it on its Visual tab, Pointer info
+  gives the Mosaic tab's temperatures, and a click opens the frames that saw the spot. It is in the downloads
   beside the thermal mosaics. Zoom camera images are left out.
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
   and on single frames. A frame page's Thermal/Visual/Both switch shows the frame's visual image in its place or

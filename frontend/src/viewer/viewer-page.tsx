@@ -870,11 +870,13 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         drawn.forEach((f) => shapes.push(shapeOnMap(m, f.geometry, fromCoords, f.name)));
         if (current && !current.saved && current.target === tab && temperature && !visual) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
         const image = await snapshot(m, l);
+        // the seams over the mosaic, on the Source frame tab
+        const seamsImage = !visual && seams.current ? await snapshot(m, seams.current.layer) : null;
         const taken = takenText(v.flown, v.flight_zone), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
             title: [v.dataset_name, v.name, tabLabel(shownTab)].filter(Boolean).join(" · "),
             date: (taken ? "Flown " + taken + " · exported " : "Exported ") + today,
-            panes: [{el: mapEl.current, images: image ? [image] : [], shapes}],
+            panes: [{el: mapEl.current, images: [image, seamsImage].filter((x) => !!x), shapes}],
             legend: scale, scale: scaleBar(metresPerPixel(m), 120), ratio: Math.max(1, devicePixelRatio || 1),
         });
         const error = await saveCanvas(canvas, fileName([v.dataset_name, v.name, tabLabel(shownTab)], ".png"));
