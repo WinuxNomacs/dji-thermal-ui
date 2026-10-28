@@ -701,6 +701,25 @@ Requested 2026-10-28 (`new.md`):
   between the two cameras is measured, applied and reported. A visual mosaic is built only with the thermal one.
 - **Overlay in F3:** side by side only, a swipe, an opacity blend, or all three.
 
+### F2: decisions (2026-10-27)
+
+- **Building:** the convert form shows a "Visual mosaic" checkbox when the dataset has visual frames, on by default.
+  The conversion's mosaic job passes `MosaicOptions(visual=True)` to its one `make_mosaic` call; the result is kept in
+  `mosaics/visual/` and recorded as `mosaics.kinds.visual` (with the cameras' offset from its report). A conversion
+  that strips the location keeps a located copy for the map only, as the thermal mosaics do.
+- **Resolution:** full, the frames' own (0.6 cm/px and about 86 MB on dataset 1's flight). The map reads a copy
+  with overviews, so zoomed-out tiles stay fast.
+- **Viewer:** a Visual tab, as RGB tiles (PNG with alpha) from a new endpoint. The readout gives the thermal
+  temperature under the cursor; findings and measurement shapes are drawn over it, the measuring tools stay on the
+  thermal tabs, and a click opens the source frames window.
+- **Frames:** on the frame page and in the source frames window, a Thermal/Visual switch shows a frame's visual
+  pair in its place, with the same spot or area marked; ← and → work on both. F3 adds the side by side.
+- **Downloads:** the visual mosaic, its sidecar and its preview, like the thermal files.
+- **Elsewhere:** the Files tab and the reports call the visual images "visual", not "not thermal".
+- **Test data:** dataset 1 gets the 327 `_V` images of its flight (`ignored/m4t-rgb`, 1.5 GB) for good, and is the
+  paired flight for this and later checks.
+- **Pin:** built once dji-thermal-cli 1.6.0 is on PyPI.
+
 ## Integration
 
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
