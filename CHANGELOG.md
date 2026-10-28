@@ -17,6 +17,11 @@ All notable changes are recorded here. The format follows
   with the spot, the area or the shapes where the visual camera saw them. On the frame page the readout and a shape
   drawn on the visual image measure the thermal frame.
 - The Files tab, the dataset's figures and the datasets list count the visual images apart.
+- The compare page offers each conversion's visual mosaic in its panes, read on its temperatures as converted (no
+  difference with it), and an overlay: "Overlay (A over B)" draws A's mosaic over B's in one pane, with an opacity
+  slider and a swipe line, kept in the link.
+- The frame page's switch has Both: the frame and its visual image side by side, their views moving together, with
+  the shapes and the cursor on both; the PNG export takes both.
 
 ### Changed
 

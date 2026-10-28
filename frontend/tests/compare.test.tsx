@@ -1,17 +1,19 @@
+import TileLayer from "ol/layer/Tile";
 import WebGLTileLayer from "ol/layer/WebGLTile";
+import type XYZ from "ol/source/XYZ";
 import OlMap from "ol/Map";
 import MapBrowserEvent from "ol/MapBrowserEvent";
 import {fromLonLat} from "ol/proj";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
-import {autoRange, autoReach, type Comparable, compareQuery, differenceDataUrl, firstTab, frameCurveUrl, frameDataUrl, mosaicGroups,
-        reachIn, readCompare} from "../src/compare/compare";
+import {autoRange, autoReach, type Comparable, comparedTabs, compareQuery, dataTab, differenceDataUrl, firstTab, frameCurveUrl,
+        frameDataUrl, mosaicGroups, reachIn, readCompare} from "../src/compare/compare";
 import {ComparePage} from "../src/compare/compare-page";
 import {DifferenceReadout} from "../src/compare/pane";
 import type {Finding} from "../src/findings/findings";
 import {type Mosaics} from "../src/viewer/viewer-page";
-import {calls, click, key, server, ticks, valuesResponse} from "./helpers";
+import {calls, click, jsonResponse, key, server, ticks, valuesResponse} from "./helpers";
 
 const API = "/api/";
 const BOUNDS = [10, 50, 10.01, 50.01];
@@ -113,6 +115,26 @@ describe("the compare helpers", () => {
                              b_finding: 8}, 9)).toBe("?b=12&a_tab=as_converted&b_tab=as_converted&findings=0&b_finding=8");
     });
 
+    it("keep the overlay, its opacity and its swipe in the URL, between their limits", () => {
+        expect(readCompare("?b=12&overlay=b&opacity=140&swipe=-5")).toEqual({b: 12, overlay: "b", opacity: 100, swipe: 0});
+        expect(readCompare("?overlay=c&opacity=x")).toEqual({});
+        expect(readCompare("?diff=a&overlay=b")).toEqual({diff: "a"});
+        expect(compareQuery({a: 9, b: 12, a_tab: "visual", b_tab: "as_converted", overlay: "b", opacity: 60, swipe: 50}, 9))
+            .toBe("?b=12&a_tab=visual&b_tab=as_converted&overlay=b&opacity=60");
+        // Without the overlay its opacity and swipe are left out
+        expect(compareQuery({a: 9, b: 12, a_tab: "as_converted", b_tab: "as_converted", overlay: "", opacity: 60, swipe: 20}, 9))
+            .toBe("?b=12&a_tab=as_converted&b_tab=as_converted");
+    });
+
+    it("offer a conversion's visual mosaic where it has one, read on its as converted values", () => {
+        expect(comparedTabs({...LIST[0], visual: true})).toEqual(["as_converted", "harmonized", "visual"]);
+        expect(comparedTabs(LIST[0])).toEqual(["as_converted", "harmonized"]);
+        expect(comparedTabs({...LIST[0], tabs: ["harmonized"], visual: true})).toEqual(["harmonized"]);
+        expect(firstTab({...LIST[0], visual: true}, "visual")).toBe("visual");
+        expect(firstTab(LIST[0], "visual")).toBe("as_converted");
+        expect([dataTab("visual"), dataTab("harmonized")]).toEqual(["as_converted", "harmonized"]);
+    });
+
     it("group the mosaics by dataset (another project's named) and start a pane on the tab wanted, else another than the other pane's", () => {
         expect(mosaicGroups(LIST).map((g) => [g.name, g.items.map((c) => c.id)])).toEqual([["Roof", [9]], ["Field", [12]]]);
         // Another project's datasets are named with it
@@ -153,6 +175,9 @@ describe("the compare parts", () => {
         expect(byId("root").textContent).toBe("A20.00 °CB21.11 °CA − B-1.11 °C");
         render(<DifferenceReadout a={{valid: false, reason: "outside_raster"}} b={null} aUnit="C" bUnit="F"/>, byId("root"));
         expect(byId("root").textContent).toBe("Aoutside the mosaicBno dataA − Bno data");
+        render(<DifferenceReadout a={{valid: true, temperature: 20}} b={{valid: true, temperature: 70}} aUnit="C" bUnit="F"
+                                  difference={false}/>, byId("root"));
+        expect(byId("root").textContent).toBe("A20.00 °CB21.11 °C");
     });
 });
 
@@ -238,7 +263,7 @@ describe("the compare page", () => {
         await ticks(40);
         expect(byId("pane-b").querySelector(".compare-note")!.textContent).toBe("These mosaics do not overlap.");
         // Above the map, which stays as it was, with no colour scale
-        expect(byId("pane-b").querySelector(".compare-note + .compare-map .ol-scale-line")).not.toBeNull();
+        expect(byId("pane-b").querySelector(".compare-note + .compare-stage .ol-scale-line")).not.toBeNull();
         expect((byId("pane-b").querySelector(".map-legend") as HTMLElement).hidden).toBe(true);
     });
 
@@ -301,6 +326,100 @@ describe("the compare page", () => {
         await open(server(routes({[API + "conversions/9/mosaics"]: () => Promise.reject(new Error("down"))})));
         expect(byId("status").textContent!.trim()).toBe("Could not load the mosaics.");
         expect(byId("status").getAttribute("role")).toBe("alert");
+    });
+});
+
+describe("visual mosaics on the compare page", () => {
+    const VISUAL_LIST = [{...LIST[0], visual: true}, LIST[1]];
+    const WITH_VISUAL = {...NADIR, visual: {bounds: BOUNDS, minzoom: 15, maxzoom: 22}};
+    const visualRoutes = (extra: Record<string, unknown> = {}) => routes({
+        [API + "conversions/9/comparable"]: [VISUAL_LIST], [API + "conversions/9/mosaics"]: WITH_VISUAL, ...extra});
+    const tiles = (m: OlMap) => m.getLayers().getArray().filter((l) => l instanceof TileLayer && !(l instanceof WebGLTileLayer) &&
+        String((l as TileLayer<XYZ>).getSource()?.getUrls()?.[0]).includes("/visual/tiles/")) as TileLayer<XYZ>[];
+    const values = (m: OlMap) => m.getLayers().getArray().filter((l) => l instanceof WebGLTileLayer) as WebGLTileLayer[];
+
+    it("shows a conversion's visual mosaic in a pane, with no palette and no difference, read on its as converted values", async () => {
+        history.replaceState(null, "", "/conversion/9/compare?b=12&diff=b");
+        const fetchFn = server(visualRoutes({
+            [API + "conversions/9/mosaics/as_converted/difference?b=12&b_tab=as_converted"]: DIFF,
+            ["POST " + API + "conversions/9/mosaics/as_converted/sources"]: SOURCES,
+        }));
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        expect($("#pane-b select[name=show]")!.value).toBe("diff");
+        expect(Array.from(document.querySelectorAll("#pane-a select[name=mosaic] option")).map((o) => (o as HTMLOptionElement).value))
+            .toEqual(["9:as_converted", "9:harmonized", "9:visual", "12:as_converted"]);
+        choose($("#pane-a select[name=mosaic]")!, "9:visual");
+        await ticks(40);
+        // The difference is shown no more, nor offered
+        expect($("#pane-b select[name=show]")!.value).toBe("mosaic");
+        expect(($("#pane-b select[name=show] option[value=diff]") as unknown as HTMLOptionElement).disabled).toBe(true);
+        expect(location.search).toBe("?b=12&a_tab=visual&b_tab=as_converted");
+        expect(tiles(maps[0]).map((l) => l.getSource()!.getUrls()![0])).toEqual([API + "conversions/9/mosaics/visual/tiles/{z}/{x}/{y}.png"]);
+        expect(tiles(maps[0])[0].getVisible()).toBe(true);
+        expect(values(maps[0])).toEqual([]);
+        // The shared palette is B's, and A has no colour scale
+        expect($("#shared input[name=min]")!.value).toBe("15.5");
+        expect((byId("pane-a").querySelector(".map-legend") as HTMLElement).hidden).toBe(true);
+        // Its source frames are the as converted mosaic's, the window offering their visual pairs
+        click($("#pane-a [data-tool=point]")!);
+        await ticks();
+        clickMap(maps[0], [10.005, 50.005]);
+        await ticks(40);
+        expect(calls(fetchFn)).toContain("POST " + API + "conversions/9/mosaics/as_converted/sources");
+        expect($("[data-window=compare-a] .sources-groups")?.textContent ?? $("[data-window=compare-a]")!.textContent).toContain("Visual");
+        expect($("[data-window=compare-a] .sources-camera")).not.toBeNull();
+    });
+
+    it("draws A over B in one pane, faded and swiped as asked, with both values under the cursor", async () => {
+        history.replaceState(null, "", "/conversion/9/compare?b=12&a_tab=visual&overlay=b&opacity=60");
+        const maps = panesMaps();
+        await open(server(visualRoutes()), 12);
+        expect($("#pane-b select[name=show]")!.value).toBe("overlay");
+        // B's values under A's visual tiles, which are faded and cut at the line
+        const [under] = values(maps[1]), [over] = tiles(maps[1]);
+        expect(under.getZIndex()).toBe(0);
+        expect(over.getZIndex()).toBe(1);
+        expect(over.getOpacity()).toBeCloseTo(0.6);
+        expect(under.getOpacity()).toBe(1);
+        expect($("#pane-b input[name=opacity]")!.value).toBe("60");
+        expect(byId("swipe-b").style.left).toBe("50%");
+        expect($("#pane-a .compare-overlay")).toBeNull();
+        const opacity = $("#pane-b input[name=opacity]")!;
+        opacity.value = "25";
+        opacity.dispatchEvent(new Event("input", {bubbles: true}));
+        key(byId("swipe-b"), "ArrowRight");
+        await ticks();
+        expect(tiles(maps[1])[0].getOpacity()).toBeCloseTo(0.25);
+        expect(byId("swipe-b").getAttribute("aria-valuenow")).toBe("55");
+        expect(location.search).toBe("?b=12&a_tab=visual&b_tab=as_converted&overlay=b&opacity=25&swipe=55");
+        // The colour scale is B's, the one temperature mosaic drawn
+        expect(byId("pane-b").querySelector(".map-legend")!.textContent).toContain("B · As converted");
+
+        // Back to B's mosaic alone: A's tiles go, B's values stay whole
+        choose($("#pane-b select[name=show]")!, "mosaic");
+        await ticks(40);
+        expect(tiles(maps[1])).toEqual([]);
+        expect(values(maps[1])).toEqual([under]);
+        expect(byId("swipe-b" as string)).toBeNull();
+        expect(location.search).toBe("?b=12&a_tab=visual&b_tab=as_converted");
+    });
+
+    it("reads both mosaics in an overlay of two temperature mosaics, without their difference", async () => {
+        history.replaceState(null, "", "/conversion/9/compare?b=12&overlay=a");
+        const routed = server(visualRoutes());
+        // Each mosaic's value under the cursor, wherever it is
+        const fetchFn = vi.fn((url: string, opts?: RequestInit) => !url.includes("/point?") ? routed(url, opts) :
+            Promise.resolve(jsonResponse({valid: true, temperature: url.includes("/12/") ? 70 : 20})));
+        const maps = panesMaps();
+        await open(fetchFn as unknown as ReturnType<typeof server>, 12);
+        expect(values(maps[0]).map((l) => [l.getZIndex(), l.getOpacity()])).toEqual([[0, 1], [1, 1]]);
+        expect(byId("pane-a").querySelector(".map-legend")!.textContent).toContain("A · As converted");
+        maps[0].dispatchEvent(Object.assign(new MapBrowserEvent("pointermove", maps[0], new MouseEvent("pointermove") as PointerEvent),
+                                            {coordinate: fromLonLat([10.005, 50.005])}));
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await ticks(40);
+        expect(byId("pane-a").querySelector(".compare-readout")!.textContent).toBe("A20.00 °CB21.11 °C");
     });
 });
 

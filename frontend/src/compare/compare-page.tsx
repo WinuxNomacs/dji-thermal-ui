@@ -1,13 +1,15 @@
-// Two mosaics side by side: each pane shows a conversion's temperature mosaic, or the difference of pane A's and pane
-// B's (A − B), with pan and zoom linked, the cursor marked in the other pane, one palette and range shared (or each
+// Two mosaics side by side: each pane shows a conversion's temperature or visual mosaic, the difference of pane A's and
+// pane B's (A − B), or A's drawn over B's (faded, and swiped away right of a line), with pan and zoom linked, the cursor marked in the other pane, one palette and range shared (or each
 // pane's own), the split between the panes moved, and the source frames of a spot or an area drawn in a pane, in a
 // window, saved as a finding of its mosaic's dataset. Each pane draws its datasets' findings, opened by a click. The
-// view (the mosaics, the difference, the split, the findings shown and open) is kept in the URL.
+// view (the mosaics, the difference or overlay, the split, the findings shown and open) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
 import GeoJSON from "ol/format/GeoJSON";
 import type OlPoint from "ol/geom/Point";
 import type OlMap from "ol/Map";
+import type TileLayer from "ol/layer/Tile";
+import type XYZ from "ol/source/XYZ";
 import View from "ol/View";
 import type VectorSource from "ol/source/Vector";
 import CircleStyle from "ol/style/Circle";
@@ -28,15 +30,16 @@ import {Drawing, drawingKey} from "../measure/drawing";
 import {type Coords, type Geometry, type Shape, symbol, TOOLS, type Tool} from "../measure/measure";
 import {Toolbar} from "../measure/result";
 import {type Colouring} from "../map/colour";
-import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, MAX_ZOOM, mapToLonLat, mosaicMap, pointFeature, rasterPixel,
-        ThermalLayer, type Values, vectorLayer} from "../map/map";
+import {type Basemap, clipLeft, DATA_GUTTER, fitBounds, lonLatToMap, MAX_ZOOM, mapToLonLat, mosaicMap, pointFeature,
+        rasterPixel, ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {type Scale} from "../viewer/canvas";
 import {type Point, Readout, ScaleView} from "../viewer/panel";
 import {type Adjust, dataUrl, defaultAdjust, type MosaicTab, tabLabel, toneShares} from "../viewer/view";
-import {type Mosaics, SOURCES_SHAPE} from "../viewer/viewer-page";
-import {autoRange, autoReach, clampSplit, type Comparable, type CompareStyle, compareQuery, type DiffInfo, differenceDataUrl,
-        differenceUrl, type DiffStyle, firstTab, frameCurveUrl, frameDataUrl, mosaicCurveUrl, mosaicGroups, NO_OVERLAP,
-        type PaneName, rangeIn, reachIn, readCompare, SPLIT_LIMITS, SPLIT_STEP} from "./compare";
+import {type Mosaics, SOURCES_SHAPE, WINDOW_VISUAL_PX} from "../viewer/viewer-page";
+import {autoRange, autoReach, clampShare, clampSplit, type Comparable, comparedTabs, type CompareStyle, compareQuery,
+        dataTab, type DiffInfo, differenceDataUrl, differenceUrl, type DiffStyle, firstTab, frameCurveUrl, frameDataUrl,
+        mosaicCurveUrl, mosaicGroups, NO_OVERLAP, OPACITY_STEP, type PaneName, rangeIn, reachIn, readCompare, SPLIT_LIMITS,
+        SPLIT_STEP, SWIPE_LIMITS, VISUAL} from "./compare";
 import {type Sources, sourcesUrl} from "../sources/sources";
 import {type SourceGroup, SourcesWindow} from "../sources/window";
 import {DifferenceReadout, StyleBar} from "./pane";
@@ -50,9 +53,10 @@ const NAMES: PaneName[] = ["a", "b"];
 const PANE_TOOLS = TOOLS.filter(([x]) => x === "point" || x === "area");
 const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
 
-// What a pane shows: a conversion's temperature tab (its mosaics' info), or the difference; its own palette and range
-// (used when they are not shared), and the difference's
-interface PaneState {conv: number; tab: string; info: Mosaics; diff: boolean; style: CompareStyle; diffStyle: DiffStyle | null}
+// What a pane shows: a conversion's temperature tab or visual mosaic (its mosaics' info), the difference, or A over B
+// (overlay); its own palette and range (used when they are not shared), and the difference's
+interface PaneState {conv: number; tab: string; info: Mosaics; diff: boolean; overlay: boolean; style: CompareStyle;
+                     diffStyle: DiffStyle | null}
 type Panes = Record<PaneName, PaneState>;
 
 // A spot or an area drawn in a pane, and the frames that saw it in each mosaic it reads (res undefined while they are
@@ -63,17 +67,27 @@ interface Pick {geometry: Geometry; shape?: Maybe<Shape>; mosaics: PickMosaic[];
 // The finding form open: a new one from a mosaic of what a pane's window shows (its index in the pick), or one changed
 interface Draft {title: string; fields: FindingFields; pane: PaneName; mosaic: number; edit?: Finding; error?: string}
 
-// A pane's map and what is on it: the cursor of the other pane, the spot or area drawn, the findings, the drawing
+// A mosaic or the difference drawn on a pane's map: its values coloured, or the visual mosaic's tiles
+interface Drawn {key: string; thermal?: ThermalLayer; tiles?: TileLayer<XYZ>; unclip: () => void}
+
+// A pane's map and what is on it: what it draws (bottom first; the top one, top, cut at swipe % across while it shows
+// A over B), the cursor of the other pane, the spot or area drawn, the findings, the drawing
 interface PaneMap {
-    map: OlMap; legend: HTMLDivElement; layer: ThermalLayer | null; layerKey: string | null;
+    map: OlMap; legend: HTMLDivElement; drawn: Drawn[]; top: string | null; swipe: number | null;
     marks: VectorSource; cursor: Feature | null; shape: VectorSource; findings: VectorSource; drawing: Drawing;
 }
 
-// What a pane's map shows: its values (key: which mosaic or difference) and how they are coloured
-interface LayerSpec {key: string; values: Values; colouring: Colouring}
+// What a pane's map draws: its values (key: which mosaic or difference) and how they are coloured, or the visual tiles
+interface LayerSpec {key: string; values?: Values; colouring?: Colouring; visual?: {url: string; bounds: number[]; maxZoom: number}}
 
 const other = (name: PaneName): PaneName => name === "a" ? "b" : "a";
-const tabEntry = (p: PaneState): MosaicTab | undefined => (p.info.tabs || []).find((t) => t.tab === p.tab);
+const tabEntry = (p: PaneState): MosaicTab | undefined => (p.info.tabs || []).find((t) => t.tab === dataTab(p.tab));
+const isVisual = (p: PaneState) => p.tab === VISUAL;
+// The panes whose mosaics a pane draws, bottom first: its own, B's under A's for the overlay, none for the difference
+const drawsOf = (n: PaneName, p: PaneState): PaneName[] => p.diff ? [] : p.overlay ? ["b", "a"] : [n];
+// Whose source frames and findings a pane shows: A's and B's for the difference and the overlay
+const readsOf = (n: PaneName, p: PaneState): PaneName[] => p.diff || p.overlay ? ["a", "b"] : [n];
+const olLayer = (d: Drawn) => d.thermal ? d.thermal.layer : d.tiles!;
 const diffKey = (panes: Panes) => [panes.a.conv, panes.a.tab, panes.b.conv, panes.b.tab].join(":");
 const WORLD = [-180, -85, 180, 85];
 // A view of its own where another map's is (a pane unlinked)
@@ -99,6 +113,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const [linked, setLinked] = useState(true);
     const [locked, setLocked] = useState(true);
     const [split, setSplit] = useState(wanted.split || 50);
+    const [opacity, setOpacity] = useState(wanted.opacity ?? 100);
+    const [swipe, setSwipe] = useState(wanted.swipe ?? 50);
     const [dragging, setDragging] = useState(false);
     const [diffs, setDiffs] = useState<Record<string, DiffInfo | null>>({});     // null: it could not be loaded
     const [under, setUnder] = useState<Record<PaneName, Maybe<Point>> | undefined>(undefined);
@@ -120,6 +136,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const asking = useRef<Record<string, boolean>>({});
     const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const drag = useRef(false);
+    const swiping = useRef<PaneName | null>(null);
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, a: 0, b: 0});
 
@@ -153,6 +170,9 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         return infos.current[conv];
     }
 
+    // The Auto range of the panes' temperature mosaics
+    const thermalRange = (p: Panes) => autoRange(NAMES.filter((n) => !isVisual(p[n])).map((n) => ({tab: tabEntry(p[n]), unit: p[n].info.unit})));
+
     async function start() {
         try {
             const r = await get<Comparable[]>(api + "conversions/" + id + "/comparable");
@@ -166,11 +186,13 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             const bTab = b.id === a.id ? firstTab(b, wanted.b_tab, aTab) : firstTab(b, wanted.b_tab);
             const [ia, ib] = await Promise.all([info(a.id), info(b.id)]);
             const style: CompareStyle = {palette: ia.default_palette || "", adjust: defaultAdjust(), range: [0, 1]};
+            // No difference with a visual mosaic
+            const diff = aTab === VISUAL || bTab === VISUAL ? "" : wanted.diff;
             const next: Panes = {
-                a: {conv: a.id, tab: aTab, info: ia, diff: wanted.diff === "a", style, diffStyle: null},
-                b: {conv: b.id, tab: bTab, info: ib, diff: wanted.diff === "b", style, diffStyle: null},
+                a: {conv: a.id, tab: aTab, info: ia, diff: diff === "a", overlay: wanted.overlay === "a", style, diffStyle: null},
+                b: {conv: b.id, tab: bTab, info: ib, diff: diff === "b", overlay: wanted.overlay === "b", style, diffStyle: null},
             };
-            style.range = autoRange(NAMES.map((n) => ({tab: tabEntry(next[n]), unit: next[n].info.unit})));
+            style.range = thermalRange(next);
             setPanes({a: {...next.a, style: copyStyle(style)}, b: {...next.b, style: copyStyle(style)}});
             setShared(style);
             setStatus(null);
@@ -187,11 +209,17 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         document.addEventListener("keydown", keys);
         // The split follows the mouse while its handle is held
         const move = (e: MouseEvent) => {
+            const sw = swiping.current && mapEls[swiping.current].current;
+            if (sw) {
+                const rect = sw.getBoundingClientRect();
+                if (rect.width > 0) setSwipe(clampShare((e.clientX - rect.left) / rect.width * 100));
+                return;
+            }
             if (!drag.current || !body.current) return;
             const rect = body.current.getBoundingClientRect();
             if (rect.width > 0) setSplit(clampSplit((e.clientX - rect.left) / rect.width * 100));
         };
-        const up = () => { drag.current = false; setDragging(false); };
+        const up = () => { drag.current = false; swiping.current = null; setDragging(false); };
         document.addEventListener("mousemove", move);
         document.addEventListener("mouseup", up);
         return () => {
@@ -229,7 +257,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 if (f) openFinding(n, f);
             },
         });
-        const pm: PaneMap = maps.current[n] = {map: m, legend, layer: null, layerKey: null, marks: vectorLayer(m, 20),
+        const pm: PaneMap = maps.current[n] = {map: m, legend, drawn: [], top: null, swipe: null, marks: vectorLayer(m, 20),
                                                cursor: null, shape: vectorLayer(m, 9), findings: findingsShown, drawing};
         // The cursor marked in the other pane
         m.on("pointermove", (e) => {
@@ -274,7 +302,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
 
     function pointOf(p: PaneState, at: Coordinate): Promise<Point | null> {
         const [lon, lat] = mapToLonLat(at);
-        return get<Point>(api + "conversions/" + p.conv + "/mosaics/" + p.tab + "/point?lon=" + lon + "&lat=" + lat)
+        return get<Point>(api + "conversions/" + p.conv + "/mosaics/" + dataTab(p.tab) + "/point?lon=" + lon + "&lat=" + lat)
             .then((r) => r.ok ? r.data : null, () => null);
     }
 
@@ -288,7 +316,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     }
 
     function sourcesOf(p: PaneState, geometry: Geometry): Promise<{res: Sources | null; error?: string}> {
-        return sendJson(sourcesUrl(api, p.conv, p.tab), "POST", {geometry}).then((res) => readJson<Sources>(res))
+        return sendJson(sourcesUrl(api, p.conv, dataTab(p.tab)), "POST", {geometry}).then((res) => readJson<Sources>(res))
             .then((r) => r.ok ? {res: r.data} : {res: null, error: errorText(r.data, "Could not find the frames.")},
                   () => ({res: null}));
     }
@@ -308,11 +336,14 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         (Array.isArray(read) ? read : [read]).forEach((x) => { x.setStyle(SOURCES_SHAPE); pm.shape.addFeature(x as Feature); });
     }
 
-    // The source frames of a spot or an area of the pane: its mosaic's, or A's and B's for the difference
+    // The source frames of a spot or an area of the pane: its mosaic's, or A's and B's for the difference and the
+    // overlay (once when they read the same values)
     function openSources(n: PaneName, geometry: Geometry, shape?: Maybe<Shape>) {
         const p = now.current.panes;
         if (!p) return;
-        const which: PaneName[] = p[n].diff ? ["a", "b"] : [n], asking_ = ++asked.current[n];
+        const reads = (x: PaneName) => p[x].conv + ":" + dataTab(p[x].tab);
+        const which = readsOf(n, p[n]).filter((x, i, all) => all.findIndex((y) => reads(y) === reads(x)) === i);
+        const asking_ = ++asked.current[n];
         showShape(n, geometry);
         const mosaics = which.map((x) => ({pane: x, conv: p[x].conv, unit: p[x].info.unit}));
         setPicks((s) => ({...s, [n]: {geometry, shape, mosaics}}));
@@ -331,12 +362,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     // The dataset of a conversion compared
     const datasetOf = (conv: number) => now.current.list.find((c) => c.id === conv)?.dataset;
 
-    // The datasets whose findings a pane draws: its mosaic's, or A's and B's for the difference
+    // The datasets whose findings a pane draws: its mosaic's, or A's and B's for the difference and the overlay
     function paneDatasets(n: PaneName): number[] {
         const p = now.current.panes;
         if (!p) return [];
         const out: number[] = [];
-        (p[n].diff ? NAMES : [n]).forEach((x) => {
+        readsOf(n, p[n]).forEach((x) => {
             const d = datasetOf(p[x].conv);
             if (d !== undefined && !out.includes(d)) out.push(d);
         });
@@ -345,11 +376,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
 
     const paneFindings = (n: PaneName) => paneDatasets(n).flatMap((d) => now.current.findings[d] || []);
 
-    // The pane whose mosaic a finding of a dataset is shown on, in a pane (A's first for the difference)
+    // The pane whose mosaic a finding of a dataset is shown on, in a pane (A's first for the difference and the overlay)
     function mosaicFor(n: PaneName, dataset: number): PaneName | null {
         const p = now.current.panes;
         if (!p) return null;
-        return (p[n].diff ? NAMES : [n]).find((x) => datasetOf(p[x].conv) === dataset) || null;
+        return readsOf(n, p[n]).find((x) => datasetOf(p[x].conv) === dataset) || null;
     }
 
     // A dataset's findings
@@ -387,7 +418,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             dataset = m && datasetOf(m.conv);
             if (!pick || !m || dataset === undefined) return;
             r = await readJson<Finding>(await sendJson(findingsUrl(api, dataset), "POST", {...fieldsBody(v, m.res?.frames),
-                conversion: m.conv, tab: p[m.pane].tab, geometry: pick.geometry, shape: pick.shape, parameters: {}}));
+                conversion: m.conv, tab: dataTab(p[m.pane].tab), geometry: pick.geometry, shape: pick.shape, parameters: {}}));
         }
         if (!r.ok) return setDraft({...d, fields: v, error: errorText(r.data, "Could not save the finding.")});
         setDraft(null);
@@ -399,7 +430,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     useEffect(() => { NAMES.forEach((n) => maps.current[n]?.map.updateSize()); }, [split, mapsMade]);
 
     // The spots and areas drawn asked again when what the panes show changes; a finding kept open where its dataset still is
-    const shownKey = panes ? key + ":" + panes.a.diff + ":" + panes.b.diff : "";
+    const shownKey = panes ? key + ":" + panes.a.diff + ":" + panes.b.diff + ":" + panes.a.overlay + ":" + panes.b.overlay : "";
     const firstShown = useRef(true);
     useEffect(() => {
         if (!shownKey) return;
@@ -469,8 +500,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         });
     }, [key, anyDiff, diffs, panes]);
 
+    // The temperature mosaics drawn in either pane
+    const thermalDrawn = panes ? NAMES.filter((x) => !isVisual(panes[x]) && NAMES.some((n) => drawsOf(n, panes[n]).includes(x))) : [];
+
     // The tone curves with equalization of the mosaics shown (from their whole histograms), each asked once
-    const curveUrls = panes && shared ? NAMES.filter((n) => !panes[n].diff && styleOf(n).adjust.equalize)
+    const curveUrls = panes && shared ? thermalDrawn.filter((n) => styleOf(n).adjust.equalize)
         .map((n) => mosaicCurveUrl(api, panes[n].conv, panes[n].tab, styleOf(n), panes[n].info.unit)) : [];
     useEffect(() => {
         curveUrls.forEach((url) => {
@@ -493,34 +527,45 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         return sharesOf(s.adjust, s.adjust.equalize ? curves[mosaicCurveUrl(api, p.conv, p.tab, styleOf(n), p.info.unit)] : null);
     };
 
-    // What each pane's map shows: its mosaic's values in its style, or the difference's
-    function layerOf(n: PaneName): LayerSpec | null {
-        const p = panes![n];
-        if (!p.diff) {
-            const t = tabEntry(p), s = drawnStyle(n);
-            if (!t?.bounds) return null;
-            return {key: p.conv + ":" + p.tab,
-                    values: {kind: "tiles", url: dataUrl(api, p.conv, p.tab), bounds: t.bounds, maxZoom: (t.maxzoom || 20) + 1,
-                             gutter: DATA_GUTTER, pixel: rasterPixel(t.bounds, p.info.kinds?.[t.kind || ""]?.width)},
-                    colouring: {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], range: rangeIn(s.range, p.info.unit),
-                                shares: mosaicShares(n), sharpen: s.adjust.sharpen}};
+    // A pane's mosaic as drawn: its values in its style, or the visual mosaic's tiles
+    function mosaicSpec(x: PaneName): LayerSpec | null {
+        const p = panes![x];
+        if (isVisual(p)) {
+            const v = p.info.visual;
+            return v?.bounds ? {key: x + ":" + p.conv + ":" + VISUAL, visual: {url: api + "conversions/" + p.conv +
+                "/mosaics/visual/tiles/{z}/{x}/{y}.png", bounds: v.bounds, maxZoom: (v.maxzoom || 20) + 1}} : null;
         }
-        const d = diffs[key];
-        if (!d || !d.range || !d.bounds || !p.diffStyle || p.diffStyle.key !== key) return null;
-        const r = reachIn(p.diffStyle.reach, d.unit);
-        return {key: "diff:" + key,
-                values: {kind: "tiles", bounds: d.bounds, url: differenceDataUrl(api, panes!.a.conv, panes!.a.tab, panes!.b.conv, panes!.b.tab),
-                         maxZoom: Math.max(tabEntry(panes!.a)?.maxzoom || 20, tabEntry(panes!.b)?.maxzoom || 20) + 1},
-                colouring: {colors: (d.palettes || []).find((x) => x.key === p.diffStyle!.palette)?.color_map || [], range: [-r, r]}};
+        const t = tabEntry(p), s = drawnStyle(x);
+        if (!t?.bounds) return null;
+        return {key: x + ":" + p.conv + ":" + p.tab,
+                values: {kind: "tiles", url: dataUrl(api, p.conv, p.tab), bounds: t.bounds, maxZoom: (t.maxzoom || 20) + 1,
+                         gutter: DATA_GUTTER, pixel: rasterPixel(t.bounds, p.info.kinds?.[t.kind || ""]?.width)},
+                colouring: {colors: palettes.find((c) => c.key === s.palette)?.color_map || [], range: rangeIn(s.range, p.info.unit),
+                            shares: mosaicShares(x), sharpen: s.adjust.sharpen}};
     }
 
-    // The colour scale of what a pane shows
+    // What each pane's map shows, bottom first: its mosaic, B's and A's for the overlay, or the difference's values
+    function layersOf(n: PaneName): LayerSpec[] {
+        const p = panes![n];
+        if (!p.diff) return drawsOf(n, p).map(mosaicSpec).filter((x): x is LayerSpec => !!x);
+        const d = diffs[key];
+        if (!d || !d.range || !d.bounds || !p.diffStyle || p.diffStyle.key !== key) return [];
+        const r = reachIn(p.diffStyle.reach, d.unit);
+        return [{key: "diff:" + key,
+                 values: {kind: "tiles", bounds: d.bounds, url: differenceDataUrl(api, panes!.a.conv, panes!.a.tab, panes!.b.conv, panes!.b.tab),
+                          maxZoom: Math.max(tabEntry(panes!.a)?.maxzoom || 20, tabEntry(panes!.b)?.maxzoom || 20) + 1},
+                 colouring: {colors: (d.palettes || []).find((x) => x.key === p.diffStyle!.palette)?.color_map || [], range: [-r, r]}}];
+    }
+
+    // The colour scale of what a pane shows: its temperature mosaic's (the top one's for the overlay), or the difference's
     function scaleOf(n: PaneName): Scale | null {
         const p = panes![n];
         if (!p.diff) {
-            const s = drawnStyle(n);
-            return {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], shown: s.range,
-                    shares: mosaicShares(n), caption: tabLabel(p.tab) + ", " + symbol()};
+            const x = drawsOf(n, p).reverse().find((y) => !isVisual(panes![y]));
+            if (!x) return null;
+            const s = drawnStyle(x);
+            return {colors: palettes.find((c) => c.key === s.palette)?.color_map || [], shown: s.range,
+                    shares: mosaicShares(x), caption: (p.overlay ? x.toUpperCase() + " · " : "") + tabLabel(panes![x].tab) + ", " + symbol()};
         }
         const d = diffs[key];
         if (!d || !d.range || !d.bounds || !p.diffStyle) return null;
@@ -528,27 +573,45 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 shown: [-p.diffStyle.reach, p.diffStyle.reach], caption: "A − B, " + symbol()};
     }
 
-    const layers = panes && shared ? {a: layerOf("a"), b: layerOf("b")} : null;
+    const layers = panes && shared ? {a: layersOf("a"), b: layersOf("b")} : null;
     const scales = panes && shared ? {a: scaleOf("a"), b: scaleOf("b")} : null;
 
-    // The layers drawn again in their style, made again when what they show changes
+    // The layers drawn again in their style, made again when what they show changes; the overlay's top one faded and
+    // cut at the swipe line
     useEffect(() => {
         if (!layers || !mapsMade) return;
         NAMES.forEach((n) => {
-            const pm = maps.current[n]!, spec = layers[n];
-            if (!spec) {
-                pm.layer?.remove();
-                pm.layer = pm.layerKey = null;
-            } else if (pm.layer && pm.layerKey === spec.key) {
-                pm.layer.setValues(spec.values);
-                pm.layer.setColouring(spec.colouring);
-            } else {
-                pm.layer?.remove();
-                pm.layer = new ThermalLayer(pm.map, spec.values, spec.colouring);
-                pm.layerKey = spec.key;
-            }
+            const pm = maps.current[n]!, specs = layers[n], keys = specs.map((x) => x.key);
+            pm.drawn.filter((d) => !keys.includes(d.key)).forEach((d) => {
+                d.unclip();
+                if (d.thermal) d.thermal.remove();
+                else pm.map.removeLayer(d.tiles!);
+            });
+            pm.drawn = specs.map((spec) => {
+                const had = pm.drawn.find((d) => d.key === spec.key);
+                if (had?.thermal) {
+                    had.thermal.setValues(spec.values!);
+                    had.thermal.setColouring(spec.colouring!);
+                }
+                if (had) return had;
+                const made: Drawn = spec.visual ? {key: spec.key, unclip: () => undefined,
+                                                   tiles: visualLayer(pm.map, spec.visual.url, spec.visual.bounds, spec.visual.maxZoom)} :
+                    {key: spec.key, unclip: () => undefined, thermal: new ThermalLayer(pm.map, spec.values!, spec.colouring!)};
+                made.unclip = clipLeft(olLayer(made), () => pm.top === made.key ? pm.swipe : null);
+                return made;
+            });
+            const overlay = panes![n].overlay && pm.drawn.length > 1;
+            pm.top = overlay ? pm.drawn[pm.drawn.length - 1].key : null;
+            pm.swipe = overlay ? swipe : null;
+            pm.drawn.forEach((d, i) => {
+                const l = olLayer(d);
+                l.setZIndex(i);
+                l.setVisible(true);
+                l.setOpacity(overlay && d.key === pm.top ? opacity / 100 : 1);
+            });
+            pm.map.render();
         });
-    }, [JSON.stringify(layers), mapsMade]);
+    }, [JSON.stringify(layers), mapsMade, opacity, swipe]);
 
     useEffect(() => {
         if (!scales || !mapsMade) return;
@@ -564,25 +627,36 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         if (!panes) return;
         const view = {a: panes.a.conv, b: panes.b.conv, a_tab: panes.a.tab, b_tab: panes.b.tab, split,
                       diff: panes.a.diff ? "a" as const : panes.b.diff ? "b" as const : "" as const, findings: showFindings,
+                      overlay: panes.a.overlay ? "a" as const : panes.b.overlay ? "b" as const : "" as const, opacity, swipe,
                       a_finding: picks.a?.finding ?? toOpen.current.a, b_finding: picks.b?.finding ?? toOpen.current.b};
         history.replaceState(null, "", location.pathname + compareQuery(view, id));
-    }, [shownKey, split, showFindings, picks.a?.finding, picks.b?.finding]);
+    }, [shownKey, split, showFindings, picks.a?.finding, picks.b?.finding, opacity, swipe]);
 
     function setPane(n: PaneName, changes: Partial<PaneState>) {
         setPanes((s) => s && {...s, [n]: {...s[n], ...changes}});
     }
 
+    // A pane's mosaic chosen: the difference shown no more when it is a visual mosaic
     async function choose(n: PaneName, value: string) {
         const [conv, tab] = [parseInt(value.split(":")[0], 10), value.split(":")[1]];
         try {
-            setPane(n, {conv, tab, info: await info(conv)});
+            const got = await info(conv);
+            setPanes((s) => {
+                if (!s) return s;
+                const out = {...s, [n]: {...s[n], conv, tab, info: got}};
+                if (tab === VISUAL) NAMES.forEach((x) => { out[x] = {...out[x], diff: false}; });
+                return out;
+            });
         } catch {
             setStatus({text: "Could not load the mosaics.", error: true});
         }
     }
 
-    function show(n: PaneName, diff: boolean) {
-        setPanes((s) => s && {...s, [n]: {...s[n], diff}, ...(diff ? {[other(n)]: {...s[other(n)], diff: false}} : {})});
+    // What a pane shows: its mosaic, the difference or the overlay (which the other pane then does not show)
+    function show(n: PaneName, what: string) {
+        const diff = what === "diff", overlay = what === "overlay";
+        setPanes((s) => s && {...s, [n]: {...s[n], diff, overlay},
+                              ...(diff || overlay ? {[other(n)]: {...s[other(n)], diff: false, overlay: false}} : {})});
     }
 
     // A palette or range changed: the shared one, a pane's own, or a pane's difference's; while a slider is dragged
@@ -597,9 +671,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     }
 
     function auto(where: PaneName | "shared") {
-        if (where === "shared") {
-            return changeStyle(where, {range: autoRange(NAMES.map((n) => ({tab: tabEntry(panes![n]), unit: panes![n].info.unit})))});
-        }
+        if (where === "shared") return changeStyle(where, {range: thermalRange(panes!)});
         const p = panes![where];
         changeStyle(where, p.diff ? {reach: autoReach(diffs[key])} : {range: autoRange([{tab: tabEntry(p), unit: p.info.unit}])});
     }
@@ -640,6 +712,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     about: savable ? <SaveFinding onSave={() => setDraft({title: "Save as finding", fields: blankFields(),
                                                                           pane: n, mosaic: i})}/> : null,
                     values: (f) => frameDataUrl(api, m.conv, f),
+                    visual: panes![m.pane].info.visual ? (f) => api + "conversions/" + m.conv + "/frame/visual?frame=" +
+                        encodeURIComponent(f) + "&size=" + WINDOW_VISUAL_PX : undefined,
                     curve: (f) => s.adjust.equalize ? frameCurveUrl(api, m.conv, f, s, m.unit) : "",
                     colouring: {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], range: rangeIn(s.range, m.unit),
                                 shares: sharesOf(s.adjust, null), sharpen: s.adjust.sharpen}};
@@ -661,9 +735,18 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         return res === undefined ? undefined : res?.frames ?? null;
     }
 
+    function swipeKey(e: KeyboardEvent) {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        setSwipe((s) => clampShare(s + (e.key === "ArrowLeft" ? -SPLIT_STEP : SPLIT_STEP)));
+    }
+
     function paneView(n: PaneName) {
         const p = panes?.[n], d = diffs[key];
-        const ownStyle = p && (p.diff ? !!p.diffStyle : !locked);
+        const ownStyle = p && (p.diff ? !!p.diffStyle : !locked && !isVisual(p) && !p.overlay);
+        const anyVisual = !!panes && NAMES.some((x) => isVisual(panes[x]));
+        // The window opens on the visual frames where the pane shows a visual mosaic on top
+        const onVisual = !!p && !p.diff && isVisual(panes![p.overlay ? "a" : n]);
         const note = !p?.diff ? "" : d === null ? "Could not load the difference." : d && (!d.range || !d.bounds) ? NO_OVERLAP : "";
         return (<div class={"compare-pane" + (tools[n].tool ? " picking" : "")} id={"pane-" + n} data-pane={n}
                      style={n === "a" ? {flexBasis: split + "%"} : undefined}>
@@ -672,13 +755,14 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 <select name="mosaic" title={"The mosaic of pane " + n.toUpperCase()} value={p.conv + ":" + p.tab}
                         onChange={(e) => choose(n, e.currentTarget.value)}>
                     {mosaicGroups(list, list.find((c) => c.id === id)?.project).map((g) => <optgroup key={g.name} label={g.name}>
-                        {g.items.flatMap((c) => c.tabs.map((t) =>
+                        {g.items.flatMap((c) => comparedTabs(c).map((t) =>
                             <option key={c.id + ":" + t} value={c.id + ":" + t}>{c.name + " · " + tabLabel(t)}</option>))}
                     </optgroup>)}
                 </select>
-                <select name="show" value={p.diff ? "diff" : "mosaic"} onChange={(e) => show(n, e.currentTarget.value === "diff")}>
+                <select name="show" value={p.diff ? "diff" : p.overlay ? "overlay" : "mosaic"} onChange={(e) => show(n, e.currentTarget.value)}>
                     <option value="mosaic">Mosaic</option>
-                    <option value="diff">Difference (A − B)</option>
+                    <option value="diff" disabled={anyVisual} title={anyVisual ? "Not with a visual mosaic" : undefined}>Difference (A − B)</option>
+                    <option value="overlay">Overlay (A over B)</option>
                 </select>
                 <div class="compare-tools">
                     <span class="text-muted">Source frames</span>
@@ -687,6 +771,13 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                              onTool={(x) => pickTool(n, x)} onFinish={() => { maps.current[n]?.drawing.finish(); syncTools(); }}/>
                 </div>
             </div>}
+            {p?.overlay && <div class="compare-overlay">
+                <label class="slider" title="How much of B shows through A">Opacity of A
+                    <input type="range" name="opacity" min={0} max={100} step={OPACITY_STEP} value={opacity}
+                           onInput={(e) => setOpacity(clampShare(parseFloat(e.currentTarget.value)))}/>
+                </label>
+                <span class="text-muted">Drag the line across the map to show B right of it.</span>
+            </div>}
             {p && ownStyle && (p.diff ?
                 <StyleBar key={n + ":diff"} style={p.diffStyle!} palettes={d?.palettes || []} what="the difference"
                           onChange={(c) => changeStyle(n, c)} onAuto={() => auto(n)}/> :
@@ -694,25 +785,33 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                           onChange={(c, done) => changeStyle(n, c, done)} onAuto={() => auto(n)}/>)}
             {note ? <div class="compare-note message">{note}</div> : null}
             {/* Keyed: what comes and goes above it is never taken for it, which would lose its map */}
-            <div class="compare-map" key="map" id={"map-" + n} ref={mapEls[n]}/>
+            <div class="compare-stage" key="map">
+                <div class="compare-map" id={"map-" + n} ref={mapEls[n]}/>
+                {p?.overlay && <div class="compare-swipe" id={"swipe-" + n} role="separator" aria-orientation="vertical"
+                                    tabIndex={0} aria-label="Move the line A is shown left of" aria-valuenow={swipe}
+                                    aria-valuemin={SWIPE_LIMITS[0]} aria-valuemax={SWIPE_LIMITS[1]} style={{left: swipe + "%"}}
+                                    onKeyDown={swipeKey}
+                                    onMouseDown={(e) => { swiping.current = n; setDragging(true); e.preventDefault(); }}/>}
+            </div>
             {p && <div class="compare-readout">
                 {under === undefined ? <span class="message">Move the cursor over a mosaic.</span> :
-                    p.diff ? <DifferenceReadout a={under.a} b={under.b} aUnit={panes!.a.info.unit} bUnit={panes!.b.info.unit}/> :
+                    p.diff || p.overlay ? <DifferenceReadout a={under.a} b={under.b} aUnit={panes!.a.info.unit}
+                                                             bUnit={panes!.b.info.unit} difference={p.diff}/> :
                     <Readout point={under[n]} unit={p.info.unit} frameUrl={frameUrl(p.conv)} pinned={false} onFollow={() => undefined}/>}
             </div>}
             {p && picks[n] && <SourcesWindow name={"compare-" + n} anchor={mapEls[n].current} groups={pickedGroups(n)}
-                                             about={findingAbout(n)} onClose={() => closePick(n)}/>}
+                                             about={findingAbout(n)} visual={onVisual} onClose={() => closePick(n)}/>}
         </div>);
     }
 
-    const sharedShown = locked && !!shared && !!panes && (!panes.a.diff || !panes.b.diff);
+    const sharedShown = locked && !!shared && thermalDrawn.length > 0;
     return (
         <div class={"page compare" + (dragging ? " dragging" : "")}>
             <div class="breadcrumb"><a href={publicUrl + "conversion/" + id}><ArrowLeft/> {datasetName} · {name}</a></div>
             <div class="page-header">
                 <div>
                     <h1>Compare</h1>
-                    <div class="subtitle">Two mosaics side by side, or their difference.</div>
+                    <div class="subtitle">Two mosaics side by side, one over the other, or their difference.</div>
                 </div>
                 <div class="page-actions">
                     <button type="button" id="link" class={"button default" + (linked ? " active" : "")} aria-pressed={linked}

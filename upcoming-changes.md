@@ -9,7 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
+- Nothing yet.
 
 **Then**
 - Nothing yet.
@@ -698,7 +698,20 @@ Requested 2026-10-28 (`new.md`):
 - **Registration (decided 2026-10-27):** the thermal mosaic's placement: each visual frame takes its thermal frame's
   refined shift and rotation and the estimated heights, so the two line up by construction; the one constant offset
   between the two cameras is measured, applied and reported. A visual mosaic is built only with the thermal one.
-- **Overlay in F3:** side by side only, a swipe, an opacity blend, or all three.
+- **Overlay in F3 (decided 2026-10-28):** side by side, a swipe and an opacity blend; see "F3: decisions".
+
+### F3: decisions (2026-10-28)
+
+- **Panes:** the compare page's mosaic menu lists each conversion's visual mosaic ("· Visual") beside its thermal
+  tabs. A visual pane is drawn as the viewer's Visual tab: no palette, its readout the conversion's temperature under
+  the cursor, findings drawn over it, and its source frames window opening on the Visual camera. "Difference" is not
+  offered while either pane is visual.
+- **Overlay:** each pane's Show menu gains "Overlay (A over B)": A's mosaic drawn over B's on one map, with an opacity
+  slider and a swipe line dragged across it (both kept in the URL). It works for thermal over visual and for two
+  thermal mosaics; the readout gives both values.
+- **Frames:** the frame page's switch becomes Thermal / Visual / Both. Both shows the visual pair in a second pane
+  beside the thermal frame, the two moving together, with the shapes and the cursor drawn on both; with the
+  parameters changed, that pane comes third.
 
 ### F2: decisions (2026-10-27)
 
@@ -969,3 +982,20 @@ Requested 2026-10-28 (`new.md`):
   - **Also on this branch:** the test of the command retries reading the journal mode while Windows still holds
     the stopped server's database files (it failed now and then on CI's Windows with Python 3.14; merged before as
     `fix-windows-wal-test`).
+- **F3: comparing visual and thermal** (2026-10-28, branch `f3-visual-compare`).
+  - **Compare page:** the mosaic menu lists each conversion's visual mosaic (`comparable` says `visual`;
+    `comparedTabs`, `dataTab` and `VISUAL` in `compare/compare.ts`). A visual pane draws the visual tiles
+    (`visualLayer`), reads the as converted values (readout, source frames, a finding's tab), opens its window on
+    the visual pairs, has no palette or colour scale, and turns the difference off and keeps it from being chosen.
+    "Overlay (A over B)" draws both panes' mosaics in one pane (`drawsOf`/`layersOf` in `compare-page.tsx`, the
+    top one faded and cut by `clipLeft` in `map/map.ts`: a scissor on WebGL, a clip on a canvas); opacity and swipe
+    are in the URL (`overlay=`, `opacity=`, `swipe=`), and the readout gives A and B without A − B.
+  - **Frame page:** the switch is Thermal / Visual / Both (kept as before in localStorage: "1" Visual, "2" Both).
+    Both shows the pair in a side pane (`SIDE`) with its own view (`frameView(32)`), which follows the frame's
+    through the pair and the reverse (`viewThere`). The shapes and the cursor are drawn on every pane, and the
+    PNG export takes the side pane.
+  - **Tests:** pytest for `comparable`'s flag; Vitest for the URL, the tabs offered, the visual pane, the overlay's
+    layers, opacity, swipe and readout, and Both's pane and its view following. Checked live on dataset 1, light and
+    dark: a visual pane beside a thermal one, A over B swiped and faded (a 50% blend is the mean of the two
+    pixels), an overlay of two thermal mosaics, the window from a visual pane, Both with a spot measured, zoomed
+    and stepped to the next frame, and the PNG export. No console errors and no failed requests.

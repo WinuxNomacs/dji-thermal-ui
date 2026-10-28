@@ -639,9 +639,10 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .compare-style {
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 6px; font-size: 13px;
 }
-.compare-style label { display: inline-flex; align-items: center; gap: 4px; }
-.compare-style .slider { display: inline-flex; margin: 0; }
-.compare-style input[type="range"] { width: 90px; }
+.compare-style label, .compare-overlay label { display: inline-flex; align-items: center; gap: 4px; }
+.compare-style .slider, .compare-overlay .slider { display: inline-flex; margin: 0; }
+.compare-style input[type="range"], .compare-overlay input[type="range"] { width: 90px; }
+.compare-overlay { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 6px; font-size: 13px; }
 .compare-body { display: flex; align-items: stretch; }
 .compare-pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 #pane-a { flex-grow: 0; flex-shrink: 0; }      /* its width the split's, set on it */
@@ -658,6 +659,21 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .compare-name { font-weight: 600; }
 .compare-map { height: calc(100vh - 300px); min-height: 320px; border-radius: var(--radius); }
 .compare-pane.picking .compare-map { cursor: crosshair; }
+/* The overlay's swipe line: A is drawn left of it */
+.compare-stage { position: relative; }
+.compare-swipe {
+    position: absolute; top: 0; bottom: 0; z-index: 5; width: 16px; margin-left: -8px; cursor: col-resize;
+}
+.compare-swipe::before {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 7px; width: 2px; background: #fff;
+    box-shadow: 0 0 3px rgba(0, 0, 0, .6);
+}
+.compare-swipe::after {
+    content: ""; position: absolute; top: 50%; left: 2px; width: 12px; height: 28px; margin-top: -14px;
+    background: #fff; border-radius: 6px; box-shadow: 0 0 3px rgba(0, 0, 0, .6);
+}
+.compare-swipe:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.compare-swipe:hover::after, .compare-swipe:focus::after { background: var(--accent); }
 .compare-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .compare-tools .measure-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; }
 .compare-tools .tool-hint { margin: 0; }
