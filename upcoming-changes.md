@@ -1272,6 +1272,14 @@ name already in use is never reused.
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **Fix: New Flight's folder picker and TIFFs** (2026-10-28, reported by the user: "Ability to create new flights
+  seems to be completely broken"). "Choose a folder" gave Preact `webkitdirectory: ""`, which it sets as the
+  property, false: the input was a file picker, where a folder cannot be chosen; it is `true` now. Files chosen
+  with no JPEG among them (the user chose TIFFs) said "Choose the images to upload"; `noImagesText` now says that a
+  flight is made of R-JPEGs, as soon as they are chosen and on Create (`datasets/new-dataset.tsx`). Tests:
+  `frontend/tests/datasets.test.tsx` (the folder test with the property as browsers have it; both fail on the old
+  code). Checked live on 8080: TIFFs by files and by folder told apart, R-JPEGs by files and by folder made flights
+  (deleted after).
 - **Fix: the Oblique frames list** (2026-10-28, reported by the user). A conversion with a pitch limit does not
   convert its oblique frames, so the Oblique list (converted frames the mosaics left out) was empty and fell back to
   every frame, the mosaic's included. It now lists every frame the mosaics left out, converted or not (tagged
