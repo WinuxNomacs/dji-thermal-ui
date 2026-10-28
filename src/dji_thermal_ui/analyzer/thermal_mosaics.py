@@ -8,6 +8,10 @@ Files, in the conversion's folder:
     viewer/<kind>.tif (+ .json)    a georeferenced copy for the map, only when the conversion strips the location (the
                                    downloads are then stripped); never downloaded
     viewer/palettes.json           DJI's palettes, read from one of the frames
+    mosaics/visual/mosaic_visual.tif (+ .json), mosaic_visual_preview.png    the visual mosaic, when the conversion
+                                   asks for it and the dataset has visual frames (downloads)
+    viewer/visual.tif              its copy for the map's tiles: tiled, JPEG with a mask, with overviews
+    viewer/visual_pairs.json       each thermal frame's visual frame, and how a pixel of one is found in the other
 """
 import json
 import os
@@ -29,6 +33,11 @@ TABS = (('as_converted', 'as_converted', 1), ('harmonized', 'harmonized', 1),
 MOSAICS_DIR = 'mosaics'
 VIEWER_DIR = 'viewer'       # served by the app only: left out of the downloads
 PALETTES_FILE = 'palettes.json'
+VISUAL = 'visual'           # the visual mosaic's kind, folder and viewer files
+VISUAL_PAIRS_FILE = 'visual_pairs.json'
+VISUAL_TILE = 512           # the map copy's blocks
+VISUAL_OVERVIEW_PX = 256    # its overviews halve until it is about this many pixels across
+VISUAL_QUALITY = 90         # its JPEG quality
 PERCENTILES = (2, 98)
 ABSOLUTE_ZERO = {'C': -273.15, 'F': -459.67, 'K': 0.0}
 # dji-thermal-cli's mosaic default (nadir frames), unless the conversion sets its own pitch limit
@@ -109,6 +118,127 @@ def dji_palettes(jpegs):
     return {}
 
 
+def visual_raster(conversion_dir, mosaics):
+    """The visual mosaic's copy for the map, or None when there is none"""
+    v = mosaics.get(VISUAL)
+    return os.path.join(conversion_dir, v['raster']) if v and v.get('raster') else None
+
+
+def read_visual_pairs(conversion_dir):
+    """{thermal frame: its visual pair (see visual_pairs)}, {} without a visual mosaic"""
+    try:
+        with open(os.path.join(conversion_dir, VIEWER_DIR, VISUAL_PAIRS_FILE), encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def map_copy(src_path, path):
+    """The visual mosaic (4 bands, the 4th its alpha) copied for the map's tiles: tiled, JPEG in YCbCr with the alpha
+    as its mask, and overviews averaged down to about VISUAL_OVERVIEW_PX across, so that zoomed out tiles read little"""
+    import rasterio
+    from rasterio.enums import Resampling
+    env = dict(GDAL_TIFF_INTERNAL_MASK=True, COMPRESS_OVERVIEW='JPEG', PHOTOMETRIC_OVERVIEW='YCBCR',
+               JPEG_QUALITY_OVERVIEW=VISUAL_QUALITY)
+    with rasterio.Env(**env), rasterio.open(src_path) as src:
+        profile = dict(driver='GTiff', width=src.width, height=src.height, count=3, dtype='uint8', crs=src.crs,
+                       transform=src.transform, tiled=True, blockxsize=VISUAL_TILE, blockysize=VISUAL_TILE,
+                       compress='JPEG', photometric='YCBCR', jpeg_quality=VISUAL_QUALITY)
+        with rasterio.open(path, 'w', **profile) as dst:
+            for _, window in dst.block_windows(1):
+                rgba = src.read(window=window)
+                dst.write(rgba[:3], window=window)
+                dst.write_mask(rgba[3], window=window)
+            factors, f = [], 2
+            while max(src.width, src.height) / f >= VISUAL_OVERVIEW_PX:
+                factors.append(f)
+                f *= 2
+            if factors:
+                dst.build_overviews(factors, Resampling.average)
+    return path
+
+
+def homography(t, v):
+    """
+    How a pixel of a thermal frame is found in its visual frame (t, v: their frame models, as a mosaic's sidecar has
+    them): the 3x3 matrix taking the thermal pixel (column, row, 1) to the visual one, up to scale. Each camera
+    turns its rays as its model says; the visual camera's position is the thermal one's moved as the drone moved
+    between the two exposures, and both look at the ground plane below, which is what this maps (a roof stands
+    above it, and moves a little between them).
+    """
+    import numpy as np
+
+    def to_ray(m):          # pixel -> the camera's (forward, right, down)
+        f, (cx, cy) = m['focal_px'], m['principal_point_px']
+        return np.array([[0, 0, 1], [1 / f, 0, -cx / f], [0, 1 / f, -cy / f]])
+
+    def to_pixel(m):        # the camera's (forward, right, down) -> pixel
+        f, (cx, cy) = m['focal_px'], m['principal_point_px']
+        return np.array([[cx, f, 0], [cy, 0, f], [1, 0, 0]])
+
+    east, north = np.linalg.inv(np.asarray(t['local_to_utm'])) @ (np.asarray(v['camera_utm']) - np.asarray(t['camera_utm']))
+    moved = np.array([north, east, t['height_m'] - v['height_m']])
+    plane = np.eye(3) - np.outer(moved, [0, 0, 1]) / t['height_m']
+    h = to_pixel(v) @ np.asarray(v['ned_to_camera']) @ plane @ np.asarray(t['ned_to_camera']).T @ to_ray(t)
+    return h / h[2, 2]
+
+
+def visual_pairs(thermal_sidecar, visual_sidecar):
+    """Each thermal frame of the visual mosaic's: {thermal frame: {frame: its visual frame, width, height,
+    homography: 9 numbers, row by row (see homography)}}, from the two mosaics' sidecars (located: with their frame
+    models)"""
+    def read(path):
+        with open(path, encoding='utf-8') as f:
+            return json.load(f)
+    thermal, visual = read(thermal_sidecar), read(visual_sidecar)
+    t_models = {f['file']: f for f in (thermal.get('frame_models') or {}).get('frames') or []}
+    v_models = {f['file']: f for f in (visual.get('frame_models') or {}).get('frames') or []}
+    pairs = {}
+    for row in visual.get('frames') or []:
+        t, v = t_models.get(row.get('thermal_file')), v_models.get(row.get('file'))
+        if t and v:
+            pairs[t['file']] = {'frame': v['file'], 'width': v['width'], 'height': v['height'],
+                                'homography': [float('%.9g' % x) for x in homography(t, v).ravel()]}
+    return pairs
+
+
+def build_visual(report, thermal_raster, out_dir, stripped, compression):
+    """The visual mosaic dji-thermal-cli wrote beside the harmonized one (report: its VisualReport), moved to its own
+    folder, copied for the map and paired with the thermal frames: what the conversion keeps of it"""
+    from dji_thermal_cli import visual as dji_visual
+
+    folder = os.path.join(out_dir, MOSAICS_DIR, VISUAL)
+    os.makedirs(folder, exist_ok=True)
+    moved = [shutil.move(str(p), os.path.join(folder, p.name)) for p in (report.file, report.sidecar, report.preview)]
+    located = moved[0]
+    if stripped:
+        # The download has no location: the map and the pairs read a located copy, removed once they are made
+        located, _ = dji_visual.write(report.mosaic, Path(out_dir, VIEWER_DIR, 'visual_located.tif'), compression,
+                                      located=True)
+        located = str(located)
+    tif = map_copy(located, os.path.join(out_dir, VIEWER_DIR, VISUAL + '.tif'))
+    pairs = visual_pairs(Path(thermal_raster).with_suffix('.json'), Path(located).with_suffix('.json'))
+    with open(os.path.join(out_dir, VIEWER_DIR, VISUAL_PAIRS_FILE), 'w', encoding='utf-8') as f:
+        json.dump(pairs, f)
+    if stripped:
+        for p in (located, str(Path(located).with_suffix('.json'))):
+            os.remove(p)
+
+    from rio_tiler.constants import WGS84_CRS
+    with open_raster(tif) as src:
+        west, south, east, north = src.get_geographic_bounds(WGS84_CRS)
+        zooms = {'minzoom': src.minzoom, 'maxzoom': src.maxzoom}
+    m = report.mosaic
+    return dict(zooms, **{
+        'bounds': [west, south, east, north], 'raster': relative(tif, out_dir),
+        'files': sorted(relative(p, out_dir) for p in moved),
+        'frames': report.frames, 'skipped': report.skipped, 'pairs': len(pairs),
+        'unpaired_thermal': len(m.report.get('thermal_frames_without_visual') or []),
+        'unused_visual': len(m.report.get('visual_frames_unused') or []),
+        'gsd_m': m.grid.gsd, 'width': m.grid.width, 'height': m.grid.height, 'report': trimmed(m.report),
+    })
+
+
 def remove(conversion):
     """Removes a conversion's mosaics and the viewer's files"""
     for d in (MOSAICS_DIR, VIEWER_DIR):
@@ -117,7 +247,8 @@ def remove(conversion):
 
 def build(conversion, run):
     """
-    Builds a conversion's mosaics into its folder: {'kinds': {kind: ...}, 'frames': [names], 'unit', 'stripped'}.
+    Builds a conversion's mosaics into its folder: {'kinds': {kind: ...}, 'frames': [names], 'unit', 'stripped'},
+    and 'visual' (see build_visual) or, when it was asked for and there is none, 'visual_note' (why).
     Raises Canceled when the run is no longer wanted (checked at each progress write), MosaicError when no mosaic can
     be made, and whatever else goes wrong.
     """
@@ -138,6 +269,8 @@ def build(conversion, run):
     stripped = bool(options.get('strip_location'))
     max_pitch = options.get('max_pitch')
     max_pitch = DEFAULT_MAX_PITCH if max_pitch is None else max_pitch
+    # Asked for unless switched off (conversions made before it was offered build it too)
+    visual = options.get('visual', True) is not False
 
     jpegs = api.scan(root).jpegs
     with open(os.path.join(out_dir, VIEWER_DIR, PALETTES_FILE), 'w') as f:
@@ -167,7 +300,7 @@ def build(conversion, run):
     kind_dirs = {kind: os.path.join(out_dir, MOSAICS_DIR, kind) for kind, _ in KINDS}
     # The harmonized mosaic, and the as converted one from the same layout (aligned once)
     harmonized = api.make_mosaic(root, kind_dirs['harmonized'], settings,
-                                 api.MosaicOptions(max_pitch=max_pitch, normalize=True, units=(unit,)),
+                                 api.MosaicOptions(max_pitch=max_pitch, normalize=True, units=(unit,), visual=visual),
                                  compression=args['compression'], jobs=django_settings.THERMAL_PROCESSES,
                                  progress=progress,
                                  as_converted_dir=kind_dirs['as_converted'])
@@ -192,7 +325,13 @@ def build(conversion, run):
             'normalization': list(report.normalize_ambient_c) if report.normalize_ambient_c else None,
             'report': trimmed(m.report),
         })
-    return clean({'kinds': kinds, 'frames': frames, 'unit': unit, 'stripped': stripped})
+    out = {'kinds': kinds, 'frames': frames, 'unit': unit, 'stripped': stripped}
+    if harmonized.visual is not None:
+        out[VISUAL] = build_visual(harmonized.visual, os.path.join(out_dir, kinds['as_converted']['raster']), out_dir,
+                                     stripped, args['compression'])
+    elif visual:
+        out['visual_note'] = harmonized.visual_note
+    return clean(out)
 
 
 def build_mosaics(conversion_id, run_id):

@@ -9,11 +9,10 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **F2: visual mosaics and frames in the app**, on dji-thermal-cli 1.6.0 once it is on PyPI (the user pushes
-   and tags it). (RGB and thermal)
+1. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
 
 **Then**
-1. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
+- Nothing yet.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -705,7 +704,8 @@ Requested 2026-10-28 (`new.md`):
 
 - **Building:** the convert form shows a "Visual mosaic" checkbox when the dataset has visual frames, on by default.
   The conversion's mosaic job passes `MosaicOptions(visual=True)` to its one `make_mosaic` call; the result is kept in
-  `mosaics/visual/` and recorded as `mosaics.kinds.visual` (with the cameras' offset from its report). A conversion
+  `mosaics/visual/` and recorded as `mosaics.visual` (beside the kinds, which the baselines and reports loop over;
+  with the cameras' offset from its report). A conversion
   that strips the location keeps a located copy for the map only, as the thermal mosaics do.
 - **Resolution:** full, the frames' own (0.6 cm/px and about 86 MB on dataset 1's flight). The map reads a copy
   with overviews, so zoomed-out tiles stay fast.
@@ -713,7 +713,9 @@ Requested 2026-10-28 (`new.md`):
   temperature under the cursor; findings and measurement shapes are drawn over it, the measuring tools stay on the
   thermal tabs, and a click opens the source frames window.
 - **Frames:** on the frame page and in the source frames window, a Thermal/Visual switch shows a frame's visual
-  pair in its place, with the same spot or area marked; ← and → work on both. F3 adds the side by side.
+  pair in its place, with the same spot or area marked; ← and → work on both. F3 adds the side by side. As built, a
+  shape drawn on the visual pair on the frame page is measured on the thermal frame (the drawing maps it back), so
+  the frame page's measuring tools stay on with the switch.
 - **Downloads:** the visual mosaic, its sidecar and its preview, like the thermal files.
 - **Elsewhere:** the Files tab and the reports call the visual images "visual", not "not thermal".
 - **Test data:** dataset 1 gets the 327 `_V` images of its flight (`ignored/m4t-rgb`, 1.5 GB) for good, and is the
@@ -937,3 +939,33 @@ Requested 2026-10-28 (`new.md`):
     and CLI. Full suite 905 passed with the CLI's flight and the native SDK; on Windows 218 passed from a fresh
     clone with 12 nadir pairs. The flight tests first assumed the offset is always corrected, which a small
     flight doesn't give; they now follow the report (fixed on `fix/visual-flight-tests`).
+- **F2: visual mosaics and frames in the app** (2026-10-28, branch `f2-visual`; dji-thermal-cli pinned at 1.6.0).
+  - **Server:** `thermal_mosaics.build` asks for the visual mosaic (the conversion option `visual`, on by default)
+    and `build_visual` moves it to `mosaics/visual/`, writes the map's copy `viewer/visual.tif` (`map_copy`: tiled
+    512, JPEG YCbCr q90, the alpha as an internal mask, average overviews; 14 MB against 85 MB on dataset 1's
+    flight, tiles in 30 to 60 ms) and `viewer/visual_pairs.json` (`visual_pairs`). A stripped conversion writes a
+    located copy for these and removes it. API: `mosaics/visual/tiles/z/x/y.png` (`VisualTileView`),
+    `frame/visual?frame=&size=` (`FrameVisualView`, re-encoded without metadata), `visual` and `visual_note` in the
+    viewer's data, each frame's `visual` pair in `frame` and the sources, and the datasets' `visual` count.
+  - **The pairs' homography** (`thermal_mosaics.homography`): a thermal pixel to its visual one, from the two
+    sidecars' frame models, through the cameras' rotations and the drone's move between the two exposures onto
+    the ground plane. On dataset 1's flight it lands 0.24 visual px from the visual frame model (median, at most
+    2.9 px on the roofs); without the move the median was 2.5 px and the maximum 16 px, as the visual image is
+    exposed 10 to 100 ms after the thermal one.
+  - **Pages:** the viewer's Visual tab (`visualLayer` in `map/map.ts`; the data tab stays as converted, so the
+    readout, the source frames and the shapes drawn are its), its report rows (`visualRows`); the source frames
+    window's Thermal/Visual switch (`VisualImage`, `toVisual`/`ringToVisual` in `sources/sources.ts`); the frame
+    page's switch (`frameImageLayer`; its drawing and readout map through `fromVisual`, and the view keeps the same
+    ground); "Visual" in the Files tab, the figures, the datasets list and the convert form's checkbox
+    (`fileKind`, `thermal_analysis.VISUAL_NAME`: DJI's `_V`/`_W` names, for what the pages call them only).
+  - **Tests:** `tests/test_api_visual.py` (fakes with real frame models in `tests/fakes.py`: the homography against
+    `FrameModels.pixels`, the pairs, the build, the map copy, the tiles, the stripped copy, the frame image, the
+    download), the flight test of a paired flight (`DJI_THERMAL_FLIGHT_DIR` with `_V` images; skipped without),
+    Vitest for the mapping, the window's and frame page's switches, the Visual tab and the rows. Checked live on
+    dataset 1, which now holds the flight's 327 `_V` images too (its conversion 1 rebuilt with the visual mosaic,
+    92 pairs measured, pitch +0.25° and yaw −0.29°), in light and dark: the tab, the readout, a click's window on
+    both cameras, a box drawn and measured on a visual frame, the Files tab and the convert form. No console
+    errors and no failed requests.
+  - **Also on this branch:** the test of the command retries reading the journal mode while Windows still holds
+    the stopped server's database files (it failed now and then on CI's Windows with Python 3.14; merged before as
+    `fix-windows-wal-test`).

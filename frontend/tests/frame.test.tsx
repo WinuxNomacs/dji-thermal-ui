@@ -1,3 +1,7 @@
+import OlMap from "ol/Map";
+import ImageLayer from "ol/layer/Image";
+import WebGLTileLayer from "ol/layer/WebGLTile";
+import type ImageStatic from "ol/source/ImageStatic";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserLocale} from "../src/core/format";
@@ -139,6 +143,31 @@ describe("the frame page", () => {
         expect($(".map-legend")!.textContent).toContain("Temperature, °C");
         expect(location.search).toBe("?palette=dji_ironred&min=17&max=28&frame=thermal%2Fa_T.JPG");
         expect(calls(fetchFn)).toContain("GET " + BASE + "/measurements?frame=" + enc(A));
+    });
+
+    it("shows the frame's visual pair on its switch, kept for the next visit, and the frame where it has none", async () => {
+        const pair = {frame: "rgb/a_V.JPG", width: 4032, height: 3024, homography: [4, 0, 0, 0, 4, 0, 0, 0, 1]};
+        const added = vi.spyOn(OlMap.prototype, "addLayer");
+        await open(server(routes({[BASE + "/frame?frame=" + enc(A)]: {...INFO, visual: pair}})));
+        expect(byId("pane-title").textContent).toBe("As converted");
+        click($(".frame-camera button[name=visual]")!);
+        await ticks(10);
+        const layers = added.mock.calls.map((c) => c[0]);
+        const image = layers.find((l) => l instanceof ImageLayer) as ImageLayer<ImageStatic>;
+        const values = layers.find((l) => l instanceof WebGLTileLayer)!;
+        expect(image.getSource()!.getUrl()).toBe(BASE + "/frame/visual?frame=" + enc(A));
+        expect(image.getSource()!.getImageExtent()).toEqual([0, -3024, 4032, 0]);
+        expect([image.getVisible(), values.getVisible()]).toEqual([true, false]);
+        expect(byId("pane-title").textContent).toBe("Visual · a_V.JPG (the readout and the shapes are the thermal frame's)");
+        expect($(".map-legend")!.textContent).toBe("");
+        expect(localStorage.getItem("thermal-analyzer.frame.visual")).toBe("1");
+        // B has no visual pair: its frame is shown, without the switch
+        click(byId("next"));
+        await ticks(40);
+        expect($(".frame-camera")).toBeNull();
+        expect([image.getVisible(), values.getVisible()]).toEqual([false, true]);
+        expect(byId("pane-title").textContent).toBe("As converted");
+        added.mockRestore();
     });
 
     it("opens the frame, palette and range a link asks for", async () => {

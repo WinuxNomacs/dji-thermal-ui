@@ -15,6 +15,7 @@ export interface Dataset {
     size: number;
     thermal?: number;
     not_thermal?: number;
+    visual?: number;                // of the files not thermal, the visual images
     errors?: number;
     warnings?: number;
     analyzed?: boolean;
@@ -30,7 +31,9 @@ export interface Dataset {
 export function filesCell(d: Dataset): string {
     if (!d.analyzed || d.status === "new") return String(d.file_count);
     let text = d.thermal + " thermal";
-    if (d.not_thermal) text += " · " + d.not_thermal + " other";
+    if (d.visual) text += " · " + d.visual + " visual";
+    const other = (d.not_thermal || 0) - (d.visual || 0);
+    if (other > 0) text += " · " + other + " other";
     return text;
 }
 

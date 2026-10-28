@@ -8,6 +8,7 @@ export interface Settings {
     outputs?: string[];
     compression?: string;
     mosaics?: boolean;
+    visual?: boolean;           // with the mosaics, the visual one (missing: on, as before it was offered)
     distance?: number | string | null;
     unit?: string;
     normalize?: boolean;
@@ -102,7 +103,7 @@ export function formValues(settings: Settings, products: Product[]): FormValues 
     values.palette = s.palette || "";
     values.compression = s.compression || "deflate";
     const checks: Record<string, boolean> = {
-        normalize: !!s.normalize, mosaics: !!s.mosaics, strip_location: !!s.strip_location,
+        normalize: !!s.normalize, mosaics: !!s.mosaics, visual: s.visual !== false, strip_location: !!s.strip_location,
     };
     SIDES.forEach((side) => {
         const nodata = s["replace_" + side + "_value"] === "nodata";
@@ -140,6 +141,7 @@ export function readValues(f: FormValues): Settings {
     s.strip_location = !!f.checks.strip_location;
     s.normalize = !!f.checks.normalize;
     s.mosaics = !!f.checks.mosaics;
+    s.visual = !!f.checks.visual;
     s.max_pitch = num("max_pitch");
     s.compression = f.values.compression;
     s.outputs = Object.entries(f.outputs).filter(([, o]) => o.on).map(([p, o]) => p + ":" + o.format);
@@ -216,6 +218,7 @@ const DIFFERENCES: Difference[] = [
     {key: "compression", fields: ["compression"],
      text: (s) => s.compression === "none" ? "no compression" : s.compression + " compression"},
     {key: "mosaics", fields: ["mosaics"], text: (s) => s.mosaics ? "mosaics" : "no mosaics"},
+    {key: "visual", fields: ["visual"], text: (s) => s.visual !== false ? "visual mosaic" : "no visual mosaic"},
     {key: "distance", fields: ["distance_mode", "distance"], text: (s) =>
         typeof s.distance === "number" ? "distance " + num(s.distance, 1) + " m" :
             s.distance === "embedded" ? "embedded distance" : s.distance === "" ? "distance not given" : "rangefinder distance"},
@@ -258,6 +261,7 @@ function valuesOf(d: Difference, s: Settings): unknown[] {
     return (FIELDS[d.key] || [d.key]).map((f) => {
         const v = s[f];
         if (f === "unit") return unitOf(v);
+        if (f === "visual") return v !== false;
         if (typeof v === "boolean" || f === "mosaics" || f === "normalize" || f === "strip_location") return !!v;
         return blank(v) ? null : round2(v);
     });

@@ -1,12 +1,14 @@
-// The mosaic viewer: a conversion's mosaics on a map (as converted, harmonized, the source frames and the view
-// angles), with their palette, range and image adjustments, the values under the cursor, measuring with the isotherm
+// The mosaic viewer: a conversion's mosaics on a map (as converted, harmonized, the source frames, the view angles
+// and the visual mosaic), with their palette, range and image adjustments, the values under the cursor, measuring with the isotherm
 // and the thermal correction, the saved measurements, the source frames of a spot or an area in a window, the
 // dataset's findings, and the mosaic as a PNG; kept up to date while the mosaics are built. The view (tab, palette,
 // range, adjustments, the frame outlined, the findings shown and the one open) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import GeoJSON from "ol/format/GeoJSON";
 import type OlMap from "ol/Map";
+import type TileLayer from "ol/layer/Tile";
 import type VectorSource from "ol/source/Vector";
+import type XYZ from "ol/source/XYZ";
 import CircleStyle from "ol/style/Circle";
 import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
@@ -30,17 +32,18 @@ import {centreOf, drawFindings, findingAt} from "../findings/layer";
 import {FindingAbout, FindingForm, Findings, SaveFinding} from "../findings/panel";
 import {type Colouring, isothermRange} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
-        ThermalLayer, type Values, vectorLayer} from "../map/map";
+        ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         Readout, Report, ScaleView, Section, Whole} from "./panel";
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
         extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
-        readView, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
-        takenText, toneShares, viewQuery} from "./view";
+        readView, reportRows, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
+        TAB_HINTS, takenText, toneShares, viewQuery, type VisualMosaic, visualRows} from "./view";
 
 const POLL_MS = 2000;
-const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
+const HOVER_MS = 120;
+const WINDOW_VISUAL_PX = 1600;  // a visual frame in the source frames window, at most this many pixels across       // the readout asks for the point the cursor rests on, not every point it crosses
 const TYPING_MS = 400;      // the correction redraws once typing pauses
 
 export interface Mosaics {
@@ -63,6 +66,8 @@ export interface Mosaics {
     frame_colors?: number[];
     flown?: Maybe<string>[];
     flight_zone?: FlightZone | null;
+    visual?: VisualMosaic | null;
+    visual_note?: string;
 }
 
 // What is measured: the shape drawn (or a saved measurement shown), on which mosaic, and what came back; res undefined
@@ -84,6 +89,9 @@ const WORLD = [-180, -85, 180, 85];
 const FOOTPRINT = new OlStyle({stroke: new Stroke({color: "rgba(255, 255, 255, 0.9)", width: 2})});
 export const SOURCES_SHAPE = new OlStyle({stroke: new Stroke({color: "#ffea00", width: 2, lineDash: [6, 4]}),
                                    image: new CircleStyle({radius: 7, stroke: new Stroke({color: "#ffea00", width: 2})})});
+// The Visual tab: the visual mosaic shown over the as converted one, whose values the readout, the source frames and
+// the shapes drawn read
+const VISUAL = "visual";
 // The tabs whose spots and areas open their source frames, and the tools that draw them
 const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
 const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
@@ -124,6 +132,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [v, setV] = useState<Mosaics | null>(null);
     const [notice, setNotice] = useState("");
     const [tab, setTab] = useState<string | null>(null);
+    // The Visual tab is shown (tab is then the as converted one)
+    const [visual, setVisual] = useState(false);
     const [styles, setStyles] = useState<Record<string, Style>>({});
     // A slider being dragged: the range or gamma it gives, shown at once (the fields and the scale), drawn when let go
     const [live, setLive] = useState<Partial<Style> | null>(null);
@@ -162,6 +172,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const mapEl = useRef<HTMLDivElement>(null);
     const map = useRef<OlMap | null>(null);
     const layer = useRef<ThermalLayer | null>(null);
+    const visualTiles = useRef<TileLayer<XYZ> | null>(null);
+    const visualKey = useRef("");
     const legend = useRef<HTMLDivElement | null>(null);
     const drawing = useRef<Drawing | null>(null);
     const footprint = useRef<VectorSource | null>(null);
@@ -185,8 +197,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const colouring = colouringOf(shown);
 
     // What the map's handlers (set up once) read: this render's values
-    const now = useRef({tab, params, current, pinned, drawFor, findings});
-    now.current = {tab, params, current, pinned, drawFor, findings};
+    const now = useRef({tab, visual, params, current, pinned, drawFor, findings});
+    now.current = {tab, visual, params, current, pinned, drawFor, findings};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -197,10 +209,14 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             // Rebuilt: start again from the new mosaics' ranges
             if (!wasReady && map.current) setStyles({});
             if (!tab || !data.tabs!.some((x) => x.tab === tab)) {
-                const first = wanted.tab && data.tabs!.some((x) => x.tab === wanted.tab) ? wanted.tab : data.tabs![0].tab;
+                const onVisual = wanted.tab === VISUAL && !!data.visual && data.tabs!.some((x) => x.tab === "as_converted");
+                const first = onVisual ? "as_converted" : wanted.tab && data.tabs!.some((x) => x.tab === wanted.tab) ?
+                    wanted.tab : data.tabs![0].tab;
                 setTab(first);
-                if (!map.current) applyWanted(data, first);
+                setVisual(onVisual);
+                if (!map.current && !onVisual) applyWanted(data, first);
             }
+            if (!data.visual) setVisual(false);
         }
         if (isBusy(data)) timer.current = setTimeout(load, POLL_MS);
     }
@@ -255,6 +271,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         findingsShown.current = vectorLayer(m, 8);
         layer.current = new ThermalLayer(m, values, colouring);
         fitBounds(m, t.bounds || WORLD);
+        makeVisual();
 
         m.on("pointermove", (e) => {
             if (now.current.pinned || e.dragging) return;
@@ -285,7 +302,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 showIndex(coords && points ? nearestIndex(points, coords) : null, points);
             },
             // A click with no tool on opens the finding there, else keeps the values there (and its frame's link)
-            // until the next click; on the Source frame tab it opens the frames that saw it too
+            // until the next click; on the Source frame and Visual tabs it opens the frames that saw it too
             onClick: (at) => {
                 const hit = findingsShown.current && findingAt(m, m.getPixelFromCoordinate(at), findingsShown.current);
                 const f = hit !== null && now.current.findings.find((x) => x.id === hit);
@@ -294,13 +311,32 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 now.current.pinned = true;
                 clearTimeout(hover.current);
                 readout(at, true);
-                if (now.current.tab === "source_frame") openSources({type: "Point", coordinates: toCoords(at)});
+                if (now.current.tab === "source_frame" || now.current.visual) {
+                    openSources({type: "Point", coordinates: toCoords(at)});
+                }
             },
         });
         loadSaved();
         loadFindings(wanted.finding);
         if (wanted.frame) showFrame(wanted.frame);
     }, [ready]);
+
+    // The visual mosaic's tiles (made again when it is built again), shown instead of the values on the Visual tab
+    function makeVisual() {
+        const m = map.current, vis = v?.visual, key = JSON.stringify(vis || null);
+        if (!m || key === visualKey.current) return;
+        visualKey.current = key;
+        if (visualTiles.current) m.removeLayer(visualTiles.current);
+        visualTiles.current = vis && vis.bounds ?
+            visualLayer(m, base + "/mosaics/visual/tiles/{z}/{x}/{y}.png", vis.bounds, (vis.maxzoom || 20) + 1) : null;
+        showVisual();
+    }
+    function showVisual() {
+        visualTiles.current?.setVisible(now.current.visual);
+        layer.current?.layer.setVisible(!now.current.visual || !visualTiles.current);
+    }
+    useEffect(makeVisual, [JSON.stringify(v?.visual)]);
+    useEffect(showVisual, [visual]);
 
     // The mosaic drawn again as the tab, palette, range, adjustments, isotherm and correction now are: its values
     // asked again only for another tab or correction
@@ -394,10 +430,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     useEffect(() => {
         if (!ready || !tab || !style) return;
         const marks = {frame: outlined, findings: showFindings, hidden, finding: opened};
-        const view = tab === "source_frame" ? {tab, ...marks} :
+        const view = visual ? {tab: VISUAL, ...marks} : tab === "source_frame" ? {tab, ...marks} :
             {tab, ...marks, palette: style.palette, range: style.range, adjust: style.adjust};
         history.replaceState(null, "", location.pathname + viewQuery(view));
-    }, [ready, tab, outlined, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust),
+    }, [ready, tab, visual, outlined, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust),
         showFindings, hidden.join(), opened]);
 
     function readout(at: Coordinate, pin = false) {
@@ -602,13 +638,21 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The colour scale as the tab's palette and range now are, or null on a tab without one
     function scaleShown(): Scale | null {
-        if (!shown || !v || tab === "source_frame") return null;
+        if (!shown || !v || tab === "source_frame" || visual) return null;
         const colors = (v.palettes || []).find((p) => p.key === shown.palette)?.color_map || [];
         return {colors, shown: shownRange(tab!, shown.range, unit), shares: shares(shown.adjust),
                 caption: tab === "view_angle" ? "View angle, °" : "Temperature, " + symbol()};
     }
 
-    function chooseTab(next: string) {
+    function chooseTab(chosen: string) {
+        const onVisual = chosen === VISUAL, next = onVisual ? "as_converted" : chosen;
+        if (onVisual !== visual) {
+            setVisual(onVisual);
+            now.current.visual = onVisual;
+            // The measuring tools are the thermal tabs'
+            if (onVisual && drawFor === "measure") drawing.current?.stop();
+            syncTools();
+        }
         if (next === tab) return;
         drawing.current?.stop();
         syncTools();
@@ -785,20 +829,21 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The mosaic as shown, its saved measurements (and the one drawn, not saved yet) and colour scale, as a PNG
     async function exportPng() {
-        const m = map.current, l = layer.current;
+        const m = map.current, l = visual ? visualTiles.current : layer.current?.layer;
         if (!m || !l || !v || !tab || !mapEl.current) return;
+        const shownTab = visual ? VISUAL : tab;
         const shapes = saved.filter((x) => x.target === tab && x.geometry).map((x) => shapeOnMap(m, x.geometry!, fromCoords, x.name));
         drawn.forEach((f) => shapes.push(shapeOnMap(m, f.geometry, fromCoords, f.name)));
-        if (current && !current.saved && current.target === tab && temperature) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
-        const image = await snapshot(m, l.layer);
+        if (current && !current.saved && current.target === tab && temperature && !visual) shapes.push(shapeOnMap(m, current.geometry, fromCoords, ""));
+        const image = await snapshot(m, l);
         const taken = takenText(v.flown, v.flight_zone), today = new Date().toISOString().slice(0, 10);
         const canvas = viewCanvas({
-            title: [v.dataset_name, v.name, tabLabel(tab)].filter(Boolean).join(" · "),
+            title: [v.dataset_name, v.name, tabLabel(shownTab)].filter(Boolean).join(" · "),
             date: (taken ? "Flown " + taken + " · exported " : "Exported ") + today,
             panes: [{el: mapEl.current, images: image ? [image] : [], shapes}],
             legend: scale, scale: scaleBar(metresPerPixel(m), 120), ratio: Math.max(1, devicePixelRatio || 1),
         });
-        const error = await saveCanvas(canvas, fileName([v.dataset_name, v.name, tabLabel(tab)], ".png"));
+        const error = await saveCanvas(canvas, fileName([v.dataset_name, v.name, tabLabel(shownTab)], ".png"));
         if (error) setNotice(error);
     }
 
@@ -866,18 +911,21 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             {/* Keyed: a notice appearing above it is never taken for it, which would make its map again */}
             <div class="viewer-main" key="main" hidden={!ready}>
                 {ready && <div class="tabs" role="tablist">
-                    {v.tabs!.map((x) => (
-                        <a key={x.tab} href={"#" + x.tab} role="tab" aria-selected={tab === x.tab} class={tab === x.tab ? "active" : ""}
-                           data-tab={x.tab} onClick={(e) => { e.preventDefault(); chooseTab(x.tab); }}>{tabLabel(x.tab)}</a>))}
+                    {v.tabs!.map((x) => x.tab).concat(v.visual ? [VISUAL] : []).map((x) => {
+                        const on = visual ? x === VISUAL : tab === x;
+                        return (<a key={x} href={"#" + x} role="tab" aria-selected={on} class={on ? "active" : ""}
+                                   data-tab={x} onClick={(e) => { e.preventDefault(); chooseTab(x); }}>{tabLabel(x)}</a>);
+                    })}
                 </div>}
                 <div class="viewer-body">
                     <div class="viewer-map" id="map" ref={mapEl}/>
                     {ready && t && shown && <div class="viewer-panel">
-                        <Controls tab={t} palette={shown.palette} palettes={v.palettes || []} scale={scale} unit={unit}
-                                  range={rangeText || rangeFields(shown.range)} rangeError={rangeError}
-                                  frames={(v.frames || []).length} frameColors={v.frame_colors}
-                                  onPalette={(palette) => setStyle({palette})} onRange={typedRange} onAuto={() => auto()}/>
-                        {tab !== "source_frame" && <Section name="image" title="Image">
+                        {visual ? <p class="hint" id="visual-hint">{TAB_HINTS[VISUAL]}</p> :
+                            <Controls tab={t} palette={shown.palette} palettes={v.palettes || []} scale={scale} unit={unit}
+                                      range={rangeText || rangeFields(shown.range)} rangeError={rangeError}
+                                      frames={(v.frames || []).length} frameColors={v.frame_colors}
+                                      onPalette={(palette) => setStyle({palette})} onRange={typedRange} onAuto={() => auto()}/>}
+                        {tab !== "source_frame" && !visual && <Section name="image" title="Image">
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
                                            temperature={temperature} onSlide={slide} onGamma={gamma}
                                            onSharpen={sharpen}
@@ -888,15 +936,15 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                             <Toolbar tool={drawFor === "sources" ? tools.tool : null} count={tools.count} tools={SOURCES_TOOLS}
                                      label="Source frames tools" onTool={(x) => pickTool(x, "sources")}
                                      onFinish={() => { drawing.current?.finish(); syncTools(); }}/>
-                            <p class="message">{tab === "source_frame" ? "Click the mosaic, or draw a spot or an area, " :
-                                "Draw a spot or an area "}to see every frame that saw it.</p>
+                            <p class="message">{tab === "source_frame" || visual ? "Click the mosaic, or draw a spot or an area, " :
+                                "Draw a spot or an area "}to see every frame that saw it{visual ? ", thermal and visual" : ""}.</p>
                         </Section>}
                         <Section name="cursor" title="Under the cursor">
                             <div class="readout" id="readout">
                                 <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
                             </div>
                         </Section>
-                        {temperature && <>
+                        {temperature && !visual && <>
                             <Section name="measure" title="Measure">
                                 <Toolbar tool={drawFor === "measure" ? tools.tool : null} count={tools.count}
                                          onTool={(x) => pickTool(x, "measure")}
@@ -959,7 +1007,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                       onHide={(x, hide) => setHidden((h) => hide ? h.concat(x) : h.filter((y) => y !== x))}/>
                         </Section>
                         <Section name="report" title="The mosaic">
-                            <Report kind={kind} base={base}/>
+                            {visual ? <Report rows={visualRows(v.visual)} files={v.visual?.files} base={base}/> :
+                                <Report rows={reportRows(kind)} files={kind?.files} base={base}/>}
                         </Section>
                     </div>}
                 </div>
@@ -967,7 +1016,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             {sources && <SourcesWindow name="viewer" anchor={mapEl.current} onClose={closeSources} about={sourcesAbout()} groups={[{
                 title: "", res: sources.res, error: sources.error, unit, colouring: frameColouring(),
                 values: (f) => base + "/frame/data?frame=" + encodeURIComponent(f),
-                curve: (f) => frameCurve(f), href: (f) => frameUrl + encodeURIComponent(f)}]}/>}
+                curve: (f) => frameCurve(f), href: (f) => frameUrl + encodeURIComponent(f),
+                visual: v.visual ? (f) => base + "/frame/visual?frame=" + encodeURIComponent(f) + "&size=" + WINDOW_VISUAL_PX : undefined,
+            }]} visual={visual}/>}
             {draft && <FindingForm title={draft.title} fields={draft.fields} error={draft.error} onSave={saveFinding}
                                    onCancel={() => setDraft(null)}
                                    frames={draft.edit ? draft.edit.frames : sources?.res === undefined ? undefined : sources.res?.frames ?? null}/>}

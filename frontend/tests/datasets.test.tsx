@@ -3,7 +3,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {uploadName} from "../src/core/upload";
 import {deleteText} from "../src/core/format";
 import {DatasetsPage} from "../src/datasets/datasets-page";
-import {type Dataset, droppedFiles, matchesSearch, sortDatasets} from "../src/datasets/list";
+import {type Dataset, droppedFiles, filesCell, matchesSearch, sortDatasets} from "../src/datasets/list";
 import {calls, click, jsonResponse, server, ticks} from "./helpers";
 
 const API = "/api/";
@@ -68,6 +68,13 @@ describe("the datasets list", () => {
         expect(ids("activity", true)).toEqual([3, 1, 2]);
         expect(ids("activity", false)).toEqual([1, 3, 2]);
         expect(ids("problems", true)).toEqual([3, 1, 2]);
+    });
+
+    it("counts a dataset's visual images apart from its other files", () => {
+        const d = {...DATASET, analyzed: true, status: "ready", thermal: 327};
+        expect(filesCell({...d, not_thermal: 328, visual: 327})).toBe("327 thermal · 327 visual · 1 other");
+        expect(filesCell({...d, not_thermal: 327, visual: 327})).toBe("327 thermal · 327 visual");
+        expect(filesCell({...d, not_thermal: 2})).toBe("327 thermal · 2 other");
     });
 
     it("searches the datasets' names, every word anywhere", () => {

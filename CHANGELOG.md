@@ -6,6 +6,29 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The visual mosaic: when a dataset has visual images (DJI's `_V` or `_W`), a conversion's mosaics include their
+  mosaic, placed as the thermal frames are with the cameras' offset corrected (dji-thermal-cli 1.6.0). The convert
+  form offers it, on by default. The viewer shows it on a Visual tab, as colour tiles, with the temperatures as
+  converted under the cursor and the frames that saw a spot opened by a click; its section reports its frames, size
+  and the cameras' offset. It is in the downloads.
+- A Thermal/Visual switch in the source frames window and on the frame page: a frame's visual image in its place,
+  with the spot, the area or the shapes where the visual camera saw them. On the frame page the readout and a shape
+  drawn on the visual image measure the thermal frame.
+- The Files tab, the dataset's figures and the datasets list count the visual images apart.
+
+### Changed
+
+- dji-thermal-cli 1.6.0.
+- The flight tests take the visual images beside the thermal ones in `DJI_THERMAL_FLIGHT_DIR`, and check the visual
+  mosaic with them.
+
+### Fixed
+
+- A test of the command waits for Windows to let go of the database files of the server it stopped (it failed now
+  and then on Windows with Python 3.14).
+
 ## [0.7.0] - 2026-10-27
 
 ### Added

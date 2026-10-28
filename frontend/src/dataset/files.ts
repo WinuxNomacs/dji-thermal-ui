@@ -1,6 +1,6 @@
 // A dataset's analysis as the pages use it: the figures above the tabs, the Files tab's rows and columns, and the
 // conversion a frame opens in
-import {median} from "../core/format";
+import {fileKind, median} from "../core/format";
 
 export interface FileRow {
     path: string;
@@ -62,7 +62,7 @@ export interface Analysis {
 export function captureTime(t: unknown): string { return t ? String(t).replace(/^(\d{4}):(\d{2}):/, "$1-$2-") : ""; }
 
 export interface Overview {
-    frames: number; other: number; tmin?: number; tmax?: number; first?: string; last?: string;
+    frames: number; visual: number; other: number; tmin?: number; tmax?: number; first?: string; last?: string;
     altitude?: number | null; gps?: number;
 }
 
@@ -70,7 +70,8 @@ export interface Overview {
 export function overview(a: Analysis): Overview {
     const files = a.files || [];
     const thermal = files.filter((f) => f.kind === "thermal");
-    const out: Overview = {frames: thermal.length, other: files.length - thermal.length};
+    const visual = files.filter((f) => fileKind(f) === "visual").length;
+    const out: Overview = {frames: thermal.length, visual, other: files.length - thermal.length - visual};
     if (!thermal.length) return out;
     const present = (v: number | null | undefined): v is number => v !== null && v !== undefined;
     const mins = thermal.map((f) => f.tmin).filter(present);

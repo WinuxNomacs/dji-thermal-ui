@@ -83,3 +83,55 @@ def test_a_folder_dataset_is_analyzed_converted_and_made_into_mosaics_on_the_run
         used = [f for f in area["frames"] if f["used"]]
         assert used and sum(f["used_share"] for f in used) == pytest.approx(1, abs=0.05)
         assert all(f["outline"] and 0 < f["share"] <= 1 for f in area["frames"])
+
+
+@pytest.mark.django_db(transaction=True)
+def test_a_conversion_of_a_paired_flight_builds_the_visual_mosaic_and_pairs_its_frames(threaded_jobs, flight_frames,
+                                                                                       flight_visual, tmp_path):
+    import re
+
+    import numpy as np
+    import rasterio
+    from dji_thermal_cli import api
+
+    from dji_thermal_ui.analyzer import thermal_conversion, thermal_mosaics
+    from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset
+
+    # 12 thermal frames and the visual images of the same captures
+    capture = re.compile(r"_(\d{4})_[A-Z]\.JPG$", re.IGNORECASE)
+    thermal = flight_frames[:12]
+    numbers = {capture.search(f.name).group(1) for f in thermal}
+    visual = [f for f in flight_visual if capture.search(f.name) and capture.search(f.name).group(1) in numbers]
+    assert visual
+    images = tmp_path / "images"
+    images.mkdir()
+    for f in thermal + visual:
+        shutil.copy(f, images)
+    dataset = ThermalDataset.objects.create(name="paired", source="folder", folder=str(images), status="ready")
+    options, errors = thermal_conversion.parse_settings({})
+    assert errors == {} and options["visual"]
+    conversion = ThermalConversion.objects.create(dataset=dataset, name="V", options=options, run_id="b")
+    threaded_jobs.submit(thermal_conversion.convert, conversion.pk, "b")
+    threaded_jobs.join()
+    conversion.refresh_from_db()
+    assert conversion.mosaic_status == "ready", conversion.mosaic_error
+    v = conversion.mosaics["visual"]
+    assert v["frames"] == len(visual) and v["pairs"] == v["report"]["frames_used"] > 0
+    out = conversion.data_dir()
+    with rasterio.open(os.path.join(out, v["raster"])) as ds:
+        assert ds.count == 3 and ds.overviews(1)
+    # Each pair's homography finds a ground point where the visual frame's model does
+    t_path = os.path.join(out, conversion.mosaics["kinds"]["as_converted"]["raster"])
+    v_path = os.path.join(out, "mosaics", "visual", "mosaic_visual.json")
+    t_models, v_models = api.read_frame_models(t_path), api.read_frame_models(v_path)
+    pairs = thermal_mosaics.read_visual_pairs(out)
+    west, south, east, north = v["bounds"]
+    lon, lat = np.meshgrid(np.linspace(west, east, 9), np.linspace(south, north, 9))
+    errors = []
+    for name, pair in pairs.items():
+        t = t_models.pixels(lon.ravel(), lat.ravel())[t_models.files.index(name)]
+        p = v_models.pixels(lon.ravel(), lat.ravel())[v_models.files.index(pair["frame"])]
+        seen = np.isfinite(t[:, 0]) & np.isfinite(p[:, 0])
+        q = (np.reshape(pair["homography"], (3, 3)) @ np.c_[t[seen], np.ones(seen.sum())].T).T
+        errors += list(np.hypot(*(q[:, :2] / q[:, 2:] - p[seen]).T))
+    assert errors and np.median(errors) < 1 and max(errors) < 10

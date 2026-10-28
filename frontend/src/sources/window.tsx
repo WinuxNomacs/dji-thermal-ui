@@ -1,7 +1,7 @@
 // The source frames pop-out: a window on the page, moved by its title and closed, showing the whole frame that saw a
-// spot or an area of a mosaic (coloured as the mosaic is, the spot marked or the area outlined) and the list of every
-// frame that saw it, the one the mosaic used first; ← and → step through them. On the compare page a difference has
-// a list for each of its mosaics.
+// spot or an area of a mosaic (coloured as the mosaic is, the spot marked or the area outlined), or its visual pair
+// (the spot or area marked where the visual camera saw it), and the list of every frame that saw it, the one the
+// mosaic used first; ← and → step through them. On the compare page a difference has a list for each of its mosaics.
 import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {ChevronLeft, ChevronRight, Image} from "../components/icons";
@@ -10,7 +10,8 @@ import {formatCapture, type Maybe} from "../core/format";
 import {inField} from "../measure/drawing";
 import {temp} from "../measure/measure";
 import {type Colouring, colourValues, readValues} from "../map/colour";
-import {emptyText, frameName, NO_MODELS, shareText, type SourceFrame, type Sources, stepped, svgPoints} from "./sources";
+import {emptyText, frameName, NO_MODELS, ringToVisual, shareText, type SourceFrame, type Sources, stepped, svgPoints,
+        toVisual, type VisualPair} from "./sources";
 
 // One mosaic's frames, and how they are drawn and linked to
 export interface SourceGroup {
@@ -22,6 +23,7 @@ export interface SourceGroup {
     curve: (frame: string) => string;       // its tone curve with equalization, "" without
     colouring: Colouring;
     href: (frame: string) => string;        // its frame page
+    visual?: (frame: string) => string;     // a thermal frame's visual pair as an image, where the frames have them
     about?: ComponentChildren;              // above its frame, while it is shown (after the window's own)
 }
 
@@ -30,6 +32,7 @@ interface Props {
     name: string;                           // which window: each keeps where it was moved to
     anchor?: HTMLElement | null;            // where it opens: over its top left corner
     about?: ComponentChildren;              // above the frame: what it is (a finding) or what can be done with it
+    visual?: boolean;                       // it opens on the frames' visual pairs
     onClose: () => void;
 }
 
@@ -82,12 +85,31 @@ export function FrameImage({values, curve, colouring, alt, pixel, outline}: {
     return (<div class="frame-image">
         <canvas ref={canvas} role="img" aria-label={alt} data-values={values} width={size ? size[0] : 0}
                 height={size ? size[1] : 0}/>
-        {pixel && size && <span class="frame-mark" style={{
+        {size && <Marks size={size} pixel={pixel} outline={outline}/>}
+    </div>);
+}
+
+// The spot's pixel marked, or the area's outline drawn, over a frame of this size shown whole
+function Marks({size, pixel, outline}: {size: number[]; pixel?: Maybe<[number, number]>; outline?: [number, number][][]}) {
+    return (<>
+        {pixel && <span class="frame-mark" style={{
             left: ((pixel[0] + 0.5) / size[0] * 100).toFixed(2) + "%", top: ((pixel[1] + 0.5) / size[1] * 100).toFixed(2) + "%"}}/>}
-        {outline && outline.length > 0 && size && <svg class="frame-outline" viewBox={"0 0 " + size[0] + " " + size[1]}
-                                                        preserveAspectRatio="none" aria-hidden="true">
+        {outline && outline.length > 0 && <svg class="frame-outline" viewBox={"0 0 " + size[0] + " " + size[1]}
+                                               preserveAspectRatio="none" aria-hidden="true">
             {outline.map((ring, i) => <polygon key={i} points={svgPoints(ring)}/>)}
         </svg>}
+    </>);
+}
+
+// A thermal frame's visual pair (src: its image), with the thermal frame's spot or area where the visual camera saw it
+export function VisualImage({src, pair, alt, pixel, outline}: {
+    src: string; pair: VisualPair; alt: string; pixel?: Maybe<[number, number]>; outline?: [number, number][][];
+}) {
+    const at = pixel ? toVisual(pair, pixel) : null;
+    const rings = outline ? outline.map((r) => ringToVisual(pair, r)).filter((r) => r.length > 2) : undefined;
+    return (<div class="frame-image visual">
+        <img src={src} alt={alt} width={pair.width} height={pair.height}/>
+        <Marks size={[pair.width, pair.height]} pixel={at} outline={rings}/>
     </div>);
 }
 
@@ -101,8 +123,9 @@ function FrameRow({f, current, onPick}: {f: SourceFrame; current: boolean; onPic
     </button></li>);
 }
 
-export function SourcesWindow({groups, name, anchor, about, onClose}: Props) {
+export function SourcesWindow({groups, name, anchor, about, visual: startVisual = false, onClose}: Props) {
     const [g, setG] = useState(0);
+    const [visual, setVisual] = useState(startVisual);
     const [index, setIndex] = useState(0);
     const [at, setAt] = useState(() => kept[name] || startAt(anchor));
     const el = useRef<HTMLDivElement>(null);
@@ -148,9 +171,19 @@ export function SourcesWindow({groups, name, anchor, about, onClose}: Props) {
     else if (res === null) body = <p class="text-danger">{group.error || "Could not find the frames."}</p>;
     else if (!f) body = <p class="message">{emptyText(res)}</p>;
     else {
+        const pixel = res.kind === "Point" ? f.pixel : null, outline = res.kind === "Polygon" ? f.outline : undefined;
+        const pair = group.visual && f.visual ? f.visual : null;
         body = (<>
-            <FrameImage values={group.values(f.frame)} curve={group.curve(f.frame)} colouring={group.colouring} alt={f.frame}
-                        pixel={res.kind === "Point" ? f.pixel : null} outline={res.kind === "Polygon" ? f.outline : undefined}/>
+            {group.visual && <div class="segmented sources-camera" role="group" aria-label="Camera">
+                <button type="button" name="thermal" class={!visual || !pair ? "active" : ""} aria-pressed={!visual || !pair}
+                        onClick={() => setVisual(false)}>Thermal</button>
+                <button type="button" name="visual" class={visual && pair ? "active" : ""} aria-pressed={!!(visual && pair)}
+                        disabled={!pair} title={pair ? "Its visual image, " + frameName(pair.frame) : "No visual image paired with this frame"}
+                        onClick={() => setVisual(true)}>Visual</button>
+            </div>}
+            {visual && pair ? <VisualImage src={group.visual!(f.frame)} pair={pair} alt={pair.frame} pixel={pixel} outline={outline}/> :
+                <FrameImage values={group.values(f.frame)} curve={group.curve(f.frame)} colouring={group.colouring} alt={f.frame}
+                            pixel={pixel} outline={outline}/>}
             <div class="sources-nav">
                 <button type="button" class="button default small" name="previous" title="The previous frame (←)"
                         aria-label="Previous frame" disabled={i === 0} onClick={() => setIndex(i - 1)}><ChevronLeft/></button>

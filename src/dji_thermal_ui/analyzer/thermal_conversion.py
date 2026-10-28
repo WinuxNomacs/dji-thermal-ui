@@ -43,6 +43,7 @@ DEFAULTS = {
     'outputs': ['temp_c:tiff', 'pseudo:png'],
     'compression': 'deflate',
     'mosaics': True,        # the app's own: build the mosaics after the images
+    'visual': True,         # the app's own: and the visual mosaic with them, when the dataset has visual frames
 }
 
 # (low, high) of the numbers; the camera's own limits are narrower and are checked per image when converting
@@ -156,6 +157,7 @@ def parse_settings(raw):
     out['strip_location'] = bool(get('strip_location'))
     out['normalize'] = bool(get('normalize'))
     out['mosaics'] = bool(get('mosaics'))
+    out['visual'] = bool(get('visual'))
 
     compression = get('compression')
     if compression in COMPRESSIONS:

@@ -1,4 +1,7 @@
+import OlMap from "ol/Map";
+import TileLayer from "ol/layer/Tile";
 import WebGLTileLayer from "ol/layer/WebGLTile";
+import type XYZ from "ol/source/XYZ";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
@@ -103,6 +106,46 @@ describe("the viewer page", () => {
         expect($("[data-section=whole]")!.textContent).toContain("25.00 °C");
         expect($(".map-legend")!.textContent).toContain("Temperature, °C");
         expect(location.search).toBe("?tab=as_converted&palette=ironred&min=20&max=30.1");
+    });
+
+    it("shows the visual mosaic's tiles on its tab, the readout and source frames the as converted mosaic's", async () => {
+        history.replaceState(null, "", "/conversion/9?tab=visual");
+        const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, files: ["mosaics/visual/mosaic_visual.tif"], pairs: 2,
+                        width: 300, height: 240, gsd_m: 0.006, unused_visual: 1,
+                        report: {frames_used: 2, camera_offset: {applied: true, pairs_used: 5, boresight_deg: {pitch: 0.25, yaw: -0.29},
+                                                                 offset_before_m: {median: 0.104}, residual_m: {median: 0.024}}}};
+        const added = vi.spyOn(OlMap.prototype, "addLayer");
+        const fetchFn = server(routes({[BASE + "/mosaics"]: {...MOSAICS, visual}}));
+        await open(fetchFn);
+        const layers = added.mock.calls.map((c) => c[0]);
+        const tiles = layers.find((l) => l instanceof TileLayer) as TileLayer<XYZ>;
+        const values = layers.find((l) => l instanceof WebGLTileLayer)!;
+        expect(tiles.getSource()!.getUrls()).toEqual([BASE + "/mosaics/visual/tiles/{z}/{x}/{y}.png"]);
+        expect([tiles.getVisible(), values.getVisible()]).toEqual([true, false]);
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Visual");
+        expect(byId("visual-hint").textContent).toContain("Under the cursor are the temperatures as converted.");
+        expect($("#palette")).toBeNull();
+        expect($("[data-section=measure]")).toBeNull();
+        expect($(".map-legend")!.textContent).toBe("");
+        const mosaic = $("[data-section=report]")!.textContent;
+        expect(mosaic).toContain("2 placed as their thermal frames, 1 visual not used");
+        expect(mosaic).toContain("pitch +0.25°, yaw -0.29° from 5 pairs: the mosaics 10.4 cm apart before, 2.4 cm after (median)");
+        expect(mosaic).toContain("mosaics/visual/mosaic_visual.tif");
+        expect(location.search).toBe("?tab=visual");
+        expect(measured(fetchFn)[0].target).toBe("as_converted");
+        click($("[data-tab=harmonized]")!);
+        await ticks(10);
+        expect([tiles.getVisible(), values.getVisible()]).toEqual([false, true]);
+        expect($("#palette")).not.toBeNull();
+        expect(location.search).toContain("?tab=harmonized");
+        added.mockRestore();
+    });
+
+    it("has no Visual tab without a visual mosaic", async () => {
+        history.replaceState(null, "", "/conversion/9?tab=visual");
+        await open(server(routes()));
+        expect($("[data-tab=visual]")).toBeNull();
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("As converted");
     });
 
     it("keeps its map when a notice appears above it", async () => {

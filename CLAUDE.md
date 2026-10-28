@@ -43,7 +43,8 @@ machine. Keep it short; edit in place.
   committed: the wheel and sdist carry it, so installing needs no npm. The app serves its own static files.
 - **Map colouring:** the server sends a mosaic's tiles, a difference and a frame as float32 values (`data_response`
   in `api.py`); the browser colours them in WebGL (`frontend/src/map/colour.ts`: palette, range, tone curve,
-  isotherm, sharpening), and on a canvas where it draws without a map (`colourValues`).
+  isotherm, sharpening), and on a canvas where it draws without a map (`colourValues`). The visual mosaic is the
+  exception: PNG tiles from a JPEG copy with overviews (`thermal_mosaics.map_copy`).
 - **Tests:** pytest with pytest-django (`tests/`, settings `tests.settings`, which use a temporary data folder and a
   stub manifest, so they need no build), Vitest with jsdom (`frontend/tests/`), ruff, and ESLint with `tsc`. All of
   them run on the host.
@@ -53,7 +54,7 @@ machine. Keep it short; edit in place.
 - `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1:8765 and opens the browser; `--data-dir`, `--port`,
   `--no-browser`).
 - `uv run pytest`, `uv run ruff check`. Set `DJI_THERMAL_FLIGHT_DIR` to a folder of one flight's R-JPEGs to run
-  the `flight` tests too.
+  the `flight` tests too (with its visual `_V` images beside them, the visual mosaic's too).
 - `npm ci`, then `npm test`, `npm run -s lint` and `npm run build` (`-- --watch` while working on the pages).
 - Release checks, after `npm run build`: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
   `uvx twine@7.0.0 check --strict dist/*`, then `uv run --no-project python scripts/smoke.py uvx --from <wheel>

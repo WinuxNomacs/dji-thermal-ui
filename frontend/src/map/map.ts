@@ -1,6 +1,7 @@
 // The pages' maps on OpenLayers: a map of mosaics with its basemaps (basemaps.ts) and their switch, its
 // scale and a place for the colour scale; a frame's map, in its pixels; the values the server sends, coloured in the
-// browser (colour.ts); tips shown over what is drawn; and the values as drawn, for the PNG export
+// browser (colour.ts); a visual mosaic's colour tiles; tips shown over what is drawn; and the values as drawn, for the
+// PNG export
 import type {Coordinate} from "ol/coordinate";
 import Feature from "ol/Feature";
 import OlMap from "ol/Map";
@@ -12,13 +13,18 @@ import ScaleLine from "ol/control/ScaleLine";
 import Zoom from "ol/control/Zoom";
 import Point from "ol/geom/Point";
 import {defaults as defaultInteractions} from "ol/interaction/defaults";
+import ImageLayer from "ol/layer/Image";
+import type Layer from "ol/layer/Layer";
+import TileLayer from "ol/layer/Tile";
 import VectorLayer from "ol/layer/Vector";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import Projection from "ol/proj/Projection";
 import {fromLonLat, toLonLat, transformExtent} from "ol/proj";
 import {getDistance} from "ol/sphere";
 import DataTile from "ol/source/DataTile";
+import ImageStatic from "ol/source/ImageStatic";
 import VectorSource from "ol/source/Vector";
+import XYZ from "ol/source/XYZ";
 import TileGrid from "ol/tilegrid/TileGrid";
 import {createXYZ} from "ol/tilegrid";
 import {addBasemaps, type Basemap} from "./basemaps";
@@ -235,9 +241,29 @@ export class ThermalLayer {
     };
 }
 
-// The values as drawn on the map (the basemap left out), where they are on the page; null when none were drawn within
-// wait milliseconds
-export function snapshot(map: OlMap, layer: WebGLTileLayer, wait = 3000): Promise<{image: HTMLCanvasElement; rect: DOMRect} | null> {
+// A visual mosaic's colour tiles (url: with {z}, {x} and {y}) over its bounds (lon/lat), above the values and under
+// what is drawn; hidden until it is shown
+export function visualLayer(map: OlMap, url: string, bounds: number[], maxZoom: number): TileLayer<XYZ> {
+    const layer = new TileLayer({source: new XYZ({url, maxZoom, transition: 0}), extent: mercatorBounds(bounds), zIndex: 1,
+                                 visible: false});
+    map.addLayer(layer);
+    return layer;
+}
+
+// An image of a frame's size (a frame's visual pair) on a frame's map, in its pixels: hidden until it is shown
+export function frameImageLayer(map: OlMap): ImageLayer<ImageStatic> {
+    const layer = new ImageLayer<ImageStatic>({zIndex: 1, visible: false});
+    map.addLayer(layer);
+    return layer;
+}
+
+export function frameImage(url: string, width: number, height: number): ImageStatic {
+    return new ImageStatic({url, imageExtent: [0, -height, width, 0], projection: FRAME_PIXELS, interpolate: true});
+}
+
+// The values (or the colour tiles) as drawn on the map (the basemap left out), where they are on the page; null when
+// none were drawn within wait milliseconds
+export function snapshot(map: OlMap, layer: Layer, wait = 3000): Promise<{image: HTMLCanvasElement; rect: DOMRect} | null> {
     return new Promise((resolve) => {
         const timer = setTimeout(() => { layer.un("postrender", copy); resolve(null); }, wait);
         function copy(e: {context?: unknown}) {

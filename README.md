@@ -11,18 +11,28 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   Default Project, which you can rename; one is made again whenever none is left. A project's location is found by
   searching an address or a place on OpenStreetMap, or by clicking the site on the map, and keeps the address.
   A project's page lists its datasets' findings together.
-- **Datasets:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails.
+- **Datasets:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
+  drone takes with them (DJI's `_V` or `_W`, as on the Matrice 4T or the H20T/H30T) can be added too: the Files tab
+  calls them visual.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a dataset.
 - **Conversions:** temperature images with any of dji-thermal-cli's settings. You can keep several side by side,
   cancel one, or download it.
 - **Mosaics:** as converted, harmonized, by source frame or by view angle, over a street map or Esri's or Mapbox's
   satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma, equalization
   and sharpening, redrawn as their sliders are dragged; the colour scale is labelled with its range's ends.
+- **Visual mosaic:** when a dataset has visual images, a conversion builds their mosaic with the thermal ones (the
+  convert form's "And the visual mosaic", on by default), at the visual camera's own resolution. dji-thermal-cli
+  places each visual image where its thermal frame is in the thermal mosaic, after measuring and correcting the
+  small angle between the two cameras, so the two mosaics line up. The viewer shows it on its Visual tab, under the
+  cursor are the temperatures as converted, and a click opens the frames that saw the spot. It is in the downloads
+  beside the thermal mosaics. Zoom camera images are left out.
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
-  and on single frames. They can be saved, compared, measured again with other settings, and exported as CSV and
+  and on single frames. A frame page's Thermal/Visual switch shows the frame's visual image in its place, with the
+  same shapes on it, and measures the thermal frame under them. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
 - **Source frames:** a spot or an area of a mosaic opens a window with every frame that saw it, the one the mosaic
-  used first, each with its time and view angle and the spot marked or the area outlined in it. Draw one with the
+  used first, each with its time and view angle and the spot marked or the area outlined in it, in the thermal frame
+  or, with the Thermal/Visual switch, its visual image. Draw one with the
   Source frames tool, click the Source frame tab, or open a measurement's; on the compare page, draw a spot or an area
   in a pane. Mosaics
   built before 0.5.0 list only the frames they used: build them again to list every frame.
@@ -128,6 +138,7 @@ Deleting a project deletes its datasets the same way, after saying how many ther
 ```
 uv sync
 uv run pytest            # DJI_THERMAL_FLIGHT_DIR=<a folder of one flight's R-JPEGs> runs the flight tests too
+                         # (with its _V images beside them, the visual mosaic's too)
 uv run ruff check
 npm ci
 npm test                 # the pages' tests (Vitest)
