@@ -27,8 +27,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   cursor are the temperatures as converted, and a click opens the frames that saw the spot. It is in the downloads
   beside the thermal mosaics. Zoom camera images are left out.
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
-  and on single frames. A frame page's Thermal/Visual switch shows the frame's visual image in its place, with the
-  same shapes on it, and measures the thermal frame under them. They can be saved, compared, measured again with other settings, and exported as CSV and
+  and on single frames. A frame page's Thermal/Visual/Both switch shows the frame's visual image in its place or
+  beside it, with the same shapes and the cursor on it, and measures the thermal frame under them. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
 - **Source frames:** a spot or an area of a mosaic opens a window with every frame that saw it, the one the mosaic
   used first, each with its time and view angle and the spot marked or the area outlined in it, in the thermal frame
@@ -56,7 +56,10 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   with a close-up on its mosaic or frame, its figures, profile and histogram, and a comment; one can be left out.
   Then come the findings on the mosaic with their kept frames, and the conversion's settings and how the mosaic was
   made. A measurement's comment is also shown in the viewer's list and exported in the CSV and GeoJSON.
-- **Compare:** two conversions side by side, or their difference, from any dataset, the project's listed first.
+- **Compare:** two conversions side by side, one over the other, or their difference, from any dataset, the
+  project's listed first. A pane can show a conversion's visual mosaic. "Overlay (A over B)" draws pane A's mosaic
+  over pane B's in one pane, faded with an opacity slider and cut at a swipe line dragged across it: visual over
+  thermal, or two thermal mosaics.
 - **Navigation:** a pane on the left of every page lists the projects, their datasets with each dataset's report,
   and each conversion's mosaics, frames, compare page and report. Each level folds, and the whole pane hides; over a narrow
   screen it opens on top of the page.
