@@ -9,12 +9,10 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **J2: favourite filters**: the filter saved under a name, chosen from a dropdown, deleted but never overwritten.
-   (Files filters)
+1. **K1: export a project**: the whole project or chosen flights, as a tarball. (Backup and restore)
 
 **Then**
-1. **K1: export a project**: the whole project or chosen flights, as a tarball. (Backup and restore)
-2. **K2: import a project**: as a new project, its name never reusing one in use. (Backup and restore)
+1. **K2: import a project**: as a new project, its name never reusing one in use. (Backup and restore)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1265,3 +1263,10 @@ name already in use is never reused.
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **J2: favourite filters** (2026-10-28). The Files tab's Favourites menu (`Favourites` in `dataset/tabs.tsx`): the
+  filter shown saved under a new name, a favourite chosen in place of the filter (marked while the filter is its own),
+  and deleted once asked. They are shared by every flight, in `Preferences` under `file_filters` as the link's
+  `key.op.value` conditions (`filtersFrom` in `dataset/files.ts`), through `api/file-filters` (`FileFiltersView`,
+  409 for a name in use). Tests: `tests/test_api_file_filters.py`, `frontend/tests/dataset.test.tsx`. Checked live on
+  flight 1 (on 8081), light and dark: saved, refused under the same name, listed after a reload, chosen (67 files,
+  its link), deleted; the menu kept inside the page at 700 px; none left behind.
