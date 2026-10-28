@@ -1,7 +1,8 @@
 // A conversion's frames, one at a time: the frame as converted (and beside it, measured again with other parameters),
 // its visual pair in its place or beside it (the shapes, the cursor and the readout on it the thermal frame's), its palette, range and image adjustments, the values under the cursor, measuring with the isotherm, the frame's
-// figures, where the frames were taken, the measurements saved on it, and the frame as a PNG. ← and → step through
-// the frames. The view (frame, palette, range, adjustments) is kept in the URL.
+// figures, where the frames were taken, the measurements saved on it, and the frame as a PNG. The frames of the
+// pane's list (in the mosaic, oblique; all of them for none) are listed beside it, the frame shown chosen there or
+// stepped to with ← and →. The view (frame, palette, range, adjustments) and the list are kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
 import type OlMap from "ol/Map";
@@ -30,8 +31,9 @@ import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, Section} from "../viewer/panel";
 import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
         sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
-import {type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, frameLabel, listFrames, listTitle,
-        newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
+import {captureOrder, type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, listFrames,
+        listTitle, newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
+import {FrameList} from "./frame-list";
 import {FrameReadout, type FramePoint, Info, Params} from "./panel";
 
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
@@ -47,6 +49,8 @@ export interface Frames {
     description?: string;
     unit?: string;
     normalized?: boolean;
+    mosaic_status?: string;
+    max_pitch?: number;
     default_palette?: string;
     palettes?: Palette[];
     frames?: FrameEntry[];
@@ -209,7 +213,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         try {
             const r = await readJson<Frames>(await fetch(base + "/frames", {credentials: "same-origin"}));
             if (!r.ok) return setNotice("Could not load the frames.");
-            const listed = r.data.frames && listFrames(r.data.frames, list);
+            const listed = r.data.frames && captureOrder(listFrames(r.data.frames, list));
             setMeta({...r.data, frames: listed});
             const paths = (listed || []).map((f) => f.path);
             if (!paths.length) return setStatus({text: "The flight has no thermal frames to show."});
@@ -727,11 +731,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                 <div class="frame-chooser">
                     <button type="button" class="button default small" id="prev" title="Previous frame" disabled={at <= 0}
                             onClick={() => step(-1)}><ChevronLeft/></button>
-                    <select id="frame" aria-label="Frame" value={frame || ""} onChange={(e) => chooseFrame(e.currentTarget.value)}>
-                        {frames.map((f) => <option key={f.path} value={f.path}>{frameLabel(f)}</option>)}
-                    </select>
                     <button type="button" class="button default small" id="next" title="Next frame" disabled={at >= frames.length - 1}
                             onClick={() => step(1)}><ChevronRight/></button>
+                    <strong id="frame" title={frame || ""}>{(frame || "").split("/").pop()}</strong>
                     {pair && <div class="segmented frame-camera" role="group" aria-label="Camera">
                         {CAMERAS.map(([c, label]) => <button key={c} type="button" name={c} class={camera === c ? "active" : ""}
                                                              aria-pressed={camera === c} onClick={() => setCamera(c)}
@@ -743,6 +745,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                         inMosaics ? "frame " + (entry!.mosaic! + 1) + " of the mosaics" : ""].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div class="viewer-body">
+                    <FrameList frames={frames} frame={frame} choose={chooseFrame} list={list} maxPitch={meta.max_pitch}
+                               built={meta.mosaic_status === "ready"} thumbs={api + "datasets/" + datasetId + "/thumbnail?file="}/>
                     <div class="frame-panes">
                         <div class="frame-pane">
                             <div class="frame-pane-title" id="pane-title">{onPair ? "Visual · " + pair!.frame.split("/").pop() +

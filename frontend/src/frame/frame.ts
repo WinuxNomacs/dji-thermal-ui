@@ -57,18 +57,29 @@ export function changesIn(changes: Maybe<Changes>, unit: unknown): Changes {
     return out;
 }
 
-export function frameLabel(f: FrameEntry): string {
-    const tags: string[] = [];
-    if (f.mosaic !== null && f.mosaic !== undefined) tags.push("in the mosaics");
-    else if (f.pitch !== null && f.pitch !== undefined && f.pitch > -80) tags.push("oblique, " + formatNumber(f.pitch, 0, "°"));
-    if (!f.converted) tags.push("not converted");
-    return f.path + (tags.length ? " (" + tags.join(", ") + ")" : "");
+const inMosaics = (f: FrameEntry) => f.mosaic !== null && f.mosaic !== undefined;
+
+// What the explorer says of a frame beside its name, besides what its list already says: not converted, in the
+// mosaic, or why the mosaics left it out (oblique above their pitch limit, else unusable); nothing to say of the others,
+// nor of where frames are before the mosaics are built
+export function frameTag(f: FrameEntry, list: Maybe<string>, maxPitch: Maybe<number>, built: boolean): string {
+    if (!f.converted) return "not converted";
+    if (!built) return "";
+    if (inMosaics(f)) return list === "mosaic" ? "" : "in the mosaic";
+    const pitch = f.pitch;
+    if (pitch !== null && pitch !== undefined && pitch > (maxPitch ?? -80)) return "oblique, " + formatNumber(pitch, 0, "°");
+    return "left out as unusable";
+}
+
+// The frames in the order they were taken, those without a time last (by their names)
+export function captureOrder(frames: FrameEntry[]): FrameEntry[] {
+    const at = (f: FrameEntry) => f.time || "\uffff";
+    return [...frames].sort((a, b) => at(a) < at(b) ? -1 : at(a) > at(b) ? 1 : a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 }
 
 // The frames of one of the pane's lists (FRAME_LISTS): those the mosaics placed, or those converted that they left out
 // (for their angle, or as unusable); all of them for no list, or for one that has none
 export function listFrames(frames: FrameEntry[], list: Maybe<string>): FrameEntry[] {
-    const inMosaics = (f: FrameEntry) => f.mosaic !== null && f.mosaic !== undefined;
     const listed = list === "mosaic" ? frames.filter(inMosaics) :
         list === "oblique" ? frames.filter((f) => f.converted && !inMosaics(f)) : frames;
     return listed.length ? listed : frames;

@@ -1838,6 +1838,8 @@ class FramesView(DatasetView):
             'dataset_name': conversion.dataset.name,
             'unit': (conversion.options or {}).get('unit') or 'C',
             'normalized': bool((conversion.options or {}).get('normalize')),
+            # The highest pitch the mosaics placed a frame at: those they left out above it were left out for their angle
+            'max_pitch': thermal_mosaics.max_pitch(conversion.options or {}),
             'flight_zone': thermal_analysis.flight_zone(conversion.dataset.analysis),
             'frames': [dict(f, recorded={k: rows[f['path']].get(k) for k in recorded})
                        for f in thermal_measure.frame_list(conversion)],
