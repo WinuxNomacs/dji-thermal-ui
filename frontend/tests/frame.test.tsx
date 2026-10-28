@@ -6,7 +6,7 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserLocale} from "../src/core/format";
 import {setUserUnit} from "../src/core/units";
-import {changesIn, type FrameInfo, frameLabel, newConversionUrl, readChanges, valuesUrl} from "../src/frame/frame";
+import {changesIn, type FrameInfo, frameLabel, listFrames, listTitle, newConversionUrl, readChanges, valuesUrl} from "../src/frame/frame";
 import {FramePage, type Frames} from "../src/frame/frame-page";
 import {FrameReadout, Info} from "../src/frame/panel";
 import {calls, click, key, server, ticks, valuesResponse} from "./helpers";
@@ -81,6 +81,17 @@ describe("the frame helpers", () => {
         expect(frameLabel(FRAMES.frames![0])).toBe("thermal/a_T.JPG (in the mosaics)");
         expect(frameLabel(FRAMES.frames![1])).toBe("thermal/b_T.JPG (oblique, -45°, not converted)");
         expect(frameLabel({path: "c.JPG", pitch: -90, converted: true, mosaic: null})).toBe("c.JPG");
+    });
+
+    it("list the frames the mosaics placed, or those converted they left out, or all for none or an empty list", () => {
+        const c = {path: "c.JPG", pitch: -50, converted: true, mosaic: null};
+        const frames = [...FRAMES.frames!, c];
+        expect(listFrames(frames, "mosaic").map((f) => f.path)).toEqual([A]);
+        expect(listFrames(frames, "oblique").map((f) => f.path)).toEqual(["c.JPG"]);
+        expect(listFrames(frames, null)).toEqual(frames);
+        expect(listFrames(FRAMES.frames!, "oblique")).toEqual(FRAMES.frames);
+        expect([listTitle("mosaic"), listTitle("oblique"), listTitle(null)])
+            .toEqual(["frames in the mosaic", "oblique frames", "frames"]);
     });
 
     it("read the changes typed: only those moved from their start, checked against their limits", () => {
@@ -214,6 +225,15 @@ describe("the frame page", () => {
         expect(byId("mosaics").getAttribute("href")).toBe("/conversion/9");
         expect(valuesOf("map")).toBe(BASE + "/frame/data?frame=" + enc(B));
         expect((byId("range-min") as HTMLInputElement).value).toBe("18");
+    });
+
+    it("shows only the frames of the pane's list it was opened with, keeping the list in the URL", async () => {
+        history.replaceState(null, "", "/conversion/9/frame?list=mosaic");
+        await open(server(routes()));
+        expect(byId("name").textContent).toBe("Nadir: frames in the mosaic");
+        expect([...document.querySelectorAll("#frame option")].map((o) => (o as HTMLOptionElement).value)).toEqual([A]);
+        expect((byId("next") as HTMLButtonElement).disabled).toBe(true);
+        expect(location.search).toMatch(/^\?palette=.*&frame=thermal%2Fa_T.JPG&list=mosaic$/);
     });
 
     it("measures the frame again with the parameters changed, beside it as converted", async () => {

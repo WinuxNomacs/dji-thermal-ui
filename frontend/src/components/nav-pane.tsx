@@ -1,10 +1,12 @@
 // The navigation pane on the left of every page: the projects, under each its datasets, under each its conversions
-// and their pages, and User Preferences last. Each level folds; what is folded is kept for the next visit, and the
-// page shown is always unfolded to and marked. The pane lists again when a page says what it lists has changed.
+// with their tools, mosaics and frames, and User Preferences last. Each level folds; what is folded is kept for the
+// next visit, and the page shown is always unfolded to and marked (down to the viewer's tab or the frame page's list
+// it shows). The pane lists again when a page says what it lists has changed.
 import {type ComponentChildren} from "preact";
 import {useEffect, useState} from "preact/hooks";
-import {type Current, conversionKey, conversionPages, datasetKey, fetchNavigation, type NavProject,
-        onNavigationChanged, pathTo, projectKey} from "../core/navigation";
+import {conversionHref, conversionItems, conversionKey, type Current, datasetKey, fetchNavigation, markedItem,
+        type NavItem, type NavProject, onNavigationChanged, onPartChanged, partOf, pathTo, projectKey,
+        trailTo} from "../core/navigation";
 import {ChevronDown, ChevronRight, Cog, Folder} from "./icons";
 
 const EXPANDED_KEY = "thermal-analyzer.nav.expanded";
@@ -36,26 +38,41 @@ interface ItemProps {
     toggle: (key: string) => void;
     href: string;
     label: string;
+    count?: number;             // how many it holds, shown after its label
     current: boolean;
     level: number;
     onNavigate?: () => void;
     children?: ComponentChildren;
 }
 
-function Item({itemKey, expanded, toggle, href, label, current, level, onNavigate, children}: ItemProps) {
+function Item({itemKey, expanded, toggle, href, label, count, current, level, onNavigate, children}: ItemProps) {
     const open = !!itemKey && expanded.has(itemKey);
     return (<li class={"nav-item level-" + level}>
         <div class={"nav-row" + (current ? " current" : "")}>
             {itemKey ? <button type="button" class="nav-fold" aria-expanded={open} data-key={itemKey}
                                aria-label={(open ? "Fold " : "Unfold ") + label} onClick={() => toggle(itemKey)}>
                 {open ? <ChevronDown/> : <ChevronRight/>}</button> : <span class="nav-fold-space"/>}
-            <a href={href} aria-current={current ? "page" : undefined} title={label} onClick={onNavigate}>{label}</a>
+            <a href={href} aria-current={current ? "page" : undefined} title={label} onClick={onNavigate}>{label}
+                {count !== undefined && <span class="nav-count">{count}</span>}</a>
         </div>
         {open && children}
     </li>);
 }
 
-export function NavPane({api, publicUrl, current, onNavigate, onClose}: NavPaneProps) {
+// An item from the conversion's, with those under it
+function Pages({x, level, marked, item}: {x: NavItem; level: number; marked: string | null; item: ItemBase}) {
+    return (<Item itemKey={x.items?.length ? x.key : undefined} {...item} level={level} href={x.href} label={x.label}
+                  count={x.count} current={marked === x.key}>
+        {x.items && <ul>{x.items.map((y) => <Pages key={y.key} x={y} level={level + 1} marked={marked} item={item}/>)}</ul>}
+    </Item>);
+}
+
+type ItemBase = Pick<ItemProps, "expanded" | "toggle" | "onNavigate">;
+
+export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: NavPaneProps) {
+    // The part of the page shown, as its URL has it now
+    const [part, setPart] = useState(() => page.part ?? partOf(page.page, location.search));
+    const current = {...page, part};
     const [projects, setProjects] = useState<NavProject[] | null>(null);
     const [failed, setFailed] = useState(false);
     const [expanded, setExpanded] = useState(() => new Set(storedExpanded()));
@@ -80,6 +97,13 @@ export function NavPane({api, publicUrl, current, onNavigate, onClose}: NavPaneP
         return onNavigationChanged(load);
     }, [api]);
 
+    // Another part of the page shown (the viewer's tab changed): marked, and unfolded to
+    useEffect(() => onPartChanged(() => {
+        const next = partOf(page.page, location.search);
+        setPart(next);
+        if (projects) setExpanded((before) => new Set([...before, ...pathTo(projects, {...page, part: next})]));
+    }), [projects]);
+
     function toggle(key: string) {
         setExpanded((before) => {
             const next = new Set(before);
@@ -89,8 +113,9 @@ export function NavPane({api, publicUrl, current, onNavigate, onClose}: NavPaneP
         });
     }
 
-    const is = (page: string, id?: number) => current.page === page && (id === undefined || current.id === id);
-    const item = {expanded, toggle, onNavigate};
+    const is = (name: string) => current.page === name;
+    const marked = projects ? markedItem(trailTo(projects, current), expanded) : null;
+    const item: ItemBase = {expanded, toggle, onNavigate};
 
     return (<nav class="app-nav" id="app-nav" aria-label="Projects and preferences">
         {onClose && <div class="nav-close"><button type="button" class="close" aria-label="Close the navigation"
@@ -103,22 +128,19 @@ export function NavPane({api, publicUrl, current, onNavigate, onClose}: NavPaneP
                 </div>
                 {projects && <ul>{projects.map((p) => (
                     <Item key={p.id} itemKey={p.datasets.length ? projectKey(p.id) : undefined} {...item} level={1}
-                          href={publicUrl + "project/" + p.id} label={p.name || "(untitled)"} current={is("project", p.id)}>
+                          href={publicUrl + "project/" + p.id} label={p.name || "(untitled)"} current={marked === projectKey(p.id)}>
                         <ul>{p.datasets.map((d) => (
                             <Item key={d.id} itemKey={datasetKey(d.id)} {...item} level={2}
                                   href={publicUrl + "dataset/" + d.id} label={d.name || "(untitled)"}
-                                  current={is("dataset", d.id)}>
+                                  current={marked === datasetKey(d.id)}>
                                 <ul><Item key="report" {...item} level={3} href={publicUrl + "dataset/" + d.id + "/report"}
-                                          label="Report" current={is("dataset_report", d.id)}/>
+                                          label="Report" current={marked === datasetKey(d.id) + ".report"}/>
                                     {d.conversions.map((c) => {
-                                        const pages = conversionPages(c, publicUrl);
-                                        const here = pages.some((x) => is(x.page, c.id));
-                                        return (<Item key={c.id} itemKey={pages.length ? conversionKey(c.id) : undefined} {...item}
-                                                      level={3} href={pages.length ? pages[0].href : publicUrl + "dataset/" + d.id + "#convert"}
-                                                      label={c.name} current={here && !expanded.has(conversionKey(c.id))}>
-                                            <ul>{pages.map((x) => (
-                                                <Item key={x.page} {...item} level={4} href={x.href} label={x.label}
-                                                      current={is(x.page, c.id)}/>))}</ul>
+                                        const items = conversionItems(c, publicUrl);
+                                        return (<Item key={c.id} itemKey={items.length ? conversionKey(c.id) : undefined} {...item}
+                                                      level={3} href={conversionHref(c, d.id, publicUrl)} label={c.name}
+                                                      current={marked === conversionKey(c.id)}>
+                                            <ul>{items.map((x) => <Pages key={x.key} x={x} level={4} marked={marked} item={item}/>)}</ul>
                                         </Item>);
                                     })}</ul>
                             </Item>))}</ul>

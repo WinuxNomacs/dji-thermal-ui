@@ -18,17 +18,30 @@ def test_the_pane_lists_the_projects_their_datasets_and_what_each_conversion_has
     new = ThermalConversion.objects.create(dataset=roof, name="New", options={}, status='converting')
     framed = ThermalConversion.objects.create(dataset=roof, name="Framed", options={}, status='ready')
     built = ThermalConversion.objects.create(dataset=roof, name="Built", options={}, status='ready',
-                                             mosaic_status='ready')
+                                             mosaic_status='ready', mosaics={
+                                                 'frames': ["a_T.JPG", "b_T.JPG", "c_T.JPG"],
+                                                 'kinds': {'as_converted': {'oblique': 4, 'unusable': 1},
+                                                           'harmonized': {'oblique': 4, 'unusable': 1}},
+                                                 'visual': {'raster': "visual.tif"}})
     listed = api.get(NAVIGATION).data['projects']
     assert [(p['id'], p['name']) for p in listed] == [(default.id, "Default Project"), (silos.id, "Silos")]
     assert listed[0]['datasets'] == []
     # Newest first, as the pages list them
     assert [(d['id'], d['name']) for d in listed[1]['datasets']] == [(field.id, "Field"), (roof.id, "Roof")]
     assert listed[1]['datasets'][1]['conversions'] == [
-        {'id': built.id, 'name': "Built", 'frames': True, 'mosaics': True},
+        {'id': built.id, 'name': "Built", 'frames': True, 'mosaics': True,
+         'tabs': ['as_converted', 'harmonized', 'source_frame', 'view_angle', 'visual'], 'in_mosaic': 3, 'oblique': 5},
         {'id': framed.id, 'name': "Framed", 'frames': True, 'mosaics': False},
         {'id': new.id, 'name': "New", 'frames': False, 'mosaics': False},
     ]
+
+
+def test_the_pane_lists_only_the_mosaics_built(api):
+    c = ThermalConversion.objects.create(dataset=dataset(), name="Old", options={}, status='ready',
+                                         mosaic_status='ready', mosaics={'frames': [], 'kinds': {'harmonized': {'oblique': 2}}})
+    listed = api.get(NAVIGATION).data['projects'][0]['datasets'][0]['conversions']
+    assert listed == [{'id': c.id, 'name': "Old", 'frames': True, 'mosaics': True, 'tabs': ['harmonized'],
+                       'in_mosaic': 0, 'oblique': 0}]
 
 
 def test_the_pane_makes_the_default_project_when_there_is_none(api):

@@ -500,11 +500,25 @@ class NavigationView(DatasetView):
             'id': p.id, 'name': p.name,
             'datasets': [{
                 'id': d.id, 'name': d.name,
-                'conversions': [{'id': c.id, 'name': c.name, 'frames': c.status == 'ready',
-                                 'mosaics': c.status == 'ready' and c.mosaic_status == 'ready'}
-                                for c in d.conversions.all()],
+                'conversions': [nav_conversion(c) for c in d.conversions.all()],
             } for d in p.datasets.all()],
         } for p in projects]})
+
+
+def nav_conversion(c):
+    """A conversion as the pane lists it; once its mosaics are built, their viewer's tabs and how many frames the
+    mosaics placed and left out (for their angle, or as unusable)"""
+    out = {'id': c.id, 'name': c.name, 'frames': c.status == 'ready',
+           'mosaics': c.status == 'ready' and c.mosaic_status == 'ready'}
+    if out['mosaics']:
+        m = c.mosaics or {}
+        kinds = m.get('kinds') or {}
+        kind = kinds.get('as_converted') or {}
+        out.update(tabs=[tab for tab, k, _band in thermal_mosaics.TABS if kinds.get(k)]
+                   + ([thermal_mosaics.VISUAL] if m.get(thermal_mosaics.VISUAL) else []),
+                   in_mosaic=len(m.get('frames') or []),
+                   oblique=(kind.get('oblique') or 0) + (kind.get('unusable') or 0))
+    return out
 
 
 class PlacesView(DatasetView):

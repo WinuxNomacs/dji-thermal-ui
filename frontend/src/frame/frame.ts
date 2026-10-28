@@ -65,6 +65,20 @@ export function frameLabel(f: FrameEntry): string {
     return f.path + (tags.length ? " (" + tags.join(", ") + ")" : "");
 }
 
+// The frames of one of the pane's lists (FRAME_LISTS): those the mosaics placed, or those converted that they left out
+// (for their angle, or as unusable); all of them for no list, or for one that has none
+export function listFrames(frames: FrameEntry[], list: Maybe<string>): FrameEntry[] {
+    const inMosaics = (f: FrameEntry) => f.mosaic !== null && f.mosaic !== undefined;
+    const listed = list === "mosaic" ? frames.filter(inMosaics) :
+        list === "oblique" ? frames.filter((f) => f.converted && !inMosaics(f)) : frames;
+    return listed.length ? listed : frames;
+}
+
+// The page's title for a list: "frames in the mosaic"
+export function listTitle(list: Maybe<string>): string {
+    return list === "mosaic" ? "frames in the mosaic" : list === "oblique" ? "oblique frames" : "frames";
+}
+
 // The changes as a query ("&emissivity=0.98...")
 export function changesQuery(changes: Maybe<Record<string, Maybe<number | string>>>): string {
     return Object.entries(changes || {}).filter(([, v]) => v !== "" && v !== null && v !== undefined)

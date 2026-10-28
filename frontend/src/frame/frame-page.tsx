@@ -30,7 +30,7 @@ import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, Section} from "../viewer/panel";
 import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
         sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
-import {type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, frameLabel,
+import {type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, frameLabel, listFrames, listTitle,
         newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
 import {FrameReadout, type FramePoint, Info, Params} from "./panel";
 
@@ -103,6 +103,8 @@ interface Props {
 export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const base = api + "conversions/" + id;
     const [wanted] = useState(() => readView(location.search));
+    // The pane's list of frames shown (in the mosaic, oblique), from the URL
+    const [list] = useState(() => new URLSearchParams(location.search).get("list"));
     const [meta, setMeta] = useState<Frames | null>(null);
     const [notice, setNotice] = useState("");
     const [status, setStatus] = useState<{text: string; error?: boolean}>({text: ""});
@@ -207,8 +209,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         try {
             const r = await readJson<Frames>(await fetch(base + "/frames", {credentials: "same-origin"}));
             if (!r.ok) return setNotice("Could not load the frames.");
-            setMeta(r.data);
-            const paths = (r.data.frames || []).map((f) => f.path);
+            const listed = r.data.frames && listFrames(r.data.frames, list);
+            setMeta({...r.data, frames: listed});
+            const paths = (listed || []).map((f) => f.path);
             if (!paths.length) return setStatus({text: "The flight has no thermal frames to show."});
             chooseFrame(wanted.frame && paths.includes(wanted.frame) ? wanted.frame : paths[0]);
         } catch {
@@ -483,8 +486,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // The view in the URL, so that a reload or a copied link keeps it: the frame, its palette, range and adjustments
     useEffect(() => {
         if (!frame) return;
-        history.replaceState(null, "", location.pathname + viewQuery({frame, palette: style?.palette, range: style?.range,
-                                                                      adjust: style?.adjust}));
+        const q = viewQuery({frame, palette: style?.palette, range: style?.range, adjust: style?.adjust});
+        history.replaceState(null, "", location.pathname + q + (list ? (q ? "&" : "?") + "list=" + encodeURIComponent(list) : ""));
     }, [frame, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
 
     // The values at a pixel of the frame (where the cursor is, on the frame or on its visual pair)
@@ -706,7 +709,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             </div>
             <div class="page-header">
                 <div>
-                    <h1 id="name">{meta.name}: frames</h1>
+                    <h1 id="name">{meta.name}: {listTitle(list)}</h1>
                     <div class="subtitle">{meta.description || ""}</div>
                 </div>
                 <div class="page-actions">

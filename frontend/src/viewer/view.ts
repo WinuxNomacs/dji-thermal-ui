@@ -4,9 +4,8 @@ import {type FlightZone, formatNumber, type Maybe, zoneLabel} from "../core/form
 import {convertDelta, convertTemp, formatDelta, formatTemp, userUnit} from "../core/units";
 import {type Measured, type ParamField, symbol, typedTemp} from "../measure/measure";
 import {hiddenText, readHidden} from "../findings/findings";
+export {TAB_LABELS, tabLabel} from "./tab-labels";
 
-export const TAB_LABELS: Record<string, string> = {as_converted: "Mosaic", harmonized: "Harmonized",
-                                                   source_frame: "Source frame", view_angle: "View angle", visual: "Visual"};
 export const TAB_HINTS: Record<string, string> = {
     as_converted: "Each pixel is one frame's own temperature, as the frames were converted.",
     harmonized: "Normalized: one ambient and reflected temperature for every frame, and each frame's offset against " +
@@ -30,7 +29,6 @@ export interface View {tab?: string; palette?: string; frame?: string | null; ra
                       findings?: boolean; hidden?: number[]; finding?: number | null}
 export type Extra = Record<string, Maybe<string | number>>;
 
-export function tabLabel(tab: string): string { return TAB_LABELS[tab] || tab; }
 export function isTemperatureTab(tab: string): boolean { return TEMPERATURE_TABS.includes(tab); }
 
 // The tabs that share a palette and range: both temperature mosaics show the same scale, to compare them

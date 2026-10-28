@@ -172,7 +172,9 @@ ul { padding-left: 20px; }
 .level-2 > .nav-row { padding-left: 26px; }
 .level-3 > .nav-row { padding-left: 40px; }
 .level-4 > .nav-row { padding-left: 54px; }
-.level-3 a, .level-4 a { font-size: 12px; }
+.level-5 > .nav-row { padding-left: 68px; }
+.level-3 a, .level-4 a, .level-5 a { font-size: 12px; }
+.nav-count { float: right; margin-left: 6px; color: var(--muted); font-weight: normal; font-variant-numeric: tabular-nums; }
 .nav-error { margin: 4px 12px; font-size: 12px; }
 .nav-close { display: flex; justify-content: flex-end; padding: 0 8px 4px; }
 
