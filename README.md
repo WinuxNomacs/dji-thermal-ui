@@ -19,7 +19,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   Min > 32 °F, Kind is one of Thermal…), every one of which a file shown matches: numbers in the unit shown,
   text by its words. The Kind column's checkboxes and the Thermal frame and With problems columns filter too. All
   files, Thermal frames and With problems set the filter they stand for, to change from there. The filter is kept in
-  the page's link.
+  the page's link, and can be saved under a name as a favourite, offered on every flight's Files tab (a favourite is
+  deleted, never overwritten).
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
   mosaics. You can keep several side by side, cancel one, or download it.
 - **Mosaics:** the viewer's tabs are Mosaic (the temperatures as converted), Harmonized, Source frame (the mosaic

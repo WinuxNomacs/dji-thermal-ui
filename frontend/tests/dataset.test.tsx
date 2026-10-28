@@ -4,8 +4,8 @@ import {fileKind} from "../src/core/format";
 import {setUserUnit} from "../src/core/units";
 import {type Conversion, parsePrefill, skipReasons} from "../src/dataset/conversions";
 import {DatasetPage} from "../src/dataset/dataset-page";
-import {active, type Analysis, columnType, type Condition, fileRows, filterQuery, newCondition, newestReady, parseFilters, shownAs,
-        SHOWS, sortRows} from "../src/dataset/files";
+import {active, type Analysis, columnType, type Condition, fileRows, filterQuery, filtersFrom, newCondition, newestReady,
+        parseFilters, shownAs, SHOWS, sortRows} from "../src/dataset/files";
 import {differences, formProblem, planSettings, resetSetting, type Settings} from "../src/dataset/settings";
 import {calls, click, file, jsonResponse, key, server, ticks} from "./helpers";
 
@@ -80,6 +80,7 @@ const menuItem = (label: string) => [...card().querySelectorAll(".menu-items a, 
 const names = (filters: Condition[]) => fileRows(ANALYSIS, {filters, sort: "path", desc: false}).map((r) => r.path);
 const filterRows = () => $$(".filter-row");
 const shownCount = () => $(".files-shown")!.textContent;
+const favourites = () => $$(".favourite-name").map((b) => b.textContent!.trim());
 const showChosen = () => $<HTMLInputElement>("[name=files-show]:checked")?.value || null;
 function change(el: HTMLSelectElement | HTMLInputElement, value: string) {
     el.value = value;
@@ -105,7 +106,7 @@ function page(fetchFn: ReturnType<typeof server>, nav = vi.fn()) {
 
 // The dataset's own routes, with the conversion settings
 const routes = (dataset: unknown = DETAIL, more: Record<string, unknown> = {}) =>
-    server({[API + "preferences"]: PREFERENCES, [URL]: dataset, ...more});
+    server({[API + "preferences"]: PREFERENCES, [URL]: dataset, [API + "file-filters"]: {filters: []}, ...more});
 
 async function openMenu() {
     click(card().querySelector("button[aria-label=More]")!);
@@ -215,13 +216,14 @@ describe("the dataset's files and conversions", () => {
         expect(SHOWS.map(([s]) => s)).toEqual(["all", "thermal", "flagged"]);
     });
 
-    it("writes the filter in a link and reads it back, leaving out what it does not know", () => {
+    it("writes the filter in a link or a favourite and reads it back, leaving out what it does not know", () => {
         const filters: Condition[] = [{key: "alt", op: "le", value: "20.5"}, {key: "kind", op: "in", value: ["thermal", "visual"]},
                                       {key: "problems", op: "is", value: false}, {key: "path", op: "has", value: "a.b c"}];
         const query = filterQuery(filters);
         expect(query).toEqual(["alt.le.20.5", "kind.in.thermal,visual", "problems.is.no", "path.has.a.b c"]);
         const search = "?" + query.map((q) => "filter=" + encodeURIComponent(q)).join("&") + "&filter=size.gt.1&filter=alt.has.2";
         expect(parseFilters(search)).toEqual(filters);
+        expect(filtersFrom([...query, "size.gt.1"])).toEqual(filters);
         expect(newCondition("kind")).toEqual({key: "kind", op: "in", value: []});
         expect(columnType("tmin")).toBe("number");
     });
@@ -589,6 +591,99 @@ describe("the dataset page", () => {
         expect(flags).toEqual([[false, false], [true, true], [true, true]]);
         expect(location.search).toBe("");
         expect(location.hash).toBe("#files");
+    });
+
+    it("chooses a favourite filter in place of the filter shown, and marks it while the filter is its own", async () => {
+        const saved = [{name: "Low", filters: ["alt.le.20"]}, {name: "Visual", filters: ["kind.in.visual", "gone.eq.1"]}];
+        page(routes(DETAIL, {[API + "file-filters"]: {filters: saved}}));
+        await ticks();
+        click($("[name=files-show][value=thermal]")!);
+        await ticks();
+        click(byId("favourites"));
+        await ticks();
+        expect(favourites()).toEqual(["Low", "Visual"]);
+        click($$(".favourite-name")[0]);
+        await ticks();
+        expect($(".favourite-items")).toBeNull();
+        expect(fileNames()).toEqual(["thermal/a_T.JPG"]);
+        expect(filterRows().map((r) => r.dataset.key)).toEqual(["alt"]);
+        expect(byId("favourites").textContent).toContain("Low");
+        click(byId("favourites"));
+        await ticks();
+        expect($(".favourite-name[aria-current=true]")!.textContent).toContain("Low");
+        click($$(".favourite-name")[1]);
+        await ticks();
+        expect(fileNames()).toEqual(["rgb/a_V.JPG"]);
+        expect(filterRows().map((r) => r.dataset.key)).toEqual(["kind"]);
+        click(byId("add-filter"));
+        await ticks();
+        expect(byId("favourites").textContent).toContain("Visual");
+        click($("[name=files-show][value=all]")!);
+        await ticks();
+        expect(byId("favourites").textContent).toContain("Favourites");
+    });
+
+    it("saves the filter under a new name, never over a favourite of that name", async () => {
+        const fetchFn = routes(DETAIL, {
+            [API + "file-filters"]: {filters: [{name: "Low", filters: ["alt.le.20"]}]},
+            ["POST " + API + "file-filters"]: [
+                () => Promise.resolve({ok: false, status: 409, json: () => Promise.resolve({name: ["taken"]})} as Response),
+                {filters: [{name: "Low", filters: ["alt.le.20"]}, {name: "Problems", filters: ["problems.is.yes"]}]}],
+        });
+        page(fetchFn);
+        await ticks();
+        click(byId("favourites"));
+        await ticks();
+        expect($<HTMLButtonElement>("#save-favourite")!.disabled).toBe(true);
+        click(byId("favourites"));
+        click($("[name=files-show][value=flagged]")!);
+        await ticks();
+        click(byId("add-filter"));
+        await ticks();
+        click(byId("favourites"));
+        await ticks();
+        click(byId("save-favourite"));
+        await ticks();
+        type($<HTMLInputElement>("#dialog-field")!, " Low ");
+        press("Save");
+        await ticks();
+        expect(body(fetchFn.mock.calls.at(-1)![1])).toEqual({name: "Low", filters: ["problems.is.yes"]});
+        expect(dialog()!.querySelector(".field-error")!.textContent).toContain("already named “Low”");
+        type($<HTMLInputElement>("#dialog-field")!, "Problems");
+        press("Save");
+        await ticks();
+        expect(dialog()).toBeNull();
+        expect(calls(fetchFn).filter((c) => c.startsWith("POST"))).toHaveLength(2);
+        expect(byId("favourites").textContent).toContain("Problems");
+    });
+
+    it("deletes a favourite once asked, keeping the filter shown", async () => {
+        const fetchFn = routes(DETAIL, {
+            [API + "file-filters"]: {filters: [{name: "Low & wide", filters: ["alt.le.20"]}]},
+            ["DELETE " + API + "file-filters?name=Low%20%26%20wide"]: {filters: []},
+        });
+        history.replaceState(null, "", "/dataset/5?filter=alt.le.20#files");
+        page(fetchFn);
+        await ticks();
+        click(byId("favourites"));
+        await ticks();
+        click($("button[aria-label='Delete Low & wide']")!);
+        await ticks();
+        press("Cancel");
+        await ticks();
+        expect(calls(fetchFn).some((c) => c.startsWith("DELETE"))).toBe(false);
+        click(byId("favourites"));
+        await ticks();
+        click($("button[aria-label='Delete Low & wide']")!);
+        await ticks();
+        press("Delete");
+        await ticks();
+        expect(calls(fetchFn)).toContain("DELETE " + API + "file-filters?name=Low%20%26%20wide");
+        expect(fileNames()).toEqual(["thermal/a_T.JPG"]);
+        click(byId("favourites"));
+        await ticks();
+        expect(favourites()).toEqual([]);
+        expect($(".favourite-items")!.textContent).toContain("No favourites yet.");
     });
 
     it("shows the WebODM plan, copies its options and converts with its settings", async () => {

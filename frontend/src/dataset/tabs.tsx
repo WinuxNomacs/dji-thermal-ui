@@ -5,9 +5,12 @@ import {type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatD
         zoneText} from "../core/format";
 import {formatTemp, unitSymbol, userUnit} from "../core/units";
 import {isImage} from "../core/upload";
-import {CaretDown, CaretUp, Check, ChevronDown, Copy, Filter, Info, Lightbulb, Plus, Wand} from "../components/icons";
-import {active, type Analysis, columnType, type Condition, type FileColumn, FILES_TAB_COLUMNS, type FileRow, fileRows,
-        type FilesView, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption, shownAs, SHOWS} from "./files";
+import {errorText, readJson, sendJson} from "../core/api";
+import {ask, dialog} from "../components/dialog";
+import {CaretDown, CaretUp, Check, ChevronDown, Copy, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
+import {active, type Analysis, columnType, type Condition, type Favourite, type FileColumn, FILES_TAB_COLUMNS, type FileRow,
+        fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption,
+        shownAs, SHOWS} from "./files";
 
 const FILES_SHOWN = 12;     // files listed under a problem before "and N more"
 const THUMBS_KEY = "thermalAnalyzer.thumbnails";     // the Files tab's Thumbnails box, remembered per browser
@@ -64,6 +67,7 @@ function storedThumbs(): boolean {
 }
 
 interface FilesProps {
+    api: string;
     analysis: Analysis;
     view: FilesView;
     setView: (v: FilesView) => void;
@@ -74,12 +78,10 @@ interface FilesProps {
 
 // The kinds to choose from, as checkboxes under All: checking All checks every kind and unchecking it unchecks them,
 // unchecking a kind unchecks All
-function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: string[]; choose: (k: string[]) => void;
-                                                     label: ComponentChildren}) {
+// A menu's open state, closed by a click outside it or by Escape
+function useMenu() {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLSpanElement>(null);
-    const all = kinds.every((k) => chosen.includes(k));
-
     useEffect(() => {
         if (!open) return;
         const outside = (e: Event) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
@@ -88,6 +90,13 @@ function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: st
         document.addEventListener("keydown", escape);
         return () => { document.removeEventListener("click", outside); document.removeEventListener("keydown", escape); };
     }, [open]);
+    return {open, setOpen, ref};
+}
+
+function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: string[]; choose: (k: string[]) => void;
+                                                     label: ComponentChildren}) {
+    const {open, setOpen, ref} = useMenu();
+    const all = kinds.every((k) => chosen.includes(k));
 
     return (<span class={"menu kind-picker" + (open ? " open" : "")} ref={ref}>
         <button type="button" class="kind-button" aria-haspopup="true" aria-expanded={open} title="Show these kinds"
@@ -98,6 +107,77 @@ function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: st
                 onChange={() => choose(chosen.includes(k) ? chosen.filter((c) => c !== k) : kinds.filter((c) => c === k || chosen.includes(c)))}/>
                 {" "}{kindLabel(k)}</label>))}
         </div>}
+    </span>);
+}
+
+// The favourite filters, shared by every flight: choosing one replaces the filter, the filter is saved under a new
+// name (never over one saved), and a favourite is deleted
+function Favourites({api, filters, setFilters}: {api: string; filters: Condition[]; setFilters: (f: Condition[]) => void}) {
+    const {open, setOpen, ref} = useMenu();
+    const items = useRef<HTMLUListElement>(null);
+    const [saved, setSaved] = useState<Favourite[] | null>(null);
+    const [error, setError] = useState("");
+    const url = api + "file-filters";
+    const current = filterQuery(filters.filter(active));
+    // The favourite whose filter is the one shown, as it sets it (with the conditions this page does not know left out)
+    const chosen = saved?.find((f) => JSON.stringify(filterQuery(filtersFrom(f.filters))) === JSON.stringify(current));
+
+    useEffect(() => {
+        fetch(url, {credentials: "same-origin"}).then(readJson<{filters: Favourite[]}>).then(({ok, data}) => {
+            if (ok) setSaved(data.filters || []); else setError("The favourites could not be read.");
+        }).catch(() => setError("The favourites could not be read."));
+    }, [url]);
+
+    // The menu opens under the button, toward the page's right; where that runs off a narrow page, toward its left
+    useEffect(() => {
+        const ul = items.current;
+        if (ul && ul.getBoundingClientRect().right > document.documentElement.clientWidth) ul.classList.add("flip");
+    }, [open, saved]);
+
+    async function save() {
+        setOpen(false);
+        let name = "", problem = "";
+        for (;;) {
+            const r = await dialog({title: "Save the filter as a favourite", text: "Every flight's Files tab offers it.",
+                                    field: {label: "Name", value: name, error: problem},
+                                    buttons: [{label: "Cancel", value: false}, {label: "Save", value: true, style: "primary"}]});
+            name = (r.value || "").trim();
+            if (r.button !== true || !name) return;
+            const res = await sendJson(url, "POST", {name, filters: current});
+            const {ok, data} = await readJson<{filters: Favourite[]}>(res);
+            if (ok) return setSaved(data.filters);
+            problem = res.status === 409 ? "A favourite is already named “" + name + "”: choose another name, or delete it first." :
+                errorText(data, "The favourite could not be saved.");
+        }
+    }
+
+    async function remove(f: Favourite) {
+        setOpen(false);
+        if (!await ask("Delete the favourite?", "“" + f.name + "” is deleted for every flight. The filter shown is kept.",
+                       "Delete", "danger")) return;
+        const res = await sendJson(url + "?name=" + encodeURIComponent(f.name), "DELETE");
+        const {ok, data} = await readJson<{filters: Favourite[]}>(res);
+        if (ok) setSaved(data.filters); else setError(errorText(data, "The favourite could not be deleted."));
+    }
+
+    return (<span class={"menu favourites" + (open ? " open" : "")} ref={ref}>
+        <button type="button" class="button default small" id="favourites" aria-haspopup="true" aria-expanded={open}
+                title={chosen ? "Favourite: " + chosen.name : "Favourite filters"} onClick={() => setOpen(!open)}>
+            <Star class={"icon" + (chosen ? " on" : "")}/> {chosen ? chosen.name : "Favourites"} <ChevronDown/></button>
+        {open && <ul class="menu-items favourite-items" ref={items}>
+            {error && <li class="text-danger menu-note">{error}</li>}
+            {saved && !saved.length && <li class="text-muted menu-note">No favourites yet.</li>}
+            {(saved || []).map((f) => (<li key={f.name} class="favourite">
+                <button type="button" class="favourite-name" aria-current={f === chosen ? "true" : undefined}
+                        title={f.filters.join(" · ")} onClick={() => { setOpen(false); setFilters(filtersFrom(f.filters)); }}>
+                    <Check class={"icon" + (f === chosen ? "" : " unchosen")}/> {f.name}</button>
+                <button type="button" class="favourite-delete" aria-label={"Delete " + f.name} title="Delete"
+                        onClick={() => remove(f)}><Trash/></button>
+            </li>))}
+            <li class="divider" role="separator"></li>
+            <li><button type="button" id="save-favourite" disabled={!current.length} onClick={save}
+                        title={current.length ? undefined : "Set a filter first"}>Save this filter…</button></li>
+        </ul>}
     </span>);
 }
 
@@ -137,7 +217,7 @@ function ConditionRow({c, kinds, set, remove}: {c: Condition; kinds: string[]; s
 
 // The Files tab: the files matching every condition of the filter (none at first: all of them), sorted by any column.
 // The buttons start the filter from all files, the thermal frames or those with problems
-export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesProps) {
+export function FilesTab({api, analysis, view, setView, frames, thumbs, zone}: FilesProps) {
     const [showThumbs, setShowThumbs] = useState(storedThumbs);
     const flags = flagsByFile(analysis.findings);
     const rows = fileRows(analysis, view);
@@ -179,6 +259,7 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
                 <Plus/> Add filter</button>
             {filters.length > 0 && <button type="button" class="button default small" id="clear-filters"
                                            onClick={() => setFilters([])}>Clear</button>}
+            <Favourites api={api} filters={filters} setFilters={setFilters}/>
             <label><input type="checkbox" class="files-thumbs" checked={showThumbs}
                           onChange={(e) => toggleThumbs(e.currentTarget.checked)}/> Thumbnails</label>
             <span class="text-muted files-shown">{rows.length} shown</span>

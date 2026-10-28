@@ -35,6 +35,10 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- Favourite filters on the Files tab: the filter shown is saved under a name, and every flight's Files tab offers it
+  from the Favourites menu, where choosing one replaces the filter. A favourite can be deleted but not overwritten:
+  saving under a name in use is refused.
+
 - `dji-thermal-ui.sh`, for a clone on Linux, WSL or macOS: `build` (or `rebuild`) sets up or updates the environment
   from the lock files, installing uv when it is missing; `start` runs the app in the background, building it first
   when needed; `stop`, `restart`, `status` and `logs`.
