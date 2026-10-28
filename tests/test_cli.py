@@ -32,6 +32,11 @@ def test_version_prints_the_version(capsys):
     assert capsys.readouterr().out.strip() == "dji-thermal-ui " + __version__
 
 
+def test_the_port_is_8080_unless_another_is_given():
+    assert cli.parse_args([]).port == 8080
+    assert cli.parse_args(["--port", "9000"]).port == 9000
+
+
 def test_a_port_in_use_is_reported_and_exits_with_1(capsys):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((cli.HOST, 0))

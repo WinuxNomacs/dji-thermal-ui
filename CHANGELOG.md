@@ -6,7 +6,15 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The app serves on port 8080 by default (it was 8765). It stops cleanly, as with Ctrl+C, when sent SIGTERM.
+
 ### Added
+
+- `dji-thermal-ui.sh`, for a clone on Linux, WSL or macOS: `build` (or `rebuild`) sets up or updates the environment
+  from the lock files, installing uv when it is missing; `start` runs the app in the background, building it first
+  when needed; `stop`, `restart`, `status` and `logs`.
 
 - The visual mosaic: when a dataset has visual images (DJI's `_V` or `_W`), a conversion's mosaics include their
   mosaic, placed as the thermal frames are with the cameras' offset corrected (dji-thermal-cli 1.6.0). The convert

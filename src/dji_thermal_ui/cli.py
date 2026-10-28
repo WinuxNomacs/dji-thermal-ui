@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import signal
 import socket
 import sys
 import threading
@@ -11,13 +12,15 @@ from ._version import __version__
 from .datadir import ENV_VAR
 
 HOST = "127.0.0.1"
+PORT = 8080
 
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="dji-thermal-ui",
                                 description="Analyze, convert, mosaic and measure DJI thermal datasets in the browser.")
     p.add_argument("--data-dir", help="the folder for the database and the datasets (default: the user data folder)")
-    p.add_argument("--port", type=int, default=8765, help="the port to serve on, on 127.0.0.1 (default: 8765)")
+    p.add_argument("--port", type=int, default=PORT,
+                   help="the port to serve on, on 127.0.0.1 (default: %d)" % PORT)
     p.add_argument("--no-browser", action="store_true", help="do not open the browser")
     p.add_argument("--version", action="version", version="%(prog)s " + __version__)
     return p.parse_args(argv)
@@ -74,6 +77,8 @@ def main(argv=None):
     print("dji-thermal-ui %s serving %s (data in %s). Press Ctrl+C to stop." % (__version__, url, settings.DATA_DIR))
     if not args.no_browser:
         threading.Timer(1.0, webbrowser.open, args=(url,)).start()
+    # stopped like Ctrl+C when sent SIGTERM (as dji-thermal-ui.sh stop does), so the server closes
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     try:
         server.run()
     except KeyboardInterrupt:

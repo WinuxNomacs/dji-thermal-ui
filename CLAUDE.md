@@ -51,8 +51,9 @@ machine. Keep it short; edit in place.
 
 ## Commands
 
-- `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1:8765 and opens the browser; `--data-dir`, `--port`,
-  `--no-browser`).
+- `uv sync`, then `uv run dji-thermal-ui` (serves on 127.0.0.1:8080 and opens the browser; `--data-dir`, `--port`,
+  `--no-browser`). `./dji-thermal-ui.sh build|start|stop|restart|status|logs` does the same in the background (PID
+  file and log in `.run/`); `tests/test_script.py` tests it with stub uv, npm and curl.
 - `uv run pytest`, `uv run ruff check`. Set `DJI_THERMAL_FLIGHT_DIR` to a folder of one flight's R-JPEGs to run
   the `flight` tests too (with its visual `_V` images beside them, the visual mosaic's too).
 - `npm ci`, then `npm test`, `npm run -s lint` and `npm run build` (`-- --watch` while working on the pages).
