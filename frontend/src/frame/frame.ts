@@ -59,15 +59,16 @@ export function changesIn(changes: Maybe<Changes>, unit: unknown): Changes {
 
 const inMosaics = (f: FrameEntry) => f.mosaic !== null && f.mosaic !== undefined;
 
-// What the explorer says of a frame beside its name, besides what its list already says: not converted, in the
-// mosaic, or why the mosaics left it out (oblique above their pitch limit, else unusable); nothing to say of the others,
-// nor of where frames are before the mosaics are built
+// What the explorer says of a frame beside its name, besides what its list already says: in the mosaic, or why the
+// mosaics left it out (oblique above their pitch limit, else unusable), and not converted (a conversion with a pitch
+// limit skips the oblique ones); nothing to say of the others, nor of where frames are before the mosaics are built
 export function frameTag(f: FrameEntry, list: Maybe<string>, maxPitch: Maybe<number>, built: boolean): string {
-    if (!f.converted) return "not converted";
+    const pitch = f.pitch;
+    const oblique = pitch !== null && pitch !== undefined && pitch > (maxPitch ?? -80);
+    if (!f.converted) return built && oblique ? "oblique, " + formatNumber(pitch, 0, "°") + ", not converted" : "not converted";
     if (!built) return "";
     if (inMosaics(f)) return list === "mosaic" ? "" : "in the mosaic";
-    const pitch = f.pitch;
-    if (pitch !== null && pitch !== undefined && pitch > (maxPitch ?? -80)) return "oblique, " + formatNumber(pitch, 0, "°");
+    if (oblique) return "oblique, " + formatNumber(pitch, 0, "°");
     return "left out as unusable";
 }
 
@@ -77,12 +78,13 @@ export function captureOrder(frames: FrameEntry[]): FrameEntry[] {
     return [...frames].sort((a, b) => at(a) < at(b) ? -1 : at(a) > at(b) ? 1 : a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 }
 
-// The frames of one of the pane's lists (FRAME_LISTS): those the mosaics placed, or those converted that they left out
-// (for their angle, or as unusable); all of them for no list, or for one that has none
+// The frames of one of the pane's lists (FRAME_LISTS): those the mosaics placed, or those they left out (for their
+// angle, or as unusable, converted or skipped by the conversion's pitch limit); all of them for no list, or while the
+// mosaics placed none (not built yet)
 export function listFrames(frames: FrameEntry[], list: Maybe<string>): FrameEntry[] {
-    const listed = list === "mosaic" ? frames.filter(inMosaics) :
-        list === "oblique" ? frames.filter((f) => f.converted && !inMosaics(f)) : frames;
-    return listed.length ? listed : frames;
+    if (!frames.some(inMosaics)) return frames;
+    return list === "mosaic" ? frames.filter(inMosaics) :
+        list === "oblique" ? frames.filter((f) => !inMosaics(f)) : frames;
 }
 
 // The page's title for a list: "frames in the mosaic"

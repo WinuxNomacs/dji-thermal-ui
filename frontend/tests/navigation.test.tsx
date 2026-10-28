@@ -89,12 +89,12 @@ describe("the navigation pane", () => {
         click(fold("c9.frames"));
         await ticks(2);
         expect(links().slice(5, 16)).toEqual(["Built", "Tools", "Compare", "Report", "Mosaics", "Mosaic", "Harmonized",
-                                              "View angle", "Frames", "In the mosaic3", "Oblique5"]);
+                                              "View angle", "Frames", "Mosaic3", "Oblique5"]);
         expect($('a[title=Compare]')!.getAttribute("href")).toBe("/conversion/9/compare");
         expect($('a[href="/conversion/9/report"]')).not.toBeNull();
         expect($('a[title=Mosaics]')!.getAttribute("href")).toBe("/conversion/9");
         expect($('a[title=Harmonized]')!.getAttribute("href")).toBe("/conversion/9?tab=harmonized");
-        expect($('a[title="In the mosaic"]')!.getAttribute("href")).toBe("/conversion/9/frame?list=mosaic");
+        expect($('a[href="/conversion/9/frame?list=mosaic"]')!.textContent).toBe("Mosaic3");
         expect($('a[title=Oblique] .nav-count')!.textContent).toBe("5");
         expect($('a[title=Oblique]')!.getAttribute("href")).toBe("/conversion/9/frame?list=oblique");
         // Without mosaics, its frames only, all in one list

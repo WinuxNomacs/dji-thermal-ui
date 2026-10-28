@@ -57,7 +57,7 @@ export const conversionKey = (id: number) => "c" + id;
 
 // The frame page's lists, once there are mosaics: the frames they placed, and those they left out for their angle
 // (or as unusable)
-export const FRAME_LISTS: [string, string][] = [["mosaic", "In the mosaic"], ["oblique", "Oblique"]];
+export const FRAME_LISTS: [string, string][] = [["mosaic", "Mosaic"], ["oblique", "Oblique"]];
 
 // What the pane offers under a conversion: its tools (comparing its mosaics with another's, its mosaic report), its
 // mosaics (the viewer's tabs) once built, and its frames once converted (in the mosaic or oblique, once there are

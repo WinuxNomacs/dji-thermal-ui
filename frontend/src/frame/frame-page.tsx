@@ -216,7 +216,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             const listed = r.data.frames && captureOrder(listFrames(r.data.frames, list));
             setMeta({...r.data, frames: listed});
             const paths = (listed || []).map((f) => f.path);
-            if (!paths.length) return setStatus({text: "The flight has no thermal frames to show."});
+            if (!paths.length) return setStatus({text: list === "oblique" ? "The mosaics left no frames out."
+                : "The flight has no thermal frames to show."});
             chooseFrame(wanted.frame && paths.includes(wanted.frame) ? wanted.frame : paths[0]);
         } catch {
             setNotice("Could not load the frames.");

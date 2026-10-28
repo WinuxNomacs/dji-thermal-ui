@@ -842,10 +842,10 @@ Requested 2026-10-28 (`new.md`):
   and saved views keep working. Names already saved (such as "Conversion 1") stay as they are; new ones are named
   "Dataset N".
 - **The pane, under each dataset (conversion):** Tools first (Compare, the mosaics side by side as now, and Report),
-  then Mosaics (unfolding to each mosaic, the viewer's tabs), then Frames (unfolding to In the mosaic and Oblique).
+  then Mosaics (unfolding to each mosaic, the viewer's tabs), then Frames (unfolding to Mosaic and Oblique).
   Compare and the reports are tools; mosaics and frames are the two ways of analyzing the images. The oblique frames
   matter: their angles show defects a nadir view misses.
-- **Frames lists:** "In the mosaic" (the frames the mosaic placed) and "Oblique" (those it left out for their angle,
+- **Frames lists:** "Mosaic" (the frames the mosaic placed) and "Oblique" (those it left out for their angle,
   and the few left out as unusable, marked why), with their counts.
 - **The explorer:** choosing a list shows its frames to the right of the pane, as a list or as thumbnails (a switch,
   remembered), in capture order, the first selected; the selected frame is shown on the far right as the frame page
@@ -1269,6 +1269,13 @@ name already in use is never reused.
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **Fix: the Oblique frames list** (2026-10-28, reported by the user). A conversion with a pitch limit does not
+  convert its oblique frames, so the Oblique list (converted frames the mosaics left out) was empty and fell back to
+  every frame, the mosaic's included. It now lists every frame the mosaics left out, converted or not (tagged
+  "oblique, -45°, not converted"), and falls back to all only while the mosaics placed none; "In the mosaic" is
+  called "Mosaic" in the pane. `listFrames`, `frameTag` (`frame/frame.ts`), `FRAME_LISTS` (`core/navigation.ts`).
+  Tests: `frontend/tests/frame.test.tsx`, `navigation.test.tsx`. Checked live on both datasets of flight 1:
+  Mosaic 151 and Oblique 176 each, as a list and as thumbnails.
 - **K2: import a project** (2026-10-28). `analyzer/restore.py`: the archive sent in pieces of 16 MB (waitress takes
   1 GB a request at most) to `api/imports` (`POST` {size}, refused without the room; `PUT ?offset=` each piece, one
   sent again read from where the last stopped, 409 for a gap; `POST` {name} finishes; `DELETE` stops). Each piece is
