@@ -62,13 +62,13 @@ async function pane(current: Current = {page: "projects", id: NaN}, fetchFn = se
 describe("the navigation pane", () => {
     it("lists the projects folded, and unfolds each level to what is under it", async () => {
         await pane();
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings", "Storage"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences"]);
         expect(currentLink()).toBe("Projects");
         // A project without datasets has nothing to unfold
         expect(fold("p1")).toBeNull();
         click(fold("p2"));
         await ticks(2);
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "Roof", "Field", "User Preferences", "System Settings", "Storage"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "Roof", "Field", "User Preferences"]);
         expect(($('a[href="/dataset/5"]'))).not.toBeNull();
         click(fold("d5"));
         await ticks(2);
@@ -106,7 +106,7 @@ describe("the navigation pane", () => {
         // Folded again, with what is under it
         click(fold("p2"));
         await ticks(2);
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings", "Storage"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences"]);
     });
 
     it("unfolds a dataset's report to it and marks it, even for a dataset without conversions", async () => {
@@ -146,11 +146,33 @@ describe("the navigation pane", () => {
         render(null, root());
         await pane({page: "preferences", id: NaN});
         expect(currentLink()).toBe("User Preferences");
-        // System Settings › Storage, its page marked when shown
+        // System Settings › Storage, unfolded to and marked when shown
         render(null, root());
         await pane({page: "storage", id: NaN});
         expect(currentLink()).toBe("Storage");
-        expect($('.nav-settings a[href="/settings/storage"]')!.textContent).toBe("System Settings");
+        expect($(".nav-settings-toggle")!.getAttribute("aria-expanded")).toBe("true");
+    });
+
+    it("folds System Settings, by its name or its chevron, and remembers it", async () => {
+        localStorage.clear();
+        await pane();
+        const toggle = () => $(".nav-settings-toggle") as HTMLButtonElement;
+        expect(toggle().textContent).toBe("System Settings");
+        expect(toggle().getAttribute("aria-expanded")).toBe("false");
+        expect(links()).not.toContain("Storage");
+        click(toggle());
+        await ticks();
+        expect(toggle().getAttribute("aria-expanded")).toBe("true");
+        expect($('.nav-settings a[href="/settings/storage"]')!.textContent).toBe("Storage");
+        // Folded again by a second click, and kept so for the next page
+        click(toggle());
+        await ticks();
+        expect(links()).not.toContain("Storage");
+        click(toggle());
+        await ticks();
+        render(null, root());
+        await pane();
+        expect(links()).toContain("Storage");
     });
 
     it("marks the viewer's tab shown, and follows it to another", async () => {
@@ -197,7 +219,7 @@ describe("the navigation pane", () => {
                                                                           () => jsonResponse({}, false)]}));
         navigationChanged();
         await ticks();
-        expect(links()).toEqual(["Projects", "Home", "User Preferences", "System Settings", "Storage"]);
+        expect(links()).toEqual(["Projects", "Home", "User Preferences"]);
         navigationChanged();
         await ticks();
         expect(calls(fetchFn)).toEqual(["GET /api/navigation", "GET /api/navigation", "GET /api/navigation"]);

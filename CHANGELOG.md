@@ -8,7 +8,8 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
-- System Settings › Storage, below User Preferences in the navigation pane: the data folder's path, its size on disk
+- System Settings › Storage, below User Preferences in the navigation pane (System Settings folds away, by its name
+  or its chevron, and unfolds on the Storage page): the data folder's path, its size on disk
   as measured now and the free space on its drive, broken down by project and flight, with the database, files left
   behind by flights no longer there, and the rest. A flight read in place says how much its images take where they
   are.

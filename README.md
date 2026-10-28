@@ -88,9 +88,10 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   header, and the locale dates and times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
-- **System Settings › Storage:** where the data folder is, its size on disk as measured when the page opens (and
-  again on asking) and the free space on its drive, with each project and its flights, the database and the rest.
-  A flight read in place from a folder says how much its images take there, outside the data folder's total.
+- **System Settings › Storage** (System Settings folds in the pane, by its name or its chevron): where the data
+  folder is, its size on disk as measured when the page opens (and again on asking) and the free space on its
+  drive, with each project and its flights, the database and the rest. A flight read in place from a folder says
+  how much its images take there, outside the data folder's total.
 
 It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
 are no logins or accounts.
