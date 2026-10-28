@@ -286,7 +286,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                            data-tab={key} onClick={(e) => { e.preventDefault(); setChosen(key); }}>
                             {label}{badges[key] !== "" && <> <span class="badge">{badges[key]}</span></>}</a>))}
                 </div>
-                {a?.files && tab === "files" && <FilesTab analysis={a} view={view} setView={setView} frames={frames}
+                {a?.files && tab === "files" && <FilesTab api={api} analysis={a} view={view} setView={setView} frames={frames}
                                                           thumbs={url + "/thumbnail?file="} zone={d.flight_zone}/>}
                 {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}

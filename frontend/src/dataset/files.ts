@@ -218,6 +218,9 @@ export function fileRows(a: Analysis, view: FilesView): FileRow[] {
     return sortRows(rows, view.sort || "path", !!view.desc);
 }
 
+// A filter saved under a name (api/file-filters), shared by every flight; its conditions as filterQuery() has them
+export interface Favourite {name: string; filters: string[]}
+
 // The filter in a link: ?filter=alt.le.20&filter=kind.in.thermal,visual&filter=problems.is.yes&filter=path.has.roof
 export function filterQuery(filters: Condition[]): string[] {
     return filters.map((c) => c.key + "." + c.op + "." +
@@ -225,7 +228,12 @@ export function filterQuery(filters: Condition[]): string[] {
 }
 
 export function parseFilters(search: string): Condition[] {
-    return new URLSearchParams(search).getAll("filter").flatMap((f) => {
+    return filtersFrom(new URLSearchParams(search).getAll("filter"));
+}
+
+// Conditions as a link or a favourite has them, those of columns or comparisons not known dropped
+export function filtersFrom(list: string[]): Condition[] {
+    return list.flatMap((f) => {
         const [key, op, ...rest] = f.split(".");
         const value = rest.join("."), type = columnType(key);
         const known = FILES_TAB_COLUMNS.some((c) => c.key === key) && OPS[type].some(([o]) => o === op);

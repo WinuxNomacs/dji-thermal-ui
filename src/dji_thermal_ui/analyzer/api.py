@@ -51,6 +51,10 @@ MAX_NAME_LENGTH = 255
 MAX_DESCRIPTION_LENGTH = 10000
 VISUAL_FRAME_QUALITY = 90               # a visual frame as the pages show it
 REPORT_AUTHOR_KEY = 'report_author'     # the author last typed on a report, which fills in new ones
+FILE_FILTERS_KEY = 'file_filters'       # the Files tab's favourite filters, shared by every flight
+MAX_FILE_FILTERS = 100
+MAX_CONDITIONS = 50
+MAX_CONDITION_LENGTH = 1024
 
 
 def get_project(pk):
@@ -857,6 +861,51 @@ class PreferencesView(DatasetView):
         """Back to dji-thermal-cli's defaults (the unit and the theme are kept)"""
         save_preference(PREFERENCES_KEY, None)
         return Response({'settings': defaults(), 'saved': False})
+
+
+def file_filters():
+    """The Files tab's favourite filters, in the order they were saved: [{name, filters}]"""
+    saved = Preferences.load().data.get(FILE_FILTERS_KEY)
+    return saved if isinstance(saved, list) else []
+
+
+class FileFiltersView(DatasetView):
+    def get(self, request):
+        """The favourite filters"""
+        return Response({'filters': file_filters()})
+
+    def post(self, request):
+        """Saves a filter under a new name: a favourite is never overwritten (409 when the name is taken). Its
+        conditions are as the page's link has them (key.op.value); the page drops those it does not know"""
+        name = request.data.get('name')
+        conditions = request.data.get('filters')
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > MAX_NAME_LENGTH:
+            raise ValidationError({'name': "A name of 1 to {} characters".format(MAX_NAME_LENGTH)})
+        if (not isinstance(conditions, list) or not 0 < len(conditions) <= MAX_CONDITIONS or
+                not all(isinstance(c, str) and 0 < len(c) <= MAX_CONDITION_LENGTH for c in conditions)):
+            raise ValidationError({'filters': "1 to {} conditions".format(MAX_CONDITIONS)})
+        name = name.strip()
+        with transaction.atomic():
+            saved = file_filters()
+            if any(f.get('name') == name for f in saved):
+                return Response({'name': ["A favourite is already named “{}”".format(name)]},
+                                status=status.HTTP_409_CONFLICT)
+            if len(saved) >= MAX_FILE_FILTERS:
+                raise ValidationError({'name': "No more than {} favourites".format(MAX_FILE_FILTERS)})
+            saved = saved + [{'name': name, 'filters': conditions}]
+            save_preference(FILE_FILTERS_KEY, saved)
+        return Response({'filters': saved}, status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        """Deletes the favourite named by ?name="""
+        name = request.query_params.get('name', '')
+        with transaction.atomic():
+            saved = file_filters()
+            kept = [f for f in saved if f.get('name') != name]
+            if len(kept) == len(saved):
+                raise NotFound()
+            save_preference(FILE_FILTERS_KEY, kept or None)
+        return Response({'filters': kept})
 
 
 # --- the mosaic viewer --------------------------------------------------------------------------------------------
