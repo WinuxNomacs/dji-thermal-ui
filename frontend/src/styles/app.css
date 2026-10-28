@@ -405,6 +405,7 @@ th .kind-button .icon.on { color: var(--accent); }
 .kind-items label { display: block; padding: 3px 12px; white-space: nowrap; cursor: pointer; }
 .kind-items label:hover { background: var(--hover); }
 .favourites .menu-items { left: 0; right: auto; min-width: 220px; max-width: 360px; }
+.favourites .menu-items.flip { left: auto; right: 0; }
 .favourite { display: flex; align-items: center; }
 .favourite .favourite-name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .favourite .favourite-delete { width: auto; padding: 4px 10px; color: var(--muted); }

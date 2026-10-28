@@ -114,6 +114,7 @@ function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: st
 // name (never over one saved), and a favourite is deleted
 function Favourites({api, filters, setFilters}: {api: string; filters: Condition[]; setFilters: (f: Condition[]) => void}) {
     const {open, setOpen, ref} = useMenu();
+    const items = useRef<HTMLUListElement>(null);
     const [saved, setSaved] = useState<Favourite[] | null>(null);
     const [error, setError] = useState("");
     const url = api + "file-filters";
@@ -126,6 +127,12 @@ function Favourites({api, filters, setFilters}: {api: string; filters: Condition
             if (ok) setSaved(data.filters || []); else setError("The favourites could not be read.");
         }).catch(() => setError("The favourites could not be read."));
     }, [url]);
+
+    // The menu opens under the button, toward the page's right; where that runs off a narrow page, toward its left
+    useEffect(() => {
+        const ul = items.current;
+        if (ul && ul.getBoundingClientRect().right > document.documentElement.clientWidth) ul.classList.add("flip");
+    }, [open, saved]);
 
     async function save() {
         setOpen(false);
@@ -157,7 +164,7 @@ function Favourites({api, filters, setFilters}: {api: string; filters: Condition
         <button type="button" class="button default small" id="favourites" aria-haspopup="true" aria-expanded={open}
                 title={chosen ? "Favourite: " + chosen.name : "Favourite filters"} onClick={() => setOpen(!open)}>
             <Star class={"icon" + (chosen ? " on" : "")}/> {chosen ? chosen.name : "Favourites"} <ChevronDown/></button>
-        {open && <ul class="menu-items favourite-items">
+        {open && <ul class="menu-items favourite-items" ref={items}>
             {error && <li class="text-danger menu-note">{error}</li>}
             {saved && !saved.length && <li class="text-muted menu-note">No favourites yet.</li>}
             {(saved || []).map((f) => (<li key={f.name} class="favourite">
