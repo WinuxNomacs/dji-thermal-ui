@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-27
+
 ### Added
 
 - A dataset's report, to print or save as PDF (A4 or Letter): the dataset's figures, a map of where its frames were

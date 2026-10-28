@@ -1,6 +1,6 @@
 [project]
 name = "dji-thermal-ui"
-version = "0.6.0"
+version = "0.7.0"
 description = "A web app on your own computer to analyze, convert, mosaic and measure DJI thermal datasets with dji-thermal-cli"
 readme = "README.md"
 license = "AGPL-3.0-only"
