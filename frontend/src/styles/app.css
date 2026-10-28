@@ -159,7 +159,13 @@ ul { padding-left: 20px; }
 .nav-row.current a { color: var(--accent); font-weight: 600; }
 .nav-home, .nav-preferences .nav-row, .nav-settings > .nav-row { padding-left: 12px; gap: 6px; }
 .nav-home .icon, .nav-preferences .icon, .nav-settings > .nav-row .icon { color: var(--muted); }
-.nav-home a, .nav-preferences a, .nav-settings > .nav-row a { font-weight: 600; }
+.nav-home a, .nav-preferences a { font-weight: 600; }
+/* System Settings folds its pages away: the whole row is its button */
+.nav-settings-toggle { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; margin-left: -4px;
+                       padding: 3px 4px; border: 0; border-radius: var(--radius); background: none; color: var(--text);
+                       font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.nav-settings-toggle:hover { background: var(--hover); }
+.nav-settings-toggle span { flex: 1; }
 .nav-preferences { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
 .nav-fold, .nav-fold-space { flex: none; width: 22px; height: 22px; }
 .nav-fold {

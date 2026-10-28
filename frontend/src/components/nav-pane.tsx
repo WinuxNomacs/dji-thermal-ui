@@ -10,6 +10,7 @@ import {conversionHref, conversionItems, conversionKey, type Current, datasetKey
 import {ChevronDown, ChevronRight, Cog, Folder, HardDrive} from "./icons";
 
 const EXPANDED_KEY = "thermal-analyzer.nav.expanded";
+const SETTINGS_KEY = "settings";            // System Settings, folded as the other items are
 
 function storedExpanded(): string[] {
     try {
@@ -75,7 +76,8 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
     const current = {...page, part};
     const [projects, setProjects] = useState<NavProject[] | null>(null);
     const [failed, setFailed] = useState(false);
-    const [expanded, setExpanded] = useState(() => new Set(storedExpanded()));
+    // System Settings is unfolded to when its page is shown
+    const [expanded, setExpanded] = useState(() => new Set([...storedExpanded(), ...(page.page === "storage" ? [SETTINGS_KEY] : [])]));
 
     useEffect(() => {
         let first = true;
@@ -116,6 +118,7 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
     const is = (name: string) => current.page === name;
     const marked = projects ? markedItem(trailTo(projects, current), expanded) : null;
     const item: ItemBase = {expanded, toggle, onNavigate};
+    const settingsOpen = expanded.has(SETTINGS_KEY);
 
     return (<nav class="app-nav" id="app-nav" aria-label="Projects and preferences">
         {onClose && <div class="nav-close"><button type="button" class="close" aria-label="Close the navigation"
@@ -155,10 +158,12 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
             </li>
             <li class="nav-item level-0 nav-settings">
                 <div class="nav-row">
-                    <HardDrive/><a href={publicUrl + "settings/storage"} onClick={onNavigate}>System Settings</a>
+                    <button type="button" class="nav-settings-toggle" aria-expanded={settingsOpen} data-key={SETTINGS_KEY}
+                            onClick={() => toggle(SETTINGS_KEY)}>
+                        <HardDrive/><span>System Settings</span>{settingsOpen ? <ChevronDown/> : <ChevronRight/>}</button>
                 </div>
-                <ul><Item {...item} level={1} href={publicUrl + "settings/storage"} label="Storage"
-                          current={is("storage")}/></ul>
+                {settingsOpen && <ul><Item {...item} level={1} href={publicUrl + "settings/storage"} label="Storage"
+                                           current={is("storage")}/></ul>}
             </li>
         </ul>
     </nav>);
