@@ -15,6 +15,11 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   drone takes with them (DJI's `_V` or `_W`, as on the Matrice 4T or the H20T/H30T) can be added too: the Files tab
   calls them visual.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a flight.
+- **Files tab:** a flight's files, sorted by any column and filtered by conditions on any of them (Height ≤ 21,
+  Min > 32 °F, Kind is one of Thermal…), every one of which a file shown matches: numbers in the unit shown,
+  text by its words. The Kind column's checkboxes and the Thermal frame and With problems columns filter too. All
+  files, Thermal frames and With problems set the filter they stand for, to change from there. The filter is kept in
+  the page's link.
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
   mosaics. You can keep several side by side, cancel one, or download it.
 - **Mosaics:** the viewer's tabs are Mosaic (the temperatures as converted), Harmonized, Source frame (the mosaic

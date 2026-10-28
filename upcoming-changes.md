@@ -9,10 +9,6 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **J1: the Files tab's filters**: conditions on any column instead of the name search, a Kind dropdown of
-   checkboxes, Thermal frame and With problems as columns, and the three buttons as starting filters. (Files filters)
-
-**Then**
 1. **J2: favourite filters**: the filter saved under a name, chosen from a dropdown, deleted but never overwritten.
    (Files filters)
 
@@ -1215,3 +1211,12 @@ Requested 2026-10-28 (`new.md`), for the Files tab and the other tabs under a pr
   oblique frames in capture order (all tagged oblique, as the mosaic's report counts them), 151 in the mosaic, ← →
   keeping the frame in sight and the list in the URL, the thumbnails loading as they scroll in and the switch kept
   over a reload, the list above the frame at 700 px; no errors.
+- **J1: the Files tab's filters** (2026-10-28). The name search became a list of conditions every row matches
+  (`Condition`, `matches`, `fileRows` in `dataset/files.ts`): numbers in the unit shown (= and ≠ at the digits shown),
+  text by its words, Kind as checkboxes (`KindPicker` in `dataset/tabs.tsx`, in the Kind header and in a condition),
+  and yes/no on two new columns, Thermal frame and With problems (`FLAG_COLUMNS`, the Files tab's columns being
+  `FILES_TAB_COLUMNS`; the report's appendix keeps `FILE_COLUMNS`). The three buttons set their filter (`SHOWS`,
+  `shownAs`). The filter is in the URL (`?filter=key.op.value`, `filterQuery`/`parseFilters`). Tests:
+  `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
+  177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
+  reload; Clear back to 654; no overflow at 700 px; no errors.
