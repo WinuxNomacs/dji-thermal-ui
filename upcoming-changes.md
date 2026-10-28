@@ -9,12 +9,11 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **Release 0.7.0** (the reports), then F1 below.
+1. **F1: visual mosaics in dji-thermal-cli**, released there first. (RGB and thermal)
 
 **Then**
-1. **F1: visual mosaics in dji-thermal-cli**, released there first. (RGB and thermal)
-2. **F2: visual mosaics and frames in the app**, on that release. (RGB and thermal)
-3. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
+1. **F2: visual mosaics and frames in the app**, on that release. (RGB and thermal)
+2. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -891,3 +890,6 @@ Requested 2026-10-28 (`new.md`):
     asked for again once), and the caption and the profile's hint in the print.
   - **Left as found:** no console errors or failed requests; the measurements and finding deleted, the report's
     text put back (`{}`).
+  - **Released as 0.7.0** with D1: release checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14,
+    ruff, 224 pytest with the flight tests, 247 Vitest, ESLint) and on Windows from WSL (222 pytest from a fresh
+    clone, smoke).
