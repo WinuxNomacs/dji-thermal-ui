@@ -34,6 +34,11 @@ def preferences_page(request):
 
 
 @ensure_csrf_cookie
+def storage_page(request):
+    return page(request, "storage.html", title="Storage", entry="storage")
+
+
+@ensure_csrf_cookie
 def project_page(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
     return page(request, "project.html", title=project.name, entry="project", project=project,

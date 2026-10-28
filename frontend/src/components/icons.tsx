@@ -40,6 +40,9 @@ export const Check = (p: Props) => (<Icon {...p}><path d="M20 6L9 17l-5-5"/></Ic
 export const Cog = (p: Props) => (
     <Icon {...p}><circle cx="12" cy="12" r="3"/>
         <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></Icon>);
+export const HardDrive = (p: Props) => (
+    <Icon {...p}><path d="M22 12H2M5.5 5.1L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>
+        <path d="M6 16h.01M10 16h.01"/></Icon>);
 export const CaretUp = (p: Props) => (<Icon {...p}><path d="M6 15l6-6 6 6"/></Icon>);
 export const CaretDown = (p: Props) => (<Icon {...p}><path d="M6 9l6 6 6-6"/></Icon>);
 export const Play = (p: Props) => (<Icon {...p}><path d="M7 4l13 8-13 8z"/></Icon>);
