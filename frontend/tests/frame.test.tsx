@@ -170,6 +170,41 @@ describe("the frame page", () => {
         added.mockRestore();
     });
 
+    it("shows the frame and its visual pair side by side on Both, the pair's view following the frame's", async () => {
+        const pair = {frame: "rgb/a_V.JPG", width: 4032, height: 3024, homography: [4, 0, 0, 0, 4, 0, 0, 0, 1]};
+        const added = vi.spyOn(OlMap.prototype, "addLayer");
+        await open(server(routes({[BASE + "/frame?frame=" + enc(A)]: {...INFO, visual: pair}})));
+        expect(byId("pair-pane").hidden).toBe(true);
+        click($(".frame-camera button[name=both]")!);
+        await ticks(10);
+        expect($(".frame-camera [aria-pressed=true]")!.textContent).toBe("Both");
+        expect(byId("pair-pane").hidden).toBe(false);
+        expect(byId("pair-pane").querySelector(".frame-pane-title")!.textContent).toBe("Visual · a_V.JPG");
+        expect(byId("pane-title").textContent).toBe("As converted");
+        expect(localStorage.getItem("thermal-analyzer.frame.visual")).toBe("2");
+        const mapOf = (id: string) => (added.mock.contexts as OlMap[]).find((m) => m.getTargetElement()?.id === id)!;
+        const [frameMap_, side] = [mapOf("map"), mapOf("map-pair")];
+        const image = side.getLayers().getArray().find((l) => l instanceof ImageLayer) as ImageLayer<ImageStatic>;
+        expect(image.getSource()!.getUrl()).toBe(BASE + "/frame/visual?frame=" + enc(A));
+        expect(image.getVisible()).toBe(true);
+        // The frame stays shown on the first pane, with its colour scale
+        expect(frameMap_.getLayers().getArray().find((l) => l instanceof WebGLTileLayer)!.getVisible()).toBe(true);
+        expect($(".map-legend")!.textContent).toContain("Temperature");
+        // Each view follows the other through the pair (here four visual pixels to a frame's)
+        frameMap_.getView().setCenter([100, -50]);
+        frameMap_.getView().setResolution(1);
+        expect(side.getView().getCenter()).toEqual([400, -200]);
+        expect(side.getView().getResolution()).toBeCloseTo(4);
+        side.getView().setCenter([200, -100]);
+        expect(frameMap_.getView().getCenter()).toEqual([50, -25]);
+        // Back to the frame alone
+        click($(".frame-camera button[name=thermal]")!);
+        await ticks(10);
+        expect(byId("pair-pane").hidden).toBe(true);
+        expect(image.getVisible()).toBe(false);
+        added.mockRestore();
+    });
+
     it("opens the frame, palette and range a link asks for", async () => {
         history.replaceState(null, "", "/conversion/9/frame?palette=magma&min=18&max=32&frame=" + enc(B));
         await open(server(routes()));

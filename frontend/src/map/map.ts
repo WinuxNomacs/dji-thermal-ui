@@ -62,8 +62,12 @@ export function mosaicMap(el: HTMLElement, basemaps: Basemap[], view?: View): {m
 // A frame's map, in its pixels (view: another pane's, to move with it)
 export function frameMap(el: HTMLElement, view?: View, controls = true): OlMap {
     return new OlMap({target: el, interactions: interactions(false), controls: controls ? [new Zoom()] : [],
-                      view: view || new View({projection: FRAME_PIXELS, center: [0, 0], resolution: 1,
-                                              minResolution: 1 / 64, maxResolution: 8})});
+                      view: view || frameView()});
+}
+
+// A view of a frame's pixels, zoomed out at most to maxResolution pixels a screen pixel (a visual pair's are more)
+export function frameView(maxResolution = 8): View {
+    return new View({projection: FRAME_PIXELS, center: [0, 0], resolution: 1, minResolution: 1 / 64, maxResolution});
 }
 
 // A small map of points with nothing under them (where the frames were taken)
