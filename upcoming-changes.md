@@ -9,7 +9,9 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing yet.
+1. **H1: the viewer tidied**: a selected frame let go with Esc or a second click, no colour scale on the map, the
+   Source frame tab as the mosaic with its seams drawn, "As converted" renamed "Mosaic", and the readout above the
+   source frames as "Pointer info". See "Viewer". (Viewer)
 
 **Then**
 - Nothing yet.
@@ -774,6 +776,43 @@ Requested 2026-10-28 (`new.md`):
 - **Missing tools:** when `uv` is missing, `build` installs it for the user with uv's own installer, pinned to the
   version CI uses, into `~/.local/bin` (without editing the shell's startup files). Node.js and npm are not installed:
   it says where to get them and stops.
+
+## Viewer
+
+Requested 2026-10-28 (`new.md`):
+- Deselect when the user presses Esc or clicks the same selected image tile again.
+- Remove the temperature range/scale at the bottom of the image: the one in the right panel makes it moot.
+- Source frame view: instead of random colours for the tiles, show the orthomosaic under them, with distinct lines
+  between them so the tile boundaries are clear. The colour view isn't helpful.
+- Rename the "As converted" tab "Mosaic".
+- Move "Under the cursor" above "Source frames", renamed "Pointer info".
+
+### What it builds on
+
+- **Selecting:** a click with no tool on pins the readout (`readout(at, true)`), outlines the frame there from
+  `mosaics/footprint`, and on the Source frame and Visual tabs opens the source frames window; "Follow the cursor"
+  (`follow()`) lets go of it.
+- **The map's scale:** `addLegend` in `map/map.ts`, filled with `ScaleView` on the viewer and the frame page; the
+  panel's `Controls` has the same scale. The PNG export draws its own.
+- **Source frame tab:** the frame index coloured with `frame_colors` (`colourStyle`'s `index`). The data tiles have
+  a gutter, so a shader can read the neighbouring pixels (as the sharpening does): seams can be drawn where the
+  index changes, exact at every zoom, over the as converted mosaic.
+- **Labels:** `TAB_LABELS` (viewer, compare menu, reports) and `TARGET_LABELS` (measurements); the frame page's
+  "As converted" is the frame's, not the mosaic's.
+
+### H1: decisions (2026-10-28)
+
+- **Letting go:** Esc, or a click on the frame already selected, unpins the readout and removes the outline (as
+  "Follow the cursor" does). The source frames window stays open. Esc goes to a tool being drawn with, or to the
+  window when it has the focus, first.
+- **Map scale:** off the viewer's and the frame page's maps, whose panels show it. The compare page keeps its maps'
+  scales; the PNG exports and the reports keep theirs.
+- **Source frame tab:** the as converted mosaic in the temperature tabs' palette and range, with a line drawn
+  where the source frame changes; the cursor and a click still name and outline the frame.
+- **Labels:** "As converted" is "Mosaic" wherever it names the mosaic: the viewer's tab, the compare page's menu,
+  the reports and the measurements' target. The frame page's "As converted" (the frame's) stays.
+- **Panel:** "Under the cursor" becomes "Pointer info", above "Source frames", on the viewer (and on the frame page,
+  for the same name).
 
 ## Integration
 
