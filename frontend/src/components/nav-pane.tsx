@@ -105,20 +105,22 @@ export function NavPane({api, publicUrl, current, onNavigate, onClose}: NavPaneP
                     <Item key={p.id} itemKey={p.datasets.length ? projectKey(p.id) : undefined} {...item} level={1}
                           href={publicUrl + "project/" + p.id} label={p.name || "(untitled)"} current={is("project", p.id)}>
                         <ul>{p.datasets.map((d) => (
-                            <Item key={d.id} itemKey={d.conversions.length ? datasetKey(d.id) : undefined} {...item} level={2}
+                            <Item key={d.id} itemKey={datasetKey(d.id)} {...item} level={2}
                                   href={publicUrl + "dataset/" + d.id} label={d.name || "(untitled)"}
                                   current={is("dataset", d.id)}>
-                                <ul>{d.conversions.map((c) => {
-                                    const pages = conversionPages(c, publicUrl);
-                                    const here = pages.some((x) => is(x.page, c.id));
-                                    return (<Item key={c.id} itemKey={pages.length ? conversionKey(c.id) : undefined} {...item}
-                                                  level={3} href={pages.length ? pages[0].href : publicUrl + "dataset/" + d.id + "#convert"}
-                                                  label={c.name} current={here && !expanded.has(conversionKey(c.id))}>
-                                        <ul>{pages.map((x) => (
-                                            <Item key={x.page} {...item} level={4} href={x.href} label={x.label}
-                                                  current={is(x.page, c.id)}/>))}</ul>
-                                    </Item>);
-                                })}</ul>
+                                <ul><Item key="report" {...item} level={3} href={publicUrl + "dataset/" + d.id + "/report"}
+                                          label="Report" current={is("dataset-report", d.id)}/>
+                                    {d.conversions.map((c) => {
+                                        const pages = conversionPages(c, publicUrl);
+                                        const here = pages.some((x) => is(x.page, c.id));
+                                        return (<Item key={c.id} itemKey={pages.length ? conversionKey(c.id) : undefined} {...item}
+                                                      level={3} href={pages.length ? pages[0].href : publicUrl + "dataset/" + d.id + "#convert"}
+                                                      label={c.name} current={here && !expanded.has(conversionKey(c.id))}>
+                                            <ul>{pages.map((x) => (
+                                                <Item key={x.page} {...item} level={4} href={x.href} label={x.label}
+                                                      current={is(x.page, c.id)}/>))}</ul>
+                                        </Item>);
+                                    })}</ul>
                             </Item>))}</ul>
                     </Item>))}</ul>}
                 {failed && <p class="nav-error text-muted">The projects could not be listed.</p>}

@@ -40,6 +40,7 @@ export function pathTo(projects: NavProject[], current: Current): string[] {
         if (current.page === "project" && p.id === current.id) return [];
         for (const d of p.datasets) {
             if (current.page === "dataset" && d.id === current.id) return [projectKey(p.id)];
+            if (current.page === "dataset-report" && d.id === current.id) return [projectKey(p.id), datasetKey(d.id)];
             for (const c of d.conversions) {
                 if (CONVERSION_PAGES.includes(current.page) && c.id === current.id) {
                     return [projectKey(p.id), datasetKey(d.id), conversionKey(c.id)];

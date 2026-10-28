@@ -71,7 +71,8 @@ describe("the navigation pane", () => {
         expect(($('a[href="/dataset/5"]'))).not.toBeNull();
         click(fold("d5"));
         await ticks(2);
-        expect(links().slice(4, 7)).toEqual(["Built", "Converted", "Converting"]);
+        expect(links().slice(4, 8)).toEqual(["Report", "Built", "Converted", "Converting"]);
+        expect($('a[title=Report]')!.getAttribute("href")).toBe("/dataset/5/report");
         // A conversion opens its mosaics, else its frames, else its dataset's Convert tab; one still converting has
         // nothing under it yet
         expect($("a[title=Built]")!.getAttribute("href")).toBe("/conversion/9");
@@ -80,15 +81,23 @@ describe("the navigation pane", () => {
         expect(fold("c7")).toBeNull();
         click(fold("c9"));
         await ticks(2);
-        expect(links().slice(4, 8)).toEqual(["Built", "Mosaics", "Frames", "Compare"]);
+        expect(links().slice(5, 9)).toEqual(["Built", "Mosaics", "Frames", "Compare"]);
         expect($('a[href="/conversion/9/compare"]')).not.toBeNull();
         click(fold("c8"));
         await ticks(2);
-        expect(links().slice(8, 10)).toEqual(["Converted", "Frames"]);
+        expect(links().slice(9, 11)).toEqual(["Converted", "Frames"]);
         // Folded again, with what is under it
         click(fold("p2"));
         await ticks(2);
         expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences"]);
+    });
+
+    it("unfolds a dataset's report to it and marks it, even for a dataset without conversions", async () => {
+        await pane({page: "dataset-report", id: 4});
+        expect(fold("p2").getAttribute("aria-expanded")).toBe("true");
+        expect(fold("d4").getAttribute("aria-expanded")).toBe("true");
+        expect(currentLink()).toBe("Report");
+        expect($('a[aria-current=page]')!.getAttribute("href")).toBe("/dataset/4/report");
     });
 
     it("keeps what is unfolded for the next visit", async () => {

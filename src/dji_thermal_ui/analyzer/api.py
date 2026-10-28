@@ -226,6 +226,7 @@ def detail(dataset):
     out['project_name'] = dataset.project.name
     out['analysis'] = dataset.analysis or {}
     out['flight_zone'] = thermal_analysis.flight_zone(dataset.analysis)
+    out['flight_area'] = thermal_analysis.flight_area(dataset.analysis)
     out['report'] = dataset.report or {}
     out['conversions'] = [conversion_summary(check_stale(c)) for c in dataset.conversions.all()]
     # What the conversions' settings are compared against, to list what each one changed

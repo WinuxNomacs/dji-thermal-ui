@@ -6,7 +6,7 @@ import {csrfToken, errorText, readJson, sendJson} from "../core/api";
 import {count, deleteText, failedText, type FlightZone, formatDate} from "../core/format";
 import {isImage, type Progress, uploadFiles} from "../core/upload";
 import {ask, askName, dialog} from "../components/dialog";
-import {ArrowLeft, Check, Link, Pencil, Play, Plus, Refresh, Stop, Trash, Warning} from "../components/icons";
+import {ArrowLeft, Check, FileText, Link, Pencil, Play, Plus, Refresh, Stop, Trash, Warning} from "../components/icons";
 import {navigationChanged} from "../core/navigation";
 import {type Conversion, isBusy, parsePrefill} from "./conversions";
 import {ConvertTab} from "./convert";
@@ -242,6 +242,8 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                             {d.analyzed ? <><Refresh/> Analyze again</> : <><Play/> Analyze</>}</button>)}
                     {analyzing && <button type="button" class="button default" id="cancel"
                                           onClick={() => action("/cancel", "Could not cancel the analysis.")}><Stop/> Cancel</button>}
+                    <a class="button default" id="report" href={publicUrl + "dataset/" + id + "/report"}
+                       title="A report of this dataset, to print or save as PDF"><FileText/> Report</a>
                     <button type="button" class="button default" id="copy-link" title="Copy a link to this dataset"
                             onClick={copyLink}>{copied ? <><Check/> Copied</> : <><Link/> Copy link</>}</button>
                     <button type="button" class="icon-button" id="rename" title="Rename" aria-label="Rename"
