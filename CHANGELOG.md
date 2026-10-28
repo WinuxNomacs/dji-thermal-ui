@@ -29,6 +29,8 @@ All notable changes are recorded here. The format follows
 
 - A thermal image of a format that cannot be read is called an "Unsupported image type" (it was "Unsupported
   camera"), on the Files tab and in its filter.
+- dji-thermal-cli 1.6.1: a FLIR radiometric JPEG (a Zenmuse XT2's) is an "Unsupported image type", no longer
+  "Not thermal".
 
 ## [0.8.0] - 2026-10-28
 
