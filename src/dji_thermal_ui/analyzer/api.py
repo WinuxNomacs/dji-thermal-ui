@@ -33,6 +33,7 @@ from rest_framework.views import APIView
 from zipstream.ng import ZipStream
 
 from . import backup, basemaps, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
                      ThermalDataset, ThermalMeasurement)
@@ -913,8 +914,45 @@ class ConversionDownloadView(DatasetView):
 
 class StorageView(DatasetView):
     def get(self, request):
-        """The data folder's size on disk now, per project (storage.measure)"""
-        return Response(storage.measure())
+        """The data folder's size on disk now, per project (storage.measure); what chose it (set_by), and how the
+        last move went (last_move, until put away)"""
+        return Response(dict(storage.measure(), set_by=settings.DATA_DIR_SET_BY, last_move=move.read_result()))
+
+
+def folder_path(request):
+    path = request.data.get('path')
+    if not isinstance(path, str) or len(path) > 4096:
+        raise ValidationError({'path': "A folder's path is needed"})
+    return path.strip()
+
+
+class StorageCheckView(DatasetView):
+    def post(self, request):
+        """What moving the data folder to {path} would do, and what stops it (storage.check)"""
+        return Response(storage.check(folder_path(request)))
+
+
+class StorageMoveView(DatasetView):
+    def post(self, request):
+        """Moves the data folder to {path}, importing the projects chosen ({projects}: their ids) from a data folder
+        there: checked again, then planned and the server restarted, which moves it before serving again"""
+        path = folder_path(request)
+        projects = request.data.get('projects', [])
+        if not isinstance(projects, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in projects):
+            raise ValidationError({'projects': "A list of projects' ids is needed"})
+        found = storage.check(path)
+        if found['problems']:
+            return Response(found, status=status.HTTP_409_CONFLICT)
+        if set(projects) - {p['id'] for p in found['projects']}:
+            raise ValidationError({'projects': "Those are not all the projects of that folder"})
+        move.write_plan(settings.DATA_DIR, found['path'], projects)
+        move.request_restart()
+        return Response(found, status=status.HTTP_202_ACCEPTED)
+
+    def delete(self, request):
+        """Puts away the last move's result, once the page has shown it"""
+        move.forget(move.RESULT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PreferencesView(DatasetView):

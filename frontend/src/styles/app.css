@@ -882,3 +882,10 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .storage-table .storage-project td:first-child { font-weight: 600; }
 .storage-table .storage-flight td:first-child { padding-left: 24px; }
 .storage-table tfoot th { border-bottom: none; }
+.storage-move { margin-top: 24px; max-width: 720px; }
+.move-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.move-form input { flex: 1; min-width: 0; }
+.move-projects { list-style: none; padding: 0; margin: 0 0 12px; }
+.move-projects li { padding: 2px 0; }
+#last-move p, #move-problems p { margin: 0 0 4px; }
+#last-move p, .storage-move p, #move-problems p { overflow-wrap: anywhere; }

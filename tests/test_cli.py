@@ -62,11 +62,14 @@ def test_the_server_serves_the_home_page(threaded_jobs):
         server.close()
 
 
-def run_app(data_dir, port):
-    """Runs the command as a user would, until it serves the API (the pages need the front end built)"""
+def run_app(data_dir, port, extra_env=None):
+    """Runs the command as a user would, until it serves the API (the pages need the front end built); without a
+    data folder given, it uses the one its config folder (in extra_env) points to"""
     env = {k: v for k, v in os.environ.items() if k not in ("DJANGO_SETTINGS_MODULE", "DJI_THERMAL_UI_DATA_DIR")}
-    proc = subprocess.Popen([sys.executable, "-m", "dji_thermal_ui", "--data-dir", str(data_dir), "--port", str(port),
-                             "--no-browser"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    env.update(extra_env or {})
+    folder = ["--data-dir", str(data_dir)] if data_dir else []
+    proc = subprocess.Popen([sys.executable, "-m", "dji_thermal_ui", *folder, "--port", str(port), "--no-browser"],
+                            env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     deadline = time.monotonic() + TIMEOUT
     while True:
         try:
