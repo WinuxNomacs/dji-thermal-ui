@@ -660,7 +660,14 @@ Requested 2026-10-28 (`new.md`):
 
 - **Order (decided 2026-10-28):** after D2 and its release.
 - **Test data (decided 2026-10-28):** the user provides a folder with a flight that has both `_T` and `_V` images,
-  before F1 is built. Its path is noted for this machine, as dataset 6 was.
+  before F1 is built. Its path is noted for this machine, as dataset 6 was. **Provided 2026-10-28:** `ignored/m4t-rgb`,
+  the 327 `_V` images (M4T wide camera, 4032×3024, 1.5 GB) of the flight whose 327 `_T` frames are dataset 1. Each
+  `_V` image has the same pose fields as its `_T` frame in its XMP: GPS, relative altitude, gimbal and flight yaw,
+  pitch and the rangefinder's distance. Its EXIF gives a focal length of 6.72 mm, 24 mm as 35 mm equivalent; there is
+  no `DewarpData` or `CalibratedFocalLength`.
+- **Pairing (found 2026-10-28):** pair `_V` with `_T` by the capture index (`_0024_`), not by the whole name. In 52 of
+  the 327 pairs, the two names' timestamps differ by a second (`DJI_20261022163317_0024_T.JPG` and
+  `DJI_20261022163316_0024_V.JPG`). By index all 327 pair up.
 - **Cameras first:** the M4T only, or the H20T/H30T/M3T too. Do the `_W`/`_Z` cameras count, or only `_V`?
 - **Resolution:** the visual frames are about 6× the thermal ones' resolution. Should the mosaic be at its own GSD
   (large files, slow to build), at a cap (e.g. 2 cm/px), or at the thermal mosaic's GSD?
