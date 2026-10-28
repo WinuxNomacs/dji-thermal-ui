@@ -12,7 +12,7 @@ its title.
 - Nothing planned: the next phase comes from `new.md`, or from Later.
 
 **Then**
-- Nothing planned: the next phase comes from `new.md`, or from Later.
+- Nothing yet.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
