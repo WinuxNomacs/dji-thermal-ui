@@ -691,11 +691,14 @@ Requested 2026-10-28 (`new.md`):
 - **Pairing (found 2026-10-28):** pair `_V` with `_T` by the capture index (`_0024_`), not by the whole name. In 52 of
   the 327 pairs, the two names' timestamps differ by a second (`DJI_20261022163317_0024_T.JPG` and
   `DJI_20261022163316_0024_V.JPG`). By index all 327 pair up.
-- **Cameras first:** the M4T only, or the H20T/H30T/M3T too. Do the `_W`/`_Z` cameras count, or only `_V`?
-- **Resolution:** the visual frames are about 6× the thermal ones' resolution. Should the mosaic be at its own GSD
-  (large files, slow to build), at a cap (e.g. 2 cm/px), or at the thermal mosaic's GSD?
-- **Registration:** should the visual mosaic reuse the thermal placements (lined up by construction), or align itself
-  (sharper, but possibly offset from the thermal one)?
+- **Cameras (decided 2026-10-27):** any DJI wide visual frame (`_V` or `_W`) with a pose and a 35 mm-equivalent
+  focal length in its EXIF, paired with its thermal frame; zoom (`_Z`) frames are left out. Tested on the M4T only.
+- **Resolution (decided 2026-10-27):** the visual frames' own (on dataset 1's flight about 0.57 cm/px against the
+  thermal 1.6 cm/px, the wide camera seeing about 2.3× wider: roughly 6000×6500 px), with an option to make it
+  coarser.
+- **Registration (decided 2026-10-27):** the thermal mosaic's placement: each visual frame takes its thermal frame's
+  refined shift and rotation and the estimated heights, so the two line up by construction; the one constant offset
+  between the two cameras is measured, applied and reported. A visual mosaic is built only with the thermal one.
 - **Overlay in F3:** side by side only, a swipe, an opacity blend, or all three.
 
 ## Integration
