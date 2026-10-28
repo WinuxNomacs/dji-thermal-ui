@@ -10,6 +10,7 @@ urlpatterns = [
     path("preferences", views.preferences_page, name="preferences"),
     path("project/<int:project_id>", views.project_page, name="project"),
     path("dataset/<int:dataset_id>", views.dataset_page, name="dataset"),
+    path("dataset/<int:dataset_id>/report", views.dataset_report, name="dataset-report"),
     path("conversion/<int:conversion_id>", views.viewer_page, name="viewer"),
     path("conversion/<int:conversion_id>/frame", views.frame_page, name="frame"),
     path("conversion/<int:conversion_id>/compare", views.compare_page, name="compare"),

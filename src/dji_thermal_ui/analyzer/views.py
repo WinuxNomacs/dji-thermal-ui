@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from .._version import __version__
-from .api import app_locale, app_theme, app_unit
+from .api import app_locale, app_theme, app_unit, report_author
 from .basemaps import page_basemaps
 from .models import Project, ThermalConversion, ThermalDataset
 
@@ -44,6 +44,14 @@ def project_page(request, project_id):
 def dataset_page(request, dataset_id):
     dataset = get_object_or_404(ThermalDataset.objects.select_related('project'), pk=dataset_id)
     return page(request, "dataset.html", title=dataset.name, dataset=dataset, project=dataset.project, entry="dataset")
+
+
+@ensure_csrf_cookie
+def dataset_report(request, dataset_id):
+    """A dataset's report, laid out to be printed to PDF"""
+    dataset = get_object_or_404(ThermalDataset.objects.select_related('project'), pk=dataset_id)
+    return page(request, "dataset_report.html", title=dataset.name + " report", dataset=dataset, project=dataset.project,
+                entry="dataset_report", author=report_author(), basemaps=page_basemaps(API))
 
 
 @ensure_csrf_cookie

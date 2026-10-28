@@ -45,7 +45,7 @@ export function Overview({d}: {d: DatasetFigures}) {
     return <Figures items={items}/>;
 }
 
-function cell(row: FileRow, col: FileColumn): string {
+export function cell(row: FileRow, col: FileColumn): string {
     const v = row[col.key] as number | string | null | undefined;
     if (col.key === "kind") return kindLabel(String(v));
     if (col.key === "time") return formatCapture(v as string);
@@ -138,8 +138,8 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
 }
 
 // The Problems tab: the findings, most severe first, each with what addresses it and the files it names (each opening
-// the Files tab filtered to it)
-export function ProblemsTab({analysis, showFile}: {analysis: Analysis; showFile: (path: string) => void}) {
+// the Files tab filtered to it, when showFile is given: the report lists them only)
+export function ProblemsTab({analysis, showFile}: {analysis: Analysis; showFile?: (path: string) => void}) {
     const findings = analysis.findings || [];
     if (!findings.length) {
         return <p class="text-success none"><Check/> dji-thermal-cli found no problems in this dataset.</p>;
@@ -152,8 +152,8 @@ export function ProblemsTab({analysis, showFile}: {analysis: Analysis; showFile:
                 <div><span class={"badge " + cls}>{severityLabel(f.severity)}</span> {f.message}</div>
                 {f.suggestion && <div class="suggestion"><Lightbulb/> {f.suggestion}</div>}
                 {files.length > 0 && <div class="finding-files">
-                    {files.slice(0, FILES_SHOWN).map((p) => (<><a href="#files" title="Show it on the Files tab"
-                        onClick={(e) => { e.preventDefault(); showFile(p); }}><code>{p}</code></a> </>))}
+                    {files.slice(0, FILES_SHOWN).map((p) => (<>{showFile ? <a href="#files" title="Show it on the Files tab"
+                        onClick={(e) => { e.preventDefault(); showFile(p); }}><code>{p}</code></a> : <code>{p}</code>} </>))}
                     {files.length > FILES_SHOWN && <span class="text-muted">and {files.length - FILES_SHOWN} more</span>}
                 </div>}
                 <div class="finding-code">{f.code}</div>

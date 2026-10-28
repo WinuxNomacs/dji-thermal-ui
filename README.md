@@ -34,10 +34,16 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   compare page each pane draws its datasets' findings, opened with a click or a link and changed there, and a spot
   or an area drawn in a pane is saved on the dataset of its mosaic (for a difference, the mosaic picked in the
   window).
+- **Dataset report:** a page laid out to print, or save as PDF from the browser's print dialog, on A4 or Letter.
+  It holds the dataset's figures, a map of where its frames were taken with its findings numbered, the coverage,
+  the problems found, the frames' settings and temperatures summed up, the conversions, and the findings with
+  thumbnails of their kept frames. A table of every frame can be appended. Open it with the dataset page's Report
+  button or from the navigation pane. The title, author, date and notes are typed on the page and saved with the
+  dataset; the last author typed fills in new reports. It always prints light, without the app's header and controls.
 - **Compare:** two conversions side by side, or their difference, from any dataset, the project's listed first.
-- **Navigation:** a pane on the left of every page lists the projects, their datasets and each conversion's
-  mosaics, frames and compare page. Each level folds, and the whole pane hides; over a narrow screen it opens on
-  top of the page.
+- **Navigation:** a pane on the left of every page lists the projects, their datasets with each dataset's report,
+  and each conversion's mosaics, frames and compare page. Each level folds, and the whole pane hides; over a narrow
+  screen it opens on top of the page.
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, and the locale dates and times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two

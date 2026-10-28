@@ -210,6 +210,7 @@ describe("the dataset page", () => {
         expect(tab("convert").querySelector(".badge")!.textContent).toBe("1");
         expect(byId("analyze").textContent).toContain("Analyze again");
         expect(byId("add-images")).not.toBeNull();
+        expect(byId("report").getAttribute("href")).toBe("/dataset/5/report");
     });
 
     it("says when the dataset could not be loaded", async () => {

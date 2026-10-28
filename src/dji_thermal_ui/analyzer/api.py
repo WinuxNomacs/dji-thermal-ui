@@ -8,6 +8,7 @@ Ported from LuxODM's thermal-analyzer plugin (commit a2a81052), without its proj
 is the one user's.
 """
 import colorsys
+import datetime
 import hashlib
 import io
 import json
@@ -48,6 +49,7 @@ IMAGE_EXTENSIONS = ('.jpg', '.jpeg')
 MAX_FOLDER_DEPTH = 4    # subfolders kept from an uploaded folder (e.g. thermal/, 100MEDIA/)
 MAX_NAME_LENGTH = 255
 MAX_DESCRIPTION_LENGTH = 10000
+REPORT_AUTHOR_KEY = 'report_author'     # the author last typed on a report, which fills in new ones
 
 
 def get_project(pk):
@@ -224,6 +226,8 @@ def detail(dataset):
     out['project_name'] = dataset.project.name
     out['analysis'] = dataset.analysis or {}
     out['flight_zone'] = thermal_analysis.flight_zone(dataset.analysis)
+    out['flight_area'] = thermal_analysis.flight_area(dataset.analysis)
+    out['report'] = dataset.report or {}
     out['conversions'] = [conversion_summary(check_stale(c)) for c in dataset.conversions.all()]
     # What the conversions' settings are compared against, to list what each one changed
     out['defaults'] = defaults()
@@ -303,6 +307,45 @@ def preferences():
         if field in settings:
             settings[field] = thermal_conversion.DEFAULTS[field]
     return settings
+
+
+def report_author():
+    """The author last typed on a report, "" when none was"""
+    return Preferences.load().data.get(REPORT_AUTHOR_KEY) or ""
+
+
+def parse_report(value, saved):
+    """A report's text, changed: the keys sent replace those saved (a title, author and notes are text, the date a
+    YYYY-MM-DD day or "", the appendix a yes or no; null forgets one, which the page then fills in again)"""
+    if not isinstance(value, dict):
+        raise ValidationError({'report': "An object of title, author, date, notes and appendix"})
+    out = dict(saved or {})
+    for key, v in value.items():
+        if v is None and key in ('title', 'author', 'date', 'notes', 'appendix'):
+            out.pop(key, None)
+        elif key in ('title', 'author', 'notes'):
+            limit = MAX_DESCRIPTION_LENGTH if key == 'notes' else MAX_NAME_LENGTH
+            if not isinstance(v, str) or len(v) > limit:
+                raise ValidationError({'report': "The {} is text of {} characters at most".format(key, limit)})
+            out[key] = v
+        elif key == 'date':
+            if not isinstance(v, str) or v and not parse_day(v):
+                raise ValidationError({'report': "The date is a day as YYYY-MM-DD"})
+            out[key] = v
+        elif key == 'appendix':
+            if not isinstance(v, bool):
+                raise ValidationError({'report': "The appendix is true or false"})
+            out[key] = v
+        else:
+            raise ValidationError({'report': "Unknown: {}".format(key)})
+    return out
+
+
+def parse_day(text):
+    try:
+        return len(text) == 10 and datetime.date.fromisoformat(text)
+    except ValueError:
+        return None
 
 
 def save_preference(key, value):
@@ -478,9 +521,15 @@ class DatasetDetailView(DatasetView):
         return Response(detail(check_stale(get_dataset(pk))))
 
     def patch(self, request, pk):
-        """Renames the dataset, or moves it to another project"""
+        """Renames the dataset, moves it to another project, or changes its report's text (the author typed is kept
+        for new reports)"""
         dataset = get_dataset(pk)
         fields = []
+        if 'report' in request.data:
+            dataset.report = parse_report(request.data['report'], dataset.report)
+            fields.append('report')
+            if dataset.report.get('author', '').strip():
+                save_preference(REPORT_AUTHOR_KEY, dataset.report['author'].strip())
         if 'project' in request.data:
             dataset.project_id = project_id_of(request.data['project'])
             fields.append('project')
