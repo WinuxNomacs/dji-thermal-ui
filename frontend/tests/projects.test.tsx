@@ -2,6 +2,7 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {type Project, projectDeleteText} from "../src/projects/list";
 import {ProjectPage} from "../src/projects/project-page";
+import {sendArchive} from "../src/projects/import-dialog";
 import {ProjectsPage} from "../src/projects/projects-page";
 import {calls, click, jsonResponse, key, server, ticks} from "./helpers";
 
@@ -269,5 +270,111 @@ describe("a project's page", () => {
         await ticks();
         expect(calls(fetchFn)).toContain("DELETE " + API + "projects/3");
         expect(nav).toHaveBeenCalledWith("/");
+    });
+});
+
+describe("a project's import", () => {
+    const ARCHIVE = {name: "Silos", proposed: "Silos (2)", flights: [{name: "Roof", file_count: 654, conversions: 2}]};
+    const status = (code: number, data: unknown) => () => Promise.resolve(new Response(JSON.stringify(data), {status: code}));
+
+    function choose(f: File) {
+        const input = byId<HTMLInputElement>("import-file");
+        Object.defineProperty(input, "files", {value: [f], configurable: true});
+        input.dispatchEvent(new Event("change", {bubbles: true}));
+    }
+
+    it("sends an archive a piece at a time, from where the server stopped, and a piece that fails again", async () => {
+        const fetchFn = server({
+            "PUT /api/imports/ab?offset=0": {received: 4, project: null},
+            "PUT /api/imports/ab?offset=4": [() => Promise.reject(new Error("Failed to fetch")), status(409, {received: 6})],
+            "PUT /api/imports/ab?offset=6": {received: 10, project: ARCHIVE},
+        });
+        const heard: unknown[] = [];
+        await sendArchive(fetchFn, "/api/imports/ab", "tok", new Blob(["0123456789"]), (n, p) => heard.push([n, p?.name]),
+                          undefined, 4);
+        expect(calls(fetchFn)).toEqual(["PUT /api/imports/ab?offset=0", "PUT /api/imports/ab?offset=4",
+                                        "PUT /api/imports/ab?offset=4", "PUT /api/imports/ab?offset=6"]);
+        expect(heard).toEqual([[4, undefined], [10, "Silos"]]);
+        const init = fetchFn.mock.calls[0][1]!;
+        expect([(init.body as Blob).size, (init.headers as Record<string, string>)["X-CSRFToken"]]).toEqual([4, "tok"]);
+    });
+
+    it("stops with the server's reason when it refuses the archive, or after failing three times", async () => {
+        const refused = server({"PUT /api/imports/ab?offset=0": status(400, {error: "This is not a tar archive"})});
+        await expect(sendArchive(refused, "/api/imports/ab", "tok", new Blob(["01"]), () => {})).rejects
+            .toThrow("This is not a tar archive");
+        const down = server({"PUT /api/imports/ab?offset=0": () => Promise.reject(new Error("Failed to fetch"))});
+        await expect(sendArchive(down, "/api/imports/ab", "tok", new Blob(["01"]), () => {})).rejects.toThrow("Failed to fetch");
+        expect(down.mock.calls.length).toBe(3);
+    });
+
+    it("imports an archive as a new project, a name in use replaced by a free one the user can change", async () => {
+        const fetchFn = server({
+            [API + "projects"]: {projects: [EMPTY, SILOS]},
+            [`POST ${API}imports`]: {id: "ab"},
+            [`PUT ${API}imports/ab?offset=0`]: {received: 10, project: ARCHIVE},
+            [`POST ${API}imports/ab`]: {id: 9},
+        });
+        const nav = projectsPage(fetchFn);
+        await ticks();
+        click(byId("import-project-button"));
+        await ticks();
+        expect(byId<HTMLButtonElement>("import-save").disabled).toBe(true);
+        choose(new File(["0123456789"], "Silos.tar"));
+        await ticks();
+        expect(body(fetchFn, "POST")).toEqual({size: 10});
+        const text = byId("import-project").textContent;
+        expect(text).toContain("“Silos”, with 1 flight:");
+        expect(text).toContain("Roof (654 images, 2 datasets)");
+        expect(byId("import-name-help").textContent).toContain("A project is already named “Silos”");
+        expect(byId<HTMLInputElement>("import-name").value).toBe("Silos (2)");
+        expect(byId("import-progress-text").textContent).toBe("Received 10 B.");
+        // A name in use is not offered
+        type(byId<HTMLInputElement>("import-name"), "Default Project ");
+        await ticks();
+        expect(byId("import-name-help").textContent).toContain("A project is already named “Default Project”: choose another");
+        expect(byId<HTMLButtonElement>("import-save").disabled).toBe(true);
+        type(byId<HTMLInputElement>("import-name"), " North silos ");
+        await ticks();
+        click(byId("import-save"));
+        await ticks();
+        expect(JSON.parse(fetchFn.mock.calls.at(-1)![1]!.body as string)).toEqual({name: "North silos"});
+        expect(nav).toHaveBeenCalledWith("/project/9");
+    });
+
+    it("says why an archive is refused, and another can be chosen", async () => {
+        const fetchFn = server({
+            [API + "projects"]: {projects: [EMPTY]},
+            [`POST ${API}imports`]: {id: "ab"},
+            [`PUT ${API}imports/ab?offset=0`]: status(400, {error: "This is not a project exported by dji-thermal-ui"}),
+        });
+        projectsPage(fetchFn);
+        await ticks();
+        click(byId("import-project-button"));
+        await ticks();
+        choose(new File(["0123"], "photo.tar"));
+        await ticks();
+        expect(byId("import-error").textContent).toBe("This is not a project exported by dji-thermal-ui");
+        expect(byId<HTMLInputElement>("import-file").disabled).toBe(false);
+        expect(byId("import-archive")).toBeNull();
+    });
+
+    it("stops the import when closed, what was sent removed", async () => {
+        const fetchFn = server({
+            [API + "projects"]: {projects: [EMPTY]},
+            [`POST ${API}imports`]: {id: "ab"},
+            [`PUT ${API}imports/ab?offset=0`]: {received: 4, project: ARCHIVE},
+            [`DELETE ${API}imports/ab`]: () => Promise.resolve(new Response(null, {status: 204})),
+        });
+        projectsPage(fetchFn);
+        await ticks();
+        click(byId("import-project-button"));
+        await ticks();
+        choose(new File(["0123"], "Silos.tar"));
+        await ticks();
+        key(document.body, "Escape");
+        await ticks();
+        expect(byId("import-project")).toBeNull();
+        expect(calls(fetchFn)).toContain(`DELETE ${API}imports/ab`);
     });
 });

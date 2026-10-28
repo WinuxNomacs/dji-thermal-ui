@@ -1,12 +1,13 @@
-// The app's landing page: the projects, each a site's datasets together, searched; New Project, a project changed
-// or deleted (with its datasets, after saying what goes with it)
+// The app's landing page: the projects, each a site's datasets together, searched; New Project, a project imported
+// (from an archive another's page exported), changed or deleted (with its datasets, after saying what goes with it)
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {count, formatBytes, formatDate} from "../core/format";
 import {ask} from "../components/dialog";
-import {MapPin, Pencil, Plus, Trash} from "../components/icons";
+import {MapPin, Pencil, Plus, Trash, Upload} from "../components/icons";
 import {matchesSearch} from "../datasets/list";
 import type {Basemap} from "../map/map";
+import {ImportDialog} from "./import-dialog";
 import {type Project, projectDeleteText} from "./list";
 import {ProjectForm} from "./project-form";
 
@@ -22,6 +23,7 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
     const [notice, setNotice] = useState("");
     const [query, setQuery] = useState("");
     const [editing, setEditing] = useState<Project | "new" | null>(null);
+    const [importing, setImporting] = useState(false);
 
     async function load() {
         try {
@@ -59,6 +61,8 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
                 <div class="page-actions">
                     <input type="search" id="search" placeholder="Search projects" aria-label="Search projects"
                            value={query} onInput={(e) => setQuery(e.currentTarget.value)}/>
+                    <button type="button" class="button default" id="import-project-button" disabled={!projects}
+                            onClick={() => setImporting(true)}><Upload/> Import</button>
                     <button type="button" class="button primary" id="new-project-button"
                             onClick={() => setEditing("new")}><Plus/> New Project</button>
                 </div>
@@ -108,6 +112,9 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
 
             {editing && <ProjectForm api={api} basemaps={basemaps} project={editing === "new" ? undefined : editing}
                                      onSaved={saved} onClose={() => setEditing(null)}/>}
+            {importing && <ImportDialog api={api} taken={(projects || []).map((p) => p.name)}
+                                        onClose={() => setImporting(false)}
+                                        onImported={(p) => nav(publicUrl + "project/" + p.id)}/>}
         </div>
     );
 }
