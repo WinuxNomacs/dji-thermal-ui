@@ -1,6 +1,7 @@
 // A dataset's analysis as the pages use it: the figures above the tabs, the Files tab's rows and columns, and the
 // conversion a frame opens in
-import {fileKind, median} from "../core/format";
+import {fileKind, formatCapture, median} from "../core/format";
+import {convertTemp} from "../core/units";
 
 export interface FileRow {
     path: string;
@@ -123,20 +124,113 @@ export function newestReady<T extends {status: string; finished_at?: string | nu
         .sort((a, b) => String(b.finished_at || "").localeCompare(String(a.finished_at || "")))[0] || null;
 }
 
-export interface FilesView {show: "all" | "thermal" | "flagged"; filter: string; sort: string; desc: boolean}
+// The Files tab's filter: conditions every row shown matches. A number's are compared in the unit shown (a temperature
+// in the user's), its = and ≠ at the digits shown; text matches every word, or none, in any case; a condition still
+// being typed (no value) filters nothing, and a row without the value matches no condition on it
+export type Op = "eq" | "ne" | "lt" | "le" | "gt" | "ge" | "has" | "not" | "in" | "is";
+export interface Condition {key: string; op: Op; value: string | string[] | boolean}
+export type ColumnType = "number" | "text" | "kind" | "flag";
 
-// The Files tab's rows: shown as all / thermal / flagged, filtered by name (every word in the path), sorted
+// The columns only the Files tab has, after Kind: worked out from the kind and the problems
+export const FLAG_COLUMNS: FileColumn[] = [
+    {key: "thermal_frame", label: "Thermal frame", title: "A thermal R-JPEG the conversions read"},
+    {key: "problems", label: "With problems", title: "Named by a problem, not readable as a frame, or with a warning"},
+];
+export const FILES_TAB_COLUMNS: FileColumn[] = [...FILE_COLUMNS.slice(0, 2), ...FLAG_COLUMNS, ...FILE_COLUMNS.slice(2)];
+
+export function columnType(key: string): ColumnType {
+    if (key === "kind") return "kind";
+    if (FLAG_COLUMNS.some((c) => c.key === key)) return "flag";
+    const col = FILE_COLUMNS.find((c) => c.key === key);
+    return col && col.digits !== undefined ? "number" : "text";
+}
+
+export const OPS: Record<ColumnType, [Op, string][]> = {
+    number: [["eq", "="], ["ne", "≠"], ["lt", "<"], ["le", "≤"], ["gt", ">"], ["ge", "≥"]],
+    text: [["has", "contains"], ["not", "does not contain"]],
+    kind: [["in", "is one of"]],
+    flag: [["is", "is"]],
+};
+
+// A new condition on a column: what it starts as when chosen
+export function newCondition(key: string): Condition {
+    const type = columnType(key);
+    return {key, op: OPS[type][0][0], value: type === "kind" ? [] : type === "flag" ? true : ""};
+}
+
+// What the three buttons start from
+export type Show = "all" | "thermal" | "flagged";
+export const SHOWS: [Show, string, Condition[]][] = [
+    ["all", "All files", []],
+    ["thermal", "Thermal frames", [{key: "thermal_frame", op: "is", value: true}]],
+    ["flagged", "With problems", [{key: "problems", op: "is", value: true}]],
+];
+
+// The button whose filter is exactly the one set (conditions still being typed aside), if any
+export function shownAs(filters: Condition[]): Show | null {
+    const text = JSON.stringify(filters.filter(active));
+    return SHOWS.find(([, , f]) => JSON.stringify(f) === text)?.[0] || null;
+}
+
+export interface FilesView {filters: Condition[]; sort: string; desc: boolean}
+
+// A file's row with what the Files tab works out: whether it is a thermal frame, and whether it has problems
+export function flagged(f: FileRow, flags: Record<string, Problem[]>): boolean {
+    return !!flags[f.path] || f.kind !== "thermal" && f.kind !== "not_thermal" || !!(f.warnings || []).length;
+}
+
+function words(v: unknown): string[] { return String(v || "").toLowerCase().split(/\s+/).filter((w) => w); }
+
+// Whether a condition is set enough to filter: a value typed (a number for a number's), kinds chosen or not
+export function active(c: Condition): boolean {
+    const type = columnType(c.key);
+    if (type === "kind" || type === "flag") return true;
+    if (type === "number") return c.value !== "" && !isNaN(Number(c.value));
+    return words(c.value).length > 0;
+}
+
+export function matches(row: FileRow, c: Condition): boolean {
+    if (!active(c)) return true;
+    const type = columnType(c.key);
+    if (type === "kind") return (c.value as string[]).includes(fileKind(row));
+    if (type === "flag") return !!row[c.key] === c.value;
+    if (type === "text") {
+        const v = row[c.key];
+        if (v === null || v === undefined || v === "") return false;
+        // A capture time as written and as shown: "2026-10-12 18:29" or the locale's
+        const text = (c.key === "time" ? captureTime(v) + " " + formatCapture(v as string) : String(v)).toLowerCase(), found = words(c.value).map((w) => text.includes(w));
+        return c.op === "not" ? !found.some(Boolean) : found.every(Boolean);
+    }
+    const raw = row[c.key];
+    if (raw === null || raw === undefined || raw === "" || isNaN(Number(raw))) return false;
+    const col = FILE_COLUMNS.find((k) => k.key === c.key)!;
+    let v = Number(col.temperature ? convertTemp(Number(raw), "C") : raw);
+    const want = Number(c.value);
+    if (c.op === "eq" || c.op === "ne") v = Number(v.toFixed(col.digits));
+    return {eq: v === want, ne: v !== want, lt: v < want, le: v <= want, gt: v > want, ge: v >= want}[c.op as "eq"];
+}
+
+// The Files tab's rows, with their worked-out columns: those matching every condition, sorted
 export function fileRows(a: Analysis, view: FilesView): FileRow[] {
     const flags = flagsByFile(a.findings);
-    const words = String(view.filter || "").toLowerCase().split(/\s+/).filter((w) => w);
-    const rows = (a.files || []).filter((f) => {
-        const path = String(f.path).toLowerCase();
-        if (!words.every((w) => path.includes(w))) return false;
-        if (view.show === "thermal") return f.kind === "thermal";
-        if (view.show === "flagged") {
-            return !!flags[f.path] || f.kind !== "thermal" && f.kind !== "not_thermal" || !!(f.warnings || []).length;
-        }
-        return true;
-    });
+    const rows = (a.files || []).map((f) => ({...f, thermal_frame: f.kind === "thermal", problems: flagged(f, flags)}))
+        .filter((f) => view.filters.every((c) => matches(f, c)));
     return sortRows(rows, view.sort || "path", !!view.desc);
+}
+
+// The filter in a link: ?filter=alt.le.20&filter=kind.in.thermal,visual&filter=problems.is.yes&filter=path.has.roof
+export function filterQuery(filters: Condition[]): string[] {
+    return filters.map((c) => c.key + "." + c.op + "." +
+        (Array.isArray(c.value) ? c.value.join(",") : typeof c.value === "boolean" ? (c.value ? "yes" : "no") : c.value));
+}
+
+export function parseFilters(search: string): Condition[] {
+    return new URLSearchParams(search).getAll("filter").flatMap((f) => {
+        const [key, op, ...rest] = f.split(".");
+        const value = rest.join("."), type = columnType(key);
+        const known = FILES_TAB_COLUMNS.some((c) => c.key === key) && OPS[type].some(([o]) => o === op);
+        if (!known) return [];
+        return [{key, op: op as Op,
+                 value: type === "kind" ? value.split(",").filter(Boolean) : type === "flag" ? value !== "no" : value}];
+    });
 }

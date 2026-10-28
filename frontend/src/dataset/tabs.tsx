@@ -1,12 +1,13 @@
 // The dataset page's figures and its Files, Problems and WebODM plan tabs, drawn from the analysis
-import {useState} from "preact/hooks";
+import type {ComponentChildren} from "preact";
+import {useEffect, useRef, useState} from "preact/hooks";
 import {type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, fileKind, formatNumber, kindLabel, severityLabel,
         zoneText} from "../core/format";
-import {formatTemp} from "../core/units";
+import {formatTemp, unitSymbol, userUnit} from "../core/units";
 import {isImage} from "../core/upload";
-import {CaretDown, CaretUp, Check, Copy, Info, Lightbulb, Wand} from "../components/icons";
-import {type Analysis, type FileColumn, FILE_COLUMNS, type FileRow, fileRows, type FilesView, flagsByFile,
-        overview, type PlanOption} from "./files";
+import {CaretDown, CaretUp, Check, ChevronDown, Copy, Filter, Info, Lightbulb, Plus, Wand} from "../components/icons";
+import {active, type Analysis, columnType, type Condition, type FileColumn, FILES_TAB_COLUMNS, type FileRow, fileRows,
+        type FilesView, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption, shownAs, SHOWS} from "./files";
 
 const FILES_SHOWN = 12;     // files listed under a problem before "and N more"
 const THUMBS_KEY = "thermalAnalyzer.thumbnails";     // the Files tab's Thumbnails box, remembered per browser
@@ -71,12 +72,79 @@ interface FilesProps {
     zone?: FlightZone | null;   // the time zone the capture times are in
 }
 
-// The Files tab: all files, the thermal frames or those with problems, filtered by name and sorted by any column
+// The kinds to choose from, as checkboxes under All: checking All checks every kind and unchecking it unchecks them,
+// unchecking a kind unchecks All
+function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: string[]; choose: (k: string[]) => void;
+                                                     label: ComponentChildren}) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLSpanElement>(null);
+    const all = kinds.every((k) => chosen.includes(k));
+
+    useEffect(() => {
+        if (!open) return;
+        const outside = (e: Event) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+        const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+        document.addEventListener("click", outside);
+        document.addEventListener("keydown", escape);
+        return () => { document.removeEventListener("click", outside); document.removeEventListener("keydown", escape); };
+    }, [open]);
+
+    return (<span class={"menu kind-picker" + (open ? " open" : "")} ref={ref}>
+        <button type="button" class="kind-button" aria-haspopup="true" aria-expanded={open} title="Show these kinds"
+                onClick={() => setOpen(!open)}>{label}</button>
+        {open && <div class="menu-items kind-items">
+            <label><input type="checkbox" name="all" checked={all} onChange={() => choose(all ? [] : kinds)}/> All</label>
+            {kinds.map((k) => (<label key={k}><input type="checkbox" name={k} checked={chosen.includes(k)}
+                onChange={() => choose(chosen.includes(k) ? chosen.filter((c) => c !== k) : kinds.filter((c) => c === k || chosen.includes(c)))}/>
+                {" "}{kindLabel(k)}</label>))}
+        </div>}
+    </span>);
+}
+
+function kindsText(kinds: string[], chosen: string[]): string {
+    if (kinds.every((k) => chosen.includes(k))) return "All";
+    return chosen.length ? kinds.filter((k) => chosen.includes(k)).map(kindLabel).join(", ") : "None";
+}
+
+// One condition: its column, how it compares, its value (in the unit shown), and a way to remove it
+function ConditionRow({c, kinds, set, remove}: {c: Condition; kinds: string[]; set: (c: Condition) => void; remove: () => void}) {
+    const type = columnType(c.key);
+    const col = FILES_TAB_COLUMNS.find((k) => k.key === c.key);
+    const unit = col?.temperature ? unitSymbol(userUnit()) : (col?.unit || "").trim();
+    const ops = OPS[type];
+    return (<div class={"filter-row" + (active(c) ? "" : " unset")} data-key={c.key}>
+        <select name="column" aria-label="Column" value={c.key} onChange={(e) => set(newCondition(e.currentTarget.value))}>
+            {FILES_TAB_COLUMNS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+        </select>
+        {ops.length > 1 ? <select name="op" aria-label="Comparison" value={c.op}
+                                  onChange={(e) => set({...c, op: e.currentTarget.value as Op})}>
+            {ops.map(([o, label]) => <option key={o} value={o}>{label}</option>)}
+        </select> : <span class="filter-op">{ops[0][1]}</span>}
+        {type === "kind" && <KindPicker kinds={kinds} chosen={c.value as string[]} choose={(v) => set({...c, value: v})}
+                                        label={<>{kindsText(kinds, c.value as string[])} <ChevronDown/></>}/>}
+        {type === "flag" && <select name="value" aria-label="Value" value={c.value ? "yes" : "no"}
+                                    onChange={(e) => set({...c, value: e.currentTarget.value === "yes"})}>
+            <option value="yes">yes</option><option value="no">no</option></select>}
+        {type === "number" && <input name="value" aria-label="Value" class="filter-value" type="number" step="any"
+                                     value={c.value as string} onInput={(e) => set({...c, value: e.currentTarget.value})}/>}
+        {type === "text" && <input name="value" aria-label="Value" class="filter-value" type="search" placeholder="words"
+                                   value={c.value as string} onInput={(e) => set({...c, value: e.currentTarget.value})}/>}
+        {unit && type === "number" && <span class="text-muted">{unit}</span>}
+        <button type="button" class="icon-button" title="Remove this filter" aria-label="Remove this filter"
+                onClick={remove}>×</button>
+    </div>);
+}
+
+// The Files tab: the files matching every condition of the filter (none at first: all of them), sorted by any column.
+// The buttons start the filter from all files, the thermal frames or those with problems
 export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesProps) {
     const [showThumbs, setShowThumbs] = useState(storedThumbs);
     const flags = flagsByFile(analysis.findings);
     const rows = fileRows(analysis, view);
-    const shows: [FilesView["show"], string][] = [["all", "All files"], ["thermal", "Thermal frames"], ["flagged", "With problems"]];
+    const filters = view.filters;
+    const shown = shownAs(filters);
+    const kinds = [...new Set((analysis.files || []).map(fileKind))].sort((x, y) => kindLabel(x).localeCompare(kindLabel(y)));
+    const kindFilter = filters.find((c) => c.key === "kind");
 
     function toggleThumbs(on: boolean) {
         setShowThumbs(on);
@@ -87,24 +155,46 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
         setView({...view, sort: key, desc: key === view.sort ? !view.desc : false});
     }
 
+    function setFilters(f: Condition[]) { setView({...view, filters: f}); }
+
+    // The Kind header's checkboxes are the filter's Kind condition: none while every kind is checked
+    function chooseKinds(chosen: string[]) {
+        const others = filters.filter((c) => c.key !== "kind");
+        const all = kinds.every((k) => chosen.includes(k));
+        if (all) return setFilters(others);
+        const at = kindFilter ? filters.indexOf(kindFilter) : filters.length;
+        const c: Condition = {key: "kind", op: "in", value: chosen};
+        setFilters(kindFilter ? filters.filter((f) => f.key !== "kind" || f === kindFilter).map((f) => f === kindFilter ? c : f) :
+            [...filters.slice(0, at), c]);
+    }
+
     return (<div class="files-tab">
         <div class="files-bar">
-            {shows.map(([value, label]) => (
-                <label key={value}><input type="radio" name="files-show" value={value} checked={view.show === value}
-                                          onChange={() => setView({...view, show: value})}/> {label}</label>))}
-            <input type="search" class="files-filter" placeholder="Filter by name" aria-label="Filter by name"
-                   value={view.filter} onInput={(e) => setView({...view, filter: e.currentTarget.value})}/>
+            <span class="files-shows" role="group" aria-label="Start the filter from">
+                {SHOWS.map(([value, label, f]) => (
+                    <label key={value}><input type="radio" name="files-show" value={value} checked={shown === value}
+                                              onChange={() => setFilters(f.map((c) => ({...c})))}/> {label}</label>))}
+            </span>
+            <button type="button" class="button default small" id="add-filter" onClick={() => setFilters([...filters, newCondition("path")])}>
+                <Plus/> Add filter</button>
+            {filters.length > 0 && <button type="button" class="button default small" id="clear-filters"
+                                           onClick={() => setFilters([])}>Clear</button>}
             <label><input type="checkbox" class="files-thumbs" checked={showThumbs}
                           onChange={(e) => toggleThumbs(e.currentTarget.checked)}/> Thumbnails</label>
             <span class="text-muted files-shown">{rows.length} shown</span>
         </div>
+        {filters.length > 0 && <div class="filters" aria-label="Filters">
+            {filters.map((c, i) => <ConditionRow key={i} c={c} kinds={kinds}
+                set={(n) => setFilters(filters.map((f, j) => j === i ? n : f))}
+                remove={() => setFilters(filters.filter((_, j) => j !== i))}/>)}
+        </div>}
         {!frames && <p class="text-muted files-hint"><Info/> Convert the images (on the Convert tab) to open each frame from
             here.</p>}
         <div class="table-scroll">
             <table class={"table files" + (frames ? " linked" : "")}>
                 <thead><tr>
                     {showThumbs && <th><span class="sr-only">Thumbnail</span></th>}
-                    {FILE_COLUMNS.map((c) => {
+                    {FILES_TAB_COLUMNS.map((c) => {
                         const on = (view.sort || "path") === c.key;
                         const time = c.key === "time";
                         return (<th key={c.key} data-sort={c.key} title={time ? zone?.reason || "The flight's local time" : c.title}
@@ -112,7 +202,11 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
                             <button type="button" class="sort" onClick={() => sortBy(c.key)}>
                                 {time ? c.label + " (" + zoneText(zone) + ")" : c.label}{on && " "}
                                 {on && (view.desc ? <CaretDown class="icon sort-icon down"/> : <CaretUp class="icon sort-icon up"/>)}
-                            </button></th>);
+                            </button>
+                            {c.key === "kind" && <KindPicker kinds={kinds} chosen={kindFilter ? kindFilter.value as string[] : kinds}
+                                choose={chooseKinds} label={<Filter class={"icon" + (kindFilter ? " on" : "")}
+                                                                    title={kindFilter ? "Filtered by kind" : "Filter by kind"}/>}/>}
+                        </th>);
                     })}
                     <th>Notes</th>
                 </tr></thead>
@@ -123,8 +217,9 @@ export function FilesTab({analysis, view, setView, frames, thumbs, zone}: FilesP
                         return (<tr key={r.path} class={"kind-" + kind}>
                             {showThumbs && <td class="thumb">{isImage({name: r.path} as File) &&
                                 <img loading="lazy" alt="" src={thumbs + encodeURIComponent(r.path)}/>}</td>}
-                            {FILE_COLUMNS.map((c) => (<td key={c.key}>
-                                {href && c.key === "path" ? <a href={href} title="Open the frame">{cell(r, c)}</a> : cell(r, c)}</td>))}
+                            {FILES_TAB_COLUMNS.map((c) => (<td key={c.key} class={columnType(c.key) === "flag" ? "flag" : undefined}>
+                                {columnType(c.key) === "flag" ? (r[c.key] ? <Check title="Yes"/> : "") :
+                                    href && c.key === "path" ? <a href={href} title="Open the frame">{cell(r, c)}</a> : cell(r, c)}</td>))}
                             <td>
                                 {(flags[r.path] || []).map((f) => (<><span class={"badge " + (SEVERITY_CLASSES[f.severity] || "")}
                                                                           title={f.message}>{f.code}</span> </>))}

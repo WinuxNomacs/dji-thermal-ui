@@ -389,7 +389,22 @@ details > summary h5 { display: inline; }
 .figures dd { margin: 0; font-size: 14px; }
 
 .files-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.files-filter { width: 200px; }
+.files-shows { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.filters { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.filter-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.filter-row.unset { opacity: 0.75; }
+.filter-row .filter-value { width: 140px; }
+.filter-op { color: var(--muted); }
+.kind-button {
+    padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    color: inherit; font: inherit; cursor: pointer;
+}
+th .kind-button { border: 0; background: none; padding: 0 2px; color: var(--muted); }
+th .kind-button .icon.on { color: var(--accent); }
+.kind-picker .menu-items { left: 0; right: auto; min-width: 180px; padding: 4px 0; font-weight: normal; }
+.kind-items label { display: block; padding: 3px 12px; white-space: nowrap; cursor: pointer; }
+.kind-items label:hover { background: var(--hover); }
+.table.files td.flag { text-align: center; }
 .files-shown { margin-left: auto; font-size: 12px; }
 .files-hint { font-size: 12px; margin: 0 0 6px; }
 .table.files td { white-space: nowrap; font-size: 12px; }

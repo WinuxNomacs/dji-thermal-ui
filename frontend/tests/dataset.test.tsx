@@ -4,7 +4,8 @@ import {fileKind} from "../src/core/format";
 import {setUserUnit} from "../src/core/units";
 import {type Conversion, parsePrefill, skipReasons} from "../src/dataset/conversions";
 import {DatasetPage} from "../src/dataset/dataset-page";
-import {type Analysis, fileRows, newestReady, sortRows} from "../src/dataset/files";
+import {active, type Analysis, columnType, type Condition, fileRows, filterQuery, newCondition, newestReady, parseFilters, shownAs,
+        SHOWS, sortRows} from "../src/dataset/files";
 import {differences, formProblem, planSettings, resetSetting, type Settings} from "../src/dataset/settings";
 import {calls, click, file, jsonResponse, key, server, ticks} from "./helpers";
 
@@ -76,6 +77,14 @@ const field = (name: string) => $<HTMLInputElement>(`.settings-form [name="${nam
 const card = (id = 9) => $(`.conversion[data-id="${id}"]`)!;
 const menuItem = (label: string) => [...card().querySelectorAll(".menu-items a, .menu-items button")]
     .find((el) => el.textContent!.trim() === label) as HTMLElement | undefined;
+const names = (filters: Condition[]) => fileRows(ANALYSIS, {filters, sort: "path", desc: false}).map((r) => r.path);
+const filterRows = () => $$(".filter-row");
+const shownCount = () => $(".files-shown")!.textContent;
+const showChosen = () => $<HTMLInputElement>("[name=files-show]:checked")?.value || null;
+function change(el: HTMLSelectElement | HTMLInputElement, value: string) {
+    el.value = value;
+    el.dispatchEvent(new Event("change", {bubbles: true}));
+}
 const fileNames = () => $$("table.files tbody tr td:first-child").map((td) => td.textContent);
 
 function type(el: HTMLInputElement, value: string) {
@@ -164,10 +173,57 @@ describe("the conversion settings", () => {
 });
 
 describe("the dataset's files and conversions", () => {
-    it("filters the files by every word of the filter, in any case", () => {
-        const view = {show: "all" as const, filter: "T.jpg THERMAL", sort: "path", desc: false};
+    it("filters the files by every word of a text condition, in any case, or by none of them", () => {
+        const view = {filters: [{key: "path", op: "has" as const, value: "T.jpg THERMAL"}], sort: "path", desc: false};
         expect(fileRows(ANALYSIS, view).map((r) => r.path)).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
-        expect(fileRows(ANALYSIS, {...view, filter: "a_ jpg"}).map((r) => r.path)).toEqual(["rgb/a_V.JPG", "thermal/a_T.JPG"]);
+        expect(names([{key: "path", op: "has", value: "a_ jpg"}])).toEqual(["rgb/a_V.JPG", "thermal/a_T.JPG"]);
+        expect(names([{key: "path", op: "not", value: "rgb b_"}])).toEqual(["thermal/a_T.JPG"]);
+        expect(names([{key: "time", op: "has", value: "2026-10-12 18:30"}])).toEqual(["thermal/b_T.JPG"]);
+    });
+
+    it("shows only the files matching every condition, numbers compared in the unit shown", () => {
+        expect(names([{key: "alt", op: "le", value: "20"}])).toEqual(["thermal/a_T.JPG"]);
+        expect(names([{key: "alt", op: "ge", value: "20"}, {key: "tmin", op: "lt", value: "16"}])).toEqual(["thermal/b_T.JPG"]);
+        expect(names([{key: "emissivity", op: "gt", value: "0.9"}])).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
+        setUserUnit("F");
+        expect(names([{key: "tmin", op: "gt", value: "60"}])).toEqual(["thermal/a_T.JPG"]);
+    });
+
+    it("compares = and ≠ at the digits shown", () => {
+        expect(names([{key: "tmean", op: "eq", value: "21.9"}])).toEqual(["thermal/a_T.JPG"]);
+        expect(names([{key: "tmean", op: "ne", value: "21.9"}])).toEqual(["thermal/b_T.JPG"]);
+    });
+
+    it("leaves out a file without the value, and filters nothing by a condition still being typed", () => {
+        expect(names([{key: "alt", op: "lt", value: "100"}])).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
+        expect(names([{key: "alt", op: "lt", value: ""}, {key: "path", op: "has", value: " "}])).toHaveLength(3);
+        expect(active({key: "alt", op: "lt", value: "-"})).toBe(false);
+    });
+
+    it("filters by kind, thermal frame and problems", () => {
+        expect(names([{key: "kind", op: "in", value: ["visual"]}])).toEqual(["rgb/a_V.JPG"]);
+        expect(names([{key: "kind", op: "in", value: []}])).toEqual([]);
+        expect(names([{key: "thermal_frame", op: "is", value: false}])).toEqual(["rgb/a_V.JPG"]);
+        expect(names([{key: "problems", op: "is", value: true}])).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
+    });
+
+    it("tells which button's filter is set, if any", () => {
+        expect(shownAs([])).toBe("all");
+        expect(shownAs([{key: "thermal_frame", op: "is", value: true}])).toBe("thermal");
+        expect(shownAs([{key: "thermal_frame", op: "is", value: false}])).toBeNull();
+        expect(shownAs([{key: "problems", op: "is", value: true}, {key: "path", op: "has", value: ""}])).toBe("flagged");
+        expect(SHOWS.map(([s]) => s)).toEqual(["all", "thermal", "flagged"]);
+    });
+
+    it("writes the filter in a link and reads it back, leaving out what it does not know", () => {
+        const filters: Condition[] = [{key: "alt", op: "le", value: "20.5"}, {key: "kind", op: "in", value: ["thermal", "visual"]},
+                                      {key: "problems", op: "is", value: false}, {key: "path", op: "has", value: "a.b c"}];
+        const query = filterQuery(filters);
+        expect(query).toEqual(["alt.le.20.5", "kind.in.thermal,visual", "problems.is.no", "path.has.a.b c"]);
+        const search = "?" + query.map((q) => "filter=" + encodeURIComponent(q)).join("&") + "&filter=size.gt.1&filter=alt.has.2";
+        expect(parseFilters(search)).toEqual(filters);
+        expect(newCondition("kind")).toEqual({key: "kind", op: "in", value: []});
+        expect(columnType("tmin")).toBe("number");
     });
 
     it("calls a JPEG that is not thermal and named as DJI names a visual image visual", () => {
@@ -387,12 +443,14 @@ describe("the dataset page", () => {
         expect(fileNames()).toEqual(["rgb/a_V.JPG", "thermal/a_T.JPG", "thermal/b_T.JPG"]);
         expect($("table.files a")).toBeNull();
         expect($(".files-hint")).not.toBeNull();
-        type($<HTMLInputElement>(".files-filter")!, "thermal");
+        click(byId("add-filter"));
+        await ticks();
+        type($<HTMLInputElement>(".filter-value")!, "thermal");
         await ticks();
         expect($(".files-shown")!.textContent).toBe("2 shown");
         vi.advanceTimersByTime(2000);
         await ticks();
-        expect($<HTMLInputElement>(".files-filter")!.value).toBe("thermal");
+        expect($<HTMLInputElement>(".filter-value")!.value).toBe("thermal");
         expect(fileNames()).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
 
         render(null, byId("root"));
@@ -426,8 +484,111 @@ describe("the dataset page", () => {
         click($(".finding-files a")!);
         await ticks();
         expect(selected()).toBe("files");
-        expect($<HTMLInputElement>(".files-filter")!.value).toBe("thermal/b_T.JPG");
+        expect($<HTMLInputElement>(".filter-value")!.value).toBe("thermal/b_T.JPG");
         expect(fileNames()).toEqual(["thermal/b_T.JPG"]);
+    });
+
+    it("starts the filter from a button, shown as its condition to change from there", async () => {
+        page(routes());
+        await ticks();
+        expect(showChosen()).toBe("all");
+        expect(filterRows()).toHaveLength(0);
+        click($("[name=files-show][value=thermal]")!);
+        await ticks();
+        expect(filterRows().map((r) => r.dataset.key)).toEqual(["thermal_frame"]);
+        expect($<HTMLSelectElement>(".filter-row [name=value]")!.value).toBe("yes");
+        expect(shownCount()).toBe("2 shown");
+        change($<HTMLSelectElement>(".filter-row [name=value]")!, "no");
+        await ticks();
+        expect(shownCount()).toBe("1 shown");
+        expect(showChosen()).toBeNull();
+        click($("[name=files-show][value=flagged]")!);
+        await ticks();
+        expect(filterRows().map((r) => r.dataset.key)).toEqual(["problems"]);
+        expect(fileNames()).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
+        click($("[name=files-show][value=all]")!);
+        await ticks();
+        expect(filterRows()).toHaveLength(0);
+        expect(shownCount()).toBe("3 shown");
+    });
+
+    it("adds conditions on any column, with the comparisons that column has, and clears them", async () => {
+        page(routes());
+        await ticks();
+        click(byId("add-filter"));
+        await ticks();
+        change($<HTMLSelectElement>(".filter-row [name=column]")!, "alt");
+        await ticks();
+        const ops = () => [...$<HTMLSelectElement>(".filter-row [name=op]")!.options].map((o) => o.textContent);
+        expect(ops()).toEqual(["=", "≠", "<", "≤", ">", "≥"]);
+        expect($(".filter-row")!.textContent).toContain("m");
+        change($<HTMLSelectElement>(".filter-row [name=op]")!, "le");
+        await ticks();
+        type($<HTMLInputElement>(".filter-value")!, "20");
+        await ticks();
+        expect(fileNames()).toEqual(["thermal/a_T.JPG"]);
+        expect(new URLSearchParams(location.search).getAll("filter")).toEqual(["alt.le.20"]);
+        click(byId("add-filter"));
+        await ticks();
+        change($$(".filter-row [name=column]")[1] as HTMLSelectElement, "pitch");
+        await ticks();
+        type($$(".filter-value")[1] as HTMLInputElement, "-50");
+        await ticks();
+        change($$(".filter-row [name=op]")[1] as HTMLSelectElement, "lt");
+        await ticks();
+        expect(fileNames()).toEqual([]);
+        click($$(".filter-row button[aria-label='Remove this filter']")[0]);
+        await ticks();
+        expect(fileNames()).toEqual(["thermal/b_T.JPG"]);
+        click(byId("clear-filters"));
+        await ticks();
+        expect(shownCount()).toBe("3 shown");
+        expect(location.search).toBe("");
+    });
+
+    it("filters by kind from the Kind column's checkboxes, All checking or unchecking every kind", async () => {
+        page(routes());
+        await ticks();
+        click($("th[data-sort=kind] .kind-button")!);
+        await ticks();
+        const box = (name: string) => $<HTMLInputElement>(`th[data-sort=kind] .kind-items [name="${name}"]`)!;
+        expect([...document.querySelectorAll("th .kind-items label")].map((l) => l.textContent!.trim())).toEqual(["All", "Thermal", "Visual"]);
+        expect([box("all").checked, box("thermal").checked, box("visual").checked]).toEqual([true, true, true]);
+        click(box("visual"));
+        await ticks();
+        expect([box("all").checked, box("thermal").checked, box("visual").checked]).toEqual([false, true, false]);
+        expect(fileNames()).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
+        expect(filterRows().map((r) => r.dataset.key)).toEqual(["kind"]);
+        expect($(".filter-row .kind-button")!.textContent).toContain("Thermal");
+        click(box("all"));
+        await ticks();
+        expect([box("all").checked, box("thermal").checked, box("visual").checked]).toEqual([true, true, true]);
+        expect(filterRows()).toHaveLength(0);
+        expect(shownCount()).toBe("3 shown");
+        click(box("all"));
+        await ticks();
+        expect([box("thermal").checked, box("visual").checked]).toEqual([false, false]);
+        expect(shownCount()).toBe("0 shown");
+        click(box("visual"));
+        await ticks();
+        expect(fileNames()).toEqual(["rgb/a_V.JPG"]);
+        key(document.body, "Escape");
+        await ticks();
+        expect($("th .kind-items")).toBeNull();
+    });
+
+    it("shows whether each file is a thermal frame and has problems, and reads the filter from a link", async () => {
+        history.replaceState(null, "", "/dataset/5?filter=problems.is.yes#files");
+        page(routes());
+        await ticks();
+        expect(showChosen()).toBe("flagged");
+        expect(fileNames()).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
+        click($("[name=files-show][value=all]")!);
+        await ticks();
+        const flags = $$("table.files tbody tr").map((tr) => [...tr.querySelectorAll("td.flag")].map((td) => !!td.querySelector("svg")));
+        expect(flags).toEqual([[false, false], [true, true], [true, true]]);
+        expect(location.search).toBe("");
+        expect(location.hash).toBe("#files");
     });
 
     it("shows the WebODM plan, copies its options and converts with its settings", async () => {
