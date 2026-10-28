@@ -59,7 +59,6 @@ build() {
     npm ci
     say "== npm run build"
     npm run build
-    say "Built. Start it with: $0 start"
 }
 
 built() {
@@ -153,7 +152,7 @@ logs() {
 command="${1:-}"
 [[ $# -gt 0 ]] && shift
 case "$command" in
-    build|rebuild) build ;;
+    build|rebuild) build; say "Built. Start it with: $0 start" ;;
     start) start "$@" ;;
     stop) stop ;;
     restart) stop; start "$@" ;;

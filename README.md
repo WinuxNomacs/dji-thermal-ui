@@ -80,6 +80,23 @@ Python 3.12 or newer.
 From a clone, for development: `uv sync` and `npm ci && npm run build` (the pages are built with Node.js), then
 `uv run dji-thermal-ui`.
 
+### From a clone, with the script
+
+On Linux, WSL or macOS, `dji-thermal-ui.sh` at the top of the clone does those steps and runs the app in the
+background:
+
+| Command | |
+|---|---|
+| `./dji-thermal-ui.sh build` | set up the environment, or bring it up to date: `uv sync --locked`, `npm ci` and `npm run build`. It does not pull: the code checked out is used as it is. Without uv, it installs uv into `~/.local/bin` first (without changing the shell's startup files); without Node.js and npm, it stops and says where to get them. |
+| `./dji-thermal-ui.sh rebuild` | the same as `build` |
+| `./dji-thermal-ui.sh start` | start the app in the background, on http://127.0.0.1:8080, building it first if it was never built. Options after `start` go to the command: `--port`, `--data-dir`, `--no-browser`. |
+| `./dji-thermal-ui.sh stop` | stop it (as Ctrl+C would) |
+| `./dji-thermal-ui.sh restart` | stop, then start, with the options given |
+| `./dji-thermal-ui.sh status` | whether it runs, and at which address (exit status 3 when it does not) |
+| `./dji-thermal-ui.sh logs` | the end of its log; `logs -f` follows it |
+
+Its PID file and log are in `.run/` in the clone (`DJI_THERMAL_UI_RUN_DIR` puts them elsewhere).
+
 ## Run
 
 ```

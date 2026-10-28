@@ -9,8 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **G1: the default port and a wrapper script**: the app serves on 8080 by default, and `dji-thermal-ui.sh` builds,
-   starts and stops it from a fresh or an existing clone. See "Running". (Running)
+- Nothing yet.
 
 **Then**
 - Nothing yet.
@@ -752,6 +751,8 @@ Requested 2026-10-28 (`new.md`):
 - The port appears in `cli.py`, the README, CLAUDE.md and the Tooling notes above; `tests/test_cli.py` and
   `scripts/smoke.py` pick their own ports.
 
+- **Built** (2026-10-28): see Done.
+
 ### G1: proposed
 
 - **Port:** `--port` defaults to 8080 in `cli.py`, and in the README and CLAUDE.md.
@@ -1038,3 +1039,8 @@ Requested 2026-10-28 (`new.md`):
     dark: a visual pane beside a thermal one, A over B swiped and faded (a 50% blend is the mean of the two
     pixels), an overlay of two thermal mosaics, the window from a visual pane, Both with a spot measured, zoomed
     and stepped to the next frame, and the PNG export. No console errors and no failed requests.
+- **G1: the default port and a wrapper script** (2026-10-28). `cli.py` serves on 8080 by default and stops like
+  Ctrl+C on SIGTERM; `dji-thermal-ui.sh` (build, rebuild, start, stop, restart, status, logs; `.run/` for its PID
+  file and log). Tests: `tests/test_script.py` (the script in a clone of its own, with stub uv, npm and curl) and
+  `tests/test_cli.py`. Checked live from a fresh clone: `start` built it and served on 8080 with no `--port`, then
+  restart, logs, rebuild, stop and status.
