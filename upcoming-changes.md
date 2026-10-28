@@ -475,6 +475,28 @@ Planned 2026-10-27, from Later ("a report of a dataset or a mosaic"), after the 
   viewer and in the CSV and GeoJSON too).
 - Tests for both: pytest for the pages and the saved text; Vitest for the sections from the data; a live check
   printing each to PDF with Playwright and looking at the pages.
+- **Decisions (2026-10-28):**
+  - **The view** (tab, palette, range, adjustments) is saved with the report. The viewer's Report button saves the
+    view it shows, then opens the report; the pane's entry opens the saved view.
+  - **The mosaic on white**, as in the PNG export: the coloured mosaic with the measurements and findings drawn on
+    it, the colour scale, a scale bar and north. No basemap.
+  - **The measurements:** every saved measurement of the conversion, on the mosaics and on frames. A switch on the
+    report leaves one out, and the switch is saved.
+  - **The findings:** every finding of the dataset that lies on the mosaic, numbered on the figure, with the
+    conversion its temperatures were read on and its kept frames.
+- **Design:**
+  - **Text and view:** a `report` field on the conversion (title, author, date, notes, view, left out), changed with
+    its PATCH like the dataset's. The author is shared with D1 (`report_author`).
+  - **The figures are images:** WebGL canvases do not print reliably. A hidden map draws the mosaic (`ThermalLayer`)
+    fitted to the mosaic, then to each measurement's extent, and `snapshot` and `viewCanvas` (the PNG export's)
+    make each into an image on the page. Frame measurements are drawn on their frame (`frameMap`, the frame's
+    values).
+  - **The measurements' table and charts:** `Profile` and `Histogram` (SVG, which prints).
+  - **A comment on each measurement:** a `comment` field, typed on the report and in the viewer's saved list, in the
+    CSV and the GeoJSON.
+  - **Settings and method:** the conversion's settings that differ from the defaults (`settings.ts`), the mosaic's
+    kind and what it means (`TAB_HINTS`), the normalization, and dji-thermal-cli's version. Conversions record that
+    version from now on; older ones say that it was not recorded.
 
 ## Projects
 
