@@ -9,9 +9,6 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **K1: export a project**: the whole project or chosen flights, as a tarball. (Backup and restore)
-
-**Then**
 1. **K2: import a project**: as a new project, its name never reusing one in use. (Backup and restore)
 
 **Later**
@@ -924,7 +921,7 @@ name already in use is never reused.
   `datasets/<id>/conversions/<id>/` (TIFFs and mosaics). Thumbnails are made on request, not stored. Flight 1 here is
   1.8 GB of images and 0.5 GB of conversion outputs.
 - **Paths in the JSON:** frames are named relative to the images folder, and the outputs relative to the conversion
-  folder, so they survive new ids (to be confirmed while building).
+  folder, so they survive new ids (confirmed in K1 on flight 1: no absolute path in its rows).
 - **Preferences** are app-wide (defaults, report author, favourite filters), not a project's.
 - **Jobs:** an analysis, conversion or mosaic still running has a `run_id` and a status that would be wrong elsewhere.
 
@@ -949,6 +946,15 @@ name already in use is never reused.
 - **A name in use:** the import dialog says so and proposes a free name ("Roof (2)"), which the user can change.
   The import waits until the name is free.
 - **Format:** a plain `.tar`, not compressed.
+
+### What K2 starts from (K1's archive)
+
+- `manifest.json` comes first: `format` "dji-thermal-ui project", `version` 1, `app`, `exported_at`, `project` (its
+  row), and `flights`, each its row with `conversions` (each with its `measurements`) and `findings`. A row is every
+  stored field by its column name (`project_id`, `dataset_id`, `conversion_id` hold the old ids), dates as ISO text.
+- Files follow as `datasets/<old flight id>/images/<path in the analysis>` and
+  `datasets/<old flight id>/conversions/<old id>/<path>` (the `viewer/` copies too). A folder flight's row still says
+  `source` "folder" with its `folder`: K2 makes it an uploaded flight.
 
 ## Integration
 
@@ -1263,6 +1269,13 @@ name already in use is never reused.
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **K1: export a project** (2026-10-28). `analyzer/backup.py`: the tar written by hand (PAX headers, its length
+  known beforehand) as `manifest.json` then each flight's files; a folder flight's JPEGs as dji-thermal-cli's scan
+  finds them. `api/projects/<id>/export` lists each flight's bytes (or busy), `export.tar?flights=<ids>` streams it
+  (409 for a busy flight). The Export dialog (`projects/export-dialog.tsx`) on the project page. Tests:
+  `tests/test_api_export.py`, `frontend/tests/projects.test.tsx`. Checked live on project 1 (on 8081), light and
+  dark: 2.2 GB listed, downloaded in 16 s at the length announced, GNU tar listed 1634 entries (manifest, 654
+  images, 979 outputs) and extracted identical to the data folder; no overflow at 700 px; the archive deleted.
 - **J2: favourite filters** (2026-10-28). The Files tab's Favourites menu (`Favourites` in `dataset/tabs.tsx`): the
   filter shown saved under a new name, a favourite chosen in place of the filter (marked while the filter is its own),
   and deleted once asked. They are shared by every flight, in `Preferences` under `file_filters` as the link's

@@ -35,6 +35,10 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- A project's export, from its page: a `.tar` of the project with all its flights or those chosen, each listed with
+  the size it adds. It holds everything: the images (a folder flight's copied in), the datasets and their mosaics,
+  the measurements and the findings. It is streamed to the browser's download as it is written. A flight still being
+  analyzed or converted is not offered.
 - Favourite filters on the Files tab: the filter shown is saved under a name, and every flight's Files tab offers it
   from the Favourites menu, where choosing one replaces the filter. A favourite can be deleted but not overwritten:
   saving under a name in use is refused.
