@@ -9,10 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **dji-thermal-cli 1.6.1 pinned**: FLIR radiometric JPEGs (the Zenmuse XT2's) reported as unsupported, not as
-   ordinary JPEGs. Merged in dji-thermal-cli (`release/1.6.1`: 1016 tests on Linux with the SDK, samples and flight;
-   190 on Windows from a fresh clone, without data); pinned here once the user publishes it (push, tag `v1.6.1`).
-   The app's label for them, "Unsupported image type", is merged already.
+- Nothing planned: the next phase comes from `new.md`, or from Later.
 
 **Then**
 - Nothing planned: the next phase comes from `new.md`, or from Later.
@@ -1329,6 +1326,8 @@ Requested 2026-10-28 (`new.md`):
   In the pane, System Settings is a button (`nav-settings-toggle`, its name and a chevron) that folds Storage away,
   kept with the pane's other folds (`settings` in its stored keys), and unfolded when the Storage page is shown.
   Test: `frontend/tests/navigation.test.tsx`. Checked live on 8081, light and dark.
+- **dji-thermal-cli 1.6.1 pinned** (2026-10-28, published by the push the user asked for): FLIR radiometric JPEGs
+  (the XT2's) reported as an unsupported image type. 305 pytest, and the flight tests on the 220 M4T frames.
 - **L2: moving the data folder** (2026-10-28). `move.py` (no Django: `inspect` the target, the plan and result
   files in the config folder, `perform` the move: what the target held set aside in `replaced-<date>/`, the files
   renamed on one drive or copied then removed, undone on failure, the pointer written), `datadir.py` (the pointer,
