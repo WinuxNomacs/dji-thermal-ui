@@ -2,7 +2,7 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {sendJson} from "../src/core/api";
 import {formatCapture, formatCaptureRange, formatDate, setUserLocale, userLocale, zoneLabel, zoneText} from "../src/core/format";
-import {navigationChanged, type NavProject, onNavigationChanged, pathTo} from "../src/core/navigation";
+import {type Current, navigationChanged, type NavProject, onNavigationChanged, partChanged, pathTo} from "../src/core/navigation";
 import {mountPage} from "../src/core/page";
 import {applyTheme} from "../src/core/theme";
 import {NavPane} from "../src/components/nav-pane";
@@ -15,7 +15,8 @@ const PROJECTS: NavProject[] = [
     {id: 1, name: "Default Project", datasets: []},
     {id: 2, name: "Silos", datasets: [
         {id: 5, name: "Roof", conversions: [
-            {id: 9, name: "Built", frames: true, mosaics: true},
+            {id: 9, name: "Built", frames: true, mosaics: true, tabs: ["as_converted", "harmonized", "view_angle"],
+             in_mosaic: 3, oblique: 5},
             {id: 8, name: "Converted", frames: true, mosaics: false},
             {id: 7, name: "Converting", frames: false, mosaics: false},
         ]},
@@ -51,7 +52,7 @@ const links = () => [...root().querySelectorAll(".app-nav a")].map((a) => a.text
 const currentLink = () => root().querySelector(".app-nav [aria-current=page]")?.textContent;
 const fold = (key: string) => $(`.nav-fold[data-key="${key}"]`) as HTMLButtonElement;
 
-async function pane(current = {page: "projects", id: NaN}, fetchFn = server({"/api/navigation": {projects: PROJECTS}})) {
+async function pane(current: Current = {page: "projects", id: NaN}, fetchFn = server({"/api/navigation": {projects: PROJECTS}})) {
     vi.stubGlobal("fetch", fetchFn);
     render(<NavPane api="/api/" publicUrl="/" current={current}/>, root());
     await ticks();
@@ -79,14 +80,29 @@ describe("the navigation pane", () => {
         expect($("a[title=Converted]")!.getAttribute("href")).toBe("/conversion/8/frame");
         expect($("a[title=Converting]")!.getAttribute("href")).toBe("/dataset/5#convert");
         expect(fold("c7")).toBeNull();
+        // Its tools first, then its two ways of looking at the images: the mosaics and the frames
         click(fold("c9"));
         await ticks(2);
-        expect(links().slice(5, 10)).toEqual(["Built", "Mosaics", "Frames", "Compare", "Report"]);
-        expect($('a[href="/conversion/9/compare"]')).not.toBeNull();
+        expect(links().slice(5, 9)).toEqual(["Built", "Tools", "Mosaics", "Frames"]);
+        click(fold("c9.tools"));
+        click(fold("c9.mosaics"));
+        click(fold("c9.frames"));
+        await ticks(2);
+        expect(links().slice(5, 16)).toEqual(["Built", "Tools", "Compare", "Report", "Mosaics", "Mosaic", "Harmonized",
+                                              "View angle", "Frames", "In the mosaic3", "Oblique5"]);
+        expect($('a[title=Compare]')!.getAttribute("href")).toBe("/conversion/9/compare");
         expect($('a[href="/conversion/9/report"]')).not.toBeNull();
+        expect($('a[title=Mosaics]')!.getAttribute("href")).toBe("/conversion/9");
+        expect($('a[title=Harmonized]')!.getAttribute("href")).toBe("/conversion/9?tab=harmonized");
+        expect($('a[title="In the mosaic"]')!.getAttribute("href")).toBe("/conversion/9/frame?list=mosaic");
+        expect($('a[title=Oblique] .nav-count')!.textContent).toBe("5");
+        expect($('a[title=Oblique]')!.getAttribute("href")).toBe("/conversion/9/frame?list=oblique");
+        // Without mosaics, its frames only, all in one list
         click(fold("c8"));
         await ticks(2);
-        expect(links().slice(10, 12)).toEqual(["Converted", "Frames"]);
+        expect(links().slice(16, 18)).toEqual(["Converted", "Frames"]);
+        expect(fold("c8.frames")).toBeNull();
+        expect($('a[href="/conversion/8/frame"][title=Frames]')).not.toBeNull();
         // Folded again, with what is under it
         click(fold("p2"));
         await ticks(2);
@@ -115,8 +131,12 @@ describe("the navigation pane", () => {
         await pane({page: "compare", id: 9});
         expect(fold("p2").getAttribute("aria-expanded")).toBe("true");
         expect(fold("d5").getAttribute("aria-expanded")).toBe("true");
+        expect(fold("c9.tools").getAttribute("aria-expanded")).toBe("true");
         expect(currentLink()).toBe("Compare");
-        // The conversion folded: it is marked instead
+        // Folded: the deepest item seen is marked instead
+        click(fold("c9.tools"));
+        await ticks(2);
+        expect(currentLink()).toBe("Tools");
         click(fold("c9"));
         await ticks(2);
         expect(currentLink()).toBe("Built");
@@ -128,9 +148,39 @@ describe("the navigation pane", () => {
         expect(currentLink()).toBe("User Preferences");
     });
 
+    it("marks the viewer's tab shown, and follows it to another", async () => {
+        history.replaceState(null, "", "/conversion/9?tab=harmonized&palette=iron");
+        await pane({page: "viewer", id: 9});
+        expect(fold("c9.mosaics").getAttribute("aria-expanded")).toBe("true");
+        expect(currentLink()).toBe("Harmonized");
+        history.replaceState(null, "", "/conversion/9?tab=view_angle");
+        partChanged();
+        await ticks(2);
+        expect(currentLink()).toBe("View angle");
+        // A tab it does not list: the mosaics are marked
+        history.replaceState(null, "", "/conversion/9?tab=other");
+        partChanged();
+        await ticks(2);
+        expect(currentLink()).toBe("Mosaics");
+        history.replaceState(null, "", "/");
+    });
+
+    it("marks the frame page's list", async () => {
+        await pane({page: "frame", id: 9, part: "oblique"});
+        expect(fold("c9.frames").getAttribute("aria-expanded")).toBe("true");
+        expect(currentLink()).toBe("Oblique5");
+        render(null, root());
+        await pane({page: "frame", id: 8});
+        expect(currentLink()).toBe("Frames");
+    });
+
     it("finds what is above the page shown", () => {
-        expect(pathTo(PROJECTS, {page: "viewer", id: 8})).toEqual(["p2", "d5", "c8"]);
-        expect(pathTo(PROJECTS, {page: "frame", id: 7})).toEqual(["p2", "d5", "c7"]);
+        expect(pathTo(PROJECTS, {page: "viewer", id: 9})).toEqual(["p2", "d5", "c9"]);
+        expect(pathTo(PROJECTS, {page: "viewer", id: 9, part: "harmonized"})).toEqual(["p2", "d5", "c9", "c9.mosaics"]);
+        expect(pathTo(PROJECTS, {page: "conversion_report", id: 9})).toEqual(["p2", "d5", "c9", "c9.tools"]);
+        expect(pathTo(PROJECTS, {page: "frame", id: 8})).toEqual(["p2", "d5", "c8"]);
+        // Not converted yet: the conversion itself
+        expect(pathTo(PROJECTS, {page: "frame", id: 7})).toEqual(["p2", "d5"]);
         expect(pathTo(PROJECTS, {page: "dataset", id: 5})).toEqual(["p2"]);
         expect(pathTo(PROJECTS, {page: "project", id: 2})).toEqual([]);
         expect(pathTo(PROJECTS, {page: "viewer", id: 99})).toEqual([]);

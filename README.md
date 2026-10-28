@@ -63,9 +63,12 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   project's listed first. A pane can show a dataset's visual mosaic. "Overlay (A over B)" draws pane A's mosaic
   over pane B's in one pane, faded with an opacity slider and cut at a swipe line dragged across it: visual over
   thermal, or two thermal mosaics.
-- **Navigation:** a pane on the left of every page lists the projects, their flights with each flight's report,
-  and each dataset's mosaics, frames, compare page and report. Each level folds, and the whole pane hides; over a narrow
-  screen it opens on top of the page.
+- **Navigation:** a pane on the left of every page lists the projects and their flights, each with its report.
+  Under each dataset come its Tools (Compare and Report), its Mosaics (each of the viewer's tabs) and its Frames:
+  "In the mosaic" (the frames the mosaic placed) and "Oblique" (those it left out for their angle, whose angles
+  show what a view straight down misses), each with its count, opening the frame page on those frames only. The
+  page shown is marked, down to the viewer's tab. Each level folds, and the whole pane hides; over a narrow screen
+  it opens on top of the page.
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, and the locale dates and times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two

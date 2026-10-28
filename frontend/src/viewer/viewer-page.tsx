@@ -16,6 +16,7 @@ import {getDistance} from "ol/sphere";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
+import {partChanged} from "../core/navigation";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {ArrowLeft, Columns, Download, FileText, Grid, Image, Images, Save, Stop} from "../components/icons";
@@ -454,6 +455,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const view = visual ? {tab: VISUAL, ...marks} : tab === "source_frame" ? {tab, ...marks} :
             {tab, ...marks, palette: style.palette, range: style.range, adjust: style.adjust};
         history.replaceState(null, "", location.pathname + viewQuery(view));
+        partChanged();
     }, [ready, tab, visual, outlined, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust),
         showFindings, hidden.join(), opened]);
 
