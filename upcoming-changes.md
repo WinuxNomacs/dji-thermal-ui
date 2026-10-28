@@ -9,7 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing yet.
+1. **G1: the default port and a wrapper script**: the app serves on 8080 by default, and `dji-thermal-ui.sh` builds,
+   starts and stops it from a fresh or an existing clone. See "Running". (Running)
 
 **Then**
 - Nothing yet.
@@ -734,6 +735,44 @@ Requested 2026-10-28 (`new.md`):
 - **Test data:** dataset 1 gets the 327 `_V` images of its flight (`ignored/m4t-rgb`, 1.5 GB) for good, and is the
   paired flight for this and later checks.
 - **Pin:** built once dji-thermal-cli 1.6.0 is on PyPI.
+
+## Running
+
+Requested 2026-10-28 (`new.md`):
+- Change the default port to 8080.
+- A wrapper shell script, `dji-thermal-ui.sh`, that builds, rebuilds, starts and stops the app, from an existing or a
+  fresh environment: `dji-thermal-ui.sh start` serves on 8080 with no `--port`; `build` sets up the environment and
+  always rebuilds and updates it; `rebuild` is the same as `build`; `start` runs `build` first when there is no
+  environment yet.
+
+### What it builds on
+
+- `cli.py`: `--port` (default 8765), `--data-dir`, `--no-browser`, and the "port in use" check.
+- The development setup in the README: `uv sync`, `npm ci && npm run build`, `uv run dji-thermal-ui`.
+- The port appears in `cli.py`, the README, CLAUDE.md and the Tooling notes above; `tests/test_cli.py` and
+  `scripts/smoke.py` pick their own ports.
+
+### G1: proposed
+
+- **Port:** `--port` defaults to 8080 in `cli.py`, and in the README and CLAUDE.md.
+- **Script:** `dji-thermal-ui.sh` at the repo root (bash; Linux, WSL and macOS), committed, not in the wheel or sdist.
+  - `build` (and `rebuild`): checks `uv` and `npm` are there (it says how to get them rather than installing them),
+    then `uv sync`, `npm ci` and `npm run build`.
+  - `start`: runs `build` when there is no `.venv`, `node_modules` or `static/dist`, then starts the server.
+  - `stop`: stops the server `start` started.
+- **Tests:** a pytest that runs the script's `build`-free paths (start, status, stop) against a temporary data folder
+  and port; a live run from a fresh clone.
+
+### G1: decisions (2026-10-28)
+
+- **Start:** in the background, with a PID file and a log (`.run/` in the clone, ignored by git), so `stop` stops it;
+  `status`, `logs` and `restart` come with it. Options after `start` go to the command (`--no-browser`, `--port`,
+  `--data-dir`); the browser opens as it does now.
+- **Update:** `build` reinstalls the dependencies from the lock files (`uv sync --locked`, `npm ci`) and rebuilds the
+  pages. It does not pull: the code checked out is left alone.
+- **Missing tools:** when `uv` is missing, `build` installs it for the user with uv's own installer, pinned to the
+  version CI uses, into `~/.local/bin` (without editing the shell's startup files). Node.js and npm are not installed:
+  it says where to get them and stops.
 
 ## Integration
 
