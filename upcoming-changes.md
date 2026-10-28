@@ -9,9 +9,6 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **D1: the dataset report**, printed to PDF from the browser. (Reports)
-
-**Then**
 1. **D2: the mosaic report**, with its measurements and findings. (Reports)
 
 **Later**
@@ -448,6 +445,8 @@ Planned 2026-10-27, from Later ("a report of a dataset or a mosaic"), after the 
 
 ### D1: the dataset report
 
+- **Built** (2026-10-28): see Done.
+
 - `/dataset/<id>/report`, opened from the dataset page: the title block; the dataset (files, size, thermal frames,
   cameras, when it was flown, altitudes, where, with the frames' positions on a map); the problems from the analysis;
   the frames' settings and temperature ranges; the conversions made; and, once C3 is built, the findings.
@@ -747,3 +746,19 @@ show the minimum and maximum at its ends.
   errors, no failed requests, no findings left. Released as 0.6.0: release checks passed on Linux (check_dist, twine,
   smoke on 3.12 and 3.14, ruff, 216 pytest with the flight tests, 223 Vitest, ESLint) and on Windows from WSL (214
   pytest from a fresh clone, smoke).
+- **D1: the dataset report** (2026-10-28, branch `d1-dataset-report`): `/dataset/<id>/report`
+  (`views.dataset_report`, `templates/dataset_report.html`, entry `pages/dataset_report.tsx`), the page in
+  `frontend/src/report/` (`dataset-report-page.tsx`; the summaries, numbering and defaults in `report.ts`). The text
+  is the dataset's `report` field (migration 0005), changed a field at a time with its PATCH (`parse_report` in
+  `api.py`; null forgets one) and the last author kept as the preference `report_author`; the dataset's detail adds
+  `flight_area`. A Report button on the dataset page and a Report entry under each dataset in the pane. Print styles
+  at the end of `app.css`; the dark tokens now apply on screen only, so every page prints light. A setting with more
+  than 6 values (reflected and ambient temperatures, measured at each frame) is given as its range. Tests: pytest in
+  `test_pages.py`, `test_api_datasets.py` and `test_vite.py` (each page the views serve is one Vite builds: the stub
+  manifest had hidden a page named with a hyphen, which Vite skips), 219 passed; Vitest in
+  `frontend/tests/report.test.tsx` and the pane's in `navigation.test.tsx`, 237 passed; ESLint and ruff clean.
+  Checked live in headless Chromium on dataset 1 (327 frames), light and dark: a temporary finding, the text typed and
+  saved, the appendix on, `page.pdf()` to A4 and Letter (the same in both themes) and the print layout looked at;
+  fixed from it: the date as large as the title, a setting listing dozens of values, the appendix wider than the page.
+  No console errors, no failed requests; the finding deleted and the report's text put back (`{}`). The author was
+  not typed live, as the preference cannot be cleared through the API (its saving is covered by pytest).

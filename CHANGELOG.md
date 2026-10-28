@@ -6,6 +6,18 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A dataset's report, to print or save as PDF (A4 or Letter): the dataset's figures, a map of where its frames were
+  taken with its findings numbered, the coverage, the problems found, the frames' settings and temperatures summed
+  up, the conversions, the findings with their kept frames' thumbnails, notes, and a table of every frame when
+  appended. Its title, author, date and notes are typed on the page and saved on the dataset; the last author typed
+  fills in new reports. Opened from the dataset page's Report button and the navigation pane.
+
+### Changed
+
+- Pages always print light, whatever the theme.
+
 ## [0.6.0] - 2026-10-27
 
 ### Added
