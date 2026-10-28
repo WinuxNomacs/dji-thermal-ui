@@ -10,7 +10,8 @@ its title.
 
 **Up next**
 1. **dji-thermal-cli 1.6.1 pinned**: FLIR radiometric JPEGs (the Zenmuse XT2's) reported as unsupported, not as
-   ordinary JPEGs. Built and merged in dji-thermal-cli (`release/1.6.1`); pinned here once the user publishes it.
+   ordinary JPEGs. Merged in dji-thermal-cli (`release/1.6.1`: 1016 tests on Linux with the SDK, samples and flight;
+   190 on Windows from a fresh clone, without data); pinned here once the user publishes it (push, tag `v1.6.1`).
    The app's label for them, "Unsupported image type", is merged already.
 
 **Then**
