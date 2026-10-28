@@ -111,4 +111,5 @@ export const Printer = (p: Props) => (
     <Icon {...p}><path d="M6 9V2h12v7"/><rect x="2" y="9" width="20" height="9" rx="2"/><path d="M6 14h12v8H6z"/></Icon>);
 export const FileText = (p: Props) => (
     <Icon {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></Icon>);
+export const Filter = (p: Props) => (<Icon {...p}><path d="M3 4h18l-7 8v6l-4 2v-8z"/></Icon>);
 export const Flag = (p: Props) => (<Icon {...p}><path d="M4 22V4M4 4h13l-2 4 2 4H4"/></Icon>);

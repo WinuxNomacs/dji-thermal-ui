@@ -20,6 +20,10 @@ All notable changes are recorded here. The format follows
   the order they were taken, the first shown, as a list or as thumbnails (remembered by the browser). Each says
   whether it is in the mosaic, oblique (with its angle), left out as unusable or not converted. The list replaces the
   frame picker; ← → still step through it.
+- The flight's Files tab filters by conditions on any column instead of by name, each file shown matching every
+  one. The Kind column has a dropdown of checkboxes, and two new columns, Thermal frame and With problems, can be
+  sorted and filtered. All files, Thermal frames and With problems now set the filter they stand for, as a start to
+  change from. The filter is kept in the page's link.
 
 - The viewer: the Source frame tab draws the mosaic with a line along each seam between its frames, instead of each
   frame in its own colour (in the PNG export too). The As converted tab is called Mosaic, there and on the compare

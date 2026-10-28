@@ -10,7 +10,7 @@ import {ArrowLeft, Check, FileText, Link, Pencil, Play, Plus, Refresh, Stop, Tra
 import {navigationChanged} from "../core/navigation";
 import {type Conversion, isBusy, parsePrefill} from "./conversions";
 import {ConvertTab} from "./convert";
-import {type Analysis, type FilesView, newestReady} from "./files";
+import {type Analysis, filterQuery, type FilesView, newestReady, parseFilters} from "./files";
 import {copyText, FilesTab, Overview, PlanTab, ProblemsTab} from "./tabs";
 
 const POLL_MS = 2000;
@@ -79,7 +79,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
     const [d, setD] = useState<Dataset | null>(null);
     const [notice, setNotice] = useState("");
     const [chosen, setChosen] = useState<Tab | null>(linkedTab);
-    const [view, setView] = useState<FilesView>({show: "all", filter: "", sort: "path", desc: false});
+    const [view, setView] = useState<FilesView>(() => ({filters: parseFilters(location.search), sort: "path", desc: false}));
     const [planRequest, setPlanRequest] = useState(0);
     const [copied, setCopied] = useState(false);
     const [progress, setProgress] = useState<Progress | null>(null);
@@ -126,6 +126,15 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
             removeEventListener("beforeunload", leaving);
         };
     }, []);
+
+    // The Files tab's filter is kept in the URL, beside what else it holds, so a reload or a link keeps it
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        params.delete("filter");
+        filterQuery(view.filters).forEach((f) => params.append("filter", f));
+        const q = params.toString();
+        if (q !== location.search.replace(/^\?/, "")) history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash);
+    }, [view.filters]);
 
     async function action(path: string, failure: string) {
         const r = await readJson<Dataset>(await sendJson(url + path, "POST", {}));
@@ -210,7 +219,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
     const pct = progress && progress.bytesTotal ? Math.round(progress.bytesSent / progress.bytesTotal * 100) : 0;
 
     function showFile(path: string) {
-        setView({...view, filter: path, show: "all"});
+        setView({...view, filters: [{key: "path", op: "has", value: path}]});
         setChosen("files");
     }
 

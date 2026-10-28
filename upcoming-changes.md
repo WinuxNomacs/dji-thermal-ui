@@ -9,7 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing planned: new requests arrive in `new.md`.
+1. **J2: favourite filters**: the filter saved under a name, chosen from a dropdown, deleted but never overwritten.
+   (Files filters)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -853,6 +854,59 @@ Requested 2026-10-28 (`new.md`):
   shows it today (palette, range, Pointer info, measuring, Thermal/Visual/Both), and ← → step through the list. The
   list replaces the frame page's own frame picker.
 
+## Files filters
+
+Requested 2026-10-28 (`new.md`), for the Files tab and the other tabs under a project:
+- **Kind:** a dropdown with a checkbox for each kind present, and All, which is the default. Choosing any other kind
+  unchecks All, and checking All checks every kind.
+- **Filters:** replace "Filter by name" with filters on any column. By default there are none, so every file shows.
+  Examples: Height <= 20.0, Kind = Thermal, Min > 32.0, Emissivity > 90.
+- **Columns:** add Thermal frames and With problems as columns that can be filtered.
+- **The buttons:** All files, Thermal frames and With problems fill in the filter they stand for, as if the user had
+  set it. They are starting points for the user's own filter.
+- **Favourites:** the current filter is saved under a name. Choosing one from a dropdown replaces the current filter.
+  A favourite can be deleted but never overwritten: to change one, save a new one and delete the old.
+
+### What it builds on
+
+- **The Files tab:** `FilesTab` in `dataset/tabs.tsx`, with its rows from `fileRows()` in `dataset/files.ts`.
+  - The view is `FilesView {show, filter, sort, desc}`, held by `dataset-page.tsx`, and not kept in the URL.
+  - The columns are `FILE_COLUMNS`: File, Kind, Captured, Height, Pitch, Min, Max, Mean, Distance and Emissivity.
+  - Kinds: `fileKind()` and `kindLabel()` in `core/format.ts` (Thermal, Visual, Not thermal, Not a JPEG, Damaged,
+    Unreadable, Unsupported camera).
+- **"With problems" today:** a file named by a problem, a file whose kind is neither thermal nor not thermal, or a file
+  with warnings.
+- **The Problems tab:** a problem's file opens the Files tab filtered to its name (`showFile`).
+- **Saved settings:** `Preferences` (one row, server-side, `api/preferences`) holds the defaults and the last report
+  author. Per-browser switches use localStorage (the thumbnails).
+- The project page has no tabs. "The other tabs" are the flight page's: Problems, WebODM plan and Convert. Only the
+  Files tab has a table of rows to filter.
+
+### Proposed design
+
+- **A filter is a list of conditions:** a column, an operator and a value.
+  - Numbers (Height, Pitch, Min, Max, Mean, Distance, Emissivity): =, ≠, <, ≤, >, ≥.
+  - Text (File, Captured): contains, does not contain.
+  - Kind: is one of (the checkboxes).
+  - Thermal frame and With problems: yes or no.
+  - Values are compared as the table shows them: temperatures in the unit shown, emissivity as 0.90. A file
+    without the value does not match a condition on it.
+- **The bar:** "Add filter" adds a condition row (column, operator, value, ×). "Clear" removes them all, and the count
+  of files shown stays.
+- **The Kind header** has the dropdown of checkboxes. It is the same condition as "Kind is one of", so the two stay
+  in step. With All checked there is no Kind condition.
+- **The buttons** set the filter: All files sets none, Thermal frames sets "Thermal frame is yes", and With problems
+  sets "With problems is yes". A button shows as chosen while the filter is exactly its own.
+- **The Problems tab's file links** set "File contains <name>".
+- **The filter is kept in the URL** (`?filter=`), as the viewer keeps its view, so a reload or a link keeps it.
+
+### Decisions (2026-10-28)
+
+- **Combining:** a file shows only when it matches every condition (no any/all switch, no groups).
+- **Columns:** Thermal frame and With problems are visible columns (a check mark), sorted and filtered like the rest.
+- **Favourites:** shared by all flights, saved server-side in `Preferences` (`file_filters`).
+- **Scope:** the Files tab only; no other table gets the filters.
+
 ## Integration
 
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
@@ -1157,3 +1211,12 @@ Requested 2026-10-28 (`new.md`):
   oblique frames in capture order (all tagged oblique, as the mosaic's report counts them), 151 in the mosaic, ← →
   keeping the frame in sight and the list in the URL, the thumbnails loading as they scroll in and the switch kept
   over a reload, the list above the frame at 700 px; no errors.
+- **J1: the Files tab's filters** (2026-10-28). The name search became a list of conditions every row matches
+  (`Condition`, `matches`, `fileRows` in `dataset/files.ts`): numbers in the unit shown (= and ≠ at the digits shown),
+  text by its words, Kind as checkboxes (`KindPicker` in `dataset/tabs.tsx`, in the Kind header and in a condition),
+  and yes/no on two new columns, Thermal frame and With problems (`FLAG_COLUMNS`, the Files tab's columns being
+  `FILES_TAB_COLUMNS`; the report's appendix keeps `FILE_COLUMNS`). The three buttons set their filter (`SHOWS`,
+  `shownAs`). The filter is in the URL (`?filter=key.op.value`, `filterQuery`/`parseFilters`). Tests:
+  `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
+  177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
+  reload; Clear back to 654; no overflow at 700 px; no errors.
