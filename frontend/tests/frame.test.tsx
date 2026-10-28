@@ -88,7 +88,10 @@ describe("the frame helpers", () => {
         const unusable = {path: "d.JPG", pitch: -90, converted: true, mosaic: null};
         expect(frameTag(a, null, -80, true)).toBe("in the mosaic");
         expect(frameTag(a, "mosaic", -80, true)).toBe("");
-        expect(frameTag(b, "oblique", -80, true)).toBe("not converted");
+        // Skipped by a conversion with a pitch limit, or not converted for another reason
+        expect(frameTag(b, "oblique", -80, true)).toBe("oblique, -45°, not converted");
+        expect(frameTag(b, "oblique", -40, true)).toBe("not converted");
+        expect(frameTag(b, null, -80, false)).toBe("not converted");
         expect(frameTag(oblique, "oblique", -80, true)).toBe("oblique, -45°");
         // Above another pitch limit
         expect(frameTag(oblique, "oblique", -40, true)).toBe("left out as unusable");
@@ -109,13 +112,19 @@ describe("the frame helpers", () => {
                              at("a2", "2026:10:12 18:29:50")]).map((f) => f.path)).toEqual(["a2", "b", "c", "a", "z"]);
     });
 
-    it("list the frames the mosaics placed, or those converted they left out, or all for none or an empty list", () => {
+    it("list the frames the mosaics placed, or all those they left out, converted or not, or all for none", () => {
         const c = {path: "c.JPG", pitch: -50, converted: true, mosaic: null};
         const frames = [...FRAMES.frames!, c];
         expect(listFrames(frames, "mosaic").map((f) => f.path)).toEqual([A]);
-        expect(listFrames(frames, "oblique").map((f) => f.path)).toEqual(["c.JPG"]);
+        // B was skipped by the conversion's pitch limit, c converted and left out by the mosaics
+        expect(listFrames(frames, "oblique").map((f) => f.path)).toEqual([B, "c.JPG"]);
         expect(listFrames(frames, null)).toEqual(frames);
-        expect(listFrames(FRAMES.frames!, "oblique")).toEqual(FRAMES.frames);
+        // None left out: the list is empty, not all of them
+        expect(listFrames([FRAMES.frames![0]], "oblique")).toEqual([]);
+        // Before the mosaics placed any, all of them
+        const unbuilt = frames.map((f) => ({...f, mosaic: null}));
+        expect(listFrames(unbuilt, "mosaic")).toEqual(unbuilt);
+        expect(listFrames(unbuilt, "oblique")).toEqual(unbuilt);
         expect([listTitle("mosaic"), listTitle("oblique"), listTitle(null)])
             .toEqual(["frames in the mosaic", "oblique frames", "frames"]);
     });
@@ -262,6 +271,16 @@ describe("the frame page", () => {
         expect(location.search).toMatch(/^\?palette=.*&frame=thermal%2Fa_T.JPG&list=mosaic$/);
     });
 
+    it("lists as oblique the frames the conversion skipped for their angle, not those in the mosaic", async () => {
+        history.replaceState(null, "", "/conversion/9/frame?list=oblique");
+        await open(server(routes({[BASE + "/frame?frame=" + enc(B)]: {...INFO, frame: B},
+                                  [BASE + "/measurements?frame=" + enc(B)]: {measurements: []},
+                                  [BASE + "/frame/data?frame=" + enc(B)]: valuesResponse(4, 3)})));
+        expect(byId("name").textContent).toBe("Nadir: oblique frames");
+        expect(listed()).toEqual([B]);
+        expect(shownFrame()).toBe(B);
+    });
+
     it("lists the frames in the order they were taken, the first shown, as a list or thumbnails kept for the next visit", async () => {
         const C = "thermal/c_T.JPG";
         const frames = {...FRAMES, frames: [...FRAMES.frames!, {path: C, pitch: -40, time: "2026:10:12 18:29:40", converted: true,
@@ -275,7 +294,7 @@ describe("the frame page", () => {
         expect(byId("frame").textContent).toBe("c_T.JPG");
         expect(byId("frame-count").textContent).toBe("3 frames");
         expect([...document.querySelectorAll("#frames .frame-item-about")].map((e) => e.textContent)).toEqual([
-            "18:29:40 · oblique, -40°", "18:29:50 · in the mosaic", "18:30:10 · not converted"]);
+            "18:29:40 · oblique, -40°", "18:29:50 · in the mosaic", "18:30:10 · oblique, -45°, not converted"]);
         expect($("#frames img")).toBeNull();
         // Choosing one shows it
         click($("#frames [data-path='" + B + "']")!);
