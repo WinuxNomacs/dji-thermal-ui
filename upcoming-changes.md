@@ -1272,6 +1272,10 @@ name already in use is never reused.
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **Release 0.8.0** (2026-10-28): F2 to K2, the report's seams and the two fixes below (the changelog's two Changed
+  sections made one). Release checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14, ruff, 273 pytest
+  with the flight tests, 300 Vitest, ESLint) and on Windows from WSL (264 pytest from a fresh clone, 9 skipped;
+  smoke of the final wheel).
 - **Fix: New Flight's folder picker and TIFFs** (2026-10-28, reported by the user: "Ability to create new flights
   seems to be completely broken"). "Choose a folder" gave Preact `webkitdirectory: ""`, which it sets as the
   property, false: the input was a file picker, where a folder cannot be chosen; it is `true` now. Files chosen
