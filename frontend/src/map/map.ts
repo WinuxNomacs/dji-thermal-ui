@@ -1,7 +1,7 @@
 // The pages' maps on OpenLayers: a map of mosaics with its basemaps (basemaps.ts) and their switch, its
 // scale and a place for the colour scale; a frame's map, in its pixels; the values the server sends, coloured in the
-// browser (colour.ts); a visual mosaic's colour tiles; tips shown over what is drawn; and the values as drawn, for the
-// PNG export
+// browser (colour.ts); a visual mosaic's colour tiles; a layer drawn only left of a swipe line; tips shown over what is
+// drawn; and the values as drawn, for the PNG export
 import type {Coordinate} from "ol/coordinate";
 import Feature from "ol/Feature";
 import OlMap from "ol/Map";
@@ -20,6 +20,8 @@ import VectorLayer from "ol/layer/Vector";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import Projection from "ol/proj/Projection";
 import {fromLonLat, toLonLat, transformExtent} from "ol/proj";
+import type RenderEvent from "ol/render/Event";
+import {getRenderPixel} from "ol/render";
 import {getDistance} from "ol/sphere";
 import DataTile from "ol/source/DataTile";
 import ImageStatic from "ol/source/ImageStatic";
@@ -248,6 +250,37 @@ export function visualLayer(map: OlMap, url: string, bounds: number[], maxZoom: 
                                  visible: false});
     map.addLayer(layer);
     return layer;
+}
+
+// A layer drawn only left of a line share() % across its map (all of it while share() is null): cut with the scissor
+// on WebGL, clipped on a canvas. Gives what takes the cut away.
+export function clipLeft(layer: Layer, share: () => number | null): () => void {
+    const before = (e: RenderEvent) => {
+        const s = share(), size = e.frameState?.size;
+        if (s === null || !size) return;
+        const x = size[0] * s / 100, ctx = e.context;
+        if (ctx instanceof CanvasRenderingContext2D) {
+            const corners = [[0, 0], [x, 0], [x, size[1]], [0, size[1]]].map((p) => getRenderPixel(e, p));
+            ctx.save();
+            ctx.beginPath();
+            corners.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+            ctx.closePath();
+            ctx.clip();
+        } else if (ctx) {
+            const gl = ctx as WebGLRenderingContext, low = getRenderPixel(e, [0, size[1]]), high = getRenderPixel(e, [x, 0]);
+            gl.enable(gl.SCISSOR_TEST);
+            gl.scissor(low[0], low[1], Math.max(0, high[0] - low[0]), high[1] - low[1]);
+        }
+    };
+    const after = (e: RenderEvent) => {
+        if (share() === null) return;
+        const ctx = e.context;
+        if (ctx instanceof CanvasRenderingContext2D) ctx.restore();
+        else if (ctx) (ctx as WebGLRenderingContext).disable((ctx as WebGLRenderingContext).SCISSOR_TEST);
+    };
+    layer.on("prerender", before);
+    layer.on("postrender", after);
+    return () => { layer.un("prerender", before); layer.un("postrender", after); };
 }
 
 // An image of a frame's size (a frame's visual pair) on a frame's map, in its pixels: hidden until it is shown

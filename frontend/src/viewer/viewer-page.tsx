@@ -43,7 +43,7 @@ import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataU
 
 const POLL_MS = 2000;
 const HOVER_MS = 120;
-const WINDOW_VISUAL_PX = 1600;  // a visual frame in the source frames window, at most this many pixels across       // the readout asks for the point the cursor rests on, not every point it crosses
+export const WINDOW_VISUAL_PX = 1600;  // a visual frame in the source frames window, at most this many pixels across       // the readout asks for the point the cursor rests on, not every point it crosses
 const TYPING_MS = 400;      // the correction redraws once typing pauses
 
 export interface Mosaics {

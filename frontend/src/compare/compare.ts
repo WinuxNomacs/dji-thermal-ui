@@ -1,6 +1,6 @@
-// Two mosaics side by side: the view kept in the URL, the mosaics to choose from, the ranges (in the user's unit, as
-// both panes share them whatever their conversions' units) and the difference's. Plain functions, no DOM; ported
-// from compare.js.
+// Two mosaics side by side: the view kept in the URL, the mosaics to choose from (a conversion's visual mosaic among
+// them), the ranges (in the user's unit, as both panes share them whatever their conversions' units) and the
+// difference's. Plain functions, no DOM; ported from compare.js.
 import {type Maybe} from "../core/format";
 import {convertDelta, convertTemp, userUnit} from "../core/units";
 import {typedTemp} from "../measure/measure";
@@ -8,13 +8,18 @@ import {adjustQuery, type Adjust, defaultRange, type MosaicTab} from "../viewer/
 
 export const SPLIT_LIMITS = [20, 80], SPLIT_STEP = 5;
 export const NO_OVERLAP = "These mosaics do not overlap.";
+// A pane on a conversion's visual mosaic: its values (the readout's, the source frames', a finding's) the as converted
+// mosaic's, as on the viewer's Visual tab
+export const VISUAL = "visual", VISUAL_DATA = "as_converted";
+export const OPACITY_STEP = 5, SWIPE_LIMITS = [0, 100];
 
 export type PaneName = "a" | "b";
 
-// A conversion whose mosaics can be compared (/comparable), with its temperature tabs
+// A conversion whose mosaics can be compared (/comparable), with its temperature tabs and whether it has the visual
+// mosaic
 export interface Comparable {
     id: number; name: string; dataset: number; dataset_name: string; project?: number; project_name?: string;
-    unit?: string; tabs: string[];
+    unit?: string; tabs: string[]; visual?: boolean;
 }
 
 // A temperature mosaic's palette, range (in the user's unit) and adjustments
@@ -31,14 +36,27 @@ export interface DiffInfo {
     palettes?: {key: string; label: string; color_map?: number[]}[];
 }
 
-// The view kept in the URL (?b=&a=&a_tab=&b_tab=&diff=a|b&split=)
+// The view kept in the URL (?b=&a=&a_tab=&b_tab=&diff=a|b&overlay=a|b&opacity=&swipe=&split=)
+// overlay: the pane showing A over B, A drawn at opacity (%) left of the swipe line (% across the map);
 // findings: false when they are hidden; a_finding, b_finding: the finding open in each pane
 export interface CompareView {a?: number; b?: number; a_tab?: string; b_tab?: string; diff?: "" | PaneName; split?: number;
+                              overlay?: "" | PaneName; opacity?: number; swipe?: number;
                               findings?: boolean; a_finding?: number | null; b_finding?: number | null}
 
 export function clampSplit(share: number): number {
     return Math.round(Math.max(SPLIT_LIMITS[0], Math.min(SPLIT_LIMITS[1], share)));
 }
+
+export function clampShare(share: number): number {
+    return Math.round(Math.max(SWIPE_LIMITS[0], Math.min(SWIPE_LIMITS[1], share)));
+}
+
+// The tab whose values a pane's tab reads
+export const dataTab = (tab: string): string => tab === VISUAL ? VISUAL_DATA : tab;
+
+// A conversion's tabs to compare: its temperature tabs, and its visual mosaic where it has one
+export const comparedTabs = (c: Comparable): string[] =>
+    c.tabs.concat(c.visual && c.tabs.includes(VISUAL_DATA) ? [VISUAL] : []);
 
 // What the URL gave: the conversions, tabs and difference given, the split between its limits, the findings
 export function readCompare(search: string): CompareView {
@@ -57,8 +75,11 @@ export function readCompare(search: string): CompareView {
         if (/^[1-9][0-9]*$/.test(params[k + "_finding"] || "")) out[k === "a" ? "a_finding" : "b_finding"] = parseInt(params[k + "_finding"], 10);
     });
     if (params.diff === "a" || params.diff === "b") out.diff = params.diff;
-    const split = parseFloat(params.split);
+    else if (params.overlay === "a" || params.overlay === "b") out.overlay = params.overlay;
+    const split = parseFloat(params.split), opacity = parseFloat(params.opacity), swipe = parseFloat(params.swipe);
     if (!isNaN(split)) out.split = clampSplit(split);
+    if (!isNaN(opacity)) out.opacity = clampShare(opacity);
+    if (!isNaN(swipe)) out.swipe = clampShare(swipe);
     if (params.findings === "0") out.findings = false;
     return out;
 }
@@ -69,6 +90,11 @@ export function compareQuery(view: CompareView, pageId: number): string {
     if (String(view.a) !== String(pageId)) parts.push("a=" + view.a);
     parts.push("a_tab=" + encodeURIComponent(view.a_tab || ""), "b_tab=" + encodeURIComponent(view.b_tab || ""));
     if (view.diff) parts.push("diff=" + view.diff);
+    if (view.overlay) {
+        parts.push("overlay=" + view.overlay);
+        if (view.opacity !== undefined && view.opacity !== 100) parts.push("opacity=" + view.opacity);
+        if (view.swipe !== undefined && view.swipe !== 50) parts.push("swipe=" + view.swipe);
+    }
     if (view.split !== undefined && view.split !== 50) parts.push("split=" + view.split);
     if (view.findings === false) parts.push("findings=0");
     if (view.a_finding) parts.push("a_finding=" + view.a_finding);
@@ -91,7 +117,7 @@ export function mosaicGroups(list: Comparable[], project?: number): {name: strin
 
 // The tab a pane starts on: the one wanted if the conversion has it, else its first (avoid: not that one, if it can)
 export function firstTab(c: Comparable, wanted?: string, avoid?: string): string {
-    if (wanted && c.tabs.includes(wanted)) return wanted;
+    if (wanted && comparedTabs(c).includes(wanted)) return wanted;
     const others = c.tabs.filter((t) => t !== avoid);
     return (others.length ? others : c.tabs)[0];
 }

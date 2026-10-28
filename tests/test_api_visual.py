@@ -203,3 +203,9 @@ def test_removing_the_mosaics_removes_the_visual_one(conversion):
     assert thermal_mosaics.read_visual_pairs(conversion.data_dir()) == {}
     assert not os.path.exists(os.path.join(conversion.data_dir(), 'mosaics', 'visual'))
     assert json.dumps(thermal_mosaics.visual_raster(conversion.data_dir(), {})) == 'null'
+
+
+def test_the_compare_list_says_which_conversions_have_the_visual_mosaic(api, conversion):
+    without, _make = converted(api, {'visual': False}, names=PAIRED)
+    listed = {c['id']: c['visual'] for c in api.get("{}/{}/comparable".format(CONVERSIONS, conversion.id)).data}
+    assert listed == {conversion.id: True, without.id: False}

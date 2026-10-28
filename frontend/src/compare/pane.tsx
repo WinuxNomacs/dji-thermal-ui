@@ -75,14 +75,16 @@ export function StyleBar({style, palettes, what, onChange, onAuto}: StyleProps) 
 
 const has = (p: Maybe<Point>): boolean => !!p && !!p.valid && p.temperature !== null && p.temperature !== undefined;
 
-// The values of both mosaics at a point, and A − B (each in its own unit; the difference in the user's)
-export function DifferenceReadout({a, b, aUnit, bUnit}: {a: Maybe<Point>; b: Maybe<Point>; aUnit: unknown; bUnit: unknown}) {
+// The values of both mosaics at a point, and A − B (each in its own unit; the difference in the user's) unless
+// difference is false
+export function DifferenceReadout({a, b, aUnit, bUnit, difference = true}: {a: Maybe<Point>; b: Maybe<Point>; aUnit: unknown;
+                                                                           bUnit: unknown; difference?: boolean}) {
     const value = (p: Maybe<Point>, unit: unknown) => has(p) ? temp(p!.temperature, unit) :
         p?.reason === "outside_raster" ? "outside the mosaic" : "no data";
     const rows: [string, string][] = [
         ["A", value(a, aUnit)], ["B", value(b, bUnit)],
-        ["A − B", has(a) && has(b) ? signed((convertTemp(a!.temperature, aUnit) as number) - (convertTemp(b!.temperature, bUnit) as number),
-                                           userUnit()) : "no data"],
+        ...(!difference ? [] : [["A − B", has(a) && has(b) ? signed((convertTemp(a!.temperature, aUnit) as number) - (convertTemp(b!.temperature, bUnit) as number),
+                                           userUnit()) : "no data"] as [string, string]]),
     ];
     return (<table class="table values"><tbody>
         {rows.map(([k, v]) => <tr key={k}><th>{k}</th><td>{v}</td></tr>)}
