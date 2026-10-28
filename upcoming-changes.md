@@ -698,7 +698,20 @@ Requested 2026-10-28 (`new.md`):
 - **Registration (decided 2026-10-27):** the thermal mosaic's placement: each visual frame takes its thermal frame's
   refined shift and rotation and the estimated heights, so the two line up by construction; the one constant offset
   between the two cameras is measured, applied and reported. A visual mosaic is built only with the thermal one.
-- **Overlay in F3:** side by side only, a swipe, an opacity blend, or all three.
+- **Overlay in F3 (decided 2026-10-28):** side by side, a swipe and an opacity blend; see "F3: decisions".
+
+### F3: decisions (2026-10-28)
+
+- **Panes:** the compare page's mosaic menu lists each conversion's visual mosaic ("· Visual") beside its thermal
+  tabs. A visual pane is drawn as the viewer's Visual tab: no palette, its readout the conversion's temperature under
+  the cursor, findings drawn over it, and its source frames window opening on the Visual camera. "Difference" is not
+  offered while either pane is visual.
+- **Overlay:** each pane's Show menu gains "Overlay (A over B)": A's mosaic drawn over B's on one map, with an opacity
+  slider and a swipe line dragged across it (both kept in the URL). It works for thermal over visual and for two
+  thermal mosaics; the readout gives both values.
+- **Frames:** the frame page's switch becomes Thermal / Visual / Both. Both shows the visual pair in a second pane
+  beside the thermal frame, the two moving together, with the shapes and the cursor drawn on both; with the
+  parameters changed, that pane comes third.
 
 ### F2: decisions (2026-10-27)
 
