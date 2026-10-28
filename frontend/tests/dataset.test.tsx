@@ -711,7 +711,7 @@ describe("the dataset page", () => {
 });
 
 describe("the Convert tab", () => {
-    it("folds the settings into chips once there are conversions, and unfolds them to edit", async () => {
+    it("folds the settings into chips once there are conversions, unfolds them to edit, and folds them again", async () => {
         page(routes());
         await ticks();
         expect($(".settings-form")).toBeNull();
@@ -720,7 +720,18 @@ describe("the Convert tab", () => {
         click(byId("edit-settings"));
         await ticks();
         expect($(".settings-form")).not.toBeNull();
-        expect(byId("edit-settings")).toBeNull();
+        expect(byId("edit-settings").textContent).toBe("Hide settings");
+        expect(byId("edit-settings").getAttribute("aria-expanded")).toBe("true");
+        // Folded again, the values chosen kept
+        click(field("normalize"));
+        await ticks();
+        click(byId("edit-settings"));
+        await ticks();
+        expect($(".settings-form")).toBeNull();
+        expect(byId("edit-settings").textContent).toBe("Edit settings");
+        click(byId("edit-settings"));
+        await ticks();
+        expect(field("normalize").checked).toBe(true);
     });
 
     it("shows the form at once when there are no conversions", async () => {
