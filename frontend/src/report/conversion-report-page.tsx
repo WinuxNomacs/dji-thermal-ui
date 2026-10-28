@@ -202,8 +202,8 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             {!ready ? <p class="text-muted">The mosaics are not built: build them on the dataset page's Convert tab.</p> : <>
                 <section class="report-section report-keep" id="report-mosaic">
                     <h2>The mosaic</h2>
-                    <p class="report-caption">{viewText(v, tab, style!)}. <a class="no-print" href={viewer}>Change the view in
-                        the viewer</a>, then open the report from there.</p>
+                    <p class="report-caption no-print">{viewText(v, tab, style!)}. <a href={viewer}>Change the view in the
+                        viewer</a>, then open the report from there.</p>
                     {img("main", "The mosaic")}
                 </section>
 

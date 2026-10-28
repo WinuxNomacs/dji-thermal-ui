@@ -11,6 +11,9 @@ import {type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {scaleBar} from "../viewer/view";
 
 const RENDER_MS = 20000;        // a figure whose tiles have not all come by then is drawn with those that have
+// A frame drawn in software (a browser without a GPU, its shaders compiled the first time) can take seconds: the
+// image is waited for this long, and asked for again once
+const SNAPSHOT_MS = 10000, SNAPSHOT_TRIES = 2;
 
 // What is drawn over a figure: a measurement or a finding, named, in its colour (the drawing's when none)
 export interface Mark {geometry: Geometry; name: string; color?: string}
@@ -49,7 +52,8 @@ async function draw(source: Source, asks: Ask[], size: Size): Promise<Record<str
         for (const ask of asks) {
             map.getView().fit(ask.extent || whole, {size: [size.width, size.height], padding: [16, 16, 16, 16]});
             await rendered(map);
-            const image = await snapshot(map, layer.layer);
+            let image = null;
+            for (let i = 0; i < SNAPSHOT_TRIES && !image; i++) image = await snapshot(map, layer.layer, SNAPSHOT_MS);
             const shapes = ask.marks.map((m) => ({...shapeOnMap(map, m.geometry, fromCoords, m.name), color: m.color}));
             const canvas = viewCanvas({title: ask.title, date: "", panes: [{el, images: image ? [image] : [], shapes}],
                                        legend: source.legend, scale: frame ? null : scaleBar(metresPerPixel(map), 120),
