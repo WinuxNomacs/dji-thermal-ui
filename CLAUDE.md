@@ -33,8 +33,11 @@ machine. Keep it short; edit in place.
 
 - **Back end:** Python 3.12+, Django and Django REST Framework, SQLite in WAL mode, managed with uv. The package is
   `src/dji_thermal_ui`, and the `dji-thermal-ui` command (`cli.py`) serves it with waitress and opens the browser.
-- **Data:** the database, the secret key and the datasets live in a data folder: the platformdirs user data folder,
-  `--data-dir`, or `DJI_THERMAL_UI_DATA_DIR` (`datadir.py`). A dataset's files are in `datasets/<id>/`.
+- **Data:** the database, the secret key and the datasets live in a data folder: `--data-dir` or
+  `DJI_THERMAL_UI_DATA_DIR`, else the folder it was moved to from the Storage page (a `data-dir` file in the config
+  folder), else the platformdirs user data folder (`datadir.py`). A dataset's files are in `datasets/<id>/`. A move
+  is made by the command as it restarts, before it opens the database (`move.py`); `DJI_THERMAL_UI_CONFIG_DIR` keeps
+  tests and live checks off the user's config folder.
 - **Jobs:** analyses, conversions and mosaics run in a local job runner (`analyzer/jobs.py`), not Celery:
   `jobs.submit(fn, pk, run_id)`. Each job writes its progress to its row, and is cancelled cooperatively through its
   `run_id`. Tests run jobs inline unless they use the `threaded_jobs` fixture.

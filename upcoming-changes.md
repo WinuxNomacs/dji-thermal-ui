@@ -15,7 +15,7 @@ its title.
    The app's label for them, "Unsupported image type", is merged already.
 
 **Then**
-1. **L2: moving the data folder**: to another folder, a data folder there offering its projects to import. (Storage)
+- Nothing planned: the next phase comes from `new.md`, or from Later.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1329,6 +1329,19 @@ Requested 2026-10-28 (`new.md`):
   In the pane, System Settings is a button (`nav-settings-toggle`, its name and a chevron) that folds Storage away,
   kept with the pane's other folds (`settings` in its stored keys), and unfolded when the Storage page is shown.
   Test: `frontend/tests/navigation.test.tsx`. Checked live on 8081, light and dark.
+- **L2: moving the data folder** (2026-10-28). `move.py` (no Django: `inspect` the target, the plan and result
+  files in the config folder, `perform` the move: what the target held set aside in `replaced-<date>/`, the files
+  renamed on one drive or copied then removed, undone on failure, the pointer written), `datadir.py` (the pointer,
+  `chosen`, `DataDirError` for a moved folder missing, `DJI_THERMAL_UI_CONFIG_DIR`), `cli.py` (the plan made before
+  `setup`, the import after it, the restart: `execv` on POSIX, a new process on Windows that waits for the old one),
+  `analyzer/storage.py` (`check`, `busy`, `import_replaced`: the set-aside database copied, migrated, read through a
+  thread's own connection, each project made with `restore.make_project`, extracted from `finish`, whose failure now
+  moves files back instead of deleting them), `api/storage/check` and `api/storage/move`, and the page's "Move the
+  data folder" (`storage-page.tsx`: `checkText`, `lastMoveText`, `waitForMove`). The app's own empty Default
+  Project there is not offered. Tests: `tests/test_move.py` (the command run end to end too), `tests/test_cli.py`,
+  `frontend/tests/storage.test.tsx`. Checked live on 8081 with its own config folder (none of the user's data): A
+  moved onto B, a data folder with a project of an uploaded and a folder flight, in 2.3 s with the same PID, Barn
+  imported with both, the page reloaded, light and dark; then on to a new folder C through the API.
 - **L1: the Storage page** (2026-10-28). `analyzer/storage.py` (`measure`: the data folder walked when asked, each
   file the database's, a flight's by `datasets/<id>/`, left behind by a flight no longer there, or other; a folder
   flight's images measured where they are; the drive's free space), `api/storage`, the page `settings/storage`

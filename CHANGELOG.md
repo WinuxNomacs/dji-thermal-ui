@@ -18,6 +18,12 @@ All notable changes are recorded here. The format follows
   as measured now and the free space on its drive, broken down by project and flight, with the database, files left
   behind by flights no longer there, and the rest. A flight read in place says how much its images take where they
   are.
+- Moving the data folder from System Settings › Storage: a folder typed in is checked (new, empty or another data
+  folder of the app; writable; room on its drive; no job running), then the server restarts and moves the files
+  before it opens the database again, and the page reloads. The folder is remembered in the config folder
+  (`DJI_THERMAL_UI_CONFIG_DIR` sets another); `--data-dir` and `DJI_THERMAL_UI_DATA_DIR` still win. Another data
+  folder there offers its projects to import, all chosen at first; what it held is set aside in `replaced-<date>/`,
+  nothing deleted.
 
 ### Changed
 

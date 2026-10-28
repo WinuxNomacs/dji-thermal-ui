@@ -91,7 +91,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **System Settings › Storage** (System Settings folds in the pane, by its name or its chevron): where the data
   folder is, its size on disk as measured when the page opens (and again on asking) and the free space on its
   drive, with each project and its flights, the database and the rest. A flight read in place from a folder says
-  how much its images take there, outside the data folder's total.
+  how much its images take there, outside the data folder's total. The data folder can be moved from there to
+  another folder (see [Where the data lives](#where-the-data-lives)).
 
 It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
 are no logins or accounts.
@@ -175,7 +176,24 @@ The database (SQLite), the secret key and each flight's files (`datasets/<id>/`)
 - Windows: `%LOCALAPPDATA%\dji-thermal-ui`
 
 `--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. System Settings › Storage
-shows which folder is used and what takes room in it. A flight used in place
+shows which folder is used and what takes room in it, and moves it to another:
+
+- **Type the new folder's full path and check it.** It may be a new folder, an empty one, or another data folder of
+  this app; a folder holding other files is refused, as is one without room (on another drive, the whole data folder
+  is copied there, then removed here). Nothing moves while a job runs or a project is being imported.
+- **Moving restarts the server.** The database cannot change under a running server, so the server stops, moves the
+  files as they are (same ids and links; a flight read in place is still read there) before it opens the database
+  again, and starts again on the same port; the page reloads when it is back and says how the move went.
+- **Another data folder there** offers its projects, all chosen at first. Its database and files are set aside in
+  `replaced-<date>/` in it, nothing deleted; the projects chosen are then imported from them as an export would bring
+  them (new ids, and a name already used gets a number), their files moved out of the folder set aside. A folder
+  set aside stays in the data folder, counted under Other, and moves with it.
+- **The new folder is remembered** in a `data-dir` file in the app's config folder (`~/.config/dji-thermal-ui`,
+  `%LOCALAPPDATA%\dji-thermal-ui`, or `DJI_THERMAL_UI_CONFIG_DIR`). `--data-dir` and `DJI_THERMAL_UI_DATA_DIR` still
+  win, and a folder they set is not moved from the page. When the folder moved to is missing (a drive not
+  connected), the app says so and stops rather than starting with an empty one.
+
+A flight used in place
 from a folder reads its images there and never changes them. Deleting a flight deletes only what the app made.
 Deleting a project deletes its flights the same way, after saying how many there are and how much space is freed.
 A project's export is written straight to the browser's download, so it needs no room in the data folder; it holds
