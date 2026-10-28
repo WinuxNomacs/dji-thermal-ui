@@ -22,6 +22,7 @@ import numpy as np
 from django.core.exceptions import SuspiciousFileOperation
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.db import transaction
+from django.http import StreamingHttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import NotFound, ValidationError
@@ -30,7 +31,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import basemaps, jobs, places, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from . import backup, basemaps, jobs, places, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
                      ThermalDataset, ThermalMeasurement)
@@ -492,6 +493,39 @@ class ProjectDetailView(DatasetView):
         get_project(pk).delete()
         Project.default()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ProjectExportView(DatasetView):
+    def get(self, request, pk):
+        """The project's flights as its export offers them: what each adds to the archive, or that it is busy"""
+        return Response({'flights': backup.flight_sizes(get_project(pk))})
+
+
+class ProjectArchiveView(DatasetView):
+    def get(self, request, pk):
+        """The project as a tar, with all its flights or those in ?flights=<id>,<id> (none when empty), streamed as
+        it is written"""
+        project = get_project(pk)
+        datasets = list(ThermalDataset.objects.filter(project=project).prefetch_related('conversions')
+                        .order_by('created_at', 'id'))
+        chosen = request.query_params.get('flights')
+        if chosen is not None:
+            try:
+                ids = {int(i) for i in chosen.split(',') if i.strip()}
+            except ValueError:
+                raise ValidationError({'flights': ["Not a list of flight ids"]}) from None
+            if ids - {d.id for d in datasets}:
+                raise ValidationError({'flights': ["Not this project's flights"]})
+            datasets = [d for d in datasets if d.id in ids]
+        held = [d.name for d in datasets if backup.busy(d)]
+        if held:
+            return Response({'flights': ["Still being analyzed or converted: " + ", ".join(held)]},
+                            status=status.HTTP_409_CONFLICT)
+        archive = backup.Archive(project, datasets)
+        response = StreamingHttpResponse(archive, content_type='application/x-tar')
+        response['Content-Disposition'] = 'attachment; filename={}.tar'.format(download_name(project.name))
+        response['Content-Length'] = len(archive)
+        return response
 
 
 class NavigationView(DatasetView):

@@ -10,6 +10,8 @@ DATA = r'(?P<z>[0-9]+)/(?P<x>[0-9]+)/(?P<y>[0-9]+)$'
 urlpatterns = [
     re_path(r'^projects$', api.ProjectListCreateView.as_view()),
     re_path(r'^projects/(?P<pk>[0-9]+)$', api.ProjectDetailView.as_view()),
+    re_path(r'^projects/(?P<pk>[0-9]+)/export$', api.ProjectExportView.as_view()),
+    re_path(r'^projects/(?P<pk>[0-9]+)/export\.tar$', api.ProjectArchiveView.as_view()),
     re_path(r'^datasets$', api.DatasetListCreateView.as_view()),
     re_path(r'^datasets/(?P<pk>[0-9]+)$', api.DatasetDetailView.as_view()),
     re_path(r'^datasets/(?P<pk>[0-9]+)/upload$', api.DatasetUploadView.as_view()),
