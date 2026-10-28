@@ -1233,7 +1233,10 @@ name already in use is never reused.
   go, the seams layer, the panel's order and scale) and the labels throughout. Checked live on dataset 1 in light and
   dark: the tabs, Esc and a second click letting go (the window left open), the seams at two zooms and in the PNG,
   the frame page without its map scale, and the compare page's scales. No console errors or failed requests.
-  - **Not changed:** the mosaic report still draws its Source frame figure in the frames' colours.
+  - **Then** (2026-10-28): the mosaic report's Source frame figure too: the as converted mosaic coloured as the
+    temperatures are, with the seams over it (`underOf` in `report/mosaic-report.ts`, `Source.over` in
+    `report/figures.ts`, `SEAMS` in `map/colour.ts`). Test: `frontend/tests/mosaic-report.test.tsx`. Checked live
+    on dataset 1's report in light and dark, its saved view put back as it was.
 - **I1: the names** (2026-10-28). Every visible string says flight for a `dataset` and dataset for a `conversion`:
   the pages in `frontend/src` (lists, the flight page and its Convert tab, the reports, the viewer, compare, frame,
   findings and preferences), the server's messages (`api.py`, `thermal_*.py`, `views.py`), the command's help, and

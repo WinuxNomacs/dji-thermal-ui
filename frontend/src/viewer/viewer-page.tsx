@@ -30,7 +30,7 @@ import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, fin
         findingsUrl} from "../findings/findings";
 import {centreOf, drawFindings, findingAt} from "../findings/layer";
 import {FindingAbout, FindingForm, Findings, SaveFinding} from "../findings/panel";
-import {type Colouring, isothermRange} from "../map/colour";
+import {type Colouring, isothermRange, SEAMS} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
@@ -95,8 +95,6 @@ const VISUAL = "visual";
 // The tabs whose spots and areas open their source frames, and the tools that draw them
 const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
 const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
-// The Source frame tab: the as converted mosaic drawn, with the seams between its frames over it
-const SEAMS: Colouring = {colors: [], seams: true};
 
 // A tab's palette and range before any is chosen
 export function defaultStyle(v: Mosaics, tab: string): Style {

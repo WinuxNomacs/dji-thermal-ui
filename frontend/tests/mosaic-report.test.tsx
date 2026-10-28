@@ -192,6 +192,18 @@ describe("the mosaic report", () => {
         expect($(".report-bar a")!.getAttribute("href")).toBe("/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&equalize=1");
     });
 
+    it("draws the Source frame tab as the mosaic with the seams between its frames over it", async () => {
+        await page({[BASE]: {...DETAIL, report: {view: {tab: "source_frame"}}}});
+        expect(text("#report-mosaic .report-caption"))
+            .toContain("Source frame · the seams between its frames over the Mosaic · Iron red palette · 20.0 to 30.0 °C");
+        const main = vi.mocked(drawFigures).mock.calls.find((c) => c[1][0].key === "main")!;
+        expect(main[0].values).toMatchObject({kind: "tiles", url: BASE + "/mosaics/as_converted/data/{z}/{x}/{y}"});
+        expect(main[0].colouring).toMatchObject({colors: [0x000000, 0xff0000], range: [20, 30]});
+        expect(main[0].legend!.shown).toEqual([20, 30]);
+        expect(main[0].over!.values).toMatchObject({kind: "tiles", url: BASE + "/mosaics/source_frame/data/{z}/{x}/{y}"});
+        expect(main[0].over!.colouring).toEqual({colors: [], seams: true});
+    });
+
     it("says when the mosaics are not built, or none were measured", async () => {
         await page({[BASE + "/mosaics"]: {...MOSAICS, mosaic_status: "", tabs: []}, [BASE + "/measurements"]: {measurements: []}});
         expect(text(".page")).toContain("The mosaics are not built");

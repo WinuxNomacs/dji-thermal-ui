@@ -27,8 +27,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
   mosaics. You can keep several side by side, cancel one, or download it.
 - **Mosaics:** the viewer's tabs are Mosaic (the temperatures as converted), Harmonized, Source frame (the mosaic
-  with a line along each seam between the frames it is made of) and View angle, over a street map or Esri's or
-  Mapbox's satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma,
+  with a line along each seam between the frames it is made of, in the mosaic report too) and View angle, over a
+  street map or Esri's or Mapbox's satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma,
   equalization and sharpening, redrawn as their sliders are dragged; the colour scale, in the panel, is labelled with
   its range's ends. Pointer info gives the values under the cursor; a click keeps them and outlines the frame there,
   and Esc or a second click on that frame lets go of it.
