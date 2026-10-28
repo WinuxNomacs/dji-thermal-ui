@@ -41,7 +41,7 @@ def test_each_page_the_views_serve_is_an_entry_vite_builds():
     root = Path(__file__).resolve().parent.parent
     views = (root / "src/dji_thermal_ui/analyzer/views.py").read_text()
     entries = set(re.findall(r'entry="([^"]+)"', views))
-    assert "dataset_report" in entries
+    assert {"dataset_report", "conversion_report"} <= entries
     for entry in entries:
         assert re.fullmatch(r"[a-z_]+", entry), entry
         assert (root / "frontend/src/pages" / (entry + ".tsx")).is_file(), entry

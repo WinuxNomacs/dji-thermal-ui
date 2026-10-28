@@ -135,6 +135,20 @@ describe("the viewer page", () => {
         expect(location.search).not.toContain("frame=");
     });
 
+    it("opens its report with the view shown, saved with the report first", async () => {
+        history.replaceState(null, "", "/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&gamma=1.5");
+        const fetchFn = server(routes({["PATCH " + BASE]: {id: 9}}));
+        const nav = vi.fn();
+        vi.stubGlobal("fetch", fetchFn);
+        render(<ViewerPage api={API} publicUrl="/" id={9} datasetId={5} datasetName="Roof" basemaps={[]} nav={nav}/>, byId("root"));
+        await ticks(40);
+        click(byId("report"));
+        await ticks();
+        expect(sent(fetchFn, "PATCH")).toEqual({report: {view: {tab: "harmonized", palette: "viridis", range: [18, 32],
+            adjust: {gamma: 1.5, equalize: false, sharpen: 0}, findings: true, hidden: []}}});
+        expect(nav).toHaveBeenCalledWith("/conversion/9/report");
+    });
+
     it("keeps one palette and range for both temperature mosaics, and none for the frames' tab", async () => {
         const fetchFn = server(routes());
         await open(fetchFn);

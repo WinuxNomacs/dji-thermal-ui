@@ -65,6 +65,7 @@ export interface Measurement {
     geometry?: Geometry | null;
     parameters?: Record<string, number | null> | null;
     values?: Measured | null;
+    comment?: string;
 }
 
 // A parameter one can change: [key, label, step, isTemp]

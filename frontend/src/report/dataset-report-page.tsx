@@ -13,28 +13,24 @@ import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import Text from "ol/style/Text";
 import {useEffect, useRef, useState} from "preact/hooks";
-import {errorText, readJson, sendJson} from "../core/api";
+import {readJson} from "../core/api";
 import {count, formatDate, formatNumber} from "../core/format";
 import {formatTemp} from "../core/units";
-import {ArrowLeft, Printer} from "../components/icons";
 import {conversionLabel} from "../dataset/conversions";
 import {type Dataset} from "../dataset/dataset-page";
 import {FILE_COLUMNS} from "../dataset/files";
 import {cell, Figures, Overview, ProblemsTab} from "../dataset/tabs";
-import {type Finding, findingsUrl, SEVERITY_COLORS, statusLabel, temperaturesText} from "../findings/findings";
+import {type Finding, findingsUrl, SEVERITY_COLORS} from "../findings/findings";
 import {centreOf} from "../findings/layer";
-import {SeverityChip} from "../findings/panel";
 import {type Basemap, fitBounds, lonLatToMap, mosaicMap, pointFeature, vectorLayer} from "../map/map";
-import {fileOf, framePositions, numbered, type ReportText, reportText, settingsSummary, temperatureSummary,
+import {framePositions, numbered, type ReportText, reportText, settingsSummary, temperatureSummary,
         thermalFrames, todayText} from "./report";
+import {FindingsSection} from "./findings";
+import {ReportBar, ReportField, TitleBlock, useReportText} from "./text";
 
-const SAVE_MS = 600;            // typing pauses this long before the text is saved
-const THUMBS_SHOWN = 6;         // a finding's kept frames shown before "and N more"
 const MAX_FIT_ZOOM = 19;
 // The appendix's columns: the Files tab's, but its kind (each is a thermal frame), to fit the page's width
 const APPENDIX_COLUMNS = FILE_COLUMNS.filter((c) => c.key !== "kind");
-
-type Field = "title" | "author" | "date" | "notes";
 
 interface ReportDataset extends Dataset {report?: ReportText; flight_area?: [number, number][] | null}
 
@@ -126,11 +122,8 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
     const url = api + "datasets/" + id;
     const [d, setD] = useState<ReportDataset | null>(null);
     const [findings, setFindings] = useState<Finding[]>([]);
-    const [text, setText] = useState<Required<ReportText> | null>(null);
     const [notice, setNotice] = useState("");
-    const [saved, setSaved] = useState("");
-    const pending = useRef<Partial<ReportText>>({});
-    const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const {text, setText, saved, change} = useReportText<Required<ReportText>>(url);
 
     useEffect(() => {
         (async () => {
@@ -146,24 +139,7 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                 setNotice("Could not load the dataset.");
             }
         })();
-        return () => clearTimeout(timer.current);
     }, []);
-
-    async function save() {
-        const report = pending.current;
-        pending.current = {};
-        const r = await readJson<ReportDataset>(await sendJson(url, "PATCH", {report}));
-        setSaved(r.ok ? "Saved" : errorText(r.data, "Could not save the report's text."));
-    }
-
-    // Each change saved once typing pauses (the appendix's switch at once)
-    function change(field: keyof ReportText, value: string | boolean, wait = SAVE_MS) {
-        setText((t) => t && {...t, [field]: value});
-        pending.current = {...pending.current, [field]: value};
-        setSaved("");
-        clearTimeout(timer.current);
-        timer.current = setTimeout(save, wait);
-    }
 
     if (!d || !text) {
         return (<div class="page report">
@@ -180,36 +156,15 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
     const conversions = d.conversions || [];
     const thumbs = url + "/thumbnail?file=";
 
-    const input = (name: Field) => ({id: "report-" + name, value: text[name] as string,
-                                     onInput: (e: {currentTarget: {value: string}}) => change(name, e.currentTarget.value)});
-    const field = (name: Field, label: string) => (
-        <label class={"report-field report-" + name + (text[name] ? "" : " empty")}>
-            <span class="report-label">{label}</span>
-            {name === "notes" ? <textarea rows={5} placeholder="Notes printed with the report" {...input(name)}/> :
-                name === "date" ? <input type="date" {...input(name)}/> : <input type="text" {...input(name)}/>}
-            <span class="print-only report-value">{text[name]}</span>
-        </label>);
-
     return (
         <div class="page report">
-            <div class="report-bar no-print">
-                <a href={publicUrl + "dataset/" + id}><ArrowLeft/> {d.name}</a>
-                <span class="text-muted report-saved" role="status">{saved}</span>
+            <ReportBar back={publicUrl + "dataset/" + id} backLabel={d.name} saved={saved} print={print}>
                 <label><input type="checkbox" id="report-appendix" checked={text.appendix}
                               onChange={(e) => change("appendix", e.currentTarget.checked, 0)}/> Append the frames' table</label>
-                <button type="button" class="button primary" id="print" title="Print, or choose Save as PDF as the printer"
-                        onClick={print}><Printer/> Print / Save as PDF</button>
-            </div>
+            </ReportBar>
             {notice && <div class="notice error no-print" role="alert">{notice}</div>}
 
-            <header class="report-head">
-                {field("title", "Title")}
-                <div class="report-byline">
-                    {field("author", "Author")}
-                    {field("date", "Date")}
-                </div>
-                <p class="report-project">{projectName}{place && <> · {place}</>} · dataset {d.name}</p>
-            </header>
+            <TitleBlock text={text} change={change}>{projectName}{place && <> · {place}</>} · dataset {d.name}</TitleBlock>
 
             <section class="report-section" id="report-dataset">
                 <h2>The dataset</h2>
@@ -277,34 +232,11 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                 </table> : <p class="text-muted">None made.</p>}
             </section>
 
-            <section class="report-section" id="report-findings">
-                <h2>Findings</h2>
-                {items.length ? <>
-                    <table class="table report-findings">
-                        <thead><tr><th>#</th><th>Finding</th><th>Severity</th><th>Status</th><th>Temperatures</th>
-                            <th>Read on</th></tr></thead>
-                        <tbody>{items.map((f) => (<tr key={f.id} data-finding={f.number}><td>{f.number}</td><td>{f.name}
-                            {f.notes && <div class="report-notes-text">{f.notes}</div>}</td>
-                            <td><SeverityChip severity={f.severity}/></td><td>{statusLabel(f.status)}</td>
-                            <td>{temperaturesText(f.temperatures)}</td>
-                            <td>{f.conversion_name}{f.tab ? " · " + f.tab.replace(/_/g, " ") : ""}</td></tr>))}</tbody>
-                    </table>
-                    {items.map((f) => {
-                        const kept = f.frames.filter((x) => x.kept).map((x) => fileOf(x.frame, files)).filter((x): x is string => !!x);
-                        return kept.length > 0 && (<figure class="report-thumbs report-keep" key={f.id}>
-                            <figcaption>{f.number}. {f.name}: {count(kept.length, "frame", "frames")} kept</figcaption>
-                            <div>{kept.slice(0, THUMBS_SHOWN).map((p) => (<span class="report-thumb" key={p}>
-                                <img alt={p} src={thumbs + encodeURIComponent(p)}/><code>{p.split("/").pop()}</code></span>))}
-                                {kept.length > THUMBS_SHOWN && <span class="text-muted">and {kept.length - THUMBS_SHOWN} more</span>}
-                            </div>
-                        </figure>);
-                    })}
-                </> : <p class="text-muted">None saved.</p>}
-            </section>
+            <FindingsSection items={items} files={files} thumbs={thumbs} none="None saved."/>
 
             <section class={"report-section" + (text.notes ? "" : " empty")} id="report-notes-section">
                 <h2>Notes</h2>
-                {field("notes", "Notes")}
+                <ReportField name="notes" label="Notes" text={text} change={change}/>
             </section>
 
             {text.appendix && files && (<section class="report-section report-appendix" id="report-appendix-table">
