@@ -206,6 +206,58 @@ describe("a project's page", () => {
         expect(byId("project-name").textContent).toBe("Grain silos");
     });
 
+    it("exports all its flights by default, with their sizes, a busy one not offered", async () => {
+        const flights = [{id: 5, name: "Roof", busy: false, bytes: 3 * 1024 ** 3}, {id: 6, name: "Wall", busy: false, bytes: 1024 ** 3},
+                         {id: 7, name: "Barn", busy: true, bytes: null}];
+        projectPage(routes(DETAIL, {[API + "projects/3/export"]: {flights}}));
+        await ticks();
+        click(byId("export-project-button"));
+        await ticks();
+        const boxes = [...document.querySelectorAll<HTMLInputElement>("[name=export-flight]")];
+        expect(boxes.map((b) => [b.checked, b.disabled])).toEqual([[true, false], [true, false], [false, true]]);
+        expect(byId("export-project").textContent).toContain("Roof 3.0 GB");
+        expect(byId("export-project").textContent).toContain("Barn (busy: still being analyzed or converted)");
+        expect(byId("export-total").textContent).toBe("About 4.0 GB.");
+        // The busy flight left out by name; then one flight only
+        expect(byId("export-save").getAttribute("href")).toBe("/api/projects/3/export.tar?flights=5,6");
+        boxes[0].checked = false;
+        boxes[0].dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        expect(byId("export-total").textContent).toBe("About 1.0 GB.");
+        expect(byId("export-save").getAttribute("href")).toBe("/api/projects/3/export.tar?flights=6");
+        expect(byId("export-save").hasAttribute("download")).toBe(true);
+        boxes[1].checked = false;
+        boxes[1].dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        expect(byId("export-total").textContent).toBe("No flight chosen: only the project itself is exported.");
+        expect(byId("export-save").getAttribute("href")).toBe("/api/projects/3/export.tar?flights=");
+        key(document.body, "Escape");
+        await ticks();
+        expect(byId("export-project")).toBeNull();
+    });
+
+    it("exports the whole project by its plain address when every flight is chosen, and closes", async () => {
+        projectPage(routes(DETAIL, {[API + "projects/3/export"]: {flights: [{id: 5, name: "Roof", busy: false, bytes: 2048}]}}));
+        await ticks();
+        click(byId("export-project-button"));
+        await ticks();
+        const save = byId("export-save");
+        expect(save.getAttribute("href")).toBe("/api/projects/3/export.tar");
+        save.addEventListener("click", (e) => e.preventDefault());
+        click(save);
+        await ticks();
+        expect(byId("export-project")).toBeNull();
+    });
+
+    it("says so when the flights cannot be listed, and offers no export", async () => {
+        projectPage(routes(DETAIL, {[API + "projects/3/export"]: () => Promise.resolve(new Response("", {status: 500}))}));
+        await ticks();
+        click(byId("export-project-button"));
+        await ticks();
+        expect(byId("export-project").textContent).toContain("Could not list the project's flights.");
+        expect(byId("export-save")).toBeNull();
+    });
+
     it("deletes the project after asking, and goes back to the projects", async () => {
         const fetchFn = routes(DETAIL, {["DELETE " + API + "projects/3"]: {}});
         const nav = projectPage(fetchFn);
