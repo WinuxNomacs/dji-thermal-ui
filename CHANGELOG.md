@@ -6,6 +6,12 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- New Flight's "Choose a folder" opened a file picker, in which a folder could not be chosen: it picks a folder
+  again. Files chosen with no JPEG among them (TIFFs, for one) are now told apart: the dialog says that a flight is
+  made of R-JPEGs, instead of asking to choose the images.
+
 ### Changed
 
 - New names in what you see: a dataset (the images uploaded or read from a folder) is now a **flight**, and a
