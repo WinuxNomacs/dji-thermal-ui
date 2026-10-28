@@ -9,11 +9,11 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **F1: visual mosaics in dji-thermal-cli**, released there first. (RGB and thermal)
+1. **F2: visual mosaics and frames in the app**, on dji-thermal-cli 1.6.0 once it is on PyPI (the user pushes
+   and tags it). (RGB and thermal)
 
 **Then**
-1. **F2: visual mosaics and frames in the app**, on that release. (RGB and thermal)
-2. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
+1. **F3: comparing visual and thermal**, side by side and overlaid. (RGB and thermal)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -691,11 +691,14 @@ Requested 2026-10-28 (`new.md`):
 - **Pairing (found 2026-10-28):** pair `_V` with `_T` by the capture index (`_0024_`), not by the whole name. In 52 of
   the 327 pairs, the two names' timestamps differ by a second (`DJI_20261022163317_0024_T.JPG` and
   `DJI_20261022163316_0024_V.JPG`). By index all 327 pair up.
-- **Cameras first:** the M4T only, or the H20T/H30T/M3T too. Do the `_W`/`_Z` cameras count, or only `_V`?
-- **Resolution:** the visual frames are about 6× the thermal ones' resolution. Should the mosaic be at its own GSD
-  (large files, slow to build), at a cap (e.g. 2 cm/px), or at the thermal mosaic's GSD?
-- **Registration:** should the visual mosaic reuse the thermal placements (lined up by construction), or align itself
-  (sharper, but possibly offset from the thermal one)?
+- **Cameras (decided 2026-10-27):** any DJI wide visual frame (`_V` or `_W`) with a pose and a 35 mm-equivalent
+  focal length in its EXIF, paired with its thermal frame; zoom (`_Z`) frames are left out. Tested on the M4T only.
+- **Resolution (decided 2026-10-27):** the visual frames' own (on dataset 1's flight about 0.57 cm/px against the
+  thermal 1.6 cm/px, the wide camera seeing about 2.3× wider: roughly 6000×6500 px), with an option to make it
+  coarser.
+- **Registration (decided 2026-10-27):** the thermal mosaic's placement: each visual frame takes its thermal frame's
+  refined shift and rotation and the estimated heights, so the two line up by construction; the one constant offset
+  between the two cameras is measured, applied and reported. A visual mosaic is built only with the thermal one.
 - **Overlay in F3:** side by side only, a swipe, an opacity blend, or all three.
 
 ## Integration
@@ -893,3 +896,25 @@ Requested 2026-10-28 (`new.md`):
   - **Released as 0.7.0** with D1: release checks passed on Linux (check_dist, twine, smoke on 3.12 and 3.14,
     ruff, 224 pytest with the flight tests, 247 Vitest, ESLint) and on Windows from WSL (222 pytest from a fresh
     clone, smoke).
+- **F1: visual mosaics in dji-thermal-cli** (2026-10-27, there: branch `mosaic/visual`, released as dji-thermal-cli
+  1.6.0, merged into its `main`, not pushed or tagged). `--mosaic-visual` / `MosaicOptions(visual=True)`
+  (`visual.py`; `read_pose(visual=True)`, `_place(r=...)` in `mosaic.py`; RGBA in `tiffout.write_tiff`):
+  `mosaic_visual.tif` (red, green, blue, alpha; 8-bit, UTM), its sidecar with the visual frames (each with
+  `thermal_file`) and `frame_models` (read by `read_frame_models`), and `mosaic_visual_preview.png` (at most 2048
+  px). As the app calls it with `as_converted_dir`, the visual mosaic is written once, in the harmonized folder.
+  - **Pairing:** by `UTCAtExposure` within 0.25 s (by content, as the CLI identifies files), else the capture
+    number in the same folder. On dataset 1's flight the pairs are 10 to 100 ms apart and the captures at least
+    0.57 s, so it agrees with the capture index for all 327.
+  - **Placement:** the thermal frame's attitude with the alignment's boresight, its shift, rotation and surface;
+    the visual frame's own position and lens (35 mm equivalent: 2795 px on the M4T's wide camera).
+  - **The cameras' offset:** each pair's offset is measured by phase correlation of gradient magnitudes on the
+    largest square inside the thermal footprint, and solved robustly as one pitch and yaw. On dataset 1's flight
+    it was 10 cm before and 2.6 cm after correction (median, 94 pairs), at pitch +0.25° and yaw −0.29°. On the
+    CLI's own M4T flight (12 pairs, on Windows) it was +0.28° and −0.31°.
+  - **Size:** dataset 1's visual mosaic is 5764×6256 px at 0.6 cm/px and 86 MB, about a minute after the thermal
+    mosaic. `--mosaic-visual-gsd` makes it coarser, decoding the JPEGs at 1/2, 1/4 or 1/8 of their size.
+  - **Tests:** `tests/test_visual.py`. A synthetic flight whose visual camera is turned 0.4°/−0.3° is recovered
+    to 0.05°. Also tested: pairing, posing, the GeoTIFF and frame models, threads, and a flight test of the API
+    and CLI. Full suite 905 passed with the CLI's flight and the native SDK; on Windows 218 passed from a fresh
+    clone with 12 nadir pairs. The flight tests first assumed the offset is always corrected, which a small
+    flight doesn't give; they now follow the report (fixed on `fix/visual-flight-tests`).
