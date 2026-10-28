@@ -12,7 +12,6 @@ import CircleStyle from "ol/style/Circle";
 import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
-import {render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {type FlightZone, formatCapture, type Maybe, zoneText} from "../core/format";
@@ -24,11 +23,11 @@ import {type Coords, type Geometry, isothermParam, isothermText, type Measured, 
         type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
 import {type Colouring, isothermRange, readValues} from "../map/colour";
-import {addLegend, fitBounds, frameImage, frameImageLayer, frameMap, frameView, hoverTips, lonLatToMap, pointFeature,
+import {fitBounds, frameImage, frameImageLayer, frameMap, frameView, hoverTips, lonLatToMap, pointFeature,
         pointsMap, snapshot, ThermalLayer, vectorLayer} from "../map/map";
 import {fromVisual, toVisual, type VisualPair} from "../sources/sources";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
-import {Controls, ImageControls, type Palette, ScaleView, Section} from "../viewer/panel";
+import {Controls, ImageControls, type Palette, Section} from "../viewer/panel";
 import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
         sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
 import {type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, frameLabel,
@@ -160,7 +159,6 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const following = useRef(false);
     const follow = useRef<() => void>(() => undefined);
     const drawings = useRef<Drawing[]>([]);
-    const legend = useRef<HTMLDivElement | null>(null);
     const locator = useRef<{map: OlMap; spots: VectorSource; fitted: boolean} | null>(null);
     // The panes fit the frame when the next image is drawn (a new frame, or one of another size)
     const fit = useRef(true);
@@ -343,10 +341,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                 showIndex(coords && points ? nearestIndex(points, coords, true) : null, points);
             },
         });
-        if (i === 0) {
-            legend.current = addLegend(m);
-            pairLayer.current = frameImageLayer(m);
-        }
+        if (i === 0) pairLayer.current = frameImageLayer(m);
         maps.current[i] = m;
     }
 
@@ -482,13 +477,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         });
     }, [current, changed, onPair, beside, pair?.frame]);
 
-    // The colour scale on the first pane
+    // The colour scale, in the panel and the PNG (not on the map: the panel shows it)
     const scale = onPair ? null : scaleShown();
-    useEffect(() => {
-        if (!legend.current) return;
-        render(scale ? <ScaleView scale={scale}/> : null, legend.current);
-        legend.current.hidden = !scale;
-    }, [JSON.stringify(scale), !!values[0]]);
 
     // The view in the URL, so that a reload or a copied link keeps it: the frame, its palette, range and adjustments
     useEffect(() => {
@@ -776,7 +766,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                                            onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
                                            onReset={() => auto(true)}/>
                         </Section>
-                        <Section name="cursor" title="Under the cursor" store={FOLDED_KEY}>
+                        <Section name="cursor" title="Pointer info" store={FOLDED_KEY}>
                             <div class="readout" id="readout"><FrameReadout point={point} unit={unit}/></div>
                         </Section>
                         <Section name="measure" title="Measure" store={FOLDED_KEY}>

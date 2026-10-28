@@ -5,17 +5,17 @@ import {convertDelta, convertTemp, formatDelta, formatTemp, userUnit} from "../c
 import {type Measured, type ParamField, symbol, typedTemp} from "../measure/measure";
 import {hiddenText, readHidden} from "../findings/findings";
 
-export const TAB_LABELS: Record<string, string> = {as_converted: "As converted", harmonized: "Harmonized",
+export const TAB_LABELS: Record<string, string> = {as_converted: "Mosaic", harmonized: "Harmonized",
                                                    source_frame: "Source frame", view_angle: "View angle", visual: "Visual"};
 export const TAB_HINTS: Record<string, string> = {
     as_converted: "Each pixel is one frame's own temperature, as the frames were converted.",
     harmonized: "Normalized: one ambient and reflected temperature for every frame, and each frame's offset against " +
         "its neighbours removed (camera drift between recalibrations).",
-    source_frame: "Which frame each pixel comes from (the one that saw it closest to straight down), each frame in " +
-        "its own colour: the seams are where the colours change.",
+    source_frame: "Which frame each pixel comes from (the one that saw it closest to straight down): the lines over " +
+        "the mosaic are the seams between the frames.",
     view_angle: "How far from straight down each pixel was seen, in degrees.",
     visual: "The visual camera's images, each placed where its thermal frame is: what the temperatures are of. " +
-        "Under the cursor are the temperatures as converted.",
+        "Pointer info gives the Mosaic tab's temperatures.",
 };
 export const TEMPERATURE_TABS = ["as_converted", "harmonized"];
 // The adjustments' limits and the legend's samples, as the server has them (thermal_measure)

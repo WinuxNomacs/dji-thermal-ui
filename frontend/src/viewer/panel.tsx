@@ -7,7 +7,7 @@ import {formatNumber, type Maybe} from "../core/format";
 import {convertTemp, unitSymbol, userUnit} from "../core/units";
 import {Histogram} from "../measure/charts";
 import {type Measured, symbol, temp} from "../measure/measure";
-import {colorCss, gradientCss, type Scale} from "./canvas";
+import {gradientCss, type Scale} from "./canvas";
 import {type Adjust, EMISSIVITY_RANGE, gammaSlider, type MosaicTab, reflectedRange, scaleTicks,
         SLIDERS, TAB_HINTS} from "./view";
 
@@ -57,7 +57,7 @@ export interface Palette {key: string; label: string; color_map?: number[]}
 
 interface ControlsProps {
     tab: MosaicTab; palette: string; palettes: Palette[]; scale: Maybe<Scale>; unit: unknown;
-    range: [string, string]; rangeError?: string; frames?: number; frameColors?: number[];
+    range: [string, string]; rangeError?: string; frames?: number;
     onPalette: (key: string) => void; onRange: (min: string, max: string) => void; onAuto: () => void;
 }
 
@@ -66,10 +66,9 @@ export function Controls(p: ControlsProps) {
     const t = p.tab.tab, temperature = t !== "view_angle", s = p.tab.stats;
     const hint = <p class="hint">{TAB_HINTS[t] || ""}</p>;
     if (t === "source_frame") {
-        const c = p.frameColors || [];
-        return (<>{hint}<p class="message">{p.frames || 0} frames, coloured {[0, 1, 2].map((i) =>
-            <span key={i} class="swatch" style={{background: colorCss(c[i] || 0)}}/>)}… in order: the cursor names the frame (click
-            to keep it and open the frame).</p></>);
+        return (<>{hint}<ScaleView scale={p.scale}/><p class="message">{p.frames || 0} frames. The mosaic is in the Mosaic
+            tab's palette and range. The cursor names the frame under it; a click keeps it, outlines it and opens the frames
+            that saw it, and a second click on it or Esc lets go of it.</p></>);
     }
     const conv = (x: Maybe<number>) => temperature ? convertTemp(x, p.unit) as number : x;
     const typed = (min: string, max: string) => p.onRange(min, max);

@@ -394,7 +394,7 @@ describe("visual mosaics on the compare page", () => {
         expect(byId("swipe-b").getAttribute("aria-valuenow")).toBe("55");
         expect(location.search).toBe("?b=12&a_tab=visual&b_tab=as_converted&overlay=b&opacity=25&swipe=55");
         // The colour scale is B's, the one temperature mosaic drawn
-        expect(byId("pane-b").querySelector(".map-legend")!.textContent).toContain("B · As converted");
+        expect(byId("pane-b").querySelector(".map-legend")!.textContent).toContain("B · Mosaic");
 
         // Back to B's mosaic alone: A's tiles go, B's values stay whole
         choose($("#pane-b select[name=show]")!, "mosaic");
@@ -414,7 +414,7 @@ describe("visual mosaics on the compare page", () => {
         const maps = panesMaps();
         await open(fetchFn as unknown as ReturnType<typeof server>, 12);
         expect(values(maps[0]).map((l) => [l.getZIndex(), l.getOpacity()])).toEqual([[0, 1], [1, 1]]);
-        expect(byId("pane-a").querySelector(".map-legend")!.textContent).toContain("A · As converted");
+        expect(byId("pane-a").querySelector(".map-legend")!.textContent).toContain("A · Mosaic");
         maps[0].dispatchEvent(Object.assign(new MapBrowserEvent("pointermove", maps[0], new MouseEvent("pointermove") as PointerEvent),
                                             {coordinate: fromLonLat([10.005, 50.005])}));
         await new Promise((resolve) => setTimeout(resolve, 150));
@@ -506,7 +506,7 @@ describe("the findings on the compare page", () => {
         clickMap(maps[1], [10.005, 50.005]);
         await ticks(40);
         const groups = document.querySelectorAll("[data-window=compare-b] .sources-groups button");
-        expect([...groups].map((b) => b.textContent)).toEqual(["A · Nadir · As converted", "B · Other · As converted"]);
+        expect([...groups].map((b) => b.textContent)).toEqual(["A · Nadir · Mosaic", "B · Other · Mosaic"]);
         click(groups[1]);
         await ticks();
         expect($("[data-window=compare-b] .sources-what")!.textContent).toBe("Spot · 1 frame");

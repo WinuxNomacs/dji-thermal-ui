@@ -8,6 +8,12 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The viewer: the Source frame tab draws the mosaic with a line along each seam between its frames, instead of each
+  frame in its own colour (in the PNG export too). The As converted tab is called Mosaic, there and on the compare
+  page, in the reports and in the measurements. "Under the cursor" is "Pointer info", above "Source frames" (and on
+  the frame page). The viewer's and the frame page's maps no longer show the colour scale: the panel does.
+- A frame kept by a click on the viewer's map is let go with Esc or a second click on it.
+
 - The app serves on port 8080 by default (it was 8765). It stops cleanly, as with Ctrl+C, when sent SIGTERM.
 
 ### Added

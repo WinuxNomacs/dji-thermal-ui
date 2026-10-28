@@ -184,7 +184,8 @@ export class ThermalLayer {
     private colouring: Colouring;
     private source: Values;
 
-    constructor(private map: OlMap, values: Values, colouring: Colouring) {
+    // marked: the map's element names the values drawn (data-values), as the page's main layer does
+    constructor(private map: OlMap, values: Values, colouring: Colouring, private marked = true) {
         this.source = values;
         this.colouring = colouring;
         const extent = values.kind === "tiles" ? mercatorBounds(values.bounds) : [0, -values.height, values.width, 0];
@@ -225,7 +226,7 @@ export class ThermalLayer {
     }
 
     private mark() {
-        const el = this.map.getTargetElement();
+        const el = this.marked && this.map.getTargetElement();
         if (el) el.dataset.values = this.source.kind === "tiles" ? this.source.url : this.source.key;
     }
 

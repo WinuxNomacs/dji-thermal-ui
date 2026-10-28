@@ -775,6 +775,45 @@ Requested 2026-10-28 (`new.md`):
   version CI uses, into `~/.local/bin` (without editing the shell's startup files). Node.js and npm are not installed:
   it says where to get them and stops.
 
+## Viewer
+
+Requested 2026-10-28 (`new.md`):
+- Deselect when the user presses Esc or clicks the same selected image tile again.
+- Remove the temperature range/scale at the bottom of the image: the one in the right panel makes it moot.
+- Source frame view: instead of random colours for the tiles, show the orthomosaic under them, with distinct lines
+  between them so the tile boundaries are clear. The colour view isn't helpful.
+- Rename the "As converted" tab "Mosaic".
+- Move "Under the cursor" above "Source frames", renamed "Pointer info".
+
+### What it builds on
+
+- **Selecting:** a click with no tool on pins the readout (`readout(at, true)`), outlines the frame there from
+  `mosaics/footprint`, and on the Source frame and Visual tabs opens the source frames window; "Follow the cursor"
+  (`follow()`) lets go of it.
+- **The map's scale:** `addLegend` in `map/map.ts`, filled with `ScaleView` on the viewer and the frame page; the
+  panel's `Controls` has the same scale. The PNG export draws its own.
+- **Source frame tab:** the frame index coloured with `frame_colors` (`colourStyle`'s `index`). The data tiles have
+  a gutter, so a shader can read the neighbouring pixels (as the sharpening does): seams can be drawn where the
+  index changes, exact at every zoom, over the as converted mosaic.
+- **Labels:** `TAB_LABELS` (viewer, compare menu, reports) and `TARGET_LABELS` (measurements); the frame page's
+  "As converted" is the frame's, not the mosaic's.
+
+- **Built** (2026-10-28): see Done.
+
+### H1: decisions (2026-10-28)
+
+- **Letting go:** Esc, or a click on the frame already selected, unpins the readout and removes the outline (as
+  "Follow the cursor" does). The source frames window stays open. Esc goes to a tool being drawn with, or to the
+  window when it has the focus, first.
+- **Map scale:** off the viewer's and the frame page's maps, whose panels show it. The compare page keeps its maps'
+  scales; the PNG exports and the reports keep theirs.
+- **Source frame tab:** the as converted mosaic in the temperature tabs' palette and range, with a line drawn
+  where the source frame changes; the cursor and a click still name and outline the frame.
+- **Labels:** "As converted" is "Mosaic" wherever it names the mosaic: the viewer's tab, the compare page's menu,
+  the reports and the measurements' target. The frame page's "As converted" (the frame's) stays.
+- **Panel:** "Under the cursor" becomes "Pointer info", above "Source frames", on the viewer (and on the frame page,
+  for the same name).
+
 ## Integration
 
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
@@ -1044,3 +1083,12 @@ Requested 2026-10-28 (`new.md`):
   file and log). Tests: `tests/test_script.py` (the script in a clone of its own, with stub uv, npm and curl) and
   `tests/test_cli.py`. Checked live from a fresh clone: `start` built it and served on 8080 with no `--port`, then
   restart, logs, rebuild, stop and status.
+- **H1: the viewer tidied** (2026-10-28). `viewer/viewer-page.tsx`: Esc or a click on the frame kept lets go of it
+  (`readout`'s `kept`); the Source frame tab draws the as converted values with a second `ThermalLayer` of the source
+  frame index coloured `seams` (`map/colour.ts`: light and dark where the index changes, in WebGL and on a canvas),
+  in the PNG export too; no legend on the viewer's or the frame page's map; Pointer info above Source frames. "Mosaic"
+  in `TAB_LABELS` and `TARGET_LABELS`. Tests: `frontend/tests/colour.test.ts` (the seams), `viewer.test.tsx` (letting
+  go, the seams layer, the panel's order and scale) and the labels throughout. Checked live on dataset 1 in light and
+  dark: the tabs, Esc and a second click letting go (the window left open), the seams at two zooms and in the PNG,
+  the frame page without its map scale, and the compare page's scales. No console errors or failed requests.
+  - **Not changed:** the mosaic report still draws its Source frame figure in the frames' colours.

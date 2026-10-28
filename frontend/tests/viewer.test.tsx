@@ -1,4 +1,6 @@
 import OlMap from "ol/Map";
+import MapBrowserEvent from "ol/MapBrowserEvent";
+import {fromLonLat} from "ol/proj";
 import TileLayer from "ol/layer/Tile";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import type XYZ from "ol/source/XYZ";
@@ -8,7 +10,7 @@ import {setUserUnit} from "../src/core/units";
 import type {Finding} from "../src/findings/findings";
 import {SLIDERS} from "../src/viewer/view";
 import {type Mosaics, ViewerPage} from "../src/viewer/viewer-page";
-import {calls, click, server, ticks, valuesResponse} from "./helpers";
+import {calls, click, jsonResponse, key, server, ticks, valuesResponse} from "./helpers";
 
 const API = "/api/";
 const BASE = API + "conversions/9";
@@ -67,6 +69,31 @@ async function open(fetchFn: ReturnType<typeof server>) {
     await ticks(40);
 }
 
+// The viewer's map (jsdom draws none, so a click on it is made up), and a server whose points are on frame a west of
+// the middle and on b east of it, the sources asked answered with none
+function viewerMap(): () => OlMap {
+    const viewport = vi.spyOn(OlMap.prototype, "getViewport");
+    return () => viewport.mock.contexts[0] as OlMap;
+}
+function clickMap(m: OlMap, lonLat: number[]) {
+    const e = new MapBrowserEvent("click", m, new MouseEvent("click") as PointerEvent);
+    e.coordinate = fromLonLat(lonLat);
+    m.dispatchEvent(e);
+}
+function pointing(routed: ReturnType<typeof server>) {
+    return vi.fn((url: string, opts?: RequestInit) => {
+        if (url.includes("/point?")) {
+            const lon = parseFloat(new URLSearchParams(url.split("?")[1]).get("lon")!);
+            return Promise.resolve(jsonResponse({valid: true, frame: lon < 10.0005 ? "a_T.JPG" : "b_T.JPG"}));
+        }
+        if (url.includes("/sources")) return Promise.resolve(jsonResponse({kind: "Point", frames: []}));
+        return routed(url, opts);
+    }) as unknown as ReturnType<typeof server>;
+}
+const WEST = [10.0002, 50.0005], EAST = [10.0008, 50.0005];
+const OUTLINES = {[BASE + "/mosaics/footprint?frame=a_T.JPG"]: {type: "FeatureCollection", features: []},
+                  [BASE + "/mosaics/footprint?frame=b_T.JPG"]: {type: "FeatureCollection", features: []}};
+
 const sent = (fetchFn: ReturnType<typeof server>, method: string) =>
     JSON.parse(String(fetchFn.mock.calls.find((c) => c[1]?.method === method)![1]!.body));
 const form = () => $(".finding-form form") as HTMLFormElement;
@@ -84,6 +111,7 @@ beforeEach(() => {
 afterEach(() => {
     render(null, byId("root"));
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.useRealTimers();
     history.replaceState(null, "", "/");
     localStorage.clear();
@@ -97,14 +125,18 @@ describe("the viewer page", () => {
         expect(byId("name").textContent).toBe("Nadir");
         expect($(".subtitle")!.textContent).toBe("temp_c tiff · location stripped from the downloads");
         expect($(".breadcrumb a")!.getAttribute("href")).toBe("/dataset/5#convert");
-        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("As converted");
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Mosaic");
         expect((byId("range-min") as HTMLInputElement).value).toBe("20");
         expect((byId("range-max") as HTMLInputElement).value).toBe("30.1");
         expect(calls(fetchFn)).toEqual(expect.arrayContaining(["GET " + BASE + "/mosaics", "POST " + BASE + "/measure",
                                                                "GET " + BASE + "/measurements"]));
         expect(measured(fetchFn)[0]).toEqual({target: "as_converted", geometry: null, isotherm: "", parameters: {}});
         expect($("[data-section=whole]")!.textContent).toContain("25.00 °C");
-        expect($(".map-legend")!.textContent).toContain("Temperature, °C");
+        expect($(".viewer-panel .scale")!.textContent).toContain("Temperature, °C");
+        expect($(".map-legend")!.textContent).toBe("");
+        expect([...document.querySelectorAll(".viewer-panel [data-section]")].map((x) => x.getAttribute("data-section")).slice(0, 3))
+            .toEqual(["image", "cursor", "sources"]);
+        expect($("[data-section=cursor]")!.textContent).toContain("Pointer info");
         expect(location.search).toBe("?tab=as_converted&palette=ironred&min=20&max=30.1");
     });
 
@@ -123,7 +155,7 @@ describe("the viewer page", () => {
         expect(tiles.getSource()!.getUrls()).toEqual([BASE + "/mosaics/visual/tiles/{z}/{x}/{y}.png"]);
         expect([tiles.getVisible(), values.getVisible()]).toEqual([true, false]);
         expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Visual");
-        expect(byId("visual-hint").textContent).toContain("Under the cursor are the temperatures as converted.");
+        expect(byId("visual-hint").textContent).toContain("Pointer info gives the Mosaic tab's temperatures.");
         expect($("#palette")).toBeNull();
         expect($("[data-section=measure]")).toBeNull();
         expect($(".map-legend")!.textContent).toBe("");
@@ -145,7 +177,54 @@ describe("the viewer page", () => {
         history.replaceState(null, "", "/conversion/9?tab=visual");
         await open(server(routes()));
         expect($("[data-tab=visual]")).toBeNull();
-        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("As converted");
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Mosaic");
+    });
+
+    it("lets go of the frame kept with a second click on it, or with Esc", async () => {
+        const map = viewerMap(), fetchFn = pointing(server(routes(OUTLINES)));
+        await open(fetchFn);
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(byId("readout").textContent).toContain("a_T.JPG");
+        expect(location.search).toContain("frame=a_T.JPG");
+        clickMap(map(), EAST);
+        await ticks(40);
+        expect(location.search).toContain("frame=b_T.JPG");
+        clickMap(map(), EAST);
+        await ticks(40);
+        expect(byId("readout").textContent).toContain("Move the cursor over the mosaic.");
+        expect(location.search).not.toContain("frame=");
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(location.search).toContain("frame=a_T.JPG");
+        key(document.body, "Escape");
+        await ticks();
+        expect(byId("readout").textContent).toContain("Move the cursor over the mosaic.");
+        expect(location.search).not.toContain("frame=");
+    });
+
+    it("draws the Source frame tab as the mosaic with the seams over it, and a second click opens no frames", async () => {
+        const map = viewerMap(), fetchFn = pointing(server(routes(OUTLINES)));
+        await open(fetchFn);
+        const webgl = () => map().getLayers().getArray().filter((l) => l instanceof WebGLTileLayer).length;
+        expect(webgl()).toBe(1);
+        click($("[data-tab=source_frame]")!);
+        await ticks();
+        expect(byId("map").dataset.values).toBe(BASE + "/mosaics/as_converted/data/{z}/{x}/{y}");
+        expect(webgl()).toBe(2);
+        expect($(".viewer-panel .scale")!.textContent).toContain("Temperature, °C");
+        const asked = () => calls(fetchFn).filter((c) => c.includes("/sources")).length;
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(asked()).toBe(1);
+        expect(location.search).toContain("frame=a_T.JPG");
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(asked()).toBe(1);
+        expect(location.search).not.toContain("frame=");
+        click($("[data-tab=as_converted]")!);
+        await ticks();
+        expect(webgl()).toBe(1);
     });
 
     it("keeps its map when a notice appears above it", async () => {
@@ -204,7 +283,7 @@ describe("the viewer page", () => {
         click($("[data-tab=source_frame]")!);
         await ticks();
         expect(document.getElementById("palette")).toBeNull();
-        expect($(".viewer-panel")!.textContent).toContain("2 frames, coloured");
+        expect($(".viewer-panel")!.textContent).toContain("2 frames. The mosaic is in the Mosaic tab's palette and range.");
         expect($("[data-section=measure]")).toBeNull();
         expect(location.search).toBe("?tab=source_frame");
     });
