@@ -115,7 +115,7 @@ ul { padding-left: 20px; }
 }
 .notice.error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
 .error:empty { display: none; }
-#new-error { color: var(--danger); margin-top: 8px; }
+#new-error, #import-error, #export-project .error { color: var(--danger); margin-top: 8px; }
 
 .spin { animation: spin 1.2s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -369,6 +369,7 @@ details > summary h5 { display: inline; }
 .export-flights li { padding: 3px 0; }
 .export-flights label { display: flex; align-items: baseline; gap: 6px; cursor: pointer; }
 .export-flights label.text-muted { cursor: default; }
+.import-flights { margin: 0 0 12px; padding-left: 20px; max-height: 30vh; overflow-y: auto; }
 /* How to get a Mapbox token */
 .mapbox-help ol { margin: 0 0 12px; padding-left: 20px; }
 .mapbox-help li { margin-bottom: 6px; }

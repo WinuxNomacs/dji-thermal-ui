@@ -35,6 +35,11 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- A project's import, from the projects page: an archive exported from a project's page becomes a new project with
+  its flights, datasets, mosaics, measurements and findings. The archive is sent in pieces and unpacked as it comes,
+  so no copy of it is kept. As soon as it starts, the dialog shows the project and its flights, and proposes its
+  name, or a free one ("Roof (2)") when a project already has it; a name in use is not accepted. A folder flight
+  comes back as an uploaded one, and an analysis or conversion that was running as canceled.
 - A project's export, from its page: a `.tar` of the project with all its flights or those chosen, each listed with
   the size it adds. It holds everything: the images (a folder flight's copied in), the datasets and their mosaics,
   the measurements and the findings. It is streamed to the browser's download as it is written. A flight still being

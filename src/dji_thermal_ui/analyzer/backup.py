@@ -3,6 +3,7 @@ A project's backup: a plain tar of `manifest.json` (the project's rows, with the
 files under `datasets/<id>/`: the images in `images/` (a folder flight's copied from its folder) and each
 conversion's outputs in `conversions/<id>/`. The tar is streamed as it is written, its length known beforehand.
 """
+import datetime
 import json
 import os
 import tarfile
@@ -72,6 +73,15 @@ def manifest(project, datasets):
     }
 
 
+class Encoder(DjangoJSONEncoder):
+    """Django's, with dates to the microsecond (it cuts them to the millisecond), so they come back as they were"""
+
+    def default(self, o):
+        if isinstance(o, datetime.datetime):
+            return o.isoformat()
+        return super().default(o)
+
+
 def header(name, size, mtime):
     info = tarfile.TarInfo(name)
     info.size = size
@@ -88,7 +98,7 @@ class Archive:
     """The tar of a project with the flights chosen: len() is its size in bytes, iterating it writes it"""
 
     def __init__(self, project, datasets):
-        data = json.dumps(manifest(project, datasets), cls=DjangoJSONEncoder, indent=1).encode('utf-8')
+        data = json.dumps(manifest(project, datasets), cls=Encoder, indent=1).encode('utf-8')
         now = time.time()
         self.parts = [(header(MANIFEST, len(data), now), data, None, len(data))]
         for d in datasets:

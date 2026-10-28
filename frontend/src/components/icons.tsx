@@ -59,6 +59,8 @@ export const Unlock = (p: Props) => (
     <Icon {...p}><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.9-1"/></Icon>);
 export const Download = (p: Props) => (
     <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></Icon>);
+export const Upload = (p: Props) => (
+    <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></Icon>);
 export const Wand = (p: Props) => (
     <Icon {...p}><path d="M15 4V2M15 10V8M11 6h2M17 6h2M3 21l12-12"/></Icon>);
 export const Lightbulb = (p: Props) => (

@@ -8,8 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**
-1. **K2: import a project**: as a new project, its name never reusing one in use. (Backup and restore)
+**Up next**: nothing planned; new requests go here.
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -937,7 +936,8 @@ name already in use is never reused.
   A project of the same name gets a new name (see the decisions). Running statuses come in as canceled.
 - **Proposed phases:**
   1. **K1: export**: the archive format, the streamed export, and the dialog.
-  2. **K2: import**: reading and checking an archive, the new project, collisions, and a round-trip test.
+  2. **K2: import**: reading and checking an archive, the new project, collisions, and a round-trip test. Built:
+     see Done.
 
 ### Decisions (2026-10-28)
 
@@ -1269,6 +1269,20 @@ name already in use is never reused.
   `frontend/tests/dataset.test.tsx`. Checked live on flight 1 in °F, light and dark: 654 files, 327 thermal frames,
   177 with problems; Kind without Visual, Height ≤ 21.15 m and Min > 50 °F showing the 34 the data has, kept over a
   reload; Clear back to 654; no overflow at 700 px; no errors.
+- **K2: import a project** (2026-10-28). `analyzer/restore.py`: the archive sent in pieces of 16 MB (waitress takes
+  1 GB a request at most) to `api/imports` (`POST` {size}, refused without the room; `PUT ?offset=` each piece, one
+  sent again read from where the last stopped, 409 for a gap; `POST` {name} finishes; `DELETE` stops). Each piece is
+  unpacked as it comes by a tar reader of its own (tarfile's header parser, PAX and GNU long names) into
+  `imports/<id>/`; the manifest, first, is checked (format, version, rows) and summed up with a free name
+  (`free_name`). A file outside the manifest's flights, a path leaving its folder, a link or a damaged tar is refused
+  and the folder removed. Finishing makes the rows with new ids in one transaction (`full_clean` on each), remaps the
+  links and a mosaic report's `left_out` and `view.hidden`, makes folder flights uploaded and running jobs canceled,
+  and renames the folders into place. `clear_imports` at the server's start. The export now keeps dates to the
+  microsecond. The Import dialog (`projects/import-dialog.tsx`, `sendArchive`). Tests: `tests/test_api_import.py`,
+  `frontend/tests/projects.test.tsx`. Checked live on project 1 (on 8081), light and dark: the 2.2 GB archive's
+  project known in 0.15 s with "Default Project (2)" proposed, a name in use refused, received in 13 s, imported in
+  0.1 s; its images and both datasets' outputs identical to flight 1's, its rows the same; the copy's viewer showed
+  its mosaic; no overflow at 700 px; no errors; both copies deleted.
 - **K1: export a project** (2026-10-28). `analyzer/backup.py`: the tar written by hand (PAX headers, its length
   known beforehand) as `manifest.json` then each flight's files; a folder flight's JPEGs as dji-thermal-cli's scan
   finds them. `api/projects/<id>/export` lists each flight's bytes (or busy), `export.tar?flights=<ids>` streams it
