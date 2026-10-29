@@ -15,6 +15,10 @@ All notable changes are recorded here. The format follows
   folder's), and is no longer kept in the preferences: a token saved there by an earlier version is moved to the
   data folder's `.env` when the app starts. A token in the environment is shown, and is changed there.
 
+- dji-thermal-cli 1.8.0 (was 1.6.1). A conversion with "strip location" now also removes the free-text fields where
+  a name or an email address could be: EXIF Artist, Copyright, ImageDescription, UserComment and the XP fields, their
+  XMP counterparts, and the sensor serial in DJI's debug block.
+
 ### Fixed
 
 - The Convert tab's settings, once opened with Edit settings, fold away again: the button stays, as Hide settings,
