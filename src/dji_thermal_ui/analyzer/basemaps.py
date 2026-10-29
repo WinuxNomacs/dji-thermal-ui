@@ -13,6 +13,8 @@ from django.templatetags.static import static
 from .models import Preferences
 
 TOKEN_KEY = 'mapbox_token'
+BASEMAP_KEY = 'basemap'     # the basemap the maps start with (a basemap's key, or NONE): the settings' default without one
+NONE = 'none'
 TOKEN_ENV = 'MAPBOX_API_TOKEN'
 # A public token: pk. and its two parts (Mapbox's are about 90 characters)
 TOKEN_RE = re.compile(r'^pk\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$')
@@ -21,6 +23,7 @@ TOKEN_MAX = 500
 # Mapbox's satellite style through the Static Tiles API (512-pixel tiles): the Raster Tiles API answered an account
 # without a card with 429 only
 MAPBOX = {
+    "key": "mapbox",
     "type": "mapbox",
     "label": "Mapbox Satellite",
     "url": "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}",
@@ -88,9 +91,37 @@ def mapbox_state():
     return {'token': token, 'token_source': source, 'env_token': source == 'env' or env_token() is not None}
 
 
+def basemap_choices():
+    """The basemaps the maps can start with, [{key, label}]: the settings', Mapbox's once it has a token, and none"""
+    listed = list(settings.BASEMAPS) + ([MAPBOX] if mapbox_token()[0] else [])
+    return [{'key': bm['key'], 'label': bm['label']} for bm in listed] + [{'key': NONE, 'label': "None"}]
+
+
+def basemap_keys():
+    """What the basemap preference can be: every basemap's key, Mapbox's even without a token, and none"""
+    return [bm['key'] for bm in settings.BASEMAPS] + [MAPBOX['key'], NONE]
+
+
+def preferred_basemap():
+    """The basemap the maps start with (the preferences'), "" for the settings' default"""
+    key = Preferences.load().data.get(BASEMAP_KEY)
+    return key if key in basemap_keys() else ""
+
+
+def starting_basemap():
+    """The key of the basemap the maps start with: the preferred one, else the settings' default"""
+    return preferred_basemap() or next((bm['key'] for bm in settings.BASEMAPS if bm.get('default')), NONE)
+
+
 def page_basemaps(api):
     """The basemaps a map page offers: the settings' and Mapbox's (shown in the switch once it has a token), with
-    where its token is saved (api: the API's URL)"""
+    where its token is saved (api: the API's URL). The preferred one is the default (Mapbox only while it has a
+    token); the settings' default is the fallback a refused Mapbox goes back to."""
     mapbox = dict(MAPBOX, logo=static("vendor/mapbox/mapbox-logo.svg"), preferences=api + "preferences",
                   **mapbox_state())
-    return list(settings.BASEMAPS) + [mapbox]
+    listed = [dict(bm, fallback=bool(bm.get('default'))) for bm in settings.BASEMAPS] + [mapbox]
+    preferred = preferred_basemap()
+    if preferred and not (preferred == MAPBOX['key'] and not mapbox['token']):
+        for bm in listed:
+            bm['default'] = bm['key'] == preferred
+    return listed

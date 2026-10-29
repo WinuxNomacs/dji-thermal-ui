@@ -16,7 +16,9 @@ import {askMapboxToken, type MapboxToken} from "./mapbox-token";
 
 export interface Basemap {
     label: string; url: string; type?: string; attribution?: string; maxzoom?: number; minzoom?: number;
-    subdomains?: string | string[]; layers?: string; styles?: string; format?: string; default?: boolean;
+    subdomains?: string | string[]; layers?: string; styles?: string; format?: string;
+    key?: string; default?: boolean;                        // the one shown first (the preferred one)
+    fallback?: boolean;                                     // the one a refused Mapbox goes back to (the settings' default)
     tilemap?: string;                                       // Esri's: which tiles exist
     // Mapbox's: its wordmark, where the token is saved, and the token (MapboxToken)
     logo?: string; preferences?: string; token?: string | null; token_source?: MapboxToken["token_source"];
@@ -150,9 +152,12 @@ function basemapLayer(bm: Basemap, refused: (status: number) => void): TileLayer
 const TOKEN_OPTION = "mapbox-token";
 
 // The basemaps under everything else (the default one shown, else none), and their switch (top right): Mapbox is
-// listed once it has a token, after "Mapbox Satellite: add a token…" has saved one
+// listed once it has a token, after "Mapbox Satellite: add a token…" has saved one. When Mapbox goes (refused, or its
+// token removed), the map goes back to the basemap shown before it, or to the fallback when it was the first shown.
 export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
     const mapboxAt = basemaps.findIndex((bm) => bm.type === "mapbox");
+    const fallbackAt = basemaps.findIndex((bm, i) => bm.fallback && i !== mapboxAt);
+    const before = () => previous === mapboxAt ? fallbackAt : previous;
     const mapboxBm = basemaps[mapboxAt];
     if (mapboxBm) mapbox = {token: mapboxBm.token || null, token_source: mapboxBm.token_source || null,
                             env_token: !!mapboxBm.env_token};
@@ -160,7 +165,7 @@ export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
     const refused = (status: number) => {
         if (refusedToken === mapbox.token) return;
         refusedToken = mapbox.token;
-        if (shown === mapboxAt) show(previous === mapboxAt ? -1 : previous);
+        if (shown === mapboxAt) show(before());
         message.textContent = MAPBOX_REFUSED[status];
         message.hidden = false;
     };
@@ -252,7 +257,7 @@ export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
             return;
         }
         (layers[mapboxAt].getSource() as XYZ).setUrl(mapboxUrl(mapboxBm!, mapbox.token));
-        if (!mapbox.token && shown === mapboxAt) show(previous === mapboxAt ? -1 : previous);
+        if (!mapbox.token && shown === mapboxAt) show(before());
         else options();
     };
     if (mapboxBm) mapboxListeners.add(changed);

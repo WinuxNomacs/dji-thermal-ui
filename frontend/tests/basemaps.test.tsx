@@ -72,6 +72,14 @@ describe("the basemap switch", () => {
         expect([visible(), logo().hidden, attribution()]).toEqual([[false, false, false], true, false]);
     });
 
+    it("starts on the preferred basemap, or on none when none is", () => {
+        open([{...ESRI, default: false, fallback: true}, {...OSM, default: true}, mapbox()]);
+        expect([shown(), visible()]).toEqual(["OpenStreetMap", [false, true, false]]);
+        document.body.innerHTML = '<div class="page"></div>';
+        open([{...ESRI, default: false, fallback: true}, OSM, mapbox()]);
+        expect([shown(), visible()]).toEqual(["None", [false, false, false]]);
+    });
+
     it("offers no Mapbox where the page lists none", () => {
         open([ESRI, OSM]);
         expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "None"]);
@@ -173,6 +181,16 @@ describe("Mapbox's tiles", () => {
         // Another basemap chosen: the message goes
         choose("OpenStreetMap");
         expect(message().hidden).toBe(true);
+    });
+
+    it("refused on a map that started on them, go to the fallback basemap rather than none", async () => {
+        vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("", {status: 401}))));
+        open([{...ESRI, default: false, fallback: true}, OSM, {...mapbox(TOKEN), default: true}]);
+        expect([shown(), logo().hidden]).toEqual(["Mapbox Satellite", false]);
+        const {tile} = fakeTile();
+        (basemapLayers()[2].getSource() as XYZ).getTileLoadFunction()(tile as never, "https://api.mapbox.com/t");
+        await ticks();
+        expect([shown(), visible()]).toEqual(["ESRI Satellite", [true, false, false]]);
     });
 
     it("are shown from what was fetched, and a missing one is no refusal", async () => {

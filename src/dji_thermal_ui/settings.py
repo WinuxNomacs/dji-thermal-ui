@@ -87,9 +87,11 @@ LOGGING = {
 NOMINATIM_URL = "https://nominatim.openstreetmap.org"
 
 # The basemaps under the mosaics (Mapbox's satellite imagery is added to them when there is a token: analyzer/basemaps.py).
+# key: what the basemap preference names it by; default: the one a map starts with unless another is preferred;
 # tilemap: Esri's service saying which tiles exist, so that a level with none there is not drawn
 BASEMAPS = [
     {
+        "key": "esri",
         "default": True,
         "type": "tms",
         "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -101,6 +103,7 @@ BASEMAPS = [
         "minzoom": 0,
     },
     {
+        "key": "osm",
         "default": False,
         "type": "tms",
         "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",

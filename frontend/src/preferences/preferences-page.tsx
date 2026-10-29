@@ -1,6 +1,6 @@
 // User Preferences: the unit temperatures are shown in and the theme (as in the header), the palette the map pages
-// start with (each flight's images' own, or one chosen, shown on a made-up scene), and the locale dates and times are shown in (the computer's,
-// or one chosen). Each is saved for the app as it is chosen.
+// start with (each flight's images' own, or one chosen, shown on a made-up scene), the basemap they start with, and the
+// locale dates and times are shown in (the computer's, or one chosen). Each is saved for the app as it is chosen.
 import {useEffect, useState} from "preact/hooks";
 import {readJson} from "../core/api";
 import {formatCapture, setUserLocale, zoneLabel} from "../core/format";
@@ -20,7 +20,9 @@ interface Props {
 const UNITS: [Unit, string][] = [["F", "°F (Fahrenheit)"], ["C", "°C (Celsius)"], ["K", "K (kelvin)"]];
 const THEMES: [Theme, string][] = [["light", "Light"], ["dark", "Dark"], ["system", "As the computer"]];
 interface Palette {key: string; label: string; color_map?: number[]}
-interface Choices {locales?: string[]; palette?: string; view_palettes?: Palette[]; images_palette?: string}
+interface Choice {key: string; label: string}
+interface Choices {locales?: string[]; palette?: string; view_palettes?: Palette[]; images_palette?: string;
+                   basemap?: string; basemaps?: Choice[]}
 
 const EXAMPLE = "2026:10:22 16:34:57";      // a frame's capture time, shown in each locale
 
@@ -42,6 +44,8 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
     const [palettes, setPalettes] = useState<Palette[]>([]);
     const [palette, setPalette] = useState("");
     const [imagesPalette, setImagesPalette] = useState("ironbow");
+    const [basemaps, setBasemaps] = useState<Choice[]>([]);
+    const [basemap, setBasemap] = useState("");
     const [theme, setTheme] = useState(initialTheme);
     const [locale, setLocale] = useState(initialLocale);
     const [status, setStatus] = useState<{text: string; error?: boolean}>({text: ""});
@@ -57,6 +61,10 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
                     setPalettes(data.view_palettes);
                     setPalette(data.palette || "");
                     if (data.images_palette) setImagesPalette(data.images_palette);
+                }
+                if (ok && Array.isArray(data.basemaps)) {
+                    setBasemaps(data.basemaps);
+                    setBasemap(data.basemap || "");
                 }
             } catch { /* only the computer's locale and the images' palettes are offered */ }
         })();
@@ -93,6 +101,12 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
         const before = palette;
         setPalette(next);
         await save({palette: next}, () => setPalette(before));
+    }
+
+    async function changeBasemap(next: string) {
+        const before = basemap;
+        setBasemap(next);
+        await save({basemap: next}, () => setBasemap(before));
     }
 
     // The palette chosen, or the one the newest flight's images give for "As each flight's images"
@@ -134,6 +148,22 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
             {shown && <PalettePreview colors={shown.color_map} label={shown.label}
                                       caption={palette ? undefined : shown.label + " (as the newest flight's images)"}/>}
         </fieldset>
+
+        {basemaps.length > 0 && <fieldset class="preference" id="basemap-preference">
+            <legend>Map</legend>
+            <div class="field">
+                <label for="pref-basemap">The maps start with</label>
+                <select id="pref-basemap" value={basemap} disabled={saving} onChange={(e) => changeBasemap(e.currentTarget.value)}>
+                    {/* A preferred Mapbox whose token has gone is still shown as chosen (the maps start on Esri) */}
+                    {basemap && !basemaps.some((b) => b.key === basemap) && <option value={basemap}>{basemap === "mapbox"
+                        ? "Mapbox Satellite (no token: ESRI Satellite)" : basemap}</option>}
+                    {basemaps.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
+                </select>
+                <p class="help">Under the mosaics, the frames and the projects' areas; each map can still switch to
+                    another.{!basemaps.some((b) => b.key === "mapbox") &&
+                    " Mapbox Satellite is offered once a token is added from a map's switch (\u201cMapbox Satellite: add a token…\u201d)."}</p>
+            </div>
+        </fieldset>}
 
         <fieldset class="preference" id="theme-preference">
             <legend>Theme</legend>
