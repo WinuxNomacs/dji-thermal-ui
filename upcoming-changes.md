@@ -12,8 +12,9 @@ its title.
 (none)
 
 **Later**
-1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
-   the plan's options, and follow it. This replaces the plugin's "Process in LuxODM". (Integration)
+1. **ODM processing** (on hold, 2026-10-29): send a conversion's temperature TIFFs to WebODM as a task with the
+   plan's options, and follow it, replacing the plugin's "Process in LuxODM". How it connects is evaluated first:
+   WebODM's REST API, or a wrapper that runs the analyzer as a WebODM plugin, in its process. See "ODM". (Integration)
 
 ## Standalone (option A)
 
@@ -1086,10 +1087,6 @@ Requested 2026-10-29: a small thermal image under User Preferences that shows th
 - **Decision (2026-10-29):** **a made-up scene** the app draws itself (a warm roof with a few hot spots on a cool
   background), the same every time and shown with no flights. Only DJI's palettes need a flight that carries them.
 
-- **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
-  plan's options, and follow its progress. The plugin's `thermal_task.py` and the task panel in `conversions.js`
-  (at LuxODM a2a81052) show what it did.
-
 ## Preferred basemap
 
 Requested 2026-10-29: a user preference for the default map provider.
@@ -1381,6 +1378,34 @@ Requested 2026-10-29 (`new.md`):
   too (its mark with it); the page itself is unchanged.
 - **Kept:** the pane's filter text is kept from page to page (`localStorage`), as the folds are, until emptied.
 - **When:** after M, now done.
+
+## ODM
+
+Requested 2026-10-29: held, since a wrapper that runs the analyzer as a WebODM plugin may make more sense than the
+REST API. Both are evaluated before anything is built.
+
+**What it does, either way:** create a WebODM task from a conversion's temperature TIFFs with the WebODM plan's
+options (`analysis['webodm']`, made by dji-thermal-cli), and follow its progress. The plugin's `thermal_task.py` and
+the task panel in `conversions.js` (at LuxODM a2a81052) show what it did.
+
+**The two options:**
+- **The REST API:** the app stays standalone and talks to a WebODM node over HTTP. It needs WebODM's address and
+  credentials (System Settings, below), and must cope with the node being down, slow or another version.
+- **A plugin wrapper:** a thin WebODM plugin that runs the analyzer in WebODM's process, creating tasks through
+  WebODM's own models, with no HTTP and no credentials. To evaluate: Django and Python versions against WebODM's,
+  its database (PostgreSQL there, SQLite here), its Celery workers against `analyzer/jobs.py`, serving the pages and
+  static files inside WebODM's, and keeping the standalone app and the plugin from drifting apart (the plugin is
+  what A moved away from).
+
+**System Settings › WebODM** (wanted whatever is chosen for processing, decided 2026-10-29):
+- The node's address. Plain `http://` is accepted: people run local and development nodes.
+- Its credentials are written to `.env`, as the Mapbox token is (`write_token` and the `.env` reading in
+  `analyzer/basemaps.py` to be made general, not copied), and are never kept in the database or the preferences.
+- The page shows them masked, never in full, and a value in the environment is shown and changed there, as with
+  Mapbox. They are checked with the node (a login) before they are saved.
+
+**Open decisions:** which option (after the evaluation); the credentials kept (user name and password, or a token
+WebODM issues); the `.env` names.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 

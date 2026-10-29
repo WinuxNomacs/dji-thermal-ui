@@ -14,8 +14,9 @@ machine. Keep it short; edit in place.
   viewed, compared and measured in the browser.
 - **Names:** what the user sees says Project › Flight › Dataset; the code, URLs, API and database say project ›
   `dataset` › `conversion`. A visible string says flight for a `dataset` and dataset for a `conversion`.
-- Processing with ODM is not done here. When it comes back, it goes through LuxODM's or WebODM's REST API, never by
-  importing their code.
+- Processing with ODM is not done here. How it comes back is being evaluated ("ODM" in `upcoming-changes.md`):
+  WebODM's REST API, or a wrapper that runs the analyzer as a WebODM plugin. WebODM credentials go in `.env`, never
+  in the database, and the pages show them masked.
 
 ## Rules for this repository
 
