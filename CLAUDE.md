@@ -65,3 +65,20 @@ machine. Keep it short; edit in place.
 - Release checks, after `npm run build`: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
   `uvx twine@7.0.0 check --strict dist/*`, then `uv run --no-project python scripts/smoke.py uvx --from <wheel>
   dji-thermal-ui` (the installed command serving its pages). The changelog is `CHANGELOG.md` (Keep a Changelog).
+
+## On another machine (macOS too)
+
+- **Needs:** git, uv and Node 24 or newer with npm. Then run `uv sync && npm ci && npm run build`.
+  - uv installs Python 3.12 from `.python-version`.
+  - On macOS, `./dji-thermal-ui.sh` works as it does on Linux.
+  - The default data folder is `~/Library/Application Support/dji-thermal-ui`.
+- **What runs on any machine:** the tests above, with nothing else set up.
+- **Only on the machine that holds the files:** the flight tests and the live checks on real data.
+  - `ignored/` (test flights) and `.env` (a Mapbox token) are not in git; copy them over by hand when they are needed.
+  - The data folder, with its database and datasets, is not in git either.
+- **CI runs on Linux and Windows only.** On a Mac, run the full set by hand:
+  `uv run pytest`, `uv run ruff check`, `npm test`, `npm run -s lint`, `npm run build`, and the release checks.
+- **Live checks:** Playwright with Chromium, from `npx playwright install chromium`. macOS needs no host override.
+- **dji-thermal-cli:** its own `CONTRIBUTING.md` explains its test setup.
+  - The DJI SDK's sample images run on macOS.
+  - The native-SDK comparisons skip there, because the SDK's libraries are Linux x64.
