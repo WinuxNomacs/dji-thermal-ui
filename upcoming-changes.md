@@ -10,8 +10,8 @@ its title.
 
 **Up next**
 1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
-   remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, waiting to be published);
-   M2 the server (pins 1.8.0 once it is on PyPI), M3 the dialog. (Exports)
+   remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, on PyPI and
+   pinned here); M2 the server, M3 the dialog. (Exports)
 
 **Then**
 1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
@@ -1714,8 +1714,8 @@ Requested 2026-10-29 (`new.md`):
   repository with a temporary data folder, light and dark: a wrong token refused by Mapbox (401) with the file left
   as it was; the user's token accepted and written (mode 600), written again in place; a project map then listing
   Mapbox Satellite and showing its tiles (200) and wordmark; no overflow at 380px; the temporary folder deleted.
-- **M1: R-JPEG copies in dji-thermal-cli 1.8.0** (2026-10-29, merged there with `release/1.8.0`, not yet pushed or
-  tagged). `rjpeg.py`: `copy(data, params, private, picture)`, every edit in place (parameters for iirp, girp and
+- **M1: R-JPEG copies in dji-thermal-cli 1.8.0** (2026-10-29, merged there with `release/1.8.0`, published to PyPI the
+  same day and pinned here; its `rjpeg` output is kept off the Convert tab until M2). `rjpeg.py`: `copy(data, params, private, picture)`, every edit in place (parameters for iirp, girp and
   hirp; dirp refused with the reason), the private removals and the serials (debug, padding and calibration
   blocks), a new picture and MPF preview with the MPF index rewritten; `privacy.py` also removes the free-text
   fields and the EXIF debug serial (for `--strip-location` too); the `rjpeg` product of `process` with

@@ -64,10 +64,12 @@ SETTINGS_FIELDS = ('distance', 'humidity', 'emissivity', 'reflected_temp', 'ambi
 
 
 def products():
-    """The outputs dji-thermal-cli can write: [{product, description, formats}]"""
+    """The outputs dji-thermal-cli can write: [{product, description, formats}]
+
+    Its R-JPEG copies (rjpeg) are left out until M2 offers them, with their picture."""
     from dji_thermal_cli import outputs
     return [{'product': name, 'description': p.description, 'formats': list(p.formats)}
-            for name, p in outputs.PRODUCTS.items()]
+            for name, p in outputs.PRODUCTS.items() if name != 'rjpeg']
 
 
 def palettes():

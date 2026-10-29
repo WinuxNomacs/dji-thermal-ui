@@ -144,6 +144,7 @@ def test_preferences_are_saved_once_for_the_app_and_reset_to_the_defaults(api):
     assert (res.data['settings'], res.data['saved']) == (dict(conversion.DEFAULTS, unit='F'), False)
     assert 'ironred' in res.data['palettes']
     assert {'product': 'temp_c', 'description': mock.ANY, 'formats': ['tiff', 'exr']} in res.data['products']
+    assert 'rjpeg' not in [p['product'] for p in res.data['products']]   # offered from M2
 
     assert api.put(PREFERENCES, {'settings': {'emissivity': 7}}, format='json').status_code == 400
     res = api.put(PREFERENCES, {'settings': {'emissivity': 0.9, 'normalize': True}}, format='json')
