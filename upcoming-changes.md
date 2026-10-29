@@ -1849,3 +1849,7 @@ Requested 2026-10-29 (`new.md`):
   tests in `tests/test_basemaps.py` checked the `.env` file's Unix mode (0o600, 0o640 kept), which Windows has not:
   they failed there since the Mapbox token moved to System Settings. They check the mode only where files have one
   (`POSIX`). 348 passed on Windows, 10 skipped.
+- **Release 0.9.0** (2026-10-29): M (the exports, dji-thermal-cli 1.8.0) and S (search), with the fix above (the
+  changelog's two Added and two Changed sections made one). Release checks passed on Linux (check_dist, twine, smoke
+  on 3.12 and 3.14, ruff, 358 pytest with the flight tests, 360 Vitest, ESLint) and on Windows from WSL (348 pytest
+  from a fresh clone, 10 skipped; smoke of the wheel).
