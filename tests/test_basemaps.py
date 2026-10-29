@@ -95,6 +95,39 @@ def test_the_map_pages_get_the_basemaps_with_mapbox_and_its_token(api, env_file)
     assert page_basemaps(c.id)[-1]['token'] == TOKEN
 
 
+def test_the_preferred_basemap_is_saved_offered_and_another_value_refused(api, env_file):
+    got = api.get(PREFERENCES).data
+    assert got['basemap'] == "esri"
+    assert got['basemaps'] == [{'key': "esri", 'label': "ESRI Satellite"}, {'key': "osm", 'label': "OpenStreetMap"},
+                               {'key': "none", 'label': "None"}]
+    assert api.put(PREFERENCES, {'basemap': "osm"}, format='json').data == {'basemap': "osm"}
+    assert api.get(PREFERENCES).data['basemap'] == "osm"
+    for bad in ("google", "", None, 3):
+        res = api.put(PREFERENCES, {'basemap': bad}, format='json')
+        assert res.status_code == 400 and 'basemap' in res.data
+    assert api.get(PREFERENCES).data['basemap'] == "osm"
+    # Mapbox is offered once it has a token, and can be preferred without one
+    assert api.put(PREFERENCES, {'basemap': "mapbox"}, format='json').status_code == 200
+    api.put(PREFERENCES, {'mapbox_token': TOKEN}, format='json')
+    assert [b['key'] for b in api.get(PREFERENCES).data['basemaps']] == ["esri", "osm", "mapbox", "none"]
+
+
+@pytest.mark.parametrize("preferred, default", [
+    ("osm", "OpenStreetMap"), ("none", None), ("mapbox", "Mapbox Satellite"), ("esri", "ESRI Satellite")])
+def test_the_map_pages_start_with_the_preferred_basemap_and_fall_back_to_esri(api, env_file, preferred, default):
+    c = ThermalConversion.objects.create(dataset=dataset(), name="C", options={})
+    api.put(PREFERENCES, {'mapbox_token': TOKEN, 'basemap': preferred}, format='json')
+    listed = page_basemaps(c.id)
+    assert [b['label'] for b in listed if b.get('default')] == ([default] if default else [])
+    assert [b['label'] for b in listed if b.get('fallback')] == ["ESRI Satellite"]
+
+
+def test_a_preferred_mapbox_without_a_token_leaves_esri_the_default(api, env_file):
+    c = ThermalConversion.objects.create(dataset=dataset(), name="C", options={})
+    api.put(PREFERENCES, {'basemap': "mapbox"}, format='json')
+    assert [b['label'] for b in page_basemaps(c.id) if b.get('default')] == ["ESRI Satellite"]
+
+
 def test_the_mapbox_wordmark_is_served_with_its_licence(db):
     client = Client()
     for name, text in (("mapbox-logo.svg", b"<svg"), ("LICENSE.txt", b"Copyright (c) 2020, Mapbox")):

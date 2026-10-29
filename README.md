@@ -87,7 +87,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, the palette the map pages start with (each flight's images' own, or one chosen: the viewer, the frame
   explorer, the compare page and the mosaic report open with it, and can still switch; a small made-up roof beside
-  it shows the palette chosen), and the locale dates and
+  it shows the palette chosen), the map every map starts with (ESRI Satellite, OpenStreetMap, Mapbox Satellite once
+  it has a token, or none; each map can still switch, and a Mapbox that refuses its token goes back to ESRI
+  Satellite), and the locale dates and
   times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
@@ -148,7 +150,8 @@ second; the addresses are © OpenStreetMap contributors, under the ODbL). Everyt
 
 ## The maps under the mosaics
 
-The switch at the top right of a mosaic's map chooses what is under it:
+The switch at the top right of a mosaic's map chooses what is under it. Every map starts with the one chosen under
+User Preferences › Map (ESRI Satellite unless another is chosen), and switching changes that map only:
 
 - **ESRI Satellite** (the default) and **OpenStreetMap** need nothing set up. Where Esri's imagery stops short of the
   zoom shown, its deepest level there is stretched instead of showing "Map data not yet available".

@@ -9,9 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **N1: the preferred basemap**: the basemap every map starts with, chosen under User Preferences. (Preferred
-   basemap)
-2. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
+1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
 
 **Then**
@@ -1082,6 +1080,7 @@ Requested 2026-10-29: a user preference for the default map provider.
 
 ### N1: the preferred basemap
 
+- **Built** (2026-10-29): see Done.
 - **Decisions (2026-10-29):**
   - **Where it is chosen:** only on the preferences page, like the palette. Switching the basemap on a map
     changes that map only.
@@ -1591,3 +1590,11 @@ Requested 2026-10-29 (`new.md`):
   colour map and `images_palette` (`palette_previews()` and `images_palette()` in `api.py`). Tests:
   `tests/test_api_mosaics.py`, `frontend/tests/navigation.test.tsx`. Checked live on 8081 in light, dark and at
   380px: ironred, magma and whitehot drawn, no errors; the preferences put back as found.
+- **N1: the preferred basemap** (2026-10-29). `basemap` in `Preferences` (`BASEMAP_KEY`, `basemap_choices()`,
+  `preferred_basemap()` and `starting_basemap()` in `analyzer/basemaps.py`; each basemap's `key` in `BASEMAPS`),
+  offered and saved through `api/preferences`; `page_basemaps()` marks it as the `default` and the settings' default
+  as the `fallback` a refused Mapbox goes back to (`addBasemaps()` in `map/basemaps.ts`). The "Map" select is on the
+  preferences page. Tests: `tests/test_basemaps.py`, `frontend/tests/basemaps.test.tsx`,
+  `frontend/tests/navigation.test.tsx`. Checked live on 8081, light and dark: the viewer, both compare maps and a
+  project map opened on OpenStreetMap, Mapbox (wordmark shown, tiles from Mapbox) and none; the preference was
+  removed afterwards.

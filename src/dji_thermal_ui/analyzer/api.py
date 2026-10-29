@@ -1003,6 +1003,8 @@ class PreferencesView(DatasetView):
             'palette': app_palette(),
             'view_palettes': previews,
             'images_palette': images,
+            'basemap': basemaps.starting_basemap(),
+            'basemaps': basemaps.basemap_choices(),
             'products': thermal_conversion.products(),
             'palettes': thermal_conversion.palettes(),
             'limits': thermal_conversion.LIMITS,
@@ -1011,11 +1013,12 @@ class PreferencesView(DatasetView):
     def put(self, request):
         """Saves settings as the defaults for new conversions, and/or the unit temperatures are shown in, and/or the
         pages' theme, and/or the locale of dates and times ("": the computer's), and/or the palette the map pages start
-        with ("": each flight's images' own), and/or the Mapbox token (null forgets it)"""
+        with ("": each flight's images' own), and/or the basemap they start with, and/or the Mapbox token (null
+        forgets it)"""
         out = {}
         palettes = ("",) + tuple(p['key'] for p in palette_choices())
         for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES), (LOCALE_KEY, ("",) + LOCALES),
-                             (PALETTE_KEY, palettes)):
+                             (PALETTE_KEY, palettes), (basemaps.BASEMAP_KEY, basemaps.basemap_keys())):
             if key in request.data:
                 value = request.data.get(key)
                 if value not in choices:

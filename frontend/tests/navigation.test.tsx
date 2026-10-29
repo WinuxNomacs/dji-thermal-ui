@@ -465,6 +465,35 @@ describe("the preferences page", () => {
         expect($("#preferences-status")!.className).toBe("text-danger");
     });
 
+    it("offers the basemaps the maps can start with, the saved one chosen, and saves another", async () => {
+        const basemaps = [{key: "esri", label: "ESRI Satellite"}, {key: "osm", label: "OpenStreetMap"},
+                          {key: "none", label: "None"}];
+        const {fetchFn} = await page(server({"/api/preferences": {locales: LOCALES, basemap: "esri", basemaps},
+                                             "PUT /api/preferences": {}}));
+        const options = () => [...root().querySelectorAll("#pref-basemap option")].map((o) => o.textContent);
+        expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "None"]);
+        expect(($("#pref-basemap") as HTMLSelectElement).value).toBe("esri");
+        expect($("#basemap-preference")!.textContent).toContain("Mapbox Satellite is offered once a token is added");
+        select("pref-basemap", "osm");
+        await ticks();
+        expect(sent(fetchFn)).toEqual([{basemap: "osm"}]);
+        expect(($("#pref-basemap") as HTMLSelectElement).value).toBe("osm");
+    });
+
+    it("lists Mapbox once it has a token, and says when a preferred Mapbox has lost its token", async () => {
+        const withMapbox = [{key: "esri", label: "ESRI Satellite"}, {key: "mapbox", label: "Mapbox Satellite"},
+                            {key: "none", label: "None"}];
+        await page(server({"/api/preferences": {locales: LOCALES, basemap: "mapbox", basemaps: withMapbox}}));
+        expect($("#basemap-preference")!.textContent).not.toContain("is offered once a token");
+        expect(($("#pref-basemap") as HTMLSelectElement).value).toBe("mapbox");
+
+        render(null, root());
+        await page(server({"/api/preferences": {locales: LOCALES, basemap: "mapbox",
+                                                basemaps: [withMapbox[0], withMapbox[2]]}}));
+        expect(($("#pref-basemap") as HTMLSelectElement).selectedOptions[0].textContent)
+            .toBe("Mapbox Satellite (no token: ESRI Satellite)");
+    });
+
     it("offers only the computer's locale and the images' palettes when the list cannot be had", async () => {
         await page(server({"/api/preferences": () => Promise.reject(new Error("offline"))}));
         expect(root().querySelectorAll("#pref-locale option").length).toBe(1);
