@@ -11,7 +11,7 @@ its title.
 **Up next**
 1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, on PyPI and
-   pinned here); M2 the server is done; M3 the dialog is next (to plan). (Exports)
+   pinned here); M2 the server is done; M3 the dialog is planned and being built. (Exports)
 
 **Then**
 1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
@@ -1312,6 +1312,42 @@ dji-thermal-cli 1.8.0 is pinned (its `rjpeg` output kept off the Convert tab unt
    view's PNG button still saves the view with its scale and caption.
 
 - **Done:** see Done below.
+
+### M3: the export dialog (planned 2026-10-29)
+
+M2's endpoints, behind one dialog shared by three pages. It asks only for what M2 needs (nothing changes on the
+server), and downloads what the server makes.
+
+- **One dialog** (`components/export-dialog.tsx`, the request built by pure, tested code in `core/exports.ts`). An
+  "Export…" button beside the page's "Export PNG", which stays as the export of the view as shown.
+  - **Formats:** radio buttons, each with what it is for (PNG: an image to look at; TIFF: the temperatures, for GIS
+    and analysis; R-JPEG: DJI's radiometric JPEG with the dataset's parameters; Original: the source files as they
+    are), each with its Private form ("without the location, serial numbers or names"). Original names the files'
+    own format: "Original (R-JPG)", or "Original (TIFF)".
+  - **What a format can't carry** is said before export: R-JPEG and Original are disabled with the reason, pointing
+    to TIFF, for a normalized dataset or replaced values (the server's check stays the last word).
+  - **Saving:** POST, then the browser downloads the `url` (an `<a download>`), and the dialog closes; an error
+    stays in the dialog.
+- **The frame explorer:** this frame, measured as the page measures it, with the view as shown (palette, range,
+  adjustments, isotherm) for PNG and the R-JPEG's picture.
+- **The Files tab:** an "Export…" in its bar.
+  - **Frames:** "The N frames shown" (the thermal rows the filter shows) or "All N frames".
+  - **Measured with:** a dataset of the flight (the latest ready one by default) or "The frames' own values" (the
+    default when there is none).
+  - **PNG and the R-JPEG's picture:** a palette (the preferred one by default) and the range: "Shared, automatic"
+    (the server's 2nd to 98th percentile over the frames) or a low and high typed in.
+  - **Original:** "With their visual images" when the flight has any.
+- **The viewer:** the tab shown: TIFF, TIFF (Private) and PNG, with the view and the correction as the tiles are
+  asked; the visual tab exports its own image.
+- **Tests:** Vitest for the request built on each page (formats offered, refusals, frames shown or all, the
+  settings, the view), the dialog's errors and the download; a live check on dataset 1: each page's export saved
+  and opened, then removed.
+
+**Decisions (M3, 2026-10-29):**
+1. **The Files tab's frames are those the filter shows**, or all of them: no checkboxes on the rows.
+2. **It measures with the latest dataset by default**, else the frames' own values; either can be chosen.
+3. **On the frame explorer with parameters changed**, the dialog offers "As converted" or "With the parameters
+   changed" (M2's `changes`); only the first when no parameter is changed.
 
 ## Search
 
