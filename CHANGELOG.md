@@ -10,8 +10,9 @@ All notable changes are recorded here. The format follows
 
 - System Settings › WebODM: WebODM's address and an account's login, saved to `.env` (`WEBODM_URL`,
   `WEBODM_USERNAME`, `WEBODM_PASSWORD`) once WebODM has taken them, with the processing nodes the account sees. The
-  password is never shown, the user name masked; the saved login can be checked again or removed. The permissions
-  the WebODM account needs are listed there and in the README.
+  password is never shown, the user name masked; the saved login can be checked again or removed. Setting the
+  account up in WebODM's admin is walked through there step by step (and in the README), with the permissions as
+  its pages name them and links to those pages.
 
 ### Changed
 

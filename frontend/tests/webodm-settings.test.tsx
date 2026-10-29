@@ -1,6 +1,6 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {type WebODMState, WebODMSettings} from "../src/settings/webodm-settings";
+import {MODEL_PERMISSIONS, type WebODMState, WebODMSettings} from "../src/settings/webodm-settings";
 import {calls, jsonResponse, server, ticks} from "./helpers";
 
 const FILE = "/home/me/.local/share/dji-thermal-ui/.env";
@@ -79,7 +79,7 @@ describe("System Settings › WebODM", () => {
         expect(($("#webodm-save") as HTMLButtonElement).disabled).toBe(false);
         await submit();
         expect(body(fetchFn, "PUT")).toEqual({url: "http://webodm.lan:8000", username: "", password: ""});
-        expect(text("#webodm-nodes")).toContain("the account sees no processing node: give it view_processingnode");
+        expect(text("#webodm-nodes")).toContain("the account sees no processing node: give it Can view Processing Node on a node");
     });
 
     it("says why WebODM refused the login, keeping what was typed", async () => {
@@ -130,13 +130,26 @@ describe("System Settings › WebODM", () => {
         expect(ids()).toEqual(["webodm-check"]);
     });
 
-    it("lists the WebODM permissions the account needs, the per-node one too", async () => {
+    it("guides an admin through setting up the account in WebODM, with the permissions as its admin names them", async () => {
         await page(server({"/api/settings/webodm": UNSET}));
-        const list = text("#webodm-permissions")!;
-        for (const perm of ["app.add_project", "app.add_task", "app.change_task", "app.delete_task", "app.add_preset",
-                            "app.change_preset", "app.delete_preset", "nodeodm.view_processingnode", "on each processing node",
-                            "view_project", "change_project", "delete_project"]) {
-            expect(list).toContain(perm);
+        const guide = text("#webodm-permissions")!;
+        const perms = [...document.querySelectorAll("#webodm-model-permissions li")].map((li) => li.textContent);
+        expect(perms).toEqual(MODEL_PERMISSIONS.map(([label, name]) => label + " (" + name + ")"));
+        expect(perms).toContain("nodeodm | Processing Node | Can view Processing Node (nodeodm.view_processingnode)");
+        for (const step of ["Users › Add user", "Staff status", "Superuser status", "Default group",
+                            "Processing nodes › the node › Object permissions", "User identification", "Manage user",
+                            "Can view Project", "Can change Project", "Can delete Project", "Check and save"]) {
+            expect(guide).toContain(step);
         }
+        // No address yet: the admin's pages are named, not linked
+        expect($("#webodm-permissions a")).toBeNull();
+    });
+
+    it("links the guide to the WebODM admin's pages once the address is known", async () => {
+        await page(server({"/api/settings/webodm": SAVED}));
+        expect([...document.querySelectorAll<HTMLAnchorElement>("#webodm-permissions a")].map((a) => a.href)).toEqual([
+            URL + "/admin/auth/user/add/", URL + "/admin/auth/group/", URL + "/admin/nodeodm/processingnode/",
+            URL + "/admin/app/project/"]);
+        expect($("#webodm-permissions a")!.getAttribute("rel")).toBe("noopener noreferrer");
     });
 });
