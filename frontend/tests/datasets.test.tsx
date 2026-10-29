@@ -3,7 +3,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {uploadName} from "../src/core/upload";
 import {deleteText} from "../src/core/format";
 import {DatasetsPage} from "../src/datasets/datasets-page";
-import {type Dataset, droppedFiles, filesCell, matchesSearch, sortDatasets} from "../src/datasets/list";
+import {type Dataset, droppedFiles, filesCell, sortDatasets} from "../src/datasets/list";
+import {matchesSearch, matchesText} from "../src/core/search";
 import {calls, click, jsonResponse, server, ticks} from "./helpers";
 
 const API = "/api/";
@@ -82,6 +83,15 @@ describe("the datasets list", () => {
         expect(matchesSearch(DATASET, "roof")).toBe(true);
         expect(matchesSearch(DATASET, "of RO")).toBe(true);
         expect(matchesSearch(DATASET, "yard")).toBe(false);
+    });
+
+    it("matches a search across several texts, each word in any of them", () => {
+        expect(matchesText(["Emissivity", "How much heat a surface gives off"], "heat EMISS")).toBe(true);
+        expect(matchesText(["Emissivity", null, undefined], "")).toBe(true);
+        expect(matchesText(["Emissivity", "Distance"], "emissivity distance")).toBe(true);
+        expect(matchesText("Emissivity", "humidity")).toBe(false);
+        // Not across the boundary between two texts
+        expect(matchesText(["roof", "top"], "ftop")).toBe(false);
     });
 
     it("shows a dataset's progress, files and problems, with its actions", async () => {

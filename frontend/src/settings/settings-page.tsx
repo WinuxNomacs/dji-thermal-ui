@@ -3,6 +3,7 @@
 // only: it is changed there.
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
+import {SectionFilter} from "../components/section-filter";
 
 // The token in use and where it comes from ("environment", or the .env file's path), and the file a new one goes to
 export interface MapboxToken {token: string | null; token_source: string | null; file: string | null}
@@ -102,11 +103,13 @@ export function SettingsPage({api, publicUrl}: {api: string; publicUrl: string})
     return (<div class="page settings">
         <div class="page-header"><h1>System Settings</h1></div>
         <p class="hint">For the Thermal Analyzer on this computer.</p>
-        <MapboxSettings api={api}/>
-        <fieldset class="preference" id="storage-settings">
-            <legend>Storage</legend>
-            <p>Where the data folder is, its size on disk per project, and moving it: <a href={publicUrl + "settings/storage"}>
-                Storage</a>.</p>
-        </fieldset>
+        <SectionFilter label="Filter the settings">
+            <MapboxSettings api={api}/>
+            <fieldset class="preference" id="storage-settings">
+                <legend>Storage</legend>
+                <p>Where the data folder is, its size on disk per project, and moving it: <a href={publicUrl + "settings/storage"}>
+                    Storage</a>.</p>
+            </fieldset>
+        </SectionFilter>
     </div>);
 }

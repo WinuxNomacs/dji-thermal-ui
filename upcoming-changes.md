@@ -9,8 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
-   filter at the top of User Preferences and System Settings, both on one shared matcher. (Search)
+(none)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1374,15 +1373,14 @@ Requested 2026-10-29 (`new.md`):
    its section's title; a section with no match is hidden, a section whose title matches shows whole. The same
    box and matcher.
 
-### Open decisions
+### Decisions (2026-10-29)
 
-- **The match:** the request says "contains". Today's searches match every word, in any order ("roof north" finds
-  "North roof"), which also finds every exact "contains" match. Keep words (recommended, the same everywhere), or
-  the whole query as one string?
-- **What the pane's filter looks through:** project names only (as asked), or also their flights' and datasets'
-  names, showing a project when one of its flights matches (unfolded to it)?
-- **Kept or not:** is the pane's filter text kept from page to page (as the folds are), or empty on each page?
-- **When:** after M (as listed), or before it?
+- **The match:** every word of the query, in any order and any case, as today's searches (it also finds every exact
+  "contains" match), the same everywhere.
+- **The pane's filter** looks through the projects' names only. A project hidden by it hides the page shown under it
+  too (its mark with it); the page itself is unchanged.
+- **Kept:** the pane's filter text is kept from page to page (`localStorage`), as the folds are, until emptied.
+- **When:** after M, now done.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
@@ -1839,3 +1837,11 @@ Requested 2026-10-29 (`new.md`):
   with dataset 1, light and dark: a PNG, an Original (Private) and a zip of 9 TIFFs from the Files tab (R-JPEG and
   Original off for the normalized dataset), an R-JPEG from the frame explorer with the emissivity changed (it reads
   back 0.9), a PNG as converted, and the harmonized mosaic's PNG from the viewer.
+- **S: search** (2026-10-29, branch `s1-search`). S1: one matcher, `core/search.ts` (`searchWords`, `matchesText`,
+  `matchesSearch`: every word, any order, any case), used by the Projects and flights searches and the Files tab's
+  text conditions; `components/search-box.tsx` (Escape empties it); the pane's project filter under Projects
+  (`components/nav-pane.tsx`, kept in `localStorage` as `thermal-analyzer.nav.search`). S2:
+  `components/section-filter.tsx` on User Preferences and System Settings, matching each `fieldset.preference` on
+  its whole text (title, labels, help, choices), again when its content loads. Tests: `navigation.test.tsx` (the
+  pane, the preferences page), `settings.test.tsx`, `datasets.test.tsx` (`matchesText`). Checked live on 8081,
+  light and dark.
