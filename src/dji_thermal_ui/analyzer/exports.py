@@ -488,7 +488,7 @@ def mosaic_export(conversion, request, colors=None, curve=None):
     (or the source frames' colours), curve: the equalization over the view's range, for a PNG
     """
     tab, fmt, view = request['tab'], request['format'], request['view']
-    found = thermal_mosaics.tab_raster(conversion.data_dir(), conversion.mosaics or {}, tab)
+    found = thermal_mosaics.tab_raster(conversion, tab)
     visual = tab == thermal_mosaics.VISUAL
     if visual:
         v = (conversion.mosaics or {}).get(thermal_mosaics.VISUAL) or {}

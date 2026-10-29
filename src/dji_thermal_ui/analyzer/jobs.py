@@ -66,7 +66,7 @@ def join():
 
 
 def mark_interrupted():
-    """Marks the analyses, conversions, mosaics and uploads a closed server left running as failed (the tasks half
+    """Marks the analyses, conversions, mosaics, uploads and downloads a closed server left running as failed (the tasks half
     made in WebODM are removed once the workers start: webodm_tasks.remove_half_made)"""
     from .models import ThermalConversion, ThermalDataset, WebODMTask
     n = ThermalDataset.objects.filter(status='analyzing').update(status='failed', error=INTERRUPTED, run_id="",
@@ -77,6 +77,8 @@ def mark_interrupted():
     n += ThermalConversion.objects.filter(status='converting').update(status='failed', error=INTERRUPTED, run_id="",
                                                                       progress=0)
     n += WebODMTask.objects.filter(status='uploading').update(status='failed', error=INTERRUPTED, run_id="")
+    n += WebODMTask.objects.filter(orthophoto_status='downloading').update(orthophoto_status='failed',
+                                                                         orthophoto_error=INTERRUPTED, run_id="")
     return n
 
 

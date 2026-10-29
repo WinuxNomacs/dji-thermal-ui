@@ -187,6 +187,10 @@ class ThermalConversion(models.Model):
     report = models.JSONField(default=dict, blank=True,
                               help_text=_("Its mosaic report's text and view: title, author, date, notes, the view "
                                           "shown, and the measurements left out"), verbose_name=_("Report"))
+    orthophoto = models.JSONField(default=dict, blank=True,
+                                  help_text=_("The WebODM orthophoto brought back and shown beside the mosaics: the "
+                                              "task it came from, its raster, where it is and its temperatures"),
+                                  verbose_name=_("Orthophoto"))
 
     class Meta:
         verbose_name = _("Thermal conversion")
@@ -219,6 +223,7 @@ class ThermalConversion(models.Model):
 MEASUREMENT_TARGETS = (
     ('as_converted', _("Mosaic as converted")),
     ('harmonized', _("Harmonized mosaic")),
+    ('webodm', _("WebODM orthophoto")),
     ('frame', _("Frame")),
 )
 
@@ -319,6 +324,12 @@ WEBODM_TASK_STATUSES = (
     ('gone', _("Not in WebODM")),
 )
 
+ORTHOPHOTO_STATUSES = (
+    ('', _("None")),
+    ('downloading', _("Downloading")),
+    ('failed', _("Failed")),
+)
+
 
 class WebODMTask(models.Model):
     """A task made in WebODM from a conversion's temperature TIFFs: where it is in WebODM and how far it got. Deleting
@@ -346,8 +357,8 @@ class WebODMTask(models.Model):
     total = models.BigIntegerField(default=0, help_text=_("Bytes to send"), verbose_name=_("Total"))
     error = models.TextField(blank=True, default="", help_text=_("Why it failed"), verbose_name=_("Error"))
     run_id = models.CharField(max_length=32, blank=True, default="",
-                              help_text=_("The upload: its job sends images only while this is still its own "
-                                          "(canceling changes it)"), verbose_name=_("Run ID"))
+                              help_text=_("The upload, then the orthophoto's download: its job goes on only while "
+                                          "this is still its own (canceling changes it)"), verbose_name=_("Run ID"))
     half_made = models.BooleanField(default=False,
                                     help_text=_("Made in WebODM but not committed: removed there when the upload "
                                                 "doesn't finish"), verbose_name=_("Half made"))
@@ -357,6 +368,14 @@ class WebODMTask(models.Model):
     created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
     checked_at = models.DateTimeField(null=True, blank=True, help_text=_("When WebODM was last asked about it"),
                                       verbose_name=_("Checked at"))
+    orthophoto_status = models.CharField(max_length=16, choices=ORTHOPHOTO_STATUSES, default="", blank=True,
+                                         help_text=_("Its orthophoto being brought back (once it is, the "
+                                                     "conversion's orthophoto says so)"),
+                                         verbose_name=_("Orthophoto status"))
+    orthophoto_progress = models.FloatField(default=0.0, help_text=_("How far the orthophoto's download is, 0 to 1"),
+                                            verbose_name=_("Orthophoto progress"))
+    orthophoto_error = models.TextField(blank=True, default="", help_text=_("Why the orthophoto wasn't brought back"),
+                                        verbose_name=_("Orthophoto error"))
 
     class Meta:
         verbose_name = _("WebODM task")

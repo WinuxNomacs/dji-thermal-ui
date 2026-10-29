@@ -5,18 +5,23 @@ The checks and the plan's options are the plugin's (thermal_task.py, at LuxODM a
 WebODM's API by a job on the uploads worker: made waiting for its images (partial), the TIFFs sent in batches, then
 committed. An upload that doesn't finish (canceled, failed, the server stopped) removes the half-made task from
 WebODM, and the project too when the upload made it. Once committed, WebODM is asked how the task is going while a
-page shows it (refresh)."""
+page shows it (refresh).
+
+A completed task's orthophoto can be brought back, by a job on the same worker: downloaded into the conversion's
+webodm folder and kept as temperatures (thermal_mosaics.orthophoto), shown beside its mosaics. A conversion keeps one:
+another task's replaces it."""
 
 import logging
 import os
 import re
+import time
 import uuid
 from datetime import timedelta
 
 from django.core.exceptions import SuspiciousFileOperation
 from django.utils import timezone
 
-from . import jobs, webodm
+from . import jobs, thermal_mosaics, webodm
 from .models import WebODMTask
 from .raster.security import path_traversal_check
 
@@ -31,6 +36,9 @@ FOLLOWED = ('queued', 'running')    # the statuses WebODM is asked about
 OPTION_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,99}$')
 MAX_OPTIONS = 200
 MAX_VALUE = 10000
+ORTHOPHOTO = 'orthophoto.tif'       # the asset brought back
+PROGRESS_SECONDS = 0.5              # a download's progress is written at most this often
+DOWNLOAD_SHARE = 0.9                # of its progress; writing it as temperatures is the rest
 
 
 def plan_settings(process_args):
@@ -149,9 +157,16 @@ def parse_options(data):
 def summary(task):
     """A task as the conversion's card lists it"""
     out = {k: getattr(task, k) for k in ('id', 'project_id', 'project_name', 'task_id', 'name', 'node', 'status',
-                                         'progress', 'uploaded', 'total', 'error', 'created_at')}
+                                         'progress', 'uploaded', 'total', 'error', 'created_at',
+                                         'orthophoto_status', 'orthophoto_progress', 'orthophoto_error')}
     out['link'] = link(task)
     return out
+
+
+def orthophoto_summary(conversion):
+    """The orthophoto shown, as the card says it: {task, task_name, downloaded_at}, or None"""
+    o = conversion.orthophoto or {}
+    return {k: o.get(k) for k in ('task', 'task_name', 'downloaded_at')} if o.get('raster') else None
 
 
 def link(task):
@@ -295,12 +310,17 @@ def cancel(task):
 
 
 def check_stale(task):
-    """An upload whose job is gone (the job failed, the server stopped) is not left uploading forever"""
+    """An upload or download whose job is gone (the job failed, the server stopped) is not left going forever"""
     if task.status == 'uploading' and not jobs.alive(task.run_id):
         message = "The upload stopped before it finished"
         if WebODMTask.objects.filter(pk=task.pk, run_id=task.run_id, status='uploading').update(
                 status='failed', error=message, run_id=""):
             task.status, task.error, task.run_id = 'failed', message, ""
+    if task.orthophoto_status == 'downloading' and not jobs.alive(task.run_id):
+        message = "The download stopped before it finished"
+        if WebODMTask.objects.filter(pk=task.pk, run_id=task.run_id, orthophoto_status='downloading').update(
+                orthophoto_status='failed', orthophoto_error=message, run_id=""):
+            task.orthophoto_status, task.orthophoto_error, task.run_id = 'failed', message, ""
     return task
 
 
@@ -326,3 +346,109 @@ def refresh(task):
     task.checked_at = now
     task.save(update_fields=['status', 'progress', 'error', 'checked_at'])
     return ""
+
+
+def orthophoto_folder(conversion):
+    return os.path.join(conversion.data_dir(), thermal_mosaics.WEBODM)
+
+
+def fetch(task):
+    """Brings back a completed task's orthophoto: its download queued on the uploads worker"""
+    run_id = uuid.uuid4().hex
+    WebODMTask.objects.filter(pk=task.pk).update(orthophoto_status='downloading', orthophoto_progress=0,
+                                                 orthophoto_error="", run_id=run_id)
+    jobs.submit(run_orthophoto, task.pk, run_id, jobs.UPLOADS)
+    task.refresh_from_db()
+    return task
+
+
+def run_orthophoto(pk, run_id):
+    """The download job: the orthophoto written beside the conversion's mosaics as temperatures, then shown in place
+    of the one shown before"""
+    try:
+        task = WebODMTask.objects.select_related('conversion').get(pk=pk, run_id=run_id)
+    except WebODMTask.DoesNotExist:
+        return
+    conversion = task.conversion
+    folder = orthophoto_folder(conversion)
+    part = os.path.join(folder, 'download-%d.part' % pk)
+    name = 'orthophoto-%d.tif' % pk
+    made = os.path.join(folder, name + '.part')
+    written = [0.0]
+
+    def progress(done, total):
+        now = time.monotonic()
+        if total and now - written[0] >= PROGRESS_SECONDS:
+            written[0] = now
+            current(pk, run_id, orthophoto_progress=done / total * DOWNLOAD_SHARE)
+        else:
+            current(pk, run_id)
+
+    try:
+        os.makedirs(folder, exist_ok=True)
+        webodm.Client.from_config().download(task.project_id, task.task_id, ORTHOPHOTO, part, progress)
+        current(pk, run_id, orthophoto_progress=DOWNLOAD_SHARE)
+        unit = (conversion.options or {}).get('unit') or 'C'
+        info = thermal_mosaics.orthophoto(part, made, unit)
+        current(pk, run_id)
+        os.replace(made, os.path.join(folder, name))
+    except Stopped:
+        return
+    except Exception as e:
+        if not isinstance(e, (webodm.WebODMError, ValueError)):
+            logger.exception("The orthophoto of WebODM task %s could not be brought back", pk)
+        message = str(e) if isinstance(e, (webodm.WebODMError, ValueError)) else \
+            "The orthophoto could not be brought back: {}".format(e)
+        WebODMTask.objects.filter(pk=pk, run_id=run_id).update(orthophoto_status='failed', orthophoto_error=message,
+                                                               orthophoto_progress=0, run_id="")
+        return
+    finally:
+        for path in (part, made):
+            if os.path.exists(path):
+                os.remove(path)
+    from .models import ThermalConversion
+    shown = dict(info, raster=os.path.join(thermal_mosaics.WEBODM, name), unit=unit, task=pk, task_name=task.name,
+                 downloaded_at=timezone.now().isoformat())
+    before = ThermalConversion.objects.filter(pk=conversion.pk).values_list('orthophoto', flat=True).first()
+    ThermalConversion.objects.filter(pk=conversion.pk).update(orthophoto=shown)
+    WebODMTask.objects.filter(pk=pk).update(orthophoto_status="", orthophoto_progress=0, orthophoto_error="",
+                                            run_id="")
+    if before and before.get('raster') and before['raster'] != shown['raster']:
+        remove_raster(conversion, before['raster'])
+    update_size(conversion.pk)
+
+
+def remove_raster(conversion, raster):
+    try:
+        os.remove(path_traversal_check(os.path.join(conversion.data_dir(), raster), conversion.data_dir()))
+    except (OSError, SuspiciousFileOperation):
+        pass
+
+
+def remove_orthophoto(conversion, task=None):
+    """Stops showing the conversion's orthophoto (only when it came from task, if given), and removes its file"""
+    from .models import ThermalConversion
+    shown = conversion.orthophoto or {}
+    if not shown.get('raster') or (task is not None and shown.get('task') != task.pk):
+        return False
+    ThermalConversion.objects.filter(pk=conversion.pk).update(orthophoto={})
+    conversion.orthophoto = {}
+    remove_raster(conversion, shown['raster'])
+    update_size(conversion.pk)
+    return True
+
+
+def cancel_orthophoto(task):
+    """Stops a download: its job removes what it wrote"""
+    WebODMTask.objects.filter(pk=task.pk, orthophoto_status='downloading').update(orthophoto_status="",
+                                                                                  orthophoto_progress=0, run_id="")
+    task.refresh_from_db()
+    return task
+
+
+def update_size(pk):
+    from .models import ThermalConversion
+    conversion = ThermalConversion.objects.filter(pk=pk).first()
+    if conversion:
+        conversion.update_size()
+        ThermalConversion.objects.filter(pk=pk).update(file_count=conversion.file_count, size=conversion.size)

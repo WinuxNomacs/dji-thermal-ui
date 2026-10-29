@@ -30,6 +30,8 @@ TIMEOUT = 15            # s, for each call
 TOKEN_MARGIN = 300      # s: a token this close to expiring is asked for again
 TOKEN_LIFE = 6 * 3600   # s: WebODM's, when the token does not say
 UPLOAD_TIMEOUT = 600    # s, for a batch of images
+DOWNLOAD_TIMEOUT = 120  # s, waiting for each chunk of a result
+DOWNLOAD_CHUNK = 1024 * 1024
 
 # WebODM's task statuses (nodeodm.status_codes)
 TASK_STATUSES = {10: 'queued', 20: 'running', 30: 'failed', 40: 'completed', 50: 'canceled'}
@@ -143,6 +145,19 @@ def _detail(data):
     return ""
 
 
+def _refused(status, raw, path):
+    """The WebODMError for an answer that isn't a success"""
+    detail = _detail(_json(raw)) if raw else ""
+    if status in (401, 403):
+        return WebODMError("WebODM refused: the account lacks a permission this needs (see System Settings › "
+                           "WebODM)" + (": " + detail if detail else ""))
+    if status == 404:
+        return WebODMError("WebODM has no %s: it was removed, or the account cannot see it" % path, 404)
+    if status == 400:
+        return WebODMError("WebODM did not take it" + (": " + detail if detail else ""))
+    return WebODMError("WebODM answered %d: try again later" % status)
+
+
 class Client:
     def __init__(self, url, username, password):
         self.url, self.username, self.password = url, username, password
@@ -200,15 +215,45 @@ class Client:
             break
         if 200 <= status < 300:
             return _json(raw)
-        detail = _detail(_json(raw)) if raw else ""
-        if status in (401, 403):
-            raise WebODMError("WebODM refused: the account lacks a permission this needs (see System Settings › "
-                              "WebODM)" + (": " + detail if detail else ""))
-        if status == 404:
-            raise WebODMError("WebODM has no %s: it was removed, or the account cannot see it" % path, 404)
-        if status == 400:
-            raise WebODMError("WebODM did not take it" + (": " + detail if detail else ""))
-        raise WebODMError("WebODM answered %d: try again later" % status)
+        raise _refused(status, raw, path)
+
+    def download(self, project, task, asset, path, progress=None):
+        """Writes one of a task's results (asset: its name, as orthophoto.tif) to a file as it comes; progress(bytes
+        read, bytes in all or None) after each chunk, which may stop it by raising"""
+        url = self.url + '/api/projects/%d/tasks/%s/download/%s' % (project, task, asset)
+        token, fresh = self._token()
+        while True:
+            req = urllib.request.Request(url, headers={'Authorization': 'JWT ' + token})
+            try:
+                res = _opener.open(req, timeout=DOWNLOAD_TIMEOUT)
+            except urllib.error.HTTPError as e:
+                if e.code in (401, 403) and not fresh:
+                    token, fresh = self.login(), True
+                    continue
+                raise _refused(e.code, e.read(), url[len(self.url):]) from None
+            except (urllib.error.URLError, OSError) as e:
+                raise WebODMError("WebODM could not be reached at %s (%s): is it running?"
+                                  % (self.url, getattr(e, 'reason', e))) from None
+            break
+        with res:
+            total = int(res.headers.get('Content-Length') or 0) or None
+            done = 0
+            try:
+                with open(path, 'wb') as f:
+                    while True:
+                        chunk = res.read(DOWNLOAD_CHUNK)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        done += len(chunk)
+                        if progress:
+                            progress(done, total)
+            except (urllib.error.URLError, OSError) as e:
+                raise WebODMError("The download from WebODM stopped part way (%s): try again"
+                                  % getattr(e, 'reason', e)) from None
+        if total and done != total:
+            raise WebODMError("The download from WebODM stopped part way: try again")
+        return done
 
     def nodes(self):
         """The processing nodes the account can see: [{id, label, online}]"""
