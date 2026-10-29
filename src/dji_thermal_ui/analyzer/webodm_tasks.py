@@ -155,8 +155,9 @@ def summary(task):
 
 
 def link(task):
-    """The task in WebODM's dashboard, or its project while the task is not made; None before either"""
-    if not task.project_id:
+    """The task in WebODM's dashboard, or its project while the task is being made; None without either (an upload
+    that didn't finish leaves no task)"""
+    if not task.project_id or not (task.task_id or task.status == 'uploading'):
         return None
     if not task.task_id:
         return "%s/dashboard/?project_task_open=%d" % (task.url, task.project_id)

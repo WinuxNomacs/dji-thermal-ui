@@ -237,6 +237,32 @@ walks through it with the names those pages show, linking to them once WebODM's 
 5. Back in System Settings › WebODM, **Check and save**: the processing nodes the account sees are listed, and none
    means step 3 is missing.
 
+### Processing a dataset in WebODM
+
+Once a dataset is converted with temperature TIFFs (`temp_c:tiff`), **Process in WebODM** in its card's menu makes a
+WebODM task from them:
+
+- **The checks:** a dataset still converting, one whose frames had their location removed, or one without at least
+  two temperature TIFFs can't be sent. Settings that differ from the WebODM plan's (normalization, the pitch limit,
+  the emissivity or humidity) are said, and can still be sent.
+- **The project:** a new WebODM project, named after the app's project unless you change it, or one of the
+  account's, searched by name (one of the app's project's name is chosen when there is one). Nothing is remembered.
+- **The options:** the WebODM plan's, the recommended ones ticked and those to consider not, with the plan's reason
+  for each; **Add an option** offers any other the processing nodes offer, with an input for its type. A WebODM
+  preset (the account's or WebODM's own) can be applied: its options are ticked with its values, the others left
+  as they are. The ticked options can be kept as a preset of the account's own (the same name changes it). The
+  preset last applied is offered first next time.
+- **The processing node** (or WebODM's choice) and the task's name, "flight - dataset" unless changed.
+
+**Upload to WebODM** sends the TIFFs in the background, beside conversions, so a long upload holds nothing up: the
+task is made waiting for its images, the TIFFs sent in batches, then the task committed and processed. An upload
+can be canceled; one canceled, refused or cut short by the app stopping removes the half-made task from WebODM (and
+the project, when it made it), at the next start if WebODM couldn't be reached.
+
+The card lists the tasks made from the dataset, each with a link to it in WebODM and its progress: the upload's,
+then WebODM's while it is queued or processing (asked at most every 5 seconds while the page shows it). A task can
+be taken off the list; deleting the dataset does the same. Neither removes it from WebODM.
+
 ## Where the data lives
 
 The database (SQLite), the secret key and each flight's files (`datasets/<id>/`) are kept in one data folder:

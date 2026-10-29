@@ -272,6 +272,7 @@ def test_an_upload_runs_on_its_own_worker_and_canceling_it_removes_the_half_made
     task = WebODMTask.objects.get()
     assert (task.status, task.task_id, task.half_made) == ("canceled", "", False)
     assert wo['tasks'] == {}
+    assert webodm_tasks.summary(task)['link'] is None
 
 
 def test_a_closed_server_leaves_an_upload_failed_and_half_made_for_removal(db):
