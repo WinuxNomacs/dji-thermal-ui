@@ -446,8 +446,27 @@ describe("the preferences page", () => {
         expect(($("#pref-unit") as HTMLSelectElement).value).toBe("F");
     });
 
-    it("offers only the computer's locale when the list cannot be had", async () => {
+    it("offers the palettes the maps can start with, the saved one chosen, and saves another or goes back", async () => {
+        const palettes = [{key: "dji_ironred", label: "DJI ironred"}, {key: "magma", label: "Magma"}];
+        const {fetchFn} = await page(server({"/api/preferences": {locales: LOCALES, palette: "magma", view_palettes: palettes},
+                                             "PUT /api/preferences": [{}, () => jsonResponse({}, false)]}));
+        const options = [...root().querySelectorAll("#pref-palette option")].map((o) => o.textContent);
+        expect(options).toEqual(["As each flight's images", "DJI ironred", "Magma"]);
+        expect(($("#pref-palette") as HTMLSelectElement).value).toBe("magma");
+        select("pref-palette", "dji_ironred");
+        await ticks();
+        expect(sent(fetchFn)).toEqual([{palette: "dji_ironred"}]);
+        expect($("#preferences-status")!.textContent).toBe("Saved.");
+        select("pref-palette", "");
+        await ticks();
+        expect(sent(fetchFn)).toEqual([{palette: "dji_ironred"}, {palette: ""}]);
+        expect(($("#pref-palette") as HTMLSelectElement).value).toBe("dji_ironred");
+        expect($("#preferences-status")!.className).toBe("text-danger");
+    });
+
+    it("offers only the computer's locale and the images' palettes when the list cannot be had", async () => {
         await page(server({"/api/preferences": () => Promise.reject(new Error("offline"))}));
         expect(root().querySelectorAll("#pref-locale option").length).toBe(1);
+        expect(root().querySelectorAll("#pref-palette option").length).toBe(1);
     });
 });

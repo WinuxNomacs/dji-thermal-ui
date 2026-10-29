@@ -45,6 +45,7 @@ DEFAULT_UNIT = 'F'
 THEME_KEY = 'theme'
 THEMES = ('system', 'light', 'dark')     # system: the computer's own light or dark
 LOCALE_KEY = 'locale'
+PALETTE_KEY = 'palette'     # the palette the map pages start with: "" for each flight's images' own
 # The locales dates and times can be shown in besides the computer's own (""), named by the browser
 LOCALES = ('en-US', 'en-GB', 'en-CA', 'en-AU', 'fr-CA', 'fr-FR', 'de-DE', 'es-ES', 'es-MX', 'it-IT', 'nl-NL',
            'pt-BR', 'pl-PL', 'sv-SE', 'ja-JP', 'ko-KR', 'zh-CN')
@@ -299,6 +300,19 @@ def app_locale():
     """The locale dates and times are shown in (the preferences'), "" for the computer's own"""
     locale = Preferences.load().data.get(LOCALE_KEY)
     return locale if locale in LOCALES else ""
+
+
+def palette_choices():
+    """The palettes the map pages can start with: DJI's (where a flight has it) and the app's colour maps, [{key, label}]"""
+    from .raster.tiler import COLORMAP_LABELS
+    return ([{'key': DJI_PREFIX + name, 'label': "DJI " + name} for name in thermal_conversion.palettes()] +
+            [{'key': name, 'label': COLORMAP_LABELS.get(name, name)} for name in VIEWER_COLORMAPS])
+
+
+def app_palette():
+    """The palette the map pages start with (the preferences'), "" for each flight's images' own"""
+    palette = Preferences.load().data.get(PALETTE_KEY)
+    return palette if palette in {p['key'] for p in palette_choices()} else ""
 
 
 def defaults():
@@ -969,6 +983,8 @@ class PreferencesView(DatasetView):
             'themes': list(THEMES),
             'locale': app_locale(),
             'locales': list(LOCALES),
+            'palette': app_palette(),
+            'view_palettes': palette_choices(),
             'products': thermal_conversion.products(),
             'palettes': thermal_conversion.palettes(),
             'limits': thermal_conversion.LIMITS,
@@ -976,10 +992,12 @@ class PreferencesView(DatasetView):
 
     def put(self, request):
         """Saves settings as the defaults for new conversions, and/or the unit temperatures are shown in, and/or the
-        pages' theme, and/or the locale of dates and times ("": the computer's), and/or the Mapbox token (null forgets
-        it)"""
+        pages' theme, and/or the locale of dates and times ("": the computer's), and/or the palette the map pages start
+        with ("": each flight's images' own), and/or the Mapbox token (null forgets it)"""
         out = {}
-        for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES), (LOCALE_KEY, ("",) + LOCALES)):
+        palettes = ("",) + tuple(p['key'] for p in palette_choices())
+        for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES), (LOCALE_KEY, ("",) + LOCALES),
+                             (PALETTE_KEY, palettes)):
             if key in request.data:
                 value = request.data.get(key)
                 if value not in choices:
@@ -1131,8 +1149,12 @@ def range_params(request):
 
 
 def default_palette(conversion, palettes):
-    """The conversion's own palette, else the flight's (as dji-thermal-cli's preview used it), else ironbow"""
+    """The preferences' palette (where the flight has it), else the conversion's own, else the flight's (as
+    dji-thermal-cli's preview used it), else ironbow"""
     keys = {p['key'] for p in palettes}
+    preferred = app_palette()
+    if preferred in keys:
+        return preferred
     m = conversion.mosaics or {}
     for name in ((conversion.options or {}).get('palette'),
                  ((m.get('kinds') or {}).get('as_converted') or {}).get('palette')):
