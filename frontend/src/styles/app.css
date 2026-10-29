@@ -197,6 +197,11 @@ ul { padding-left: 20px; }
 .page.preferences { max-width: 720px; }
 .preference { padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .preference .help { max-width: 560px; }
+.palette-preview { margin: 12px 0 0; width: 240px; max-width: 100%; }
+.palette-preview canvas { display: block; width: 100%; aspect-ratio: 4 / 3; border: 1px solid var(--border); border-radius: 4px; }
+.palette-scale { height: 10px; margin-top: 6px; border: 1px solid var(--border); border-radius: 2px; }
+.palette-scale-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.palette-preview figcaption { margin-top: 4px; }
 
 .page { max-width: 1200px; margin: 0 auto; }
 .page.viewer, .page.frame, .page.compare { max-width: none; }

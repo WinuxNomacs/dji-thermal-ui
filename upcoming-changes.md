@@ -9,8 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **I2: a preview of the preferred palette**: a small thermal image on the preferences page, coloured in the
-   palette chosen there. (Preferred palette)
+- Nothing planned: the next phase comes from `new.md`, or from Later.
 
 **Then**
 - Nothing yet.
@@ -1046,6 +1045,8 @@ everywhere; the palette can still be switched on each page as now.
 
 Requested 2026-10-29: a small thermal image under User Preferences that shows the chosen palette.
 
+- **Built** (2026-10-29): see Done.
+
 - **Builds on:** I1's select (`#pref-palette`), `colourValues()` in `map/colour.ts` (colours float values on a canvas
   without a map, as the mosaic report does), and the palettes' colour maps (`viewer_palettes()`; DJI's are read from
   a flight's images).
@@ -1455,3 +1456,9 @@ Requested 2026-10-29: a small thermal image under User Preferences that shows th
   the conversion has it. The "Palette" select is on the preferences page (`preferences/preferences-page.tsx`). Tests:
   `tests/test_api_mosaics.py`, `frontend/tests/navigation.test.tsx`. Checked live on 8081: the viewer, frame
   explorer and compare page opened in magma, a link's palette still won, and the preferences were put back as found.
+- **I2: a preview of the preferred palette** (2026-10-29). A made-up roof (`previewScene()` in
+  `preferences/palette-preview.tsx`) coloured by `colourValues()` in the palette chosen, with its scale, under the
+  "Palette" select; "As each flight's images" shows the newest flight's own. `api/preferences` gives each palette's
+  colour map and `images_palette` (`palette_previews()` and `images_palette()` in `api.py`). Tests:
+  `tests/test_api_mosaics.py`, `frontend/tests/navigation.test.tsx`. Checked live on 8081 in light, dark and at
+  380px: ironred, magma and whitehot drawn, no errors; the preferences put back as found.

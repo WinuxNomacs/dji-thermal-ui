@@ -1,5 +1,5 @@
 // User Preferences: the unit temperatures are shown in and the theme (as in the header), the palette the map pages
-// start with (each flight's images' own, or one chosen), and the locale dates and times are shown in (the computer's,
+// start with (each flight's images' own, or one chosen, shown on a made-up scene), and the locale dates and times are shown in (the computer's,
 // or one chosen). Each is saved for the app as it is chosen.
 import {useEffect, useState} from "preact/hooks";
 import {readJson} from "../core/api";
@@ -7,6 +7,7 @@ import {formatCapture, setUserLocale, zoneLabel} from "../core/format";
 import {applyTheme, onTheme, type Theme} from "../core/theme";
 import {type Unit} from "../core/units";
 import {savePreference} from "../components/header";
+import {PalettePreview} from "./palette-preview";
 
 interface Props {
     api: string;
@@ -18,7 +19,8 @@ interface Props {
 
 const UNITS: [Unit, string][] = [["F", "°F (Fahrenheit)"], ["C", "°C (Celsius)"], ["K", "K (kelvin)"]];
 const THEMES: [Theme, string][] = [["light", "Light"], ["dark", "Dark"], ["system", "As the computer"]];
-interface Choices {locales?: string[]; palette?: string; view_palettes?: {key: string; label: string}[]}
+interface Palette {key: string; label: string; color_map?: number[]}
+interface Choices {locales?: string[]; palette?: string; view_palettes?: Palette[]; images_palette?: string}
 
 const EXAMPLE = "2026:10:22 16:34:57";      // a frame's capture time, shown in each locale
 
@@ -37,8 +39,9 @@ export function localeExample(tag: string): string { return formatCapture(EXAMPL
 export function PreferencesPage({api, unit, theme: initialTheme, locale: initialLocale,
                                  reload = () => window.location.reload()}: Props) {
     const [locales, setLocales] = useState<string[]>([]);
-    const [palettes, setPalettes] = useState<{key: string; label: string}[]>([]);
+    const [palettes, setPalettes] = useState<Palette[]>([]);
     const [palette, setPalette] = useState("");
+    const [imagesPalette, setImagesPalette] = useState("ironbow");
     const [theme, setTheme] = useState(initialTheme);
     const [locale, setLocale] = useState(initialLocale);
     const [status, setStatus] = useState<{text: string; error?: boolean}>({text: ""});
@@ -53,6 +56,7 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
                 if (ok && Array.isArray(data.view_palettes)) {
                     setPalettes(data.view_palettes);
                     setPalette(data.palette || "");
+                    if (data.images_palette) setImagesPalette(data.images_palette);
                 }
             } catch { /* only the computer's locale and the images' palettes are offered */ }
         })();
@@ -91,6 +95,9 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
         await save({palette: next}, () => setPalette(before));
     }
 
+    // The palette chosen, or the one the newest flight's images give for "As each flight's images"
+    const shown = palettes.find((p) => p.key === (palette || imagesPalette));
+
     async function changeLocale(next: string) {
         const before = locale;
         setLocale(next);
@@ -124,6 +131,8 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
                 <p class="help">On the viewer, the frame explorer, the compare page and the mosaic report; each can still
                     switch to another. A DJI palette is used where the flight's images carry it.</p>
             </div>
+            {shown && <PalettePreview colors={shown.color_map} label={shown.label}
+                                      caption={palette ? undefined : shown.label + " (as the newest flight's images)"}/>}
         </fieldset>
 
         <fieldset class="preference" id="theme-preference">

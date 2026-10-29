@@ -8,6 +8,7 @@ import {applyTheme} from "../src/core/theme";
 import {NavPane} from "../src/components/nav-pane";
 import {Overview} from "../src/dataset/tabs";
 import {PreferencesPage} from "../src/preferences/preferences-page";
+import {previewScene, SCENE_RANGE, SCENE_SIZE} from "../src/preferences/palette-preview";
 import {takenText} from "../src/viewer/view";
 import {calls, click, jsonResponse, server, ticks} from "./helpers";
 
@@ -468,5 +469,52 @@ describe("the preferences page", () => {
         await page(server({"/api/preferences": () => Promise.reject(new Error("offline"))}));
         expect(root().querySelectorAll("#pref-locale option").length).toBe(1);
         expect(root().querySelectorAll("#pref-palette option").length).toBe(1);
+        expect($("#palette-preview")).toBeNull();
+    });
+
+    it("shows the palette chosen on a made-up scene, the images' own for each flight's, a note for a DJI one not at hand", async () => {
+        const drawn: Uint8ClampedArray[] = [];
+        vi.stubGlobal("ImageData", class { constructor(public data: Uint8ClampedArray) {} });
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+            {putImageData: (d: {data: Uint8ClampedArray}) => drawn.push(d.data)} as unknown as CanvasRenderingContext2D);
+        const ramp = (from: number, to: number) => Array.from({length: 256}, (_, i) =>
+            ((Math.round(from + (to - from) * i / 255) * 0x10101) << 8 | 255) >>> 0);
+        const palettes = [{key: "dji_ironred", label: "DJI ironred", color_map: ramp(0, 255)},
+                          {key: "dji_arctic", label: "DJI arctic"},
+                          {key: "gray_r", label: "Black hot", color_map: ramp(255, 0)}];
+        await page(server({"/api/preferences": {locales: LOCALES, palette: "", view_palettes: palettes,
+                                                images_palette: "dji_ironred"},
+                           "PUT /api/preferences": {}}));
+        const caption = () => $("#palette-preview figcaption")?.textContent || "";
+        expect(caption()).toMatch(/^DJI ironred \(as the newest flight's images\), on a made-up roof/);
+        expect($("#palette-preview canvas")!.getAttribute("aria-label")).toBe("DJI ironred on a made-up roof");
+        expect(drawn.length).toBe(1);
+        expect(drawn[0].length).toBe(SCENE_SIZE[0] * SCENE_SIZE[1] * 4);
+        expect([...$("#palette-preview .palette-scale-ends")!.children].map((e) => e.textContent)).toEqual(["10 °C", "60 °C"]);
+        select("pref-palette", "gray_r");
+        await ticks();
+        expect(caption()).toMatch(/^Black hot, on a made-up roof/);
+        expect(drawn.length).toBe(2);
+        expect(drawn[1][0]).toBeGreaterThan(drawn[0][0]);         // the cool ground light in black hot, dark in ironred
+        select("pref-palette", "dji_arctic");
+        await ticks();
+        expect($("#palette-preview canvas")).toBeNull();
+        expect($("#palette-preview")!.textContent).toMatch(/^DJI arctic is read from a flight's images/);
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+});
+
+describe("the palette preview's scene", () => {
+    it("is the same every time, within its range, its vents hottest and its skylight cooler than the roof", () => {
+        const [w, h] = SCENE_SIZE, scene = previewScene();
+        expect(scene).toEqual(previewScene());
+        const at = (u: number, v: number) => scene[Math.floor(v * h) * w + Math.floor(u * w)];
+        expect(Math.min(...scene)).toBeGreaterThanOrEqual(SCENE_RANGE[0]);
+        expect(Math.max(...scene)).toBeLessThanOrEqual(SCENE_RANGE[1]);
+        expect(at(0.32, 0.36)).toBeGreaterThan(50);
+        expect(at(0.45, 0.55)).toBeGreaterThan(at(0.7, 0.68));
+        expect(at(0.65, 0.38)).toBeLessThan(at(0.4, 0.25));
+        expect(at(0.5, 0.25)).toBeGreaterThan(at(0.05, 0.5));
     });
 });

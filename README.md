@@ -86,7 +86,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   Thermal/Visual/Both.
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, the palette the map pages start with (each flight's images' own, or one chosen: the viewer, the frame
-  explorer, the compare page and the mosaic report open with it, and can still switch), and the locale dates and
+  explorer, the compare page and the mosaic report open with it, and can still switch; a small made-up roof beside
+  it shows the palette chosen), and the locale dates and
   times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
