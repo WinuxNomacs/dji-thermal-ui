@@ -13,6 +13,8 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- A small tab on the navigation pane's edge, near the top, hides and shows the pane in one click (beside the
+  header's menu button, which still does too); with the pane hidden it waits at the page's left edge.
 - System Settings › Storage, below User Preferences in the navigation pane (System Settings folds away, by its name
   or its chevron, and unfolds on the Storage page): the data folder's path, its size on disk
   as measured now and the free space on its drive, broken down by project and flight, with the database, files left

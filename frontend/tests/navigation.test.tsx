@@ -284,11 +284,33 @@ describe("the page around the content", () => {
         render(null, app());
     });
 
+    it("hides and shows the pane by the tab on its edge too, kept for the next visit", async () => {
+        mount();
+        await ticks();
+        const tab = () => app().querySelector("#nav-tab") as HTMLButtonElement;
+        expect(tab().getAttribute("aria-expanded")).toBe("true");
+        expect(tab().title).toBe("Hide the navigation");
+        click(tab());
+        await ticks(2);
+        expect(app().querySelector(".app-nav")).toBeNull();
+        expect(tab().getAttribute("aria-expanded")).toBe("false");
+        expect(tab().title).toBe("Show the navigation");
+        expect(toggle().getAttribute("aria-expanded")).toBe("false");
+        expect(localStorage.getItem("thermal-analyzer.nav.shown")).toBe("0");
+        click(tab());
+        await ticks();
+        expect(app().querySelector(".app-nav")).not.toBeNull();
+        expect(localStorage.getItem("thermal-analyzer.nav.shown")).toBe("1");
+        render(null, app());
+    });
+
     it("on a narrow screen, opens the pane over the page, and closes it on a link or beside it", async () => {
         small = true;
         mount();
         await ticks();
         expect(app().querySelector(".app-nav")).toBeNull();
+        // No tab: over the page, the pane has its own close button
+        expect(app().querySelector("#nav-tab")).toBeNull();
         click(toggle());
         await ticks();
         expect(app().querySelector(".app-body.narrow .app-nav")).not.toBeNull();

@@ -147,6 +147,16 @@ ul { padding-left: 20px; }
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 1030; width: min(300px, 85vw); height: auto;
     box-shadow: var(--shadow);
 }
+/* The tab on the pane's edge (or the page's, with the pane hidden) that hides and shows it */
+.nav-tab-rail { position: sticky; top: 0; z-index: 10; flex: 0 0 0; width: 0; height: 0; }
+#nav-tab {
+    position: absolute; top: 12px; left: -1px; display: flex; align-items: center; justify-content: center;
+    width: 14px; height: 40px; padding: 0; border: 1px solid var(--border); border-left: none;
+    border-radius: 0 6px 6px 0; background: var(--surface); color: var(--muted); cursor: pointer;
+}
+#nav-tab:hover { background: var(--hover); color: var(--text); }
+#nav-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#nav-tab .icon { width: 12px; height: 12px; }
 .nav-backdrop { position: fixed; inset: 0; z-index: 1029; background: var(--overlay); }
 .nav-tree, .nav-tree ul { list-style: none; margin: 0; padding: 0; }
 .nav-row { display: flex; align-items: center; gap: 2px; min-height: 28px; padding-right: 8px; }
@@ -853,7 +863,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 @page { margin: 15mm; }
 
 @media print {
-    .app-header, .app-nav, .nav-backdrop, .no-print { display: none !important; }
+    .app-header, .app-nav, .nav-backdrop, .nav-tab-rail, .no-print { display: none !important; }
     body, html, .app-main { background: #fff !important; }
     .app-main { padding: 0; }
     .report { max-width: none; font-size: 10pt; }

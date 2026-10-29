@@ -1,10 +1,11 @@
 // What every page starts with: its settings from the template (the data- attributes of #app, see
 // templates/page.html), the unit, the theme and the locale applied, the header above, and the navigation pane beside
-// its own content (shown or hidden as a whole, kept for the next visit; over the page on a narrow screen, where it
-// starts hidden)
+// its own content (shown or hidden as a whole, by the header's switch or the tab on its edge, kept for the next visit;
+// over the page on a narrow screen, where it starts hidden)
 import {type ComponentChildren, render} from "preact";
 import {useEffect, useState} from "preact/hooks";
 import {Header} from "../components/header";
+import {ChevronLeft, ChevronRight} from "../components/icons";
 import {NavPane} from "../components/nav-pane";
 import "../styles/app.css";
 import {setUserLocale} from "./format";
@@ -66,6 +67,12 @@ function Layout({settings, unit, theme, current, children}: LayoutProps) {
                                onNavigate={small ? () => setShown(false) : undefined}
                                onClose={small ? () => setShown(false) : undefined}/>}
             {shown && small && <div class="nav-backdrop" onClick={() => setShown(false)}/>}
+            {!small && <div class="nav-tab-rail">
+                <button type="button" id="nav-tab" aria-controls="app-nav" aria-expanded={shown}
+                        title={shown ? "Hide the navigation" : "Show the navigation"}
+                        aria-label={shown ? "Hide the navigation" : "Show the navigation"}
+                        onClick={() => show(!shown)}>{shown ? <ChevronLeft/> : <ChevronRight/>}</button>
+            </div>}
             <main class="app-main">{children}</main>
         </div>
     </>);
