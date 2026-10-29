@@ -13,7 +13,8 @@ its title.
    remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
 
 **Then**
-- Nothing yet.
+1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
+   filter at the top of User Preferences and System Settings, both on one shared matcher. (Search)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1256,6 +1257,44 @@ The design (dji-thermal-cli 1.8.0, `rjpeg.py` and its API):
   the port and in the native SDK (`native` tests); a private copy measures as the source, and none of the
   identifiers found in the source is left in it; the length and the MPF index are checked.
 - **Release:** 1.8.0 on a `release/1.8.0` branch; the user publishes it, then M2 pins it here.
+
+## Search
+
+Requested 2026-10-29 (`new.md`):
+- A search/filter box under "Projects" in the navigation pane, filtering the projects listed by a
+  case-insensitive "contains" match.
+- A search/filter box at the top of User Preferences and System Settings, filtering the options shown the same way.
+- Shared code for every search in the app, so that searching is consistent, live and fast everywhere.
+
+### What it builds on
+
+- **Today's searches:** the Projects page ("Search projects") and a project's flights ("Search flights") filter as
+  you type with `matchesSearch` in `datasets/list.ts`: case-insensitive, every word of the query in the name, in
+  any order. The Files tab has its own text filter (`dataset/tabs.tsx`). The location field searches addresses
+  (a geocoder: not a filter, left as it is).
+- **The navigation pane** (`components/nav-pane.tsx`) lists projects › flights › datasets with folds kept in
+  `localStorage`; **User Preferences** (`preferences/preferences-page.tsx`) and **System Settings**
+  (`settings/settings-page.tsx`) are sections of fieldsets.
+
+### Proposed phases
+
+1. **S1: the shared matcher and the pane's filter:** `matchesSearch` moves to `core/search.ts` (one matcher, plus
+   a `SearchBox` component: `type="search"`, Escape clears, the count shown, "No … match"), used by the Projects
+   and flights pages and the Files tab's text filter. The pane gets the box under Projects, filtering projects by
+   name as you type; the folds are left as they are, and the page shown stays marked.
+2. **S2: the settings pages' filter:** each option (a fieldset's row) is matched on its label, its help text and
+   its section's title; a section with no match is hidden, a section whose title matches shows whole. The same
+   box and matcher.
+
+### Open decisions
+
+- **The match:** the request says "contains". Today's searches match every word, in any order ("roof north" finds
+  "North roof"), which also finds every exact "contains" match. Keep words (recommended, the same everywhere), or
+  the whole query as one string?
+- **What the pane's filter looks through:** project names only (as asked), or also their flights' and datasets'
+  names, showing a project when one of its flights matches (unfolded to it)?
+- **Kept or not:** is the pane's filter text kept from page to page (as the folds are), or empty on each page?
+- **When:** after M (as listed), or before it?
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
