@@ -9,12 +9,16 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-(none)
+1. **ODM1: System Settings › WebODM**: WebODM's address and login, checked with a login and written to `.env`,
+   shown masked, with the permissions the account needs. See "ODM". (Integration)
+
+**Then**
+1. **ODM2: Process in WebODM**: a task from a conversion's temperature TIFFs, with the plan's options and any
+   other, WebODM's presets, a chunked upload and the task followed on the conversion. See "ODM". (Integration)
 
 **Later**
-1. **ODM processing** (on hold, 2026-10-29): send a conversion's temperature TIFFs to WebODM as a task with the
-   plan's options, and follow it, replacing the plugin's "Process in LuxODM". Through WebODM's REST API (decided
-   2026-10-29), with its address and login in System Settings. See "ODM". (Integration)
+1. **ODM3: ODM's results back** (undecided, 2026-10-29): perhaps download a task's 2D radiometric orthophoto to
+   compare it here with the app's own mosaics. See "ODM". (Integration)
 
 ## Standalone (option A)
 
@@ -1381,8 +1385,8 @@ Requested 2026-10-29 (`new.md`):
 
 ## ODM
 
-Requested 2026-10-29: held, since a wrapper that runs the analyzer as a WebODM plugin may make more sense than the
-REST API. Both are evaluated before anything is built.
+Requested 2026-10-29, held while a plugin wrapper and the REST API were evaluated; the REST API was chosen, and the
+phases ODM1 to ODM3 planned, the same day (below).
 
 **What it does, either way:** create a WebODM task from a conversion's temperature TIFFs with the WebODM plan's
 options (`analysis['webodm']`, made by dji-thermal-cli), and follow its progress. The plugin's `thermal_task.py` and
@@ -1456,7 +1460,53 @@ findings, reports and storage routes are its own and not counted on):
   (`get_objects_for_user(..., accept_global_perms=False)`), and a task sent to it is refused.
 
 **To check against a running WebODM when built:** the chunked upload, the presets' `options` format, and the
-permissions above, with an account given only those.
+permissions above, with an account given only those. The live checks use the user's WebODM on `127.0.0.1:8001`
+(decided 2026-10-29), with an account the user gives, holding only those permissions.
+
+**Planned (2026-10-29):**
+
+**ODM1: System Settings › WebODM**
+- **The fields:** the address (`http://` accepted), the user name and the password. **Check and save** logs in to
+  WebODM (`POST /api/token-auth/`) and only then writes `WEBODM_URL`, `WEBODM_USERNAME` and `WEBODM_PASSWORD` to
+  `.env`. **Remove** takes all three out of it.
+- **`.env`:** the Mapbox token's reading and writing in `analyzer/basemaps.py` move to one module for both (read a
+  name from the environment, else the first `.env` that has it; write names in place of those there, the file kept
+  at mode 0600). Mapbox keeps working as it does.
+- **Masked:** the password never goes to the browser: the page says only that one is set. The user name is shown
+  masked. Values from the environment are shown and changed there, as with Mapbox.
+- **The permissions** the account needs (above) are listed beside the fields and in the README.
+- **The client** (server side, stdlib `urllib` as `basemaps` and `places` use, no new dependency): asks for a token
+  when it needs one, keeps it in memory only, asks again when it expires or is refused; every call has a timeout;
+  errors in plain words (the node can't be reached, the login is refused, a permission is missing, another
+  version's answer not understood).
+
+**ODM2: Process in WebODM**
+- **Where:** "Process in WebODM" in a conversion card's menu opens a panel on the card; it says to set up WebODM in
+  System Settings when that isn't done.
+- **The checks** carried over from the plugin's `thermal_task.py`: stopping a task (the conversion isn't finished,
+  its location was stripped, no `temp_c` TIFFs, fewer than 2 frames); warning (normalization, pitch limit,
+  emissivity or humidity off the plan's process command). A name two subfolders share keeps its folders in the
+  task's name for it, as there.
+- **The project, chosen each time** (decided 2026-10-29): one of the account's WebODM projects (searchable), or a
+  new one, named after this app's project unless changed. Nothing is remembered.
+- **The options** (decided 2026-10-29): the plan's, the recommended ones ticked and those to consider not, plus
+  "Add an option" for any option the processing nodes offer (`/api/processingnodes/options/`), each with an input
+  for its type and domain.
+- **Presets:** apply one of WebODM's presets (the account's and the system ones) to the ticked options, or save the
+  ticked options as a preset of the account's own. The preset last applied is remembered in this app's preferences
+  and offered first.
+- **The node and name:** a processing node the account can see, or automatic; the task named
+  "flight - dataset" unless changed.
+- **The upload** is a job on a second worker thread, so a long upload doesn't hold up conversions: the task is made
+  with `partial: true`, the TIFFs sent in batches (progress by bytes), then committed. Cancelling it, or a server
+  that stops part way, removes the half-made task from WebODM where it can.
+- **Following it:** a new table of the tasks made (conversion, WebODM project and task, name, status, progress,
+  error). The conversion card lists them, each with its status and a link to it in WebODM. While a page shows one
+  being processed, the server asks WebODM for its status, at most every few seconds. Deleting a conversion keeps
+  the WebODM task.
+
+**ODM3: ODM's results back** (Later, undecided, 2026-10-29): the user may want a task's 2D radiometric orthophoto
+downloaded, to compare it here with the app's own mosaics. Not planned until decided.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
