@@ -9,7 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing planned: the next phase comes from `new.md`, or from Later.
+1. **I2: a preview of the preferred palette**: a small thermal image on the preferences page, coloured in the
+   palette chosen there. (Preferred palette)
 
 **Then**
 - Nothing yet.
@@ -1041,7 +1042,22 @@ everywhere; the palette can still be switched on each page as now.
   - Live check on 8081: the viewer, the frame explorer and the compare page open with the preferred palette; a
     link's palette still wins; the preference is put back afterwards.
 
-## Integration
+### I2: a preview of the preferred palette
+
+Requested 2026-10-29: a small thermal image under User Preferences that shows the chosen palette.
+
+- **Builds on:** I1's select (`#pref-palette`), `colourValues()` in `map/colour.ts` (colours float values on a canvas
+  without a map, as the mosaic report does), and the palettes' colour maps (`viewer_palettes()`; DJI's are read from
+  a flight's images).
+- **Proposed:**
+  - The preferences GET also returns each palette's colour map (DJI's from the most recent flight that has them);
+    the page makes the scene's values itself.
+  - Beside the select, a small canvas (about 240 × 180) redrawn as the select changes, with a scale bar under it.
+  - "As each flight's images": the image in the palette of the most recent flight's images (DJI's, else ironbow),
+    captioned so.
+  - A DJI palette no flight carries yet: a note in place of the image.
+- **Decision (2026-10-29):** **a made-up scene** the app draws itself (a warm roof with a few hot spots on a cool
+  background), the same every time and shown with no flights. Only DJI's palettes need a flight that carries them.
 
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
   plan's options, and follow its progress. The plugin's `thermal_task.py` and the task panel in `conversions.js`
