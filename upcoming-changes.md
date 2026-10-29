@@ -13,8 +13,8 @@ its title.
 
 **Later**
 1. **ODM processing** (on hold, 2026-10-29): send a conversion's temperature TIFFs to WebODM as a task with the
-   plan's options, and follow it, replacing the plugin's "Process in LuxODM". Leaning to WebODM's REST API, which
-   the evaluation found covers it; a plugin wrapper was the other option. See "ODM". (Integration)
+   plan's options, and follow it, replacing the plugin's "Process in LuxODM". Through WebODM's REST API (decided
+   2026-10-29), with its address and login in System Settings. See "ODM". (Integration)
 
 ## Standalone (option A)
 
@@ -1428,8 +1428,35 @@ findings, reports and storage routes are its own and not counted on):
 - **Not covered:** nothing found for the work above. The plugin route would add only what the REST API can't do,
   so it is not needed for this.
 
-**Open decisions:** confirm the REST API; the `.env` names (`WEBODM_URL`, `WEBODM_USERNAME`, `WEBODM_PASSWORD`
-proposed). To check against a running WebODM when built: the chunked upload and the presets' `options` format.
+**Decisions (2026-10-29):**
+- **The REST API**, not a plugin wrapper.
+- **`.env`:** `WEBODM_URL`, `WEBODM_USERNAME` and `WEBODM_PASSWORD`, the user name and password masked on the page.
+- **The WebODM permissions the account needs are listed** for the user: on System Settings › WebODM beside the
+  fields, and in the README.
+
+**The WebODM permissions the account needs** (from upstream's `app/api`, `app/boot.py` and `app/signals.py`):
+- **An ordinary, active account:** not staff, not superuser. Every new account joins WebODM's **Default** group,
+  which holds all the model permissions below, so an account made in WebODM's admin needs nothing more, unless they
+  were taken away from it or the group.
+- **Model permissions** (Django admin › Users or Groups):
+  - `app.add_project`: create projects (`POST /api/projects/`). The account then owns them and gets every permission
+    on each one (`project_post_save`).
+  - `app.add_task`, `app.change_task`, `app.delete_task`: tasks go through `DjangoModelPermissions`, so creating,
+    uploading to, committing, cancelling, restarting and removing a task (all POSTs) need `add_task`, a `PATCH`
+    `change_task`.
+  - `app.add_preset`, `app.change_preset`, `app.delete_preset`: keeping the app's presets.
+  - `nodeodm.view_processingnode`.
+- **Per project** (object permissions, django-guardian), for a project the account didn't create: `view_project` to
+  see it, `change_project` to edit it and add or change its tasks, `delete_project` to remove a task or the
+  project. A project shared with the account and not owned is never deleted through the API: it only loses the
+  account's permissions on it.
+- **Per processing node:** `view_processingnode` **on the node itself** (WebODM's admin › Processing nodes ›
+  Object permissions). WebODM gives it to the Default group only for the node there when it first started: a node
+  added later must be given to the account or its group, else it is neither listed nor offered with its options
+  (`get_objects_for_user(..., accept_global_perms=False)`), and a task sent to it is refused.
+
+**To check against a running WebODM when built:** the chunked upload, the presets' `options` format, and the
+permissions above, with an account given only those.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
