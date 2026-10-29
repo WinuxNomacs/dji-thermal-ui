@@ -4,7 +4,7 @@
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {count, formatBytes} from "../core/format";
-import {Save, Stop, Upload, Warning} from "../components/icons";
+import {Download, Save, Stop, Upload, Warning} from "../components/icons";
 import {addedRow, applyPreset, type Choices, FOLLOW_MS, FOLLOWED, type OptionRow, planRows, sentOptions, type TaskInfo,
         taskBadge, taskLabel, type WebODMProject, type WebODMTask} from "./webodm";
 
@@ -258,10 +258,11 @@ export function WebODMPanel({api, publicUrl, conversion, onClose, onMade}: Panel
     </div>);
 }
 
-interface TaskProps {api: string; task: WebODMTask; onChange: () => void}
+interface TaskProps {api: string; task: WebODMTask; shown: boolean; onChange: () => void}
 
-// A task made in WebODM, on its conversion's card: asked about while queued or running
-function TaskLine({api, task, onChange}: TaskProps) {
+// A task made in WebODM, on its conversion's card: asked about while queued or running; once completed, its
+// orthophoto can be brought back (shown: the one the viewer shows is its)
+function TaskLine({api, task, shown, onChange}: TaskProps) {
     const [t, setT] = useState(task);
     const [problem, setProblem] = useState("");
     useEffect(() => setT(task), [task]);
@@ -280,12 +281,14 @@ function TaskLine({api, task, onChange}: TaskProps) {
     }, [t]);
 
     async function act(method: string, url: string) {
-        const r = await readJson(await sendJson(url, method, method === "POST" ? {} : undefined));
+        const r = await readJson<WebODMTask>(await sendJson(url, method, method === "POST" ? {} : undefined));
         if (!r.ok) setProblem(errorText(r.data, "Could not change the task"));
+        else if (r.data?.id) { setT(r.data); setProblem(""); }
         onChange();
     }
 
-    const pct = Math.round((t.progress || 0) * 100);
+    const pct = Math.round((t.progress || 0) * 100), orthophoto = api + "webodm-tasks/" + t.id + "/orthophoto";
+    const downloading = t.orthophoto_status === "downloading", got = Math.round((t.orthophoto_progress || 0) * 100);
     return (<li class="webodm-task" data-task={t.id}>
         <span class="webodm-task-name">WebODM: {t.link ? <a href={t.link} target="_blank" rel="noopener noreferrer">{t.name}</a>
             : t.name}</span>
@@ -299,12 +302,29 @@ function TaskLine({api, task, onChange}: TaskProps) {
                     onClick={() => act("DELETE", api + "webodm-tasks/" + t.id)}>×</button>}
         {(t.status === "uploading" || t.status === "running") &&
             <div class="progress row-progress"><div class="progress-bar active" style={{width: pct + "%"}}>{pct}%</div></div>}
+        {t.status === "completed" && <div class="webodm-orthophoto">
+            {downloading ? <>
+                <span class="text-info">Bringing the orthophoto back…</span>{" "}
+                <button type="button" class="button default small" data-action="webodm-orthophoto-cancel"
+                        onClick={() => act("DELETE", orthophoto)}><Stop/> Cancel</button>
+                <div class="progress row-progress"><div class="progress-bar active" style={{width: got + "%"}}>{got}%</div></div>
+            </> : <>
+                <button type="button" class="button default small" data-action="webodm-orthophoto"
+                        title="Download its orthophoto, to view, measure and compare it beside the mosaics"
+                        onClick={() => act("POST", orthophoto)}>
+                    <Download/> {shown ? "Bring it back again" : "Bring the orthophoto here"}</button>
+            </>}
+            {t.orthophoto_error && <div class="text-danger"><Warning/> {t.orthophoto_error}</div>}
+        </div>}
         {t.error && <div class="text-danger"><Warning/> {t.error}</div>}
         {problem && <div class="text-warning">{problem}</div>}
     </li>);
 }
 
-export function WebODMTasks({api, tasks, onChange}: {api: string; tasks: WebODMTask[]; onChange: () => void}) {
+interface TasksProps {api: string; tasks: WebODMTask[]; shown?: number | null; onChange: () => void}
+
+export function WebODMTasks({api, tasks, shown, onChange}: TasksProps) {
     if (!tasks.length) return null;
-    return <ul class="webodm-tasks">{tasks.map((t) => <TaskLine key={t.id} api={api} task={t} onChange={onChange}/>)}</ul>;
+    return <ul class="webodm-tasks">{tasks.map((t) => <TaskLine key={t.id} api={api} task={t} shown={t.id === shown}
+                                                                onChange={onChange}/>)}</ul>;
 }

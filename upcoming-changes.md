@@ -8,11 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned. ODM3 waits in Later until it is decided.
+**Up next**: nothing planned.
 
-**Later**
-1. **ODM3: ODM's results back** (undecided, 2026-10-29): perhaps download a task's 2D radiometric orthophoto to
-   compare it here with the app's own mosaics. See "ODM". (Integration)
+**Later**: nothing.
 
 ## Standalone (option A)
 
@@ -1499,8 +1497,22 @@ permissions above, with an account given only those. The live checks use the use
   being processed, the server asks WebODM for its status, at most every few seconds. Deleting a conversion keeps
   the WebODM task.
 
-**ODM3: ODM's results back** (Later, undecided, 2026-10-29): the user may want a task's 2D radiometric orthophoto
-downloaded, to compare it here with the app's own mosaics. Not planned until decided.
+**ODM3: ODM's orthophoto back** (decided 2026-10-29; built, see "Done")
+- **Decisions:** planned now; only the orthophoto comes back (not ODM's report, DSM or DTM); it is brought back
+  with a button, not on its own; it is shown as a viewer tab, and offered on the compare page too.
+- **Where:** a completed task's line on the conversion card gets **Bring the orthophoto here**. The download is a job
+  on the upload worker (`jobs.UPLOADS`), with its progress on the task's line and a cancel.
+- **What is downloaded:** `.../download/orthophoto.tif`, into the conversion's `webodm/` folder. It is kept only as
+  temperatures: one band of floats (WebODM's alpha band as its no-data), converted from the TIFFs' °C to the
+  conversion's unit, written with overviews as the mosaics are. Anything else (an orthophoto of colours) is refused
+  in plain words and not kept.
+- **One per conversion:** bringing back another task's orthophoto replaces it; the card says which task the one
+  shown came from, and it can be removed there. Deleting the task's line or the conversion removes it; rebuilding
+  the conversion's mosaics keeps it.
+- **Shown as** a **WebODM** tab on the viewer (a mosaic kind `webodm`, read as temperatures like As converted: the
+  palettes, ranges, the scale, points, areas and measurements), and a mosaic to pick on the compare page. The
+  viewer opens for a conversion with an orthophoto even without mosaics of its own.
+- **To check live:** that the orthophoto WebODM makes from the TIFFs keeps their temperatures (one band of floats).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
@@ -2002,3 +2014,21 @@ downloaded, to compare it here with the app's own mosaics. Not planned until dec
   uploaded into a new project with the plan's options and two more, kept as a preset, processed to Completed and
   followed on the card; a second upload canceled, its task removed from WebODM; light and dark. Then the project and
   the preset removed from WebODM. The account needed nothing beyond the listed permissions.
+- **ODM3: ODM's orthophoto back** (2026-10-29, branch `odm3-orthophoto-back`). `analyzer/webodm.py`: a task's
+  result downloaded as it comes (`download`). `analyzer/webodm_tasks.py`: the download job on `jobs.UPLOADS`
+  (`fetch`, `run_orthophoto`, cancel, a download a closed server left marked failed), one orthophoto per conversion
+  (another task's replaces it; removed with its task's line or from the card). `analyzer/thermal_mosaics.py`:
+  `orthophoto` writes WebODM's (°C and its alpha) in the mosaics' layout in the conversion's unit, with overviews;
+  `kinds(conversion)` adds it as the kind `webodm` beside the built mosaics (kept apart in
+  `ThermalConversion.orthophoto`, so rebuilding them keeps it), the tab `webodm` in `TABS`, `tab_raster` takes the
+  conversion. Measured, compared and made a finding on as a mosaic; its spots and areas say it records no frames
+  (`not_recorded`). Migration 0008; a restore keeps the orthophoto without its task's link. The API
+  `webodm-tasks/<id>/orthophoto` (POST, DELETE cancels) and `conversions/<id>/orthophoto` (DELETE). The page: the
+  task line's **Bring the orthophoto here** with its progress (`webodm-panel.tsx`), the card's note and Remove
+  (`convert.tsx`), the WebODM tab named and taken as a temperature tab. Tests: `tests/test_webodm_tasks.py` (the
+  fake WebODM serves results), `frontend/tests/webodm.test.tsx`, `dataset.test.tsx`, `sources.test.tsx`. Checked
+  first against the user's WebODM: its orthophoto of the TIFFs keeps the temperatures (float32 °C and an alpha
+  band). Live check on 8081 as `thermaltest`: 60 frames of m4t-220 converted, processed in WebODM to Completed,
+  the orthophoto brought back from the card, shown on the viewer's WebODM tab (temperatures under the pointer), on
+  the compare page beside the mosaic, a spot picked on it, then removed from the card; light and dark, no console
+  errors. Then the WebODM projects removed.

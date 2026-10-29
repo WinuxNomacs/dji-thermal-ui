@@ -12,7 +12,8 @@ export const ISOTHERM_MODES: [string, string][] = [["", "None"], ["above", "Abov
 const SHAPE_LABELS: Record<string, string> = {Point: "Spot", LineString: "Line", Polygon: "Area"};
 // An area drawn by dragging (values.shape.kind)
 const DRAWN_LABELS: Record<string, string> = {box: "Box", circle: "Circle"};
-const TARGET_LABELS: Record<string, string> = {as_converted: "Mosaic", harmonized: "Harmonized", frame: "Frame"};
+const TARGET_LABELS: Record<string, string> = {as_converted: "Mosaic", harmonized: "Harmonized", webodm: "WebODM",
+                                               frame: "Frame"};
 export const HINTS: Record<Tool, string> = {
     point: "Click a spot: its temperature is the mean of a small disc around it.",
     line: "Click the line's points; double-click the last one (or Finish) to end.",

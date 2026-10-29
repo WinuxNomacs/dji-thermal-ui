@@ -265,6 +265,7 @@ def conversion_summary(c):
         'stage': c.stage,
         'mosaic_error': c.mosaic_error,
         'mosaic_files': sorted(f for k in (c.mosaics or {}).get('kinds', {}).values() for f in k.get('files', [])),
+        'orthophoto': webodm_tasks.orthophoto_summary(c),
         'file_count': c.file_count,
         'size': int(c.size * 1024 * 1024),
         'created_at': c.created_at,
@@ -649,10 +650,10 @@ def nav_conversion(c):
     """A conversion as the pane lists it; once its mosaics are built, their viewer's tabs and how many frames the
     mosaics placed and left out (for their angle, or as unusable)"""
     out = {'id': c.id, 'name': c.name, 'frames': c.status == 'ready',
-           'mosaics': c.status == 'ready' and c.mosaic_status == 'ready'}
+           'mosaics': c.status == 'ready' and (c.mosaic_status == 'ready' or bool((c.orthophoto or {}).get('raster')))}
     if out['mosaics']:
         m = c.mosaics or {}
-        kinds = m.get('kinds') or {}
+        kinds = thermal_mosaics.kinds(c)
         kind = kinds.get('as_converted') or {}
         out.update(tabs=[tab for tab, k, _band in thermal_mosaics.TABS if kinds.get(k)]
                    + ([thermal_mosaics.VISUAL] if m.get(thermal_mosaics.VISUAL) else []),
@@ -1041,7 +1042,7 @@ class ExportDownloadView(DatasetView):
 def mosaic_default_range(conversion, tab):
     """The viewer's range for a tab when none is given"""
     kind = next(k for t, k, _b in thermal_mosaics.TABS if t == tab)
-    k = ((conversion.mosaics or {}).get('kinds') or {}).get(kind) or {}
+    k = thermal_mosaics.kinds(conversion).get(kind) or {}
     return exports.stats_range(k.get('view_angle') if tab == 'view_angle' else k.get('temperature'))
 
 
@@ -1316,8 +1317,36 @@ class WebODMTaskView(DatasetView):
         task = webodm_tasks.check_stale(get_webodm_task(pk))
         if task.status == 'uploading':
             return Response({'error': "Cancel the upload first"}, status=status.HTTP_409_CONFLICT)
+        webodm_tasks.remove_orthophoto(task.conversion, task)
         task.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WebODMOrthophotoView(DatasetView):
+    def post(self, request, pk):
+        """Brings back a completed task's orthophoto, shown beside the conversion's mosaics in place of the one
+        shown before"""
+        task = webodm_tasks.check_stale(get_webodm_task(pk))
+        if task.status != 'completed':
+            raise ValidationError({'error': "The task's orthophoto can be brought back once WebODM has completed it"})
+        if task.orthophoto_status == 'downloading':
+            return Response({'error': "The orthophoto is already being brought back"}, status=status.HTTP_409_CONFLICT)
+        if task.conversion.status != 'ready':
+            raise ValidationError({'error': "The dataset is not converted"})
+        webodm_client()
+        return Response(webodm_tasks.summary(webodm_tasks.fetch(task)))
+
+    def delete(self, request, pk):
+        """Stops bringing back a task's orthophoto"""
+        return Response(webodm_tasks.summary(webodm_tasks.cancel_orthophoto(get_webodm_task(pk))))
+
+
+class ConversionOrthophotoView(DatasetView):
+    def delete(self, request, pk):
+        """Stops showing the conversion's WebODM orthophoto, and removes its file (WebODM keeps its own)"""
+        conversion = get_conversion(pk)
+        webodm_tasks.remove_orthophoto(conversion)
+        return Response(conversion_detail(get_conversion(pk)))
 
 
 class WebODMTaskCancelView(DatasetView):
@@ -1523,7 +1552,7 @@ def viewer(conversion):
     """What the viewer shows of a conversion's mosaics: the tabs, palettes, frames (and when the first and last were
     taken, as recorded), and dji-thermal-cli's reports"""
     m = conversion.mosaics or {}
-    kinds = m.get('kinds') or {}
+    kinds = thermal_mosaics.kinds(conversion)
     palettes = viewer_palettes(conversion) if kinds else []
     tabs = []
     for tab, kind, _band in thermal_mosaics.TABS:
@@ -1536,7 +1565,7 @@ def viewer(conversion):
     in_mosaic = set(m.get('frames') or [])
     times = sorted(r['time'] for r in thermal_measure.frame_rows(conversion) if r['path'] in in_mosaic and r.get('time'))
     out = conversion_summary(conversion)
-    out.update({'dataset_name': conversion.dataset.name, 'unit': m.get('unit') or (conversion.options or {}).get('unit'),
+    out.update({'dataset_name': conversion.dataset.name, 'unit': mosaic_unit(conversion),
                 'flown': [times[0], times[-1]] if times else [],
                 'flight_zone': thermal_analysis.flight_zone(conversion.dataset.analysis),
                 'stripped': bool(m.get('stripped')), 'frames': m.get('frames') or [], 'tabs': tabs,
@@ -1623,7 +1652,7 @@ def mosaic_values(conversion, tab, band, data, valid, correction):
 
 def mosaic_raster(conversion, tab):
     """(path, band) a tab reads, or 404"""
-    found = thermal_mosaics.tab_raster(conversion.data_dir(), conversion.mosaics or {}, tab)
+    found = thermal_mosaics.tab_raster(conversion, tab)
     if found is None or not os.path.isfile(found[0]):
         raise NotFound()
     return found
@@ -1711,7 +1740,7 @@ def mosaic_point(request, conversion, tab, lon, lat):
 
     path, _band = mosaic_raster(conversion, tab)
     m = conversion.mosaics or {}
-    unit = m.get('unit') or 'C'
+    unit = mosaic_unit(conversion)
     out = {'coordinates': [lon, lat], 'valid': False, 'unit': unit,
            'temperature': None, 'frame': None, 'frame_index': None, 'view_angle': None, 'frame_pixel': None}
     with thermal_mosaics.open_raster(path) as src:
@@ -1751,11 +1780,13 @@ class MosaicPointView(DatasetView):
         return Response(mosaic_point(request, conversion, tab, lon, lat))
 
 
-def frame_sources(conversion, path, geometry):
+def frame_sources(conversion, path, geometry, tab=None):
     """The frames that saw a checked spot or area of a mosaic (path: its GeoTIFF), each with when it was taken and its
-    visual pair (or None): {frames, reason, kind, geometry, models}"""
+    visual pair (or None): {frames, reason, kind, geometry, models}; none on WebODM's orthophoto, which doesn't say"""
     from . import thermal_sources
 
+    if tab == thermal_mosaics.WEBODM:
+        return {'frames': [], 'reason': 'not_recorded', 'kind': geometry['type'], 'geometry': geometry, 'models': False}
     models = thermal_sources.read_models(path)
     out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models)
     times = {r['path']: r.get('time') or "" for r in thermal_measure.frame_rows(conversion)}
@@ -1783,7 +1814,7 @@ class MosaicSourcesView(DatasetView):
             raise ValidationError({'error': str(e)}) from None
         if geometry['type'] not in ('Point', 'Polygon'):
             raise ValidationError({'error': "The geometry is a spot or an area"})
-        out = frame_sources(conversion, path, geometry)
+        out = frame_sources(conversion, path, geometry, tab)
         if geometry['type'] == 'Point':
             out['point'] = mosaic_point(request, conversion, tab, *geometry['coordinates'])
         return Response(out)
@@ -1848,7 +1879,8 @@ def compared_with(request, conversion):
 
 
 def mosaic_unit(conversion):
-    return (conversion.mosaics or {}).get('unit') or 'C'
+    return ((conversion.mosaics or {}).get('unit') or (conversion.orthophoto or {}).get('unit')
+            or (conversion.options or {}).get('unit') or 'C')
 
 
 def difference(a, a_valid, a_unit, b, b_valid, b_unit):
@@ -1866,7 +1898,7 @@ def comparable(conversion):
     found = ThermalConversion.objects.select_related('dataset__project').order_by(
         'dataset__project__name', 'dataset__project_id', 'dataset__name', 'dataset_id', 'name', 'id')
     for c in sorted(found, key=lambda c: c.dataset.project_id != own):
-        kinds = (c.mosaics or {}).get('kinds') or {}
+        kinds = thermal_mosaics.kinds(c)
         tabs = [tab for tab, kind, band in thermal_mosaics.TABS if band == 1 and kinds.get(kind)]
         if tabs:
             out.append({'id': c.id, 'name': c.name, 'dataset': c.dataset_id, 'dataset_name': c.dataset.name,
@@ -1955,7 +1987,7 @@ class MosaicDifferenceView(DatasetView):
 
 # --- radiometric analysis -----------------------------------------------------------------------------------------
 
-MEASUREMENT_TARGETS = ('as_converted', 'harmonized', 'frame')
+MEASUREMENT_TARGETS = ('as_converted', 'harmonized', 'webodm', 'frame')
 
 
 def changes_of(params):
@@ -1978,7 +2010,7 @@ def analysis_request(conversion, data):
     None for all of it, parameters, isotherm)"""
     target = data.get('target')
     if target not in MEASUREMENT_TARGETS:
-        raise ValidationError({'error': "The target is a mosaic (as_converted, harmonized) or a frame"})
+        raise ValidationError({'error': "The target is a mosaic (as_converted, harmonized, webodm) or a frame"})
     frame = data.get('frame') or "" if target == 'frame' else ""
     parameters = data.get('parameters') if isinstance(data.get('parameters'), dict) else {}
     try:
@@ -2014,8 +2046,10 @@ def analysis(conversion, target, frame, geometry, parameters, isotherm):
         path, _band = mosaic_raster(conversion, target)
         correction = thermal_measure.mosaic_correction(conversion, target, parameters)
         out['approximate'] = correction is not None
+        # WebODM's orthophoto doesn't say which frame each pixel came from
         out['result'] = thermal_measure.mosaic_measure(path, unit, geometry, correction, isotherm,
-                                                       profile_frames(conversion, geometry))
+                                                       profile_frames(conversion, geometry)
+                                                       if target != thermal_mosaics.WEBODM else None)
     return clean(out)
 
 
@@ -2131,7 +2165,7 @@ class MeasurementDetailView(DatasetView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-FINDING_TABS = ('as_converted', 'harmonized')
+FINDING_TABS = ('as_converted', 'harmonized', 'webodm')
 # What a finding keeps of what its spot or area measured
 FINDING_TEMPERATURES = ('min', 'max', 'mean', 'surroundings', 'delta_t', 'value', 'valid_pixels', 'area')
 
@@ -2215,7 +2249,7 @@ def finding_drawn(dataset, data):
         raise ValidationError({'conversion': "That dataset does not exist"}) from None
     tab = data.get('tab')
     if tab not in FINDING_TABS:
-        raise ValidationError({'tab': "The temperatures are read on a mosaic (as_converted, harmonized)"})
+        raise ValidationError({'tab': "The temperatures are read on a mosaic (as_converted, harmonized, webodm)"})
     asked = {'target': tab, 'geometry': data.get('geometry'), 'parameters': data.get('parameters')}
     _t, _f, geometry, parameters, _i = analysis_request(conversion, asked)
     if geometry is None or geometry['type'] not in ('Point', 'Polygon'):
@@ -2252,7 +2286,7 @@ class FindingsView(DatasetView):
         if not temperatures.get('valid_pixels'):
             raise ValidationError({'error': "The finding is outside the mosaic"})
         path, _band = mosaic_raster(conversion, tab)
-        found = frame_sources(conversion, path, geometry)
+        found = frame_sources(conversion, path, geometry, tab)
         f = Finding.objects.create(dataset=dataset, conversion=conversion, tab=tab, geometry=geometry, shape=shape,
                                    temperatures=temperatures, frames=kept_frames(found['frames'], request.data.get('kept')),
                                    models_known=found['models'], **fields)

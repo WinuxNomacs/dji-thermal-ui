@@ -1,10 +1,11 @@
 """Process in WebODM: a task made in WebODM from a conversion's temperature TIFFs, through its API (made waiting for its
 images, the TIFFs uploaded in batches, then committed), the checks carried over from the plugin, the projects, nodes,
-options and presets offered, and the task followed on the conversion. WebODM is a fake keeping its projects, tasks
-and presets."""
+options and presets offered, the task followed on the conversion, and its orthophoto brought back and shown beside
+the conversion's mosaics. WebODM is a fake keeping its projects, tasks, presets and results."""
 
 import io
 import json
+import os
 import re
 import threading
 import time
@@ -16,7 +17,7 @@ import pytest
 
 from dji_thermal_ui.analyzer import envfile, jobs, webodm, webodm_tasks
 from dji_thermal_ui.analyzer.models import Preferences, ThermalConversion, ThermalDataset, WebODMTask
-from tests.fakes import CONVERSIONS, converted
+from tests.fakes import CONVERSIONS, DATASETS, MOSAIC_ORIGIN, converted, mosaic_lonlat, mosaic_square
 
 URL = "http://127.0.0.1:8001"
 PLAN = {'process_args': ["-o", "temp_c:tiff", "--max-pitch", "-80", "--normalize"],
@@ -30,6 +31,7 @@ OPTIONS = [{'name': "radiometric-calibration", 'type': "enum", 'value': "camera"
 
 class Answer(io.BytesIO):
     status = 200
+    headers = {}
 
 
 def multipart_names(req):
@@ -45,7 +47,8 @@ def wo(settings, tmp_path, monkeypatch):
                          2: {'name': "Shared site", 'permissions': ["view"]}},
             'tasks': {}, 'presets': [{'id': 1, 'name': "DSM + DTM", 'system': True,
                                       'options': [{'name': "dsm", 'value': True}]}],
-            'uploads': [], 'calls': [], 'fail': {}, 'next': 10, 'status': 10, 'hold': None}
+            'uploads': [], 'calls': [], 'fail': {}, 'next': 10, 'status': 10, 'hold': None, 'assets': {},
+            'on_download': None}
 
     def answer(code, data, url):
         if code >= 400:
@@ -87,6 +90,16 @@ def wo(settings, tmp_path, monkeypatch):
         if m and method == "DELETE":
             fake['projects'].pop(int(m[1]))
             return answer(204, None, url)
+        m = re.match(r'^/api/projects/(\d+)/tasks/([\w-]+)/download/([\w.]+)$', path)
+        if m:
+            data = fake['assets'].get((m[2], m[3]))
+            if data is None:
+                return answer(404, {'detail': "Not found."}, url)
+            if fake['on_download']:
+                fake['on_download']()
+            res = Answer(data)
+            res.headers = {'Content-Length': str(len(data))}
+            return res
         m = re.match(r'^/api/projects/(\d+)/tasks/(?:([\w-]+)/(?:(\w+)/)?)?$', path)
         if m:
             project, task, action = int(m[1]), m[2], m[3]
@@ -361,3 +374,147 @@ def test_without_webodm_set_up_it_is_said_where_to_set_it_up(api, settings, tmp_
     settings.ENV_FILES = [tmp_path / ".env"]
     res = api.get("/api/webodm/choices")
     assert res.status_code == 400 and "System Settings › WebODM" in res.data['error']
+
+
+def orthophoto_bytes(tmp_path, colours=False):
+    """WebODM's orthophoto of the fake mosaic's place: 2 bands of floats (°C rising from 10 to 30 to the east, its
+    alpha 0 on column 40), or 4 bands of colours"""
+    import numpy as np
+    import rasterio
+    from rasterio.enums import ColorInterp
+    from rasterio.transform import from_origin
+    path = tmp_path / "odm.tif"
+    count, dtype = (4, 'uint8') if colours else (2, 'float32')
+    with rasterio.open(path, 'w', driver='GTiff', width=64, height=64, count=count, dtype=dtype, crs='EPSG:32616',
+                       transform=from_origin(*MOSAIC_ORIGIN, 0.05, 0.05)) as dst:
+        if colours:
+            dst.write(np.full((4, 64, 64), 200, 'uint8'))
+            dst.colorinterp = [ColorInterp.red, ColorInterp.green, ColorInterp.blue, ColorInterp.alpha]
+        else:
+            dst.write(np.tile(10 + 20 * np.arange(64, dtype='float32') / 63, (64, 1)), 1)
+            alpha = np.full((64, 64), 255, 'float32')
+            alpha[:, 40] = 0
+            dst.write(alpha, 2)
+            dst.colorinterp = [ColorInterp.gray, ColorInterp.alpha]
+    return path.read_bytes()
+
+
+def completed(api, wo, c, tmp_path, **over):
+    """A task of the conversion's that WebODM completed, with its orthophoto"""
+    task = WebODMTask.objects.get(pk=start(api, c).data['id'])
+    WebODMTask.objects.filter(pk=task.pk).update(status='completed', **over)
+    wo['assets'][(task.task_id, 'orthophoto.tif')] = orthophoto_bytes(tmp_path)
+    task.refresh_from_db()
+    return task
+
+
+def bring(api, task):
+    return api.post("/api/webodm-tasks/%d/orthophoto" % task.id)
+
+
+def test_a_completed_tasks_orthophoto_is_brought_back_as_temperatures_and_shown_beside_the_mosaics(api, wo, tmp_path):
+    import rasterio
+    c = ready(api, unit='F')
+    task = completed(api, wo, c, tmp_path)
+    res = bring(api, task)
+    assert res.status_code == 200
+    c.refresh_from_db()
+    assert c.orthophoto['task'] == task.id and c.orthophoto['task_name'] == task.name
+    assert c.orthophoto['raster'] == "webodm/orthophoto-%d.tif" % task.id
+    assert os.listdir(os.path.join(c.data_dir(), "webodm")) == ["orthophoto-%d.tif" % task.id]
+    with rasterio.open(os.path.join(c.data_dir(), c.orthophoto['raster'])) as src:
+        assert src.count == 3 and src.overviews(1) == []
+    # In the conversion's unit (°F), the alpha's no-data left out
+    assert c.orthophoto['unit'] == 'F'
+    assert c.orthophoto['temperature']['min'] == pytest.approx(50.0, abs=0.01)
+    assert c.orthophoto['temperature']['max'] == pytest.approx(30 * 1.8 + 32, abs=0.01)
+    summary = api.get("%s/%d" % (CONVERSIONS, c.id)).data
+    assert summary['orthophoto']['task'] == task.id and summary['webodm_tasks'][0]['orthophoto_status'] == ""
+    # A tab of the viewer after the mosaics', and a mosaic to compare; without mosaics of the conversion's own too
+    viewer = api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data
+    assert [t['tab'] for t in viewer['tabs']][-2:] == ['view_angle', 'webodm']
+    ThermalConversion.objects.filter(pk=c.pk).update(mosaics={}, mosaic_status="")
+    viewer = api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data
+    assert [t['tab'] for t in viewer['tabs']] == ['webodm'] and viewer['unit'] == 'F'
+    assert 'raster' not in viewer['kinds']['webodm']
+    assert api.get("%s/%d/comparable" % (CONVERSIONS, c.id)).data[0]['tabs'] == ['webodm']
+    nav = api.get("/api/navigation").data['projects'][0]['datasets'][0]['conversions'][0]
+    assert nav['mosaics'] and nav['tabs'] == ['webodm']
+    lon, lat = mosaic_lonlat(31.5, 10.5)
+    point = api.get("%s/%d/mosaics/webodm/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data
+    assert point['temperature'] == pytest.approx((10 + 20 * 31 / 63) * 1.8 + 32, abs=0.01)
+    assert point['frame'] is None and point['view_angle'] is None
+    lon, lat = mosaic_lonlat(40.5, 10.5)
+    assert api.get("%s/%d/mosaics/webodm/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data['valid'] is False
+    # Measured, and saved as a finding, as on a mosaic; no frames are said to have seen it
+    area = mosaic_square(30, 8, 34, 12)
+    res = api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'webodm', 'geometry': area}, format='json')
+    assert res.status_code == 200 and res.data['result']['max'] > res.data['result']['min']
+    line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(5.5, 5.5), mosaic_lonlat(30.5, 5.5)]}
+    assert api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'webodm', 'geometry': line},
+                    format='json').status_code == 200
+    sources = api.post("%s/%d/mosaics/webodm/sources" % (CONVERSIONS, c.id), {'geometry': area}, format='json').data
+    assert sources['frames'] == [] and sources['reason'] == 'not_recorded'
+    res = api.post("%s/%d/findings" % (DATASETS, c.dataset_id), {'name': "Hot", 'conversion': c.id, 'tab': 'webodm',
+                                                                 'geometry': area}, format='json')
+    assert res.status_code == 201 and res.data['tab'] == 'webodm'
+    # Rebuilding the conversion's mosaics keeps it
+    ThermalConversion.objects.filter(pk=c.pk).update(mosaics={}, mosaic_status='building')
+    assert [t['tab'] for t in api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data['tabs']] == ['webodm']
+
+
+def test_another_tasks_orthophoto_replaces_it_and_removing_it_or_its_task_removes_its_file(api, wo, tmp_path):
+    c = ready(api)
+    first, second = completed(api, wo, c, tmp_path), completed(api, wo, c, tmp_path)
+    bring(api, first)
+    bring(api, second)
+    c.refresh_from_db()
+    folder = os.path.join(c.data_dir(), "webodm")
+    assert c.orthophoto['task'] == second.id and os.listdir(folder) == ["orthophoto-%d.tif" % second.id]
+    # Taking the other task off the list leaves it; its own takes it away
+    assert api.delete("/api/webodm-tasks/%d" % first.id).status_code == 204
+    assert os.listdir(folder) == ["orthophoto-%d.tif" % second.id]
+    assert api.delete("/api/webodm-tasks/%d" % second.id).status_code == 204
+    c.refresh_from_db()
+    assert c.orthophoto == {} and os.listdir(folder) == []
+    # Removed from the card: the conversion's orthophoto, whichever task it came from
+    third = completed(api, wo, c, tmp_path)
+    bring(api, third)
+    res = api.delete("%s/%d/orthophoto" % (CONVERSIONS, c.id))
+    assert res.status_code == 200 and res.data['orthophoto'] is None and os.listdir(folder) == []
+    assert WebODMTask.objects.filter(pk=third.pk).exists()
+
+
+def test_an_orthophoto_is_brought_back_only_from_a_completed_task_and_one_in_colours_is_not_kept(api, wo, tmp_path):
+    c = ready(api)
+    task = completed(api, wo, c, tmp_path)
+    WebODMTask.objects.filter(pk=task.pk).update(status='running')
+    assert "once WebODM has completed it" in bring(api, task).data['error']
+    WebODMTask.objects.filter(pk=task.pk).update(status='completed', orthophoto_status='downloading',
+                                                 run_id="someone-else")
+    with mock.patch.object(jobs, 'alive', return_value=True):
+        assert bring(api, task).status_code == 409
+    WebODMTask.objects.filter(pk=task.pk).update(orthophoto_status="", run_id="")
+    wo['assets'][(task.task_id, 'orthophoto.tif')] = orthophoto_bytes(tmp_path, colours=True)
+    data = bring(api, task).data
+    assert data['orthophoto_status'] == 'failed' and "holds colours, not temperatures" in data['orthophoto_error']
+    c.refresh_from_db()
+    assert c.orthophoto == {} and os.listdir(os.path.join(c.data_dir(), "webodm")) == []
+    # Gone from WebODM: said so
+    wo['assets'].clear()
+    data = bring(api, task).data
+    assert data['orthophoto_status'] == 'failed' and "removed, or the account cannot see it" in data['orthophoto_error']
+
+
+def test_a_download_canceled_part_way_leaves_nothing_and_one_a_closed_server_left_is_failed(api, wo, tmp_path):
+    c = ready(api)
+    task = completed(api, wo, c, tmp_path)
+    wo['on_download'] = lambda: api.delete("/api/webodm-tasks/%d/orthophoto" % task.id)
+    data = bring(api, task).data
+    assert data['orthophoto_status'] == "" and data['orthophoto_error'] == ""
+    c.refresh_from_db()
+    assert c.orthophoto == {} and os.listdir(os.path.join(c.data_dir(), "webodm")) == []
+    WebODMTask.objects.filter(pk=task.pk).update(orthophoto_status='downloading', run_id="gone")
+    assert jobs.mark_interrupted() == 1
+    task.refresh_from_db()
+    assert task.orthophoto_status == 'failed' and task.orthophoto_error == jobs.INTERRUPTED and task.run_id == ""

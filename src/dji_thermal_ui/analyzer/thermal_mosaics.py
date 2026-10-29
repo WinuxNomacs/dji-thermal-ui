@@ -29,7 +29,8 @@ from .thermal_conversion import api_arguments, mosaic_stage, stage_fraction, sta
 KINDS = (('as_converted', False), ('harmonized', True))
 # The viewer's tabs: (tab, kind whose file it reads, band)
 TABS = (('as_converted', 'as_converted', 1), ('harmonized', 'harmonized', 1),
-        ('source_frame', 'as_converted', 2), ('view_angle', 'as_converted', 3))
+        ('source_frame', 'as_converted', 2), ('view_angle', 'as_converted', 3), ('webodm', 'webodm', 1))
+WEBODM = 'webodm'           # the kind of the orthophoto brought back from WebODM (webodm_tasks), and its folder
 MOSAICS_DIR = 'mosaics'
 VIEWER_DIR = 'viewer'       # served by the app only: left out of the downloads
 PALETTES_FILE = 'palettes.json'
@@ -37,6 +38,7 @@ VISUAL = 'visual'           # the visual mosaic's kind, folder and viewer files
 VISUAL_PAIRS_FILE = 'visual_pairs.json'
 VISUAL_TILE = 512           # the map copy's blocks
 VISUAL_OVERVIEW_PX = 256    # its overviews halve until it is about this many pixels across
+ORTHOPHOTO_TILE = 512       # the WebODM orthophoto's blocks; its overviews halve until it is about this across
 VISUAL_QUALITY = 90         # its JPEG quality
 PERCENTILES = (2, 98)
 ABSOLUTE_ZERO = {'C': -273.15, 'F': -459.67, 'K': 0.0}
@@ -55,14 +57,23 @@ def max_pitch(options):
 REPORT_DETAIL = ('pairs_detail', 'frames', 'per_frame')
 
 
-def tab_raster(conversion_dir, mosaics, tab):
+def kinds(conversion):
+    """The mosaics a conversion's viewer shows, by kind: those built here, and the orthophoto brought back from
+    WebODM (kept apart from them, so that rebuilding them keeps it)"""
+    found = dict((conversion.mosaics or {}).get('kinds') or {})
+    if (conversion.orthophoto or {}).get('raster'):
+        found[WEBODM] = conversion.orthophoto
+    return found
+
+
+def tab_raster(conversion, tab):
     """(path of the GeoTIFF a viewer tab reads, its band), or None when that mosaic was not built"""
     for name, kind, band in TABS:
         if name == tab:
-            m = (mosaics.get('kinds') or {}).get(kind)
+            m = kinds(conversion).get(kind)
             if not m or not m.get('raster'):
                 return None
-            return os.path.join(conversion_dir, m['raster']), band
+            return os.path.join(conversion.data_dir(), m['raster']), band
     return None
 
 
@@ -165,6 +176,49 @@ def map_copy(src_path, path):
             if factors:
                 dst.build_overviews(factors, Resampling.average)
     return path
+
+
+def orthophoto(src_path, path, unit):
+    """WebODM's orthophoto of a conversion's temperature TIFFs (°C, its alpha band the no-data) written in the
+    mosaics' layout: temperatures in the unit, then the source frame and view angle bands, unknown here (no data);
+    tiled, with overviews. Where it is and its temperatures (as raster_info); ValueError when it holds no
+    temperatures"""
+    import numpy as np
+    import rasterio
+    from rasterio.enums import ColorInterp, Resampling
+    from .thermal_measure import from_celsius
+    with rasterio.open(src_path) as src:
+        alpha = [i + 1 for i, c in enumerate(src.colorinterp) if c == ColorInterp.alpha]
+        values = [i + 1 for i in range(src.count) if i + 1 not in alpha]
+        if len(values) != 1 or not np.issubdtype(np.dtype(src.dtypes[values[0] - 1]), np.floating):
+            raise ValueError("WebODM's orthophoto holds colours, not temperatures: it is made of the conversion's "
+                             "temperature TIFFs with the option radiometric-calibration none")
+        if src.crs is None:
+            raise ValueError("WebODM's orthophoto is not georeferenced")
+        profile = dict(driver='GTiff', width=src.width, height=src.height, count=3, dtype='float32', crs=src.crs,
+                       transform=src.transform, nodata=float('nan'), tiled=True, blockxsize=ORTHOPHOTO_TILE,
+                       blockysize=ORTHOPHOTO_TILE, compress='DEFLATE', predictor=3)
+        with rasterio.open(path, 'w', **profile) as dst:
+            unknown = None
+            for _, window in dst.block_windows(1):
+                t = src.read(values[0], window=window).astype('float32')
+                valid = np.isfinite(t) & (t > low_value('C'))
+                if alpha:
+                    valid &= src.read(alpha[0], window=window) > 0
+                dst.write(np.where(valid, from_celsius(t, unit), np.nan).astype('float32'), 1, window=window)
+                if unknown is None or unknown.shape != t.shape:
+                    unknown = np.full(t.shape, np.nan, dtype='float32')
+                dst.write(unknown, 2, window=window)
+                dst.write(unknown, 3, window=window)
+            factors, f = [], 2
+            while max(src.width, src.height) / f >= ORTHOPHOTO_TILE:
+                factors.append(f)
+                f *= 2
+            if factors:
+                dst.build_overviews(factors, Resampling.average)
+    info = raster_info(path, unit)
+    info.pop('view_angle', None)
+    return info
 
 
 def homography(t, v):

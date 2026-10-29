@@ -197,7 +197,7 @@ def test_a_mosaics_png_is_coloured_whole_in_strips(api, monkeypatch, tab):
     res = download(api, api.post("{}/{}/mosaics/{}/exports".format(CONVERSIONS, c.id, tab),
                                  {'format': 'png', 'view': view, 'correction': {'emissivity': '0.9'}}, format='json'))
     png = np.asarray(Image.open(io.BytesIO(content(res))))
-    path, band = mosaics.tab_raster(c.data_dir(), c.mosaics, tab)
+    path, band = mosaics.tab_raster(c, tab)
     with rasterio.open(path) as src:
         assert png.shape == (src.height, src.width, 4)
         values = src.read(band, masked=True).astype(np.float64).filled(np.nan)

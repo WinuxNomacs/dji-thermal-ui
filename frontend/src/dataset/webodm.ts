@@ -17,8 +17,11 @@ export interface Choices {nodes: WebODMNode[]; options: NodeOption[]; presets: P
 export interface WebODMTask {
     id: number; project_id: number | null; project_name: string; task_id: string; name: string; node: string;
     status: string; progress: number; uploaded: number; total: number; error: string; link: string | null;
-    check_error?: string;
+    orthophoto_status?: string; orthophoto_progress?: number; orthophoto_error?: string; check_error?: string;
 }
+// The orthophoto brought back and shown on the conversion's viewer: the task it came from (null once restored from a
+// backup, which leaves its tasks out)
+export interface Orthophoto {task: number | null; task_name: string; downloaded_at: string}
 
 // An option's row in the panel: ticked ones are sent; value is a string, or a boolean for a bool option
 export interface OptionRow {
@@ -108,6 +111,7 @@ export function taskLabel(t: WebODMTask): string {
 
 export function taskBadge(t: WebODMTask): string { return "badge " + (BADGES[t.status] ?? ""); }
 
-export function uploading(tasks: WebODMTask[] | undefined): boolean {
-    return (tasks || []).some((t) => t.status === "uploading");
+// Whether a task's images are being sent, or its orthophoto brought back (the page follows its conversion meanwhile)
+export function transferring(tasks: WebODMTask[] | undefined): boolean {
+    return (tasks || []).some((t) => t.status === "uploading" || t.orthophoto_status === "downloading");
 }

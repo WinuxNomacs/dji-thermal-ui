@@ -200,7 +200,9 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
     const [shown, setShown] = useState(false);
     const [webodm, setWebodm] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
-    const ready = c.status === "ready", busy = isBusy(c), mosaics = ready && c.mosaic_status === "ready";
+    const ready = c.status === "ready", busy = isBusy(c);
+    // The viewer shows the mosaics, or WebODM's orthophoto brought back without them
+    const mosaics = ready && (c.mosaic_status === "ready" || !!c.orthophoto);
 
     useEffect(() => {
         if (!menu) return;
@@ -213,6 +215,11 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
 
     // Unfolded results follow the conversion while it runs
     useEffect(() => { if (shown) loadDetail(); }, [shown, c.status, c.converted, c.skipped, c.mosaic_status]);
+
+    async function removeOrthophoto() {
+        await sendJson(base + c.id + "/orthophoto", "DELETE");
+        onChange();
+    }
 
     async function loadDetail() {
         const r = await readJson<Detail>(await fetch(base + c.id, {credentials: "same-origin"}));
@@ -263,7 +270,13 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
             c.mosaic_status === "failed" ? <div class="mosaic-status text-danger">The mosaics failed: {c.mosaic_error}</div> :
             c.mosaic_status === "canceled" ? <div class="mosaic-status text-muted">Building the mosaics was canceled.</div> :
             ready && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">No mosaics.</div> : null}
-        <WebODMTasks api={api} tasks={c.webodm_tasks || []} onChange={onChange}/>
+        {c.orthophoto && <div class="webodm-shown text-muted">
+            WebODM's orthophoto{c.orthophoto.task_name ? " of " + c.orthophoto.task_name : ""} is on the viewer's
+            WebODM tab.{" "}
+            <button type="button" class="button default small" data-action="orthophoto-remove"
+                    title="Removed here only: WebODM keeps its own" onClick={removeOrthophoto}>Remove</button>
+        </div>}
+        <WebODMTasks api={api} tasks={c.webodm_tasks || []} shown={c.orthophoto?.task ?? null} onChange={onChange}/>
         {webodm && <WebODMPanel api={api} publicUrl={publicUrl} conversion={c.id} onClose={() => setWebodm(false)}
                                 onMade={onChange}/>}
         {shown && (detail ? <Results d={detail} base={base} frames={ready ? viewer + c.id + "/frame" : null}/> :

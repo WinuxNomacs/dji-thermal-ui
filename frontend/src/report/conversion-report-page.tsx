@@ -15,7 +15,8 @@ import {DATA_GUTTER, rasterPixel, type Values} from "../map/map";
 import {type Measured, type Measurement, measurementFigure, shapeLabel, targetLabel} from "../measure/measure";
 import {ResultView} from "../measure/result";
 import {valuesUrl} from "../frame/frame";
-import {adjustQuery, dataUrl, reportRows, type Style, TAB_HINTS, tabLabel, takenText, viewQuery} from "../viewer/view";
+import {adjustQuery, dataUrl, reportRows, type Style, TAB_HINTS, tabLabel, takenText, TEMPERATURE_TABS,
+        viewQuery} from "../viewer/view";
 import {type Mosaics} from "../viewer/viewer-page";
 import {type Ask, drawFigures, type Mark, type Source} from "./figures";
 import {FindingsSection} from "./findings";
@@ -146,7 +147,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
         const temps = temperatureStyle(v!, tab, style), shares = temps === style ? curve : null;
         const colouring = colouringOf(v!, "as_converted", temps, shares), legend = legendOf(v!, "as_converted", temps, shares);
         const named = (m: Measurement): Mark => ({geometry: m.geometry!, name: m.name});
-        for (const target of ["as_converted", "harmonized"]) {
+        for (const target of TEMPERATURE_TABS) {
             const on = items.filter((m) => m.target === target && m.geometry);
             figures(tiles(target) && {values: tiles(target)!, colouring, legend},
                     on.map((m) => ({key: "m" + m.id, title: m.name + " · " + tabLabel(target), extent: closeUpExtent(m.geometry!),

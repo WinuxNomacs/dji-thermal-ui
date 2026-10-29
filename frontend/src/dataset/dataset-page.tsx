@@ -13,7 +13,7 @@ import {ConvertTab} from "./convert";
 import {type Analysis, filterQuery, type FilesView, newestReady, parseFilters} from "./files";
 import {FilesExport} from "./export";
 import {copyText, FilesTab, Overview, PlanTab, ProblemsTab} from "./tabs";
-import {uploading as uploadingToWebODM} from "./webodm";
+import {transferring} from "./webodm";
 
 const POLL_MS = 2000;
 
@@ -102,7 +102,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
         shows.current = listed;
         document.title = data.name + " · Thermal Analyzer";
         // An upload to WebODM too: the tasks once in WebODM are followed by their own lines
-        if (data.status === "analyzing" || (data.conversions || []).some((c) => isBusy(c) || uploadingToWebODM(c.webodm_tasks))) {
+        if (data.status === "analyzing" || (data.conversions || []).some((c) => isBusy(c) || transferring(c.webodm_tasks))) {
             timer.current = setTimeout(load, POLL_MS);
         }
     }

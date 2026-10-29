@@ -998,6 +998,20 @@ describe("the Convert tab", () => {
         expect(card().querySelector(".webodm-panel")).toBeNull();
     });
 
+    it("says the WebODM orthophoto is on the viewer, opens it without mosaics, and removes it", async () => {
+        const orthophoto = {task: 4, task_name: "Roof - Nadir", downloaded_at: "2026-10-29T22:00:00Z"};
+        const fetchFn = routes({...DETAIL, conversions: [{...CONVERSION, mosaic_status: "", orthophoto}]},
+                               {["DELETE " + API + "conversions/9/orthophoto"]: {...CONVERSION, orthophoto: null}});
+        page(fetchFn);
+        await ticks();
+        expect(card().querySelector(".webodm-shown")!.textContent!.replace(/\s+/g, " ").trim())
+            .toBe("WebODM's orthophoto of Roof - Nadir is on the viewer's WebODM tab. Remove");
+        expect(card().querySelector<HTMLAnchorElement>(".conversion-actions a.primary")!.textContent).toBe("View mosaics");
+        click(card().querySelector<HTMLElement>('[data-action="orthophoto-remove"]')!);
+        await ticks();
+        expect(calls(fetchFn)).toContain("DELETE " + API + "conversions/9/orthophoto");
+    });
+
     it("offers Process in WebODM only once a dataset is converted", async () => {
         page(routes({...DETAIL, conversions: [{...CONVERSION, status: "failed", mosaic_status: null}]}));
         await ticks();
