@@ -925,3 +925,31 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .move-projects li { padding: 2px 0; }
 #last-move p, #move-problems p { margin: 0 0 4px; }
 #last-move p, .storage-move p, #move-problems p { overflow-wrap: anywhere; }
+
+/* Process in WebODM, on a conversion's card */
+
+.webodm-panel {
+    margin-top: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface-2, var(--surface));
+}
+.webodm-panel > * + * { margin-top: 8px; }
+.webodm-panel fieldset { border: 0; padding: 0; margin: 8px 0 0; }
+.webodm-panel legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+.webodm-panel .notice ul, .webodm-panel .notice { margin-bottom: 0; }
+.webodm-panel .notice ul { margin-top: 4px; padding-left: 20px; }
+.webodm-project > div { margin-top: 4px; }
+.webodm-project-name, .webodm-project-search { width: 220px; max-width: 100%; }
+.webodm-project-list { max-width: 100%; }
+.webodm-options-table td { font-size: 12px; }
+.webodm-options-table tr.off td { opacity: .65; }
+.webodm-options-table input[type="number"], .webodm-options-table input[type="text"] { width: 120px; }
+.webodm-help { font-size: 12px; }
+.webodm-presets, .webodm-add { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+.webodm-save-preset { margin-left: auto; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.webodm-task-fields { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.webodm-task-name { width: 280px; max-width: 100%; }
+.webodm-panel-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.webodm-message { font-size: 13px; }
+.webodm-tasks { list-style: none; margin: 4px 0 0; padding: 0; }
+.webodm-task { padding: 2px 0; }
+.webodm-task .button, .webodm-task .icon-button { margin-left: 6px; }
