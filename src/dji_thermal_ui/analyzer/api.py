@@ -32,11 +32,11 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, webodm
+from . import backup, basemaps, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, webodm, webodm_tasks
 from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
-                     ThermalDataset, ThermalMeasurement)
+                     ThermalDataset, ThermalMeasurement, WebODMTask)
 from .raster.security import path_traversal_check
 
 PREFERENCES_KEY = 'conversion_settings'
@@ -59,6 +59,8 @@ FILE_FILTERS_KEY = 'file_filters'       # the Files tab's favourite filters, sha
 MAX_FILE_FILTERS = 100
 MAX_CONDITIONS = 50
 MAX_CONDITION_LENGTH = 1024
+WEBODM_PRESET_KEY = 'webodm_preset'     # the WebODM preset last applied to a task, offered first
+MAX_PROJECTS_LISTED = 50
 
 
 def get_project(pk):
@@ -267,6 +269,7 @@ def conversion_summary(c):
         'size': int(c.size * 1024 * 1024),
         'created_at': c.created_at,
         'finished_at': c.finished_at,
+        'webodm_tasks': [webodm_tasks.summary(webodm_tasks.check_stale(t)) for t in c.webodm_tasks.all()],
     }
 
 
@@ -1168,6 +1171,159 @@ class WebODMCheckView(DatasetView):
             return Response({'nodes': webodm.Client.from_config().nodes()})
         except webodm.WebODMError as e:
             raise ValidationError({'error': str(e)}) from None
+
+
+def webodm_call(fn, *args):
+    """A call to WebODM, what goes wrong said as a 400"""
+    try:
+        return fn(*args)
+    except webodm.WebODMError as e:
+        raise ValidationError({'error': str(e)}) from None
+
+
+def webodm_client():
+    return webodm_call(webodm.Client.from_config)
+
+
+def text_field(data, key, label, default=""):
+    value = data.get(key, default)
+    if not isinstance(value, str):
+        raise ValidationError({key: "{} is text".format(label)})
+    value = value.strip() or default
+    if not value:
+        raise ValidationError({key: "Type {}".format(label.lower())})
+    if len(value) > MAX_NAME_LENGTH:
+        raise ValidationError({key: "{} is too long".format(label)})
+    return value
+
+
+def optional_id(data, key):
+    value = data.get(key)
+    if value in (None, "", "auto"):
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValidationError({key: "An id is expected"})
+    return value
+
+
+def task_name(conversion):
+    return "{} - {}".format(conversion.dataset.name, conversion.name)[:MAX_NAME_LENGTH]
+
+
+class ConversionWebODMView(DatasetView):
+    def get(self, request, pk):
+        """What a WebODM task from the conversion would be: the plan's options, what stops or warns against it, its
+        frames and bytes, the names it starts with, and the preset last applied (nothing is asked of WebODM)"""
+        conversion = get_conversion(pk)
+        problems, warnings = webodm_tasks.checks(conversion)
+        found = webodm_tasks.files(conversion) if not problems else []
+        preset = Preferences.load().data.get(WEBODM_PRESET_KEY)
+        return Response({'configured': webodm.state()['configured'], 'problems': problems, 'warnings': warnings,
+                         'options': webodm_tasks.plan_options(conversion), 'frames': len(found),
+                         'bytes': sum(size for _, _, size in found), 'name': task_name(conversion),
+                         'project_name': conversion.dataset.project.name,
+                         'process_args': webodm_tasks.plan_of(conversion).get('process_args') or [],
+                         'preset': preset if isinstance(preset, int) else None})
+
+    def post(self, request, pk):
+        """Makes a WebODM task from the conversion's TIFFs: {project (an id, or none for a new one named
+        project_name), name, node (an id, or none for WebODM's choice), options [{name, value}], preset (the one
+        applied, remembered)}. The upload is a job; the task's row is answered"""
+        conversion = get_conversion(pk)
+        problems, _ = webodm_tasks.checks(conversion)
+        if problems:
+            raise ValidationError({'error': " ".join(problems)})
+        data = request.data
+        name = text_field(data, 'name', "The task's name", task_name(conversion))
+        try:
+            options = webodm_tasks.parse_options(data.get('options', []))
+        except ValueError as e:
+            raise ValidationError({'options': str(e)}) from None
+        project, node, preset = optional_id(data, 'project'), optional_id(data, 'node'), optional_id(data, 'preset')
+        client = webodm_client()
+        if project:
+            found = next((p for p in webodm_call(client.projects) if p['id'] == project), None)
+            if not found:
+                raise ValidationError({'project': "WebODM has no such project, or the account cannot see it"})
+            if not found['can_add']:
+                raise ValidationError({'project': "The account may not add tasks to {}: it needs Can change Project on "
+                                                  "it (see System Settings › WebODM)".format(found['name'])})
+            project_name = found['name']
+        else:
+            project_name = text_field(data, 'project_name', "The project's name", conversion.dataset.project.name)
+        label = ""
+        if node:
+            found = next((n for n in webodm_call(client.nodes) if n['id'] == node), None)
+            if not found:
+                raise ValidationError({'node': "The account cannot see that processing node"})
+            label = found['label']
+        if 'preset' in data:
+            save_preference(WEBODM_PRESET_KEY, preset)
+        task = webodm_tasks.start(conversion, client.url, project, project_name, name, node, label, options)
+        return Response(webodm_tasks.summary(task), status=status.HTTP_201_CREATED)
+
+
+class WebODMProjectsView(DatasetView):
+    def get(self, request):
+        """The account's WebODM projects, the newest first, those whose name holds ?search= only (at most 50, and how
+        many matched)"""
+        search = str(request.query_params.get('search', '')).strip().casefold()
+        found = [p for p in webodm_call(webodm_client().projects) if search in p['name'].casefold()]
+        return Response({'projects': found[:MAX_PROJECTS_LISTED], 'count': len(found)})
+
+
+class WebODMChoicesView(DatasetView):
+    def get(self, request):
+        """What a task can be given in WebODM: the processing nodes the account sees, the ODM options they offer, and
+        the presets (the account's and the system ones)"""
+        client = webodm_client()
+        return Response({'nodes': webodm_call(client.nodes), 'options': webodm_call(client.options),
+                         'presets': webodm_call(client.presets)})
+
+
+class WebODMPresetsView(DatasetView):
+    def post(self, request):
+        """Keeps options as a WebODM preset of the account's own: {name, options}; one of its own of that name is
+        changed. Answers its id and the presets"""
+        name = text_field(request.data, 'name', "The preset's name")
+        try:
+            options = webodm_tasks.parse_options(request.data.get('options', []))
+        except ValueError as e:
+            raise ValidationError({'options': str(e)}) from None
+        client = webodm_client()
+        same = next((p for p in webodm_call(client.presets) if p['name'] == name and not p['system']), None)
+        preset = webodm_call(client.save_preset, name, options, same and same['id'])
+        return Response({'id': preset, 'presets': webodm_call(client.presets)})
+
+
+def get_webodm_task(pk):
+    try:
+        return WebODMTask.objects.get(pk=pk)
+    except WebODMTask.DoesNotExist:
+        raise NotFound() from None
+
+
+class WebODMTaskView(DatasetView):
+    def get(self, request, pk):
+        """A task made in WebODM, WebODM asked how it is going (at most every few seconds) while it is queued or
+        running; check_error says why WebODM could not be asked"""
+        task = webodm_tasks.check_stale(get_webodm_task(pk))
+        problem = webodm_tasks.refresh(task)
+        return Response(dict(webodm_tasks.summary(task), check_error=problem))
+
+    def delete(self, request, pk):
+        """Takes a task off the conversion's list; the task in WebODM is kept (not while it uploads)"""
+        task = webodm_tasks.check_stale(get_webodm_task(pk))
+        if task.status == 'uploading':
+            return Response({'error': "Cancel the upload first"}, status=status.HTTP_409_CONFLICT)
+        task.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WebODMTaskCancelView(DatasetView):
+    def post(self, request, pk):
+        """Stops an upload: the task half made in WebODM is removed"""
+        return Response(webodm_tasks.summary(webodm_tasks.cancel(get_webodm_task(pk))))
 
 
 class PreferencesView(DatasetView):

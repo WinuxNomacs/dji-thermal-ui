@@ -309,6 +309,64 @@ class Finding(models.Model):
         return self.name
 
 
+WEBODM_TASK_STATUSES = (
+    ('uploading', _("Uploading")),
+    ('queued', _("Queued")),
+    ('running', _("Running")),
+    ('completed', _("Completed")),
+    ('failed', _("Failed")),
+    ('canceled', _("Canceled")),
+    ('gone', _("Not in WebODM")),
+)
+
+
+class WebODMTask(models.Model):
+    """A task made in WebODM from a conversion's temperature TIFFs: where it is in WebODM and how far it got. Deleting
+    the conversion deletes this row, never the task in WebODM."""
+    conversion = models.ForeignKey(ThermalConversion, on_delete=models.CASCADE, related_name='webodm_tasks',
+                                   help_text=_("The conversion its images come from"), verbose_name=_("Conversion"))
+    url = models.CharField(max_length=2048, help_text=_("WebODM's address when it was made"), verbose_name=_("WebODM"))
+    project_id = models.IntegerField(null=True, blank=True, help_text=_("Its WebODM project, once made"),
+                                     verbose_name=_("WebODM project"))
+    project_name = models.CharField(max_length=255, help_text=_("The WebODM project's name"),
+                                    verbose_name=_("WebODM project name"))
+    task_id = models.CharField(max_length=64, blank=True, default="", help_text=_("Its id in WebODM, once made"),
+                               verbose_name=_("WebODM task"))
+    name = models.CharField(max_length=255, help_text=_("The task's name"), verbose_name=_("Name"))
+    node = models.CharField(max_length=255, blank=True, default="",
+                            help_text=_("The processing node chosen; empty for WebODM's choice"),
+                            verbose_name=_("Processing node"))
+    options = models.JSONField(default=list, blank=True, help_text=_("The ODM options sent, [{name, value}]"),
+                               verbose_name=_("Options"))
+    status = models.CharField(max_length=16, choices=WEBODM_TASK_STATUSES, default='uploading', db_index=True,
+                              help_text=_("Where it is: uploading here, then as WebODM says"), verbose_name=_("Status"))
+    progress = models.FloatField(default=0.0, help_text=_("How far the upload, then the processing, is, 0 to 1"),
+                                 verbose_name=_("Progress"))
+    uploaded = models.BigIntegerField(default=0, help_text=_("Bytes sent"), verbose_name=_("Uploaded"))
+    total = models.BigIntegerField(default=0, help_text=_("Bytes to send"), verbose_name=_("Total"))
+    error = models.TextField(blank=True, default="", help_text=_("Why it failed"), verbose_name=_("Error"))
+    run_id = models.CharField(max_length=32, blank=True, default="",
+                              help_text=_("The upload: its job sends images only while this is still its own "
+                                          "(canceling changes it)"), verbose_name=_("Run ID"))
+    half_made = models.BooleanField(default=False,
+                                    help_text=_("Made in WebODM but not committed: removed there when the upload "
+                                                "doesn't finish"), verbose_name=_("Half made"))
+    made_project = models.BooleanField(default=False,
+                                       help_text=_("Whether the upload made its WebODM project, which goes with a "
+                                                   "half-made task"), verbose_name=_("Made the project"))
+    created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
+    checked_at = models.DateTimeField(null=True, blank=True, help_text=_("When WebODM was last asked about it"),
+                                      verbose_name=_("Checked at"))
+
+    class Meta:
+        verbose_name = _("WebODM task")
+        verbose_name_plural = _("WebODM tasks")
+        ordering = ('-created_at', '-id')
+
+    def __str__(self):
+        return self.name
+
+
 class Preferences(models.Model):
     """The saved preferences for new datasets: a single row"""
     data = models.JSONField(default=dict, blank=True, help_text=_("The preferences saved"), verbose_name=_("Data"))

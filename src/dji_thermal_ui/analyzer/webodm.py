@@ -7,8 +7,10 @@ token expires or is refused. Every call has a timeout; what goes wrong is said i
 
 import base64
 import json
+import mimetypes
 import threading
 import time
+import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -27,13 +29,21 @@ PASSWORD_MAX = 4096
 TIMEOUT = 15            # s, for each call
 TOKEN_MARGIN = 300      # s: a token this close to expiring is asked for again
 TOKEN_LIFE = 6 * 3600   # s: WebODM's, when the token does not say
+UPLOAD_TIMEOUT = 600    # s, for a batch of images
+
+# WebODM's task statuses (nodeodm.status_codes)
+TASK_STATUSES = {10: 'queued', 20: 'running', 30: 'failed', 40: 'completed', 50: 'canceled'}
 
 _tokens = {}            # (url, username, password) -> (token, when it expires)
 _lock = threading.Lock()
 
 
 class WebODMError(Exception):
-    """What went wrong talking to WebODM, in words for the user"""
+    """What went wrong talking to WebODM, in words for the user (status: WebODM's answer, when it gave one)"""
+
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -173,15 +183,16 @@ class Client:
             return kept[0], False
         return self.login(), True
 
-    def request(self, method, path, data=None, timeout=TIMEOUT):
-        """WebODM's answer (JSON) to a call to its API (path from /api/, data sent as JSON); a token it refuses is asked
-        for again once"""
+    def request(self, method, path, data=None, timeout=TIMEOUT, body=None, content_type=None):
+        """WebODM's answer (JSON) to a call to its API (path from /api/, data sent as JSON, or a body of its own
+        content type); a token it refuses is asked for again once"""
         token, fresh = self._token()
-        body = None if data is None else json.dumps(data).encode()
+        if data is not None:
+            body, content_type = json.dumps(data).encode(), 'application/json'
         while True:
             headers = {'Authorization': 'JWT ' + token, 'Accept': 'application/json'}
             if body is not None:
-                headers['Content-Type'] = 'application/json'
+                headers['Content-Type'] = content_type
             status, raw = _send(self.url + path, method, body, headers, timeout)
             if status in (401, 403) and not fresh:
                 token, fresh = self.login(), True
@@ -194,7 +205,7 @@ class Client:
             raise WebODMError("WebODM refused: the account lacks a permission this needs (see System Settings › "
                               "WebODM)" + (": " + detail if detail else ""))
         if status == 404:
-            raise WebODMError("WebODM has no %s: it was removed, or the account cannot see it" % path)
+            raise WebODMError("WebODM has no %s: it was removed, or the account cannot see it" % path, 404)
         if status == 400:
             raise WebODMError("WebODM did not take it" + (": " + detail if detail else ""))
         raise WebODMError("WebODM answered %d: try again later" % status)
@@ -206,6 +217,78 @@ class Client:
             raise WebODMError("That address answered, but not as WebODM does: is it WebODM's?")
         return [{'id': n.get('id'), 'label': n.get('label') or "%s:%s" % (n.get('hostname'), n.get('port')),
                  'online': bool(n.get('online'))} for n in found if isinstance(n, dict)]
+
+    def _list(self, path):
+        found = self.request('GET', path)
+        if not isinstance(found, list):
+            raise WebODMError("That address answered, but not as WebODM does: is it WebODM's?")
+        return [x for x in found if isinstance(x, dict)]
+
+    def projects(self):
+        """The projects the account can see, the newest first: [{id, name, can_add}] (can_add: it may add tasks)"""
+        return [{'id': p.get('id'), 'name': p.get('name') or "", 'can_add': 'change' in (p.get('permissions') or [])}
+                for p in self._list('/api/projects/?ordering=-created_at')]
+
+    def create_project(self, name):
+        """A new project of the account's: its id"""
+        return self.request('POST', '/api/projects/', {'name': name})['id']
+
+    def delete_project(self, project):
+        self.request('DELETE', '/api/projects/%d/' % project)
+
+    def options(self):
+        """The ODM options the account's processing nodes offer: [{name, type, value, domain, help}]"""
+        return [{k: o.get(k) for k in ('name', 'type', 'value', 'domain', 'help')}
+                for o in self._list('/api/processingnodes/options/') if o.get('name')]
+
+    def presets(self):
+        """The account's presets and the system ones: [{id, name, system, options}]"""
+        return [{'id': p.get('id'), 'name': p.get('name') or "", 'system': bool(p.get('system')),
+                 'options': p.get('options') if isinstance(p.get('options'), list) else []}
+                for p in self._list('/api/presets/')]
+
+    def save_preset(self, name, options, preset=None):
+        """Makes a preset of the account's own, or changes one (preset: its id): its id"""
+        if preset:
+            return self.request('PATCH', '/api/presets/%d/' % preset, {'name': name, 'options': options})['id']
+        return self.request('POST', '/api/presets/', {'name': name, 'options': options})['id']
+
+    def create_task(self, project, name, options, node=None):
+        """A task waiting for its images (partial): its id"""
+        data = {'partial': True, 'name': name, 'options': options}
+        data.update({'processing_node': node, 'auto_processing_node': False} if node else
+                    {'auto_processing_node': True})
+        return self.request('POST', '/api/projects/%d/tasks/' % project, data)['id']
+
+    def upload(self, project, task, paths):
+        """Sends images to a task waiting for them: [(path on disk, name in the task)]"""
+        boundary = uuid.uuid4().hex
+        parts = []
+        for path, name in paths:
+            with open(path, 'rb') as f:
+                content = f.read()
+            kind = mimetypes.guess_type(name)[0] or 'application/octet-stream'
+            parts.append(('--%s\r\nContent-Disposition: form-data; name="images"; filename="%s"\r\n'
+                          'Content-Type: %s\r\n\r\n' % (boundary, name.replace('"', '_'), kind)).encode() + content
+                         + b'\r\n')
+        body = b''.join(parts) + ('--%s--\r\n' % boundary).encode()
+        self.request('POST', '/api/projects/%d/tasks/%s/upload/' % (project, task), body=body,
+                     content_type='multipart/form-data; boundary=' + boundary, timeout=UPLOAD_TIMEOUT)
+
+    def commit(self, project, task):
+        """Starts processing a task once its images are sent: WebODM's task"""
+        return self.request('POST', '/api/projects/%d/tasks/%s/commit/' % (project, task), {})
+
+    def remove_task(self, project, task):
+        self.request('POST', '/api/projects/%d/tasks/%s/remove/' % (project, task), {})
+
+    def task(self, project, task):
+        """WebODM's task: {status (TASK_STATUSES), progress, error, pending}"""
+        t = self.request('GET', '/api/projects/%d/tasks/%s/' % (project, task))
+        if not isinstance(t, dict):
+            raise WebODMError("That address answered, but not as WebODM does: is it WebODM's?")
+        return {'status': TASK_STATUSES.get(t.get('status'), 'queued'), 'progress': float(t.get('running_progress') or 0),
+                'error': t.get('last_error') or "", 'pending': t.get('pending_action')}
 
 
 def check(url, username, password):
