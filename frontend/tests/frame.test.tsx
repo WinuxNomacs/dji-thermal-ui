@@ -339,6 +339,35 @@ describe("the frame page", () => {
         expect(($("input[name=emissivity]") as HTMLInputElement).value).toBe("0.91");
     });
 
+    it("exports this frame as shown, with the parameters changed when asked", async () => {
+        const changedInfo = {...INFO, changed: {...INFO, stats: {...INFO.stats, mean: 22.5}}};
+        const fetchFn = server(routes({[BASE + "/frame?frame=" + enc(A) + "&emissivity=0.98"]: changedInfo,
+                                       ["POST " + API + "datasets/5/exports"]: {url: "/api/exports/ab"}}));
+        const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+        await open(fetchFn);
+        type($("input[name=emissivity]")!, "0.98");
+        await ticks();
+        key($("input[name=emissivity]")!, "Enter");
+        await ticks(40);
+        click(byId("export"));
+        await ticks();
+        expect(byId("export-dialog").textContent).toContain("“thermal/a_T.JPG”");
+        // The conversion is normalized: its R-JPEGs and originals can't be made
+        expect(($("input[name=export-format][value=original]") as HTMLInputElement).disabled).toBe(true);
+        const changed = $("input[name=export-changes][value='1']") as HTMLInputElement;
+        changed.checked = true;
+        changed.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        click(byId("export-save"));
+        await ticks();
+        const post = fetchFn.mock.calls.find((c) => c[1]?.method === "POST")!;
+        expect(JSON.parse(String(post[1]!.body))).toMatchObject({format: "png", frames: [A], conversion: 9,
+            changes: {emissivity: 0.98}, view: {palette: "dji_ironred", gamma: 1, equalize: false, sharpen: 0}});
+        expect(download).toHaveBeenCalledTimes(1);
+        expect(byId("export-dialog")).toBeNull();
+        download.mockRestore();
+    });
+
     it("steps through the frames with the arrows and the buttons, not while typing", async () => {
         const fetchFn = server(routes());
         await open(fetchFn);

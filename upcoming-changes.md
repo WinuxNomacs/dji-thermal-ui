@@ -9,11 +9,6 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
-   remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, on PyPI and
-   pinned here); M2 the server is done; M3 the dialog is planned and being built. (Exports)
-
-**Then**
 1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
    filter at the top of User Preferences and System Settings, both on one shared matcher. (Search)
 
@@ -1349,6 +1344,8 @@ server), and downloads what the server makes.
 3. **On the frame explorer with parameters changed**, the dialog offers "As converted" or "With the parameters
    changed" (M2's `changes`); only the first when no parameter is changed.
 
+- **Done:** see Done below.
+
 ## Search
 
 Requested 2026-10-29 (`new.md`):
@@ -1833,3 +1830,12 @@ Requested 2026-10-29 (`new.md`):
   `frontend/tests/dataset.test.tsx`. Checked live on 8081 with dataset 1: every format for 1 and 3 frames (0.1–0.75
   s), the mosaics' PNGs (the 5746 × 6240 visual one in 4 s) and private GeoTIFF, the images looked at; the private
   copy removed after.
+- **M3: the export dialog** (2026-10-29, branch `m3-export-dialog`). `components/export-dialog.tsx` (the formats
+  with what each is for, the options under them, Export: POST then an `<a download>` of the `url`), `core/exports.ts`
+  (the formats, `cannotCarry`, the view asked, `startExport`), `frame/export.tsx`, `dataset/export.tsx` (the frames
+  shown or all, the dataset or the frames' own values, a palette and a shared range typed in the user's unit and sent
+  in the frames'), `viewer/export.tsx`; an "Export…" button on the three pages. Tests:
+  `frontend/tests/exports.test.tsx`, and a test on each page (`dataset`, `frame`, `viewer`). Checked live on 8081
+  with dataset 1, light and dark: a PNG, an Original (Private) and a zip of 9 TIFFs from the Files tab (R-JPEG and
+  Original off for the normalized dataset), an R-JPEG from the frame explorer with the emissivity changed (it reads
+  back 0.9), a PNG as converted, and the harmonized mosaic's PNG from the viewer.

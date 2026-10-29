@@ -688,6 +688,28 @@ describe("the dataset page", () => {
         expect($(".favourite-items")!.textContent).toContain("No favourites yet.");
     });
 
+    it("exports the thermal frames the filter shows, measured with the newest dataset", async () => {
+        const fetchFn = routes(DETAIL, {["POST " + URL + "/exports"]: {url: "/api/exports/ab"}});
+        const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+        history.replaceState(null, "", "/dataset/5?filter=alt.le.20#files");
+        page(fetchFn);
+        await ticks();
+        click(byId("export-frames"));
+        await ticks();
+        expect(byId("export-dialog").textContent).toContain("The 1 shown");
+        expect(byId("export-dialog").textContent).toContain("All 2");
+        expect($<HTMLSelectElement>("#export-conversion")!.value).toBe("9");
+        // The newest dataset is normalized: its R-JPEGs and originals can't be made
+        expect($<HTMLInputElement>("input[name=export-format][value=rjpeg]")!.disabled).toBe(true);
+        click(byId("export-save"));
+        await ticks();
+        expect(body(fetchFn.mock.calls.find((c) => c[1]?.method === "POST")![1]))
+            .toEqual({format: "png", conversion: 9, frames: ["thermal/a_T.JPG"], view: {palette: null, range: null}});
+        expect(download).toHaveBeenCalledTimes(1);
+        expect(byId("export-dialog")).toBeNull();
+        download.mockRestore();
+    });
+
     it("shows the WebODM plan, copies its options and converts with its settings", async () => {
         const writeText = vi.fn().mockResolvedValue(undefined);
         vi.stubGlobal("navigator", {...navigator, clipboard: {writeText}});

@@ -15,6 +15,7 @@ import OlStyle from "ol/style/Style";
 import {getDistance} from "ol/sphere";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
+import {viewAsked} from "../core/exports";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {partChanged} from "../core/navigation";
 import {convertTemp} from "../core/units";
@@ -34,6 +35,7 @@ import {type Colouring, isothermRange, SEAMS} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
+import {MosaicExport} from "./export";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         Readout, Report, Section, Whole} from "./panel";
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
@@ -148,6 +150,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [index, setIndex] = useState<number | null>(null);
     const [isotherm, setIsotherm] = useState<IsothermState>({mode: ""});
     const [isoValue, setIsoValue] = useState("");
+    const [exporting, setExporting] = useState(false);
     const [isoError, setIsoError] = useState("");
     const [typed, setTyped] = useState<Record<string, string>>({});
     const [correction, setCorrection] = useState<CorrectionValue>({});
@@ -929,6 +932,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     {ready && <button type="button" class="button default" id="png" onClick={exportPng}
                                       title="The mosaic as shown, with its saved measurements and colour scale (the basemap is left out)">
                         <Download/> Export PNG</button>}
+                    {ready && <button type="button" class="button default" id="export" onClick={() => setExporting(true)}
+                                      title="The mosaic whole, at full resolution: its GeoTIFF, private or not, or a PNG as shown">
+                        <Download/> Export…</button>}
                     {ready && <button type="button" class="button default" id="report" onClick={openReport}
                                       title="A report of this mosaic as shown, its measurements and findings, to print or save as PDF">
                         <FileText/> Report</button>}
@@ -941,6 +947,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 </div>
             </div>
 
+            {exporting && tab && (visual || shown) && <MosaicExport base={base} tab={visual ? VISUAL : tab}
+                label={tabLabel(visual ? VISUAL : tab)} correction={params} onClose={() => setExporting(false)}
+                view={visual || !shown ? null : viewAsked(shown.palette, shown.range, shown.adjust, temperature ? isoValue : null)}/>}
             {notice && <div class="notice error" role="alert">{notice}</div>}
             <MosaicStatus v={{...v, label: mosaicLabel(v)}}/>
 
