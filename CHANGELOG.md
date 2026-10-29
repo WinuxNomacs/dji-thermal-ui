@@ -13,6 +13,10 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- A preferred basemap in User Preferences › Map: every map (the viewer, the compare page, the project maps, the
+  location picker and the dataset report) starts with ESRI Satellite, OpenStreetMap, Mapbox Satellite (once it has a
+  token) or none, and can still switch to another. ESRI Satellite stays the default, and a preferred Mapbox whose
+  token is gone or refused goes back to it.
 - A preferred palette in User Preferences: the viewer, the frame explorer, the compare page and the mosaic report
   start with it (a DJI palette where the flight's images carry it), and can still switch to another. "As each
   flight's images", the default, keeps the palette they started with before. A small made-up thermal scene beside
