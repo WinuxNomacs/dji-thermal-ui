@@ -25,12 +25,17 @@ def conversion_or_404(conversion_id):
 
 @ensure_csrf_cookie
 def projects_list(request):
-    return page(request, "projects.html", title="Thermal Analyzer", entry="projects", basemaps=page_basemaps(API))
+    return page(request, "projects.html", title="Thermal Analyzer", entry="projects", basemaps=page_basemaps())
 
 
 @ensure_csrf_cookie
 def preferences_page(request):
     return page(request, "preferences.html", title="User Preferences", entry="preferences")
+
+
+@ensure_csrf_cookie
+def settings_page(request):
+    return page(request, "settings.html", title="System Settings", entry="settings")
 
 
 @ensure_csrf_cookie
@@ -42,7 +47,7 @@ def storage_page(request):
 def project_page(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
     return page(request, "project.html", title=project.name, entry="project", project=project,
-                basemaps=page_basemaps(API))
+                basemaps=page_basemaps())
 
 
 @ensure_csrf_cookie
@@ -56,14 +61,14 @@ def dataset_report(request, dataset_id):
     """A dataset's report, laid out to be printed to PDF"""
     dataset = get_object_or_404(ThermalDataset.objects.select_related('project'), pk=dataset_id)
     return page(request, "dataset_report.html", title=dataset.name + " report", dataset=dataset, project=dataset.project,
-                entry="dataset_report", author=report_author(), basemaps=page_basemaps(API))
+                entry="dataset_report", author=report_author(), basemaps=page_basemaps())
 
 
 @ensure_csrf_cookie
 def viewer_page(request, conversion_id):
     conversion = conversion_or_404(conversion_id)
     return page(request, "viewer.html", title=conversion.name, entry="viewer", conversion=conversion,
-                dataset=conversion.dataset, basemaps=page_basemaps(API))
+                dataset=conversion.dataset, basemaps=page_basemaps())
 
 
 @ensure_csrf_cookie
@@ -93,4 +98,4 @@ def compare_page(request, conversion_id):
         except ValueError:
             raise Http404("No such dataset") from None
     return page(request, "compare.html", title="Compare", entry="compare", conversion=conversion, other=other,
-                dataset=conversion.dataset, basemaps=page_basemaps(API))
+                dataset=conversion.dataset, basemaps=page_basemaps())

@@ -985,6 +985,29 @@ class StorageMoveView(DatasetView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class MapboxTokenView(DatasetView):
+    def get(self, request):
+        """The Mapbox token in use, where it comes from, and the .env file a new one is written to"""
+        return Response(basemaps.mapbox_state())
+
+    def put(self, request):
+        """Writes {token} to the .env file in place of the one there, once Mapbox has served a tile with it (409 while
+        the environment's MAPBOX_API_TOKEN is used)"""
+        token = request.data.get('token')
+        error = basemaps.token_error(token)
+        if error:
+            raise ValidationError({'token': error})
+        if basemaps.mapbox_token()[1] == 'environment':
+            return Response({'token': "MAPBOX_API_TOKEN is set in the environment the app was started from: change it "
+                                      "there"}, status=status.HTTP_409_CONFLICT)
+        token = token.strip()
+        error = basemaps.check_token(token)
+        if error:
+            raise ValidationError({'token': error})
+        basemaps.write_token(token)
+        return Response(basemaps.mapbox_state())
+
+
 class PreferencesView(DatasetView):
     def get(self, request):
         """The saved conversion settings (or the defaults), the temperature unit, and what can be chosen"""
@@ -1013,8 +1036,7 @@ class PreferencesView(DatasetView):
     def put(self, request):
         """Saves settings as the defaults for new conversions, and/or the unit temperatures are shown in, and/or the
         pages' theme, and/or the locale of dates and times ("": the computer's), and/or the palette the map pages start
-        with ("": each flight's images' own), and/or the basemap they start with, and/or the Mapbox token (null
-        forgets it)"""
+        with ("": each flight's images' own), and/or the basemap they start with"""
         out = {}
         palettes = ("",) + tuple(p['key'] for p in palette_choices())
         for key, choices in ((UNIT_KEY, thermal_conversion.UNITS), (THEME_KEY, THEMES), (LOCALE_KEY, ("",) + LOCALES),
@@ -1025,15 +1047,6 @@ class PreferencesView(DatasetView):
                     raise ValidationError({key: "One of {}".format(", ".join(c or '""' for c in choices))})
                 save_preference(key, value)
                 out[key] = value
-        if basemaps.TOKEN_KEY in request.data:
-            token = request.data.get(basemaps.TOKEN_KEY)
-            if token is not None:
-                error = basemaps.token_error(token)
-                if error:
-                    raise ValidationError({basemaps.TOKEN_KEY: error})
-                token = token.strip()
-            save_preference(basemaps.TOKEN_KEY, token)
-            out['mapbox'] = basemaps.mapbox_state()
         if 'settings' in request.data or not out:
             settings, errors = thermal_conversion.parse_settings(request.data.get('settings'))
             if errors:

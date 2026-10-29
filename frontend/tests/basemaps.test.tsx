@@ -5,17 +5,14 @@ import type XYZ from "ol/source/XYZ";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {type Basemap, loadMapboxTile, TileAvailability, TILEMAP_BLOCK, tileExists} from "../src/map/basemaps";
 import {mosaicMap} from "../src/map/map";
-import {SIGN_UP, TOKENS_PAGE} from "../src/map/mapbox-token";
-import {calls, click, jsonResponse, server, ticks} from "./helpers";
+import {jsonResponse, ticks} from "./helpers";
 
 const TOKEN = "pk.eyJ1IjoidGVzdCJ9.abc";
 const ESRI: Basemap = {label: "ESRI Satellite", url: "https://esri/tile/{z}/{y}/{x}", default: true, maxzoom: 21};
 const OSM: Basemap = {label: "OpenStreetMap", url: "https://osm/{z}/{x}/{y}.png", maxzoom: 19};
-const mapbox = (token: string | null = null, source: "saved" | "env" | null = token ? "saved" : null,
-                envToken = source === "env"): Basemap =>
+const mapbox = (token: string | null = null): Basemap =>
     ({label: "Mapbox Satellite", type: "mapbox", url: "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}",
-      maxzoom: 22, logo: "/static/vendor/mapbox/mapbox-logo.svg", preferences: "/api/preferences", token,
-      token_source: source, env_token: envToken});
+      maxzoom: 22, logo: "/static/vendor/mapbox/mapbox-logo.svg", token});
 
 const $ = (sel: string) => document.querySelector(sel);
 const select = () => $(".map-basemaps select") as HTMLSelectElement;
@@ -23,14 +20,11 @@ const options = () => [...select().options].map((o) => o.textContent);
 const shown = () => select().selectedOptions[0].textContent;
 const message = () => $(".map-basemaps-message") as HTMLElement;
 const logo = () => $(".map-mapbox-logo") as HTMLElement;
-const dialog = () => $(".dialog");
-const press = (label: string) => click([...dialog()!.querySelectorAll("button")].find((b) => b.textContent === label)!);
 const choose = (label: string) => {
     const s = select();
     s.value = [...s.options].find((o) => o.textContent === label)!.value;
     s.dispatchEvent(new Event("change"));
 };
-const typeToken = (value: string) => { (dialog()!.querySelector("input") as HTMLInputElement).value = value; };
 
 let map: OlMap;
 const basemapLayers = () => map.getLayers().getArray().filter((l) => l.getZIndex() === -1) as TileLayer[];
@@ -52,15 +46,15 @@ afterEach(() => {
 });
 
 describe("the basemap switch", () => {
-    it("lists Mapbox only once there is a token, and offers to add one", () => {
+    it("lists Mapbox only once there is a token, and no way to add or change one", () => {
         open([ESRI, OSM, mapbox()]);
-        expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "None", "Mapbox Satellite: add a token…"]);
+        expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "None"]);
         expect([shown(), visible()]).toEqual(["ESRI Satellite", [true, false, false]]);
         expect(logo().hidden).toBe(true);
 
         document.body.innerHTML = '<div class="page"></div>';
         open([ESRI, OSM, mapbox(TOKEN)]);
-        expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "Mapbox Satellite", "None", "Mapbox Satellite: the token…"]);
+        expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "Mapbox Satellite", "None"]);
         const attribution = () => $(".ol-attribution")!.classList.contains("ol-uncollapsible");
         expect(attribution()).toBe(false);
         choose("Mapbox Satellite");
@@ -84,81 +78,6 @@ describe("the basemap switch", () => {
         open([ESRI, OSM]);
         expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "None"]);
         expect(logo()).toBeNull();
-    });
-});
-
-describe("the Mapbox token form", () => {
-    it("tells how to get a token, saves it, and shows Mapbox's imagery at once", async () => {
-        const fetchFn = server({"PUT /api/preferences": {mapbox: {token: TOKEN, token_source: "saved", env_token: false}}});
-        fetchFn.mockImplementationOnce(() => jsonResponse({mapbox_token: "A Mapbox public token starts with pk. and has no spaces"}, false));
-        vi.stubGlobal("fetch", fetchFn);
-        open([ESRI, OSM, mapbox()]);
-        choose("Mapbox Satellite: add a token…");
-        expect(shown()).toBe("ESRI Satellite");
-        const links = [...dialog()!.querySelectorAll("a")].map((a) => a.getAttribute("href"));
-        expect(links).toEqual(expect.arrayContaining([SIGN_UP, TOKENS_PAGE]));
-        expect(dialog()!.textContent).toContain("Default public token");
-        expect([...dialog()!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Cancel", "Save"]);
-
-        // A token the server refuses: the form again, with why
-        typeToken("not a token");
-        press("Save");
-        await ticks();
-        expect(dialog()!.querySelector(".field-error")!.textContent).toBe("A Mapbox public token starts with pk. and has no spaces");
-        expect((dialog()!.querySelector("input") as HTMLInputElement).value).toBe("not a token");
-
-        typeToken(" " + TOKEN);
-        press("Save");
-        await ticks();
-        expect(dialog()).toBeNull();
-        expect(calls(fetchFn)).toEqual(["PUT /api/preferences", "PUT /api/preferences"]);
-        expect(JSON.parse(fetchFn.mock.calls[1][1]!.body as string)).toEqual({mapbox_token: TOKEN});
-        expect([shown(), logo().hidden]).toEqual(["Mapbox Satellite", false]);
-        expect(options()).toContain("Mapbox Satellite: the token…");
-    });
-
-    it("changes the token on every map of the page, and removes it to go back to the basemap before", async () => {
-        const other = TOKEN.replace("abc", "xyz");
-        const fetchFn = server({"PUT /api/preferences": [
-            {mapbox: {token: other, token_source: "saved", env_token: false}},
-            {mapbox: {token: null, token_source: null, env_token: false}},
-        ]});
-        vi.stubGlobal("fetch", fetchFn);
-        open([ESRI, OSM, mapbox(TOKEN)]);
-        const first = map;
-        open([ESRI, OSM, mapbox(TOKEN)]);
-        choose("OpenStreetMap");
-        choose("Mapbox Satellite");
-        choose("Mapbox Satellite: the token…");
-        expect((dialog()!.querySelector("input") as HTMLInputElement).value).toBe(TOKEN);
-        typeToken(other);
-        press("Save");
-        await ticks();
-        const firstUrl = ((first.getLayers().getArray().filter((l) => l.getZIndex() === -1)[2] as TileLayer).getSource() as XYZ).getUrls()![0];
-        expect(firstUrl.endsWith("access_token=" + other)).toBe(true);
-
-        choose("Mapbox Satellite: the token…");
-        press("Remove");
-        await ticks();
-        expect(JSON.parse(fetchFn.mock.calls[1][1]!.body as string)).toEqual({mapbox_token: null});
-        expect([shown(), logo().hidden]).toEqual(["OpenStreetMap", true]);
-        expect(options()).not.toContain("Mapbox Satellite");
-        first.setTarget(undefined);
-    });
-
-    it("says when the token in use is MAPBOX_API_TOKEN, and that removing a saved one goes back to it", () => {
-        open([ESRI, mapbox(TOKEN, "env")]);
-        choose("Mapbox Satellite: the token…");
-        expect(dialog()!.textContent).toContain("The token in use now is MAPBOX_API_TOKEN");
-        expect((dialog()!.querySelector("input") as HTMLInputElement).value).toBe("");
-        expect([...dialog()!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Cancel", "Save"]);
-        press("Cancel");
-
-        document.body.innerHTML = '<div class="page"></div>';
-        open([ESRI, mapbox(TOKEN, "saved", true)]);
-        choose("Mapbox Satellite: the token…");
-        expect(dialog()!.textContent).toContain("Removing the token saved here goes back to MAPBOX_API_TOKEN");
-        press("Cancel");
     });
 });
 

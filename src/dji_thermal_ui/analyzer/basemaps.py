@@ -1,18 +1,22 @@
 """The basemaps under the mosaics: the settings' BASEMAPS, and Mapbox's satellite imagery with the user's own token.
 
-The token is the one saved in the app (the `mapbox_token` preference), else MAPBOX_API_TOKEN from the environment or
-from a .env file (the settings' MAPBOX_ENV_FILES). The browser sends it to Mapbox itself: only public tokens (pk.) are
-taken, since anyone looking at the page can read it."""
+The token is MAPBOX_API_TOKEN from the environment, else from a .env file (the settings' MAPBOX_ENV_FILES). The System
+Settings page replaces it in the .env it was read from (else the data folder's) once Mapbox has accepted it. The
+browser sends it to Mapbox itself: only public tokens (pk.) are taken, since anyone looking at the page can read it."""
 
 import os
 import re
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from django.conf import settings
 from django.templatetags.static import static
 
 from .models import Preferences
 
-TOKEN_KEY = 'mapbox_token'
+TOKEN_KEY = 'mapbox_token'   # where versions before 0.9 saved the token, moved to .env at the start (move_saved_token)
 BASEMAP_KEY = 'basemap'     # the basemap the maps start with (a basemap's key, or NONE): the settings' default without one
 NONE = 'none'
 TOKEN_ENV = 'MAPBOX_API_TOKEN'
@@ -31,6 +35,15 @@ MAPBOX = {
     "minzoom": 0,
 }
 
+# Asked for to check a token: the whole world, one tile; how long Mapbox gets to answer (s)
+CHECK_TILE = (0, 0, 0)
+CHECK_TIMEOUT = 10
+REFUSED = {
+    401: "Mapbox refused the token: check that it was copied whole",
+    403: "Mapbox refused the token (its URL restrictions, or the account)",
+    429: "The Mapbox account's limit is reached for now: try again later",
+}
+
 
 def token_error(token):
     """Why a token cannot be saved, or None"""
@@ -46,49 +59,116 @@ def token_error(token):
     return None
 
 
+def token_line(line):
+    """The value of a MAPBOX_API_TOKEN line of a .env file (export, quotes and comments allowed), else None"""
+    m = re.match(r'^\s*(?:export\s+)?' + TOKEN_ENV + r'\s*=\s*(.*?)\s*$', line)
+    if not m:
+        return None
+    value = m.group(1)
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
+        return value[1:-1].strip()
+    return value.split(' #')[0].strip()
+
+
 def env_file_token(path):
-    """MAPBOX_API_TOKEN in a .env file (KEY=value lines; export, quotes and comments allowed), or None"""
+    """MAPBOX_API_TOKEN in a .env file (KEY=value lines), or None"""
     try:
         with open(path, encoding='utf-8') as f:
             lines = f.read().splitlines()
     except (OSError, UnicodeDecodeError):
         return None
     for line in lines:
-        m = re.match(r'^\s*(?:export\s+)?' + TOKEN_ENV + r'\s*=\s*(.*?)\s*$', line)
-        if m:
-            value = m.group(1)
-            if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
-                return value[1:-1].strip() or None
-            return value.split(' #')[0].strip() or None
-    return None
-
-
-def env_token():
-    """MAPBOX_API_TOKEN from the environment, else from the first .env file that has it"""
-    value = os.environ.get(TOKEN_ENV, '').strip()
-    if value:
-        return value
-    for path in settings.MAPBOX_ENV_FILES:
-        value = env_file_token(path)
-        if value:
-            return value
+        value = token_line(line)
+        if value is not None:
+            return value or None
     return None
 
 
 def mapbox_token():
-    """The token in use and where it comes from: (token, 'saved' | 'env'), or (None, None)"""
-    saved = Preferences.load().data.get(TOKEN_KEY)
-    if isinstance(saved, str) and saved:
-        return saved, 'saved'
-    value = env_token()
-    return (value, 'env') if value else (None, None)
+    """The token in use and where it comes from: (token, 'environment' | the .env file's path), or (None, None)"""
+    value = os.environ.get(TOKEN_ENV, '').strip()
+    if value:
+        return value, 'environment'
+    for path in settings.MAPBOX_ENV_FILES:
+        value = env_file_token(path)
+        if value:
+            return value, str(path)
+    return None, None
+
+
+def env_token():
+    """MAPBOX_API_TOKEN from the environment, else from the first .env file that has it"""
+    return mapbox_token()[0]
+
+
+def token_file():
+    """The .env file a token is written to: the one it was read from, else the data folder's (the last looked in)"""
+    token, source = mapbox_token()
+    return source if token and source != 'environment' else str(settings.MAPBOX_ENV_FILES[-1])
+
+
+def write_token(token, path=None):
+    """Puts the token in a .env file in place of the one there (the first MAPBOX_API_TOKEN line; the others are kept),
+    else adds it at the end; a new file is readable by the user only"""
+    path = path or token_file()
+    try:
+        with open(path, encoding='utf-8') as f:
+            lines = f.read().splitlines()
+        mode = os.stat(path).st_mode & 0o777
+    except FileNotFoundError:
+        lines, mode = [], 0o600
+    line = TOKEN_ENV + '=' + token
+    at = next((i for i, x in enumerate(lines) if token_line(x) is not None), None)
+    if at is None:
+        lines.append(line)
+    else:
+        lines[at] = line
+    folder = os.path.dirname(os.path.abspath(path))
+    os.makedirs(folder, exist_ok=True)
+    fd, temp = tempfile.mkstemp(dir=folder, prefix='.env.')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines) + '\n')
+        os.chmod(temp, mode)
+        os.replace(temp, path)
+    except BaseException:
+        os.unlink(temp)
+        raise
+    return path
+
+
+def check_token(token):
+    """Whether Mapbox serves its imagery with the token: None, else why not"""
+    z, x, y = CHECK_TILE
+    url = MAPBOX['url'].format(z=z, x=x, y=y) + '?access_token=' + urllib.parse.quote(token)
+    try:
+        with urllib.request.urlopen(url, timeout=CHECK_TIMEOUT) as res:
+            res.read(1)
+        return None
+    except urllib.error.HTTPError as e:
+        return REFUSED.get(e.code, "Mapbox answered %d: try again later" % e.code)
+    except (urllib.error.URLError, OSError):
+        return "Mapbox could not be reached: is this computer online?"
 
 
 def mapbox_state():
-    """What the pages and the API say about the token: it, where it comes from, and whether one is in the
-    environment to go back to"""
+    """What the pages and the API say about the token: it, and where it comes from ('environment', a .env file's path,
+    or None); the file a new one is written to (None while the environment's is used)"""
     token, source = mapbox_token()
-    return {'token': token, 'token_source': source, 'env_token': source == 'env' or env_token() is not None}
+    return {'token': token, 'token_source': source,
+            'file': None if source == 'environment' else token_file()}
+
+
+def move_saved_token():
+    """Moves a token saved in the preferences (before 0.9) to the data folder's .env, unless one is known already"""
+    prefs = Preferences.load()
+    saved = prefs.data.get(TOKEN_KEY)
+    if saved is None:
+        return
+    if isinstance(saved, str) and saved and not mapbox_token()[0]:
+        write_token(saved)
+    del prefs.data[TOKEN_KEY]
+    prefs.save()
 
 
 def basemap_choices():
@@ -113,12 +193,11 @@ def starting_basemap():
     return preferred_basemap() or next((bm['key'] for bm in settings.BASEMAPS if bm.get('default')), NONE)
 
 
-def page_basemaps(api):
-    """The basemaps a map page offers: the settings' and Mapbox's (shown in the switch once it has a token), with
-    where its token is saved (api: the API's URL). The preferred one is the default (Mapbox only while it has a
+def page_basemaps():
+    """The basemaps a map page offers: the settings' and Mapbox's (shown in the switch once it has a token) with its
+    token. The preferred one is the default (Mapbox only while it has a
     token); the settings' default is the fallback a refused Mapbox goes back to."""
-    mapbox = dict(MAPBOX, logo=static("vendor/mapbox/mapbox-logo.svg"), preferences=api + "preferences",
-                  **mapbox_state())
+    mapbox = dict(MAPBOX, logo=static("vendor/mapbox/mapbox-logo.svg"), token=mapbox_token()[0])
     listed = [dict(bm, fallback=bool(bm.get('default'))) for bm in settings.BASEMAPS] + [mapbox]
     preferred = preferred_basemap()
     if preferred and not (preferred == MAPBOX['key'] and not mapbox['token']):

@@ -11,6 +11,7 @@ import {PalettePreview} from "./palette-preview";
 
 interface Props {
     api: string;
+    publicUrl?: string;
     unit: Unit;
     theme: Theme;
     locale: string;
@@ -38,7 +39,7 @@ export function localeName(tag: string): string {
 // How a date and time look in a locale ("" for the computer's)
 export function localeExample(tag: string): string { return formatCapture(EXAMPLE, "both", tag || undefined); }
 
-export function PreferencesPage({api, unit, theme: initialTheme, locale: initialLocale,
+export function PreferencesPage({api, publicUrl = "/", unit, theme: initialTheme, locale: initialLocale,
                                  reload = () => window.location.reload()}: Props) {
     const [locales, setLocales] = useState<string[]>([]);
     const [palettes, setPalettes] = useState<Palette[]>([]);
@@ -160,8 +161,8 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
                     {basemaps.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
                 </select>
                 <p class="help">Under the mosaics, the frames and the projects' areas; each map can still switch to
-                    another.{!basemaps.some((b) => b.key === "mapbox") &&
-                    " Mapbox Satellite is offered once a token is added from a map's switch (\u201cMapbox Satellite: add a token…\u201d)."}</p>
+                    another.{!basemaps.some((b) => b.key === "mapbox") && <> Mapbox Satellite is offered once its token
+                    is saved under <a href={publicUrl + "settings"}>System Settings</a>.</>}</p>
             </div>
         </fieldset>}
 
