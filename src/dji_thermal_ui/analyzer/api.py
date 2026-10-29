@@ -32,7 +32,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from . import backup, basemaps, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, webodm
 from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
@@ -1111,6 +1111,63 @@ class MapboxTokenView(DatasetView):
             raise ValidationError({'token': error})
         basemaps.write_token(token)
         return Response(basemaps.mapbox_state())
+
+
+IN_ENVIRONMENT = ("WebODM's address or login is set in the environment the app was started from (WEBODM_URL, "
+                  "WEBODM_USERNAME, WEBODM_PASSWORD): change it there")
+
+
+class WebODMSettingsView(DatasetView):
+    def get(self, request):
+        """WebODM's address, the user name masked, whether a password is set, where they come from, and the .env file
+        new ones are written to"""
+        return Response(webodm.state())
+
+    def put(self, request):
+        """Writes {url, username, password} to the .env file once WebODM has taken the login; a user name or password
+        left empty keeps the one saved (409 while the environment's are used). Answers the state, and the processing
+        nodes the account can see"""
+        current = webodm.config()
+        if current['source'] == envfile.ENVIRONMENT:
+            return Response({'error': IN_ENVIRONMENT}, status=status.HTTP_409_CONFLICT)
+        try:
+            url = webodm.clean_url(request.data.get('url'))
+        except ValueError as e:
+            raise ValidationError({'url': str(e)}) from None
+        username = request.data.get('username')
+        password = request.data.get('password')
+        username = (username.strip() if isinstance(username, str) else "") or current['username']
+        password = (password if isinstance(password, str) else "") or current['password']
+        if not username:
+            raise ValidationError({'username': "Type the WebODM account's user name"})
+        if not password:
+            raise ValidationError({'password': "Type the WebODM account's password"})
+        if len(username) > webodm.USERNAME_MAX or any(c in username for c in '\r\n\0'):
+            raise ValidationError({'username': "That is not a WebODM user name"})
+        if len(password) > webodm.PASSWORD_MAX or any(c in password for c in '\r\n\0'):
+            raise ValidationError({'password': "A password here cannot hold a line break"})
+        try:
+            nodes = webodm.check(url, username, password)
+        except webodm.WebODMError as e:
+            raise ValidationError({'error': str(e)}) from None
+        webodm.save(url, username, password)
+        return Response(dict(webodm.state(), nodes=nodes))
+
+    def delete(self, request):
+        """Takes WebODM's address and login out of the .env files (409 while the environment's are used)"""
+        if webodm.config()['source'] == envfile.ENVIRONMENT:
+            return Response({'error': IN_ENVIRONMENT}, status=status.HTTP_409_CONFLICT)
+        webodm.remove()
+        return Response(webodm.state())
+
+
+class WebODMCheckView(DatasetView):
+    def post(self, request):
+        """Logs in to WebODM with the saved address and login: the processing nodes the account can see"""
+        try:
+            return Response({'nodes': webodm.Client.from_config().nodes()})
+        except webodm.WebODMError as e:
+            raise ValidationError({'error': str(e)}) from None
 
 
 class PreferencesView(DatasetView):

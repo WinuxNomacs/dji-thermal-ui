@@ -52,6 +52,8 @@ urlpatterns = [
     re_path(C + r'/frame/curve$', api.FrameCurveView.as_view()),
     re_path(r'^preferences$', api.PreferencesView.as_view()),
     re_path(r'^settings/mapbox$', api.MapboxTokenView.as_view()),
+    re_path(r'^settings/webodm$', api.WebODMSettingsView.as_view()),
+    re_path(r'^settings/webodm/check$', api.WebODMCheckView.as_view()),
     re_path(r'^storage$', api.StorageView.as_view()),
     re_path(r'^storage/check$', api.StorageCheckView.as_view()),
     re_path(r'^storage/move$', api.StorageMoveView.as_view()),

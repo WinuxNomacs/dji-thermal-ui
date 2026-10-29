@@ -114,9 +114,10 @@ BASEMAPS = [
     },
 ]
 
-# Where MAPBOX_API_TOKEN is looked for when it is not in the environment: a .env file in the folder the app is
-# started from, then in the data folder (the last, where a token is written when none of them has one)
-MAPBOX_ENV_FILES = [Path.cwd() / ".env", DATA_DIR / ".env"]
+# Where the values kept in .env (MAPBOX_API_TOKEN, WEBODM_*) are looked for when they are not in the environment: a
+# .env file in the folder the app is started from, then in the data folder (the last, where a value is written when
+# none of them has it)
+ENV_FILES = [Path.cwd() / ".env", DATA_DIR / ".env"]
 
 # Jobs run inline instead of on the runner's thread (the tests set it)
 THERMAL_JOBS_EAGER = False
