@@ -411,8 +411,10 @@ details > summary h5 { display: inline; }
 .webodm-form .field input { width: 100%; }
 .webodm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .webodm-permissions { margin-top: 8px; }
-.webodm-permissions ul { margin: 6px 0 0; padding-left: 20px; max-width: 720px; }
+.webodm-permissions ol { margin: 6px 0 0; padding-left: 20px; max-width: 720px; }
+.webodm-permissions ul { margin: 4px 0; padding-left: 18px; }
 .webodm-permissions li { margin-bottom: 4px; }
+.webodm-permissions ul li { margin-bottom: 0; }
 #webodm-settings code.path { overflow-wrap: anywhere; }
 
 .drop-hint {

@@ -213,18 +213,29 @@ Remove takes all three out of the file. Set in the environment the app is starte
 System Settings then shows them, and they are changed there. The app asks WebODM for a login token when it needs one
 and keeps it in memory only.
 
-The WebODM account needs these permissions (Django's admin in WebODM, under Users or Groups, and Object permissions):
+The account is set up by a WebODM admin, in WebODM's Administration (its `/admin/` pages). System Settings › WebODM
+walks through it with the names those pages show, linking to them once WebODM's address is saved:
 
-- An ordinary, active account: not staff, not a superuser. A new account is in WebODM's **Default** group, which
-  holds the model permissions below, unless they were taken away from it.
-- `app.add_project`, to create projects. The account owns the projects it creates, with every permission on them.
-- `app.add_task`, `app.change_task` and `app.delete_task`, to create, upload to, cancel, restart and remove tasks.
-- `app.add_preset`, `app.change_preset` and `app.delete_preset`, to keep task options as presets.
-- `nodeodm.view_processingnode`, **and the same permission on each processing node** (admin › Processing nodes › the
-  node › Object permissions). WebODM gives it to the Default group only for the node there when it first started: a
-  node added later is not offered to the account until it, or its group, is given it.
-- On a project the account didn't create: `view_project` to see it, `change_project` to add tasks to it and
-  `delete_project` to remove its tasks. A project shared with the account is never deleted through the API.
+1. **Users › Add user**: a user name and a password. Leave **Active** ticked, **Staff status** and **Superuser status**
+   unticked: an ordinary account is enough.
+2. **Its permissions.** A new account is in WebODM's **Default** group, which holds these unless they were taken away
+   from it (Groups › Default); else add them to the account under **User permissions**:
+   - `app | Project | Can add Project` (`app.add_project`): to create projects. The account owns those it creates,
+     with every permission on them.
+   - `app | Task | Can add Task`, `Can change Task` and `Can delete Task` (`app.add_task`, `app.change_task`,
+     `app.delete_task`): to create, upload to, follow, cancel and remove tasks.
+   - `app | Preset | Can add Preset`, `Can change Preset` and `Can delete Preset` (`app.add_preset`,
+     `app.change_preset`, `app.delete_preset`): to keep task options as presets.
+   - `nodeodm | Processing Node | Can view Processing Node` (`nodeodm.view_processingnode`).
+3. **Each processing node** the account may use: Processing nodes › the node › **Object permissions**, type the user
+   name in User identification, Manage user, choose **Can view Processing Node** and save (or the same for the
+   Default group, under Groups). WebODM gives it to the Default group only for the node there when it first
+   started: a node added later is not offered to the account until it, or its group, is given it.
+4. **Only for a project the account didn't create:** Projects › the project › Object permissions: Can view Project to
+   see it, Can change Project to add tasks to it and Can delete Project to remove its tasks. A project shared with
+   the account is never deleted through the API.
+5. Back in System Settings › WebODM, **Check and save**: the processing nodes the account sees are listed, and none
+   means step 3 is missing.
 
 ## Where the data lives
 

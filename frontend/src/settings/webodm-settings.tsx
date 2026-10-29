@@ -12,34 +12,64 @@ export interface WebODMState {
 }
 export interface WebODMNode {id: number; label: string; online: boolean}
 
-// The permissions, as WebODM's admin names them; see "ODM" in upcoming-changes.md for where they come from
-export function Permissions() {
+// The model permissions the account needs, as WebODM's admin lists them under User permissions (and the API names them)
+export const MODEL_PERMISSIONS: [string, string][] = [
+    ["app | Project | Can add Project", "app.add_project"],
+    ["app | Task | Can add Task", "app.add_task"],
+    ["app | Task | Can change Task", "app.change_task"],
+    ["app | Task | Can delete Task", "app.delete_task"],
+    ["app | Preset | Can add Preset", "app.add_preset"],
+    ["app | Preset | Can change Preset", "app.change_preset"],
+    ["app | Preset | Can delete Preset", "app.delete_preset"],
+    ["nodeodm | Processing Node | Can view Processing Node", "nodeodm.view_processingnode"],
+];
+
+// A page of WebODM's admin: a link when its address is known, else its path
+function AdminPage({url, path, children}: {url: string | null; path: string; children: string}) {
+    return url ? <a href={url + path} target="_blank" rel="noopener noreferrer">{children}</a> : <b>{children}</b>;
+}
+
+// How an admin sets the account up by hand in WebODM's admin (Administration in its menu), with the names it shows;
+// see "ODM" in upcoming-changes.md for where the permissions come from
+export function Permissions({url = null}: {url?: string | null}) {
     return (<details class="webodm-permissions" id="webodm-permissions">
-        <summary>The permissions the WebODM account needs</summary>
-        <ul>
-            <li>An ordinary, active account: not staff, not a superuser. A new account is in WebODM's
-                {" "}<b>Default</b> group, which holds the permissions below, unless they were taken away from it.</li>
-            <li>To create projects: <code>app.add_project</code>. The account owns the projects it creates, with every
-                permission on them.</li>
-            <li>To create and follow tasks: <code>app.add_task</code>, <code>app.change_task</code> and
-                {" "}<code>app.delete_task</code>.</li>
-            <li>To keep task options as presets: <code>app.add_preset</code>, <code>app.change_preset</code> and
-                {" "}<code>app.delete_preset</code>.</li>
-            <li><code>nodeodm.view_processingnode</code>, and the same permission <b>on each processing node</b> (WebODM's
-                admin › Processing nodes › the node › Object permissions). WebODM gives it to the Default group only
-                for the node there when it first started: a node added later is not offered until the account or its
-                group is given it.</li>
-            <li>On a project the account didn't create: <code>view_project</code> to see it,
-                {" "}<code>change_project</code> to add tasks to it, and <code>delete_project</code> to remove its
-                tasks.</li>
-        </ul>
+        <summary>Setting up the WebODM account, and the permissions it needs</summary>
+        <p class="hint">Done by a WebODM admin, in WebODM's Administration{url ? "" : " (its /admin/ pages)"}. The
+            names are those its pages show.</p>
+        <ol>
+            <li><AdminPage url={url} path="/admin/auth/user/add/">Users › Add user</AdminPage>: a user name and a
+                password, then Save. On the page that follows, leave <b>Active</b> ticked and <b>Staff status</b> and
+                {" "}<b>Superuser status</b> unticked: the app needs no more than an ordinary account.</li>
+            <li>Its permissions. WebODM puts a new account in its <b>Default</b> group, which holds these unless they
+                were taken away from it (<AdminPage url={url} path="/admin/auth/group/">Groups</AdminPage> › Default ›
+                Permissions). Else add them to the account, under <b>User permissions</b>, then Save:
+                <ul id="webodm-model-permissions">
+                    {MODEL_PERMISSIONS.map(([label, name]) => <li key={name}><code>{label}</code>
+                        {" "}<span class="hint">({name})</span></li>)}
+                </ul>
+                Projects to create them in, tasks to upload, follow, cancel and remove, presets to keep task
+                options, and the processing nodes to choose one.</li>
+            <li><b>Each processing node</b> the account may use: <AdminPage url={url}
+                path="/admin/nodeodm/processingnode/">Processing nodes</AdminPage> › the node › <b>Object
+                permissions</b> (top right). Under Users, type the user name in <b>User identification</b>, press
+                {" "}<b>Manage user</b>, choose <b>Can view Processing Node</b> and Save (or under Groups, for the
+                Default group). WebODM gives this to the Default group only for the node there when it first
+                started: a node added later is not offered until it is given.</li>
+            <li>Only for a project the account didn't create (it owns those it creates, with every permission on them):
+                {" "}<AdminPage url={url} path="/admin/app/project/">Projects</AdminPage> › the project › <b>Object
+                permissions</b>, then <b>Can view Project</b> to see it, <b>Can change Project</b> to add tasks to it
+                and <b>Can delete Project</b> to remove its tasks.</li>
+            <li>Here: type the address, the user name and the password, then <b>Check and save</b>. The app logs in
+                and lists the processing nodes the account sees: none means step 3 is missing.</li>
+        </ol>
     </details>);
 }
 
 function Nodes({nodes}: {nodes: WebODMNode[]}) {
     if (!nodes.length) {
         return <div class="notice warning" role="status" id="webodm-nodes">WebODM took the login, but the account sees
-            no processing node: give it <code>view_processingnode</code> on a node (see the permissions below).</div>;
+            no processing node: give it <b>Can view Processing Node</b> on a node (step 3 of setting up the account,
+            below).</div>;
     }
     return <p class="text-success" role="status" id="webodm-nodes">WebODM took the login. The account sees
         {" "}{nodes.length === 1 ? "one processing node" : nodes.length + " processing nodes"}:
@@ -153,6 +183,6 @@ export function WebODMSettings({api}: {api: string}) {
         </div>}
         {nodes && <Nodes nodes={nodes}/>}
         {error && <div class="notice error" role="alert" id="webodm-error">{error}</div>}
-        <Permissions/>
+        <Permissions url={state?.url || null}/>
     </fieldset>);
 }
