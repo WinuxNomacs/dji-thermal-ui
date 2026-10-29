@@ -11,6 +11,7 @@ import {navigationChanged} from "../core/navigation";
 import {type Conversion, isBusy, parsePrefill} from "./conversions";
 import {ConvertTab} from "./convert";
 import {type Analysis, filterQuery, type FilesView, newestReady, parseFilters} from "./files";
+import {FilesExport} from "./export";
 import {copyText, FilesTab, Overview, PlanTab, ProblemsTab} from "./tabs";
 
 const POLL_MS = 2000;
@@ -85,6 +86,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
     const [progress, setProgress] = useState<Progress | null>(null);
     const [unsent, setUnsent] = useState<{files: File[]; text: string} | null>(null);
     const [prefill] = useState(() => parsePrefill(location.search));
+    const [exporting, setExporting] = useState<string[] | null>(null);     // the export dialog's frames shown
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const controller = useRef<AbortController | null>(null);
     const convertRef = useRef<HTMLDivElement>(null);
@@ -286,8 +288,11 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                            data-tab={key} onClick={(e) => { e.preventDefault(); setChosen(key); }}>
                             {label}{badges[key] !== "" && <> <span class="badge">{badges[key]}</span></>}</a>))}
                 </div>
-                {a?.files && tab === "files" && <FilesTab api={api} analysis={a} view={view} setView={setView} frames={frames}
+                {a?.files && tab === "files" && <FilesTab api={api} onExport={setExporting} analysis={a} view={view} setView={setView} frames={frames}
                                                           thumbs={url + "/thumbnail?file="} zone={d.flight_zone}/>}
+                {exporting && a?.files && <FilesExport api={api} datasetId={d.id} shown={exporting}
+                    all={a.files.filter((f) => f.kind === "thermal").map((f) => f.path)} conversions={d.conversions || []}
+                    hasVisual={a.files.some((f) => f.kind === "visual")} onClose={() => setExporting(null)}/>}
                 {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}
                 {/* Kept mounted, hidden: its form keeps what was typed while another tab is open */}

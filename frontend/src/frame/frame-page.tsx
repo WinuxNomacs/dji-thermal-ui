@@ -15,6 +15,7 @@ import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
+import {type Carried, viewAsked} from "../core/exports";
 import {type FlightZone, formatCapture, type Maybe, zoneText} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
@@ -33,6 +34,7 @@ import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView
         sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
 import {captureOrder, type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, listFrames,
         listTitle, newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
+import {FrameExport} from "./export";
 import {FrameList} from "./frame-list";
 import {FrameReadout, type FramePoint, Info, Params} from "./panel";
 
@@ -49,6 +51,7 @@ export interface Frames {
     description?: string;
     unit?: string;
     normalized?: boolean;
+    settings?: Carried | null;
     mosaic_status?: string;
     max_pitch?: number;
     default_palette?: string;
@@ -129,6 +132,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const [isoError, setIsoError] = useState("");
     // The parameters changed (temperatures in the user's unit), and what is typed in their fields
     const [changes, setChanges] = useState<Changes>({});
+    const [exporting, setExporting] = useState(false);
     const [typed, setTyped] = useState<Record<string, string>>({});
     const [changeError, setChangeError] = useState<{error?: string; field?: string}>({});
     const [saved, setSaved] = useState<Measurement[]>([]);
@@ -721,9 +725,15 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                     {info && <button type="button" class="button default" id="png" onClick={exportPng}
                                      title="The frame as shown (both panes with parameters changed), with its saved measurements and colour scale">
                         <Download/> Export PNG</button>}
+                    {info && shown && <button type="button" class="button default" id="export" onClick={() => setExporting(true)}
+                                              title="This frame as a PNG, TIFF, R-JPEG or its original, private or not">
+                        <Download/> Export…</button>}
                 </div>
             </div>
 
+            {exporting && frame && shown && <FrameExport api={api} datasetId={datasetId} conversion={id} frame={frame}
+                settings={{...meta.settings, normalize: meta.normalized}} changes={changesIn(changes, unit)} hasVisual={!!pair}
+                view={viewAsked(shown.palette, shown.range, shown.adjust, isoValue)} onClose={() => setExporting(false)}/>}
             {notice && <div class="notice error" role="alert">{notice}</div>}
             {status.text && <div class={"status " + (status.error ? "text-danger" : "text-muted")} id="status">{status.text}</div>}
 

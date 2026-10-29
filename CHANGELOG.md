@@ -13,6 +13,10 @@ All notable changes are recorded here. The format follows
   full-size PNG. The PNGs and the R-JPEGs' pictures are coloured exactly as the browser colours the view. Several
   files come as a zip made as it downloads; a frame that can't be made is listed in `export-notes.txt`.
 - The R-JPEG output on the Convert tab, with its picture: the palette's colours or DJI's own.
+- The export dialog ("Export…"): on the frame explorer (this frame, as converted or with the parameters changed), on
+  the Files tab (the frames the filter shows, or all of them, measured with a dataset or the frames' own values) and
+  on the viewer (the mosaic tab shown). Each format says what it is for; R-JPEG and Original are turned off, with the
+  reason, where only TIFF can carry the temperatures.
 
 ### Changed
 

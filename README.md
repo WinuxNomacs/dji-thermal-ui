@@ -33,8 +33,12 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   (temperatures), PNG (coloured as the view, one pixel per sensor pixel) or R-JPEG, each also Private: without the
   location, the serial numbers and the free-text fields where a name or an email address could be. A mosaic exports
   as its GeoTIFF, a private one without its place, or a PNG of the view at full size. Several files come as a zip,
-  made as it downloads. The server side is built (`POST /api/datasets/<id>/exports`,
-  `POST /api/conversions/<id>/mosaics/<tab>/exports`); the export dialog on the pages comes next.
+  made as it downloads. "Export…" opens the dialog: on the frame explorer for the frame shown (as converted, or with
+  the parameters changed), on the Files tab for the frames the filter shows or all of them (measured with one of the
+  flight's datasets or the frames' own values, with a palette and one range shared by all of them), and on the viewer
+  for the mosaic tab shown. Each format says what it is for, and R-JPEG and Original are turned off, with the reason,
+  for a normalized dataset or replaced values, which only TIFF carries. "Export PNG" still saves the view as shown.
+  The API: `POST /api/datasets/<id>/exports` and `POST /api/conversions/<id>/mosaics/<tab>/exports`.
 - **Mosaics:** the viewer's tabs are Mosaic (the temperatures as converted), Harmonized, Source frame (the mosaic
   with a line along each seam between the frames it is made of, in the mosaic report too) and View angle, over a
   street map or Esri's or Mapbox's satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma,

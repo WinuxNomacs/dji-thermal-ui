@@ -257,6 +257,22 @@ describe("the viewer page", () => {
         expect(location.search).not.toContain("frame=");
     });
 
+    it("exports the mosaic tab shown, coloured as the view", async () => {
+        history.replaceState(null, "", "/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&gamma=1.5");
+        const fetchFn = server(routes({["POST " + BASE + "/mosaics/harmonized/exports"]: {url: "/api/exports/ab"}}));
+        const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+        await open(fetchFn);
+        click(byId("export"));
+        await ticks();
+        click(byId("export-save"));
+        await ticks();
+        const post = fetchFn.mock.calls.find((c) => String(c[0]).endsWith("/exports"))!;
+        expect(JSON.parse(String(post[1]!.body))).toEqual({format: "png", correction: {},
+            view: {palette: "viridis", range: [18, 32], gamma: 1.5, equalize: false, sharpen: 0}});
+        expect(download).toHaveBeenCalledTimes(1);
+        expect(byId("export-dialog")).toBeNull();
+    });
+
     it("opens its report with the view shown, saved with the report first", async () => {
         history.replaceState(null, "", "/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&gamma=1.5");
         const fetchFn = server(routes({["PATCH " + BASE]: {id: 9}}));

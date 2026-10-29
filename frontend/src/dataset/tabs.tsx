@@ -7,7 +7,7 @@ import {formatTemp, unitSymbol, userUnit} from "../core/units";
 import {isImage} from "../core/upload";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask, dialog} from "../components/dialog";
-import {CaretDown, CaretUp, Check, ChevronDown, Copy, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
+import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
 import {active, type Analysis, columnType, type Condition, type Favourite, type FileColumn, FILES_TAB_COLUMNS, type FileRow,
         fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption,
         shownAs, SHOWS} from "./files";
@@ -68,6 +68,7 @@ function storedThumbs(): boolean {
 
 interface FilesProps {
     api: string;
+    onExport?: (shown: string[]) => void;     // the export dialog opened for the thermal frames shown
     analysis: Analysis;
     view: FilesView;
     setView: (v: FilesView) => void;
@@ -217,7 +218,7 @@ function ConditionRow({c, kinds, set, remove}: {c: Condition; kinds: string[]; s
 
 // The Files tab: the files matching every condition of the filter (none at first: all of them), sorted by any column.
 // The buttons start the filter from all files, the thermal frames or those with problems
-export function FilesTab({api, analysis, view, setView, frames, thumbs, zone}: FilesProps) {
+export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs, zone}: FilesProps) {
     const [showThumbs, setShowThumbs] = useState(storedThumbs);
     const flags = flagsByFile(analysis.findings);
     const rows = fileRows(analysis, view);
@@ -263,6 +264,10 @@ export function FilesTab({api, analysis, view, setView, frames, thumbs, zone}: F
             <label><input type="checkbox" class="files-thumbs" checked={showThumbs}
                           onChange={(e) => toggleThumbs(e.currentTarget.checked)}/> Thumbnails</label>
             <span class="text-muted files-shown">{rows.length} shown</span>
+            {onExport && <button type="button" class="button default small" id="export-frames"
+                                 title="The thermal frames shown, or all of them, as PNG, TIFF, R-JPEG or their originals"
+                                 onClick={() => onExport(rows.filter((r) => r.kind === "thermal").map((r) => r.path))}>
+                <Download/> Export…</button>}
         </div>
         {filters.length > 0 && <div class="filters" aria-label="Filters">
             {filters.map((c, i) => <ConditionRow key={i} c={c} kinds={kinds}
