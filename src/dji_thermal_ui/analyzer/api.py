@@ -1780,11 +1780,13 @@ class MosaicPointView(DatasetView):
         return Response(mosaic_point(request, conversion, tab, lon, lat))
 
 
-def frame_sources(conversion, path, geometry):
+def frame_sources(conversion, path, geometry, tab=None):
     """The frames that saw a checked spot or area of a mosaic (path: its GeoTIFF), each with when it was taken and its
-    visual pair (or None): {frames, reason, kind, geometry, models}"""
+    visual pair (or None): {frames, reason, kind, geometry, models}; none on WebODM's orthophoto, which doesn't say"""
     from . import thermal_sources
 
+    if tab == thermal_mosaics.WEBODM:
+        return {'frames': [], 'reason': 'not_recorded', 'kind': geometry['type'], 'geometry': geometry, 'models': False}
     models = thermal_sources.read_models(path)
     out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models)
     times = {r['path']: r.get('time') or "" for r in thermal_measure.frame_rows(conversion)}
@@ -1812,7 +1814,7 @@ class MosaicSourcesView(DatasetView):
             raise ValidationError({'error': str(e)}) from None
         if geometry['type'] not in ('Point', 'Polygon'):
             raise ValidationError({'error': "The geometry is a spot or an area"})
-        out = frame_sources(conversion, path, geometry)
+        out = frame_sources(conversion, path, geometry, tab)
         if geometry['type'] == 'Point':
             out['point'] = mosaic_point(request, conversion, tab, *geometry['coordinates'])
         return Response(out)
@@ -2284,7 +2286,7 @@ class FindingsView(DatasetView):
         if not temperatures.get('valid_pixels'):
             raise ValidationError({'error': "The finding is outside the mosaic"})
         path, _band = mosaic_raster(conversion, tab)
-        found = frame_sources(conversion, path, geometry)
+        found = frame_sources(conversion, path, geometry, tab)
         f = Finding.objects.create(dataset=dataset, conversion=conversion, tab=tab, geometry=geometry, shape=shape,
                                    temperatures=temperatures, frames=kept_frames(found['frames'], request.data.get('kept')),
                                    models_known=found['models'], **fields)

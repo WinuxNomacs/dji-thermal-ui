@@ -453,8 +453,8 @@ def test_a_completed_tasks_orthophoto_is_brought_back_as_temperatures_and_shown_
     line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(5.5, 5.5), mosaic_lonlat(30.5, 5.5)]}
     assert api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'webodm', 'geometry': line},
                     format='json').status_code == 200
-    assert api.post("%s/%d/mosaics/webodm/sources" % (CONVERSIONS, c.id), {'geometry': area},
-                    format='json').data['frames'] == []
+    sources = api.post("%s/%d/mosaics/webodm/sources" % (CONVERSIONS, c.id), {'geometry': area}, format='json').data
+    assert sources['frames'] == [] and sources['reason'] == 'not_recorded'
     res = api.post("%s/%d/findings" % (DATASETS, c.dataset_id), {'name': "Hot", 'conversion': c.id, 'tab': 'webodm',
                                                                  'geometry': area}, format='json')
     assert res.status_code == 201 and res.data['tab'] == 'webodm'

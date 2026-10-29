@@ -71,6 +71,7 @@ describe("the source frames", () => {
     it("say why none is listed", () => {
         expect(emptyText({...spot([]), reason: "outside_raster"})).toBe("Outside the mosaic.");
         expect(emptyText(spot([]))).toBe("No frame is known for this spot.");
+        expect(emptyText({...spot([]), reason: "not_recorded"})).toBe("WebODM's orthophoto doesn't record which frames each pixel comes from.");
         expect(emptyText({...spot([]), kind: "Polygon", geometry: AREA})).toBe("No frame is known for this area.");
     });
 });

@@ -56,6 +56,7 @@ export function frameName(path: string): string {
 // Why no frame is listed
 export function emptyText(s: Sources): string {
     if (s.reason === "outside_raster") return "Outside the mosaic.";
+    if (s.reason === "not_recorded") return "WebODM's orthophoto doesn't record which frames each pixel comes from.";
     return s.kind === "Point" ? "No frame is known for this spot." : "No frame is known for this area.";
 }
 
