@@ -3,6 +3,7 @@ file, where System Settings writes it once Mapbox has accepted it; only a public
 
 import io
 import json
+import os
 import re
 import urllib.error
 
@@ -16,6 +17,8 @@ from tests.fakes import PREFERENCES, dataset
 TOKEN = "pk.eyJ1IjoidGVzdCJ9.abc_DEF-123"
 ENV_TOKEN = "pk.eyJ1IjoiZW52In0.xyz"
 MAPBOX = "/api/settings/mapbox"
+# Windows keeps no Unix file modes
+POSIX = os.name != "nt"
 
 
 @pytest.fixture
@@ -56,7 +59,7 @@ def test_a_token_mapbox_accepts_is_written_to_the_data_folders_dotenv_then_repla
     assert mapbox['asked'] == [("https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/0/0/0?access_token="
                                 + TOKEN, 10)]
     assert env_file.read_text() == "MAPBOX_API_TOKEN=" + TOKEN + "\n"
-    assert env_file.stat().st_mode & 0o777 == 0o600
+    assert not POSIX or env_file.stat().st_mode & 0o777 == 0o600
 
     other = TOKEN.replace("abc", "zzz")
     assert api.put(MAPBOX, {'token': other}, format='json').data['token'] == other
@@ -74,7 +77,7 @@ def test_the_token_replaces_the_one_in_the_dotenv_it_was_read_from_keeping_the_o
     assert api.get(MAPBOX).data == {'token': ENV_TOKEN, 'token_source': str(started), 'file': str(started)}
     assert api.put(MAPBOX, {'token': TOKEN}, format='json').status_code == 200
     assert started.read_text() == "# keys\nOTHER=1\nMAPBOX_API_TOKEN=%s\nLAST=2\n" % TOKEN
-    assert started.stat().st_mode & 0o777 == 0o640
+    assert not POSIX or started.stat().st_mode & 0o777 == 0o640
     assert not env_file.exists()
 
 
