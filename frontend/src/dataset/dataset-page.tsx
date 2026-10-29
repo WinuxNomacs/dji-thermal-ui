@@ -3,7 +3,7 @@
 // converted
 import {useEffect, useRef, useState} from "preact/hooks";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
-import {count, deleteText, failedText, type FlightZone, formatDate} from "../core/format";
+import {count, deleteText, failedText, fileKind, type FlightZone, formatDate} from "../core/format";
 import {isImage, type Progress, uploadFiles} from "../core/upload";
 import {ask, askName, dialog} from "../components/dialog";
 import {ArrowLeft, Check, FileText, Link, Pencil, Play, Plus, Refresh, Stop, Trash, Warning} from "../components/icons";
@@ -292,7 +292,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                                                           thumbs={url + "/thumbnail?file="} zone={d.flight_zone}/>}
                 {exporting && a?.files && <FilesExport api={api} datasetId={d.id} shown={exporting}
                     all={a.files.filter((f) => f.kind === "thermal").map((f) => f.path)} conversions={d.conversions || []}
-                    hasVisual={a.files.some((f) => f.kind === "visual")} onClose={() => setExporting(null)}/>}
+                    hasVisual={a.files.some((f) => fileKind(f) === "visual")} onClose={() => setExporting(null)}/>}
                 {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}
                 {/* Kept mounted, hidden: its form keeps what was typed while another tab is open */}

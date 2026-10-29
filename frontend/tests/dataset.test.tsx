@@ -701,6 +701,16 @@ describe("the dataset page", () => {
         expect($<HTMLSelectElement>("#export-conversion")!.value).toBe("9");
         // The newest dataset is normalized: its R-JPEGs and originals can't be made
         expect($<HTMLInputElement>("input[name=export-format][value=rjpeg]")!.disabled).toBe(true);
+        // The originals with the flight's visual images, measured with nothing
+        change($<HTMLSelectElement>("#export-conversion")!, "");
+        await ticks();
+        click($("input[name=export-format][value=original]")!);
+        await ticks();
+        expect($("input[name=export-visual]")).not.toBeNull();
+        click($("input[name=export-format][value=png]")!);
+        await ticks();
+        change($<HTMLSelectElement>("#export-conversion")!, "9");
+        await ticks();
         click(byId("export-save"));
         await ticks();
         expect(body(fetchFn.mock.calls.find((c) => c[1]?.method === "POST")![1]))
