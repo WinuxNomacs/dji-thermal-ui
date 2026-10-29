@@ -11,7 +11,7 @@ its title.
 **Up next**
 1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, on PyPI and
-   pinned here); M2 the server (proposed, three decisions open), M3 the dialog. (Exports)
+   pinned here); M2 the server (planned), M3 the dialog. (Exports)
 
 **Then**
 1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
@@ -1260,7 +1260,7 @@ The design (dji-thermal-cli 1.8.0, `rjpeg.py` and its API):
 - **Release:** 1.8.0 on a `release/1.8.0` branch; the user publishes it, then M2 pins it here.
 - **Done:** see Done below.
 
-### M2: the exports on the server (proposed 2026-10-29)
+### M2: the exports on the server (planned 2026-10-29)
 
 dji-thermal-cli 1.8.0 is pinned (its `rjpeg` output kept off the Convert tab until now).
 
@@ -1301,10 +1301,15 @@ dji-thermal-cli 1.8.0 is pinned (its `rjpeg` output kept off the Convert tab unt
   mosaic exports; the colouring fixture in pytest and Vitest. Live: each format from the API on dataset 1, the files
   opened (the R-JPEGs measured by dji-thermal-cli, the PNGs looked at).
 
-**Open decisions (M2):**
-1. A mosaic's PNG: full resolution (may be tens of thousands of pixels across), or at most a size?
-2. Original of a flight: the thermal frames only, or their visual `_V` images too?
-3. PNG of a frame: the plain image, or with the scale and caption as the view's PNG button saves it?
+**Decisions (M2, 2026-10-29):**
+1. **A mosaic's PNG is always at full resolution**, one pixel per mosaic pixel however large. It is written in strips
+   (the mosaic read window by window, with the unsharp mask's margin, and the PNG's rows compressed as they come),
+   so it is never held whole in memory, and streamed as it is written.
+2. **Original of a flight:** the thermal R-JPEGs, and their visual `_V` images when asked (`visual=1`, a checkbox in
+   M3's dialog); Private removes the visual images' location and personal information too (dji-thermal-cli's
+   `strip_exif` and XMP removals on a plain JPEG).
+3. **A frame's PNG is the plain image:** the coloured frame, one pixel per sensor pixel, nothing drawn on it. The
+   view's PNG button still saves the view with its scale and caption.
 
 ## Search
 
