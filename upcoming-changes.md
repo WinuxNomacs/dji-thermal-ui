@@ -9,10 +9,6 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **ODM1: System Settings › WebODM**: WebODM's address and login, checked with a login and written to `.env`,
-   shown masked, with the permissions the account needs. See "ODM". (Integration)
-
-**Then**
 1. **ODM2: Process in WebODM**: a task from a conversion's temperature TIFFs, with the plan's options and any
    other, WebODM's presets, a chunked upload and the task followed on the conversion. See "ODM". (Integration)
 
@@ -1979,3 +1975,14 @@ downloaded, to compare it here with the app's own mosaics. Not planned until dec
   changelog's two Added and two Changed sections made one). Release checks passed on Linux (check_dist, twine, smoke
   on 3.12 and 3.14, ruff, 358 pytest with the flight tests, 360 Vitest, ESLint) and on Windows from WSL (348 pytest
   from a fresh clone, 10 skipped; smoke of the wheel).
+- **ODM1: System Settings › WebODM** (2026-10-29). `analyzer/envfile.py` reads and writes the `.env` values for
+  Mapbox and WebODM (the setting `ENV_FILES`, was `MAPBOX_ENV_FILES`; a value that isn't plain is quoted; a file left
+  as it was is not written). `analyzer/webodm.py`: the address and login from the environment or `.env`, the client
+  (a JWT asked for when needed, kept in memory, asked again when refused or within 5 minutes of expiring; no
+  redirects followed; a timeout on every call; errors in plain words) and `check`, `save`, `remove`. The API
+  `settings/webodm` (GET masked, PUT checked with a login first, an empty user name or password keeping the saved
+  one, DELETE; 409 for the environment's) and `settings/webodm/check`. The page: `frontend/src/settings/webodm-settings.tsx`
+  (the nodes the account sees, a warning when none, the permissions list). Tests: `tests/test_webodm.py` (a fake
+  WebODM), `frontend/tests/webodm-settings.test.tsx`. Live check against the user's WebODM on 8001 (admin): a wrong
+  password refused, saved, checked after a reload, removed, light and dark. The check with an account holding only
+  the listed permissions is left for ODM2, where they are used.

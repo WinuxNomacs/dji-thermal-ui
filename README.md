@@ -109,8 +109,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
-- **System Settings:** the Mapbox token (see [The maps under the mosaics](#the-maps-under-the-mosaics)), and a link
-  to Storage.
+- **System Settings:** the Mapbox token (see [The maps under the mosaics](#the-maps-under-the-mosaics)), WebODM's
+  address and login (see [WebODM](#webodm)), and a link to Storage.
 - **System Settings › Storage** (System Settings in the pane opens its page and folds or unfolds it; its chevron only folds): where the data
   folder is, its size on disk as measured when the page opens (and again on asking) and the free space on its
   drive, with each project and its flights, the database and the rest. A flight read in place from a folder says
@@ -197,6 +197,34 @@ write `MAPBOX_API_TOKEN=pk....` in one of those files yourself. A `MAPBOX_API_TO
 started from wins over the files: System Settings then shows it, and it is changed there. A token saved by an earlier
 version of the app (in its preferences) is moved to the data folder's `.env` when the app starts, unless a token is
 already known.
+
+## WebODM
+
+Processing with ODM is done in a WebODM of your own, through its API: the app logs in to it as a WebODM account.
+Under System Settings › WebODM, give its address (`http://` is fine, for a WebODM on this computer or your network),
+the account's user name and its password, and press Check and save. The app logs in to WebODM first and saves them
+only if WebODM takes them; it then lists the processing nodes the account can see. Otherwise it says why (a wrong
+login, WebODM out of reach, an address that isn't WebODM's) and nothing is changed.
+
+They are kept as `WEBODM_URL`, `WEBODM_USERNAME` and `WEBODM_PASSWORD` in a `.env` file, as the Mapbox token is (the
+one they were read from, else the data folder's, made readable by you only), never in the database. The page never
+shows the password, only that one is set, and shows the user name masked; leave either empty to keep the saved one.
+Remove takes all three out of the file. Set in the environment the app is started from, they win over the files:
+System Settings then shows them, and they are changed there. The app asks WebODM for a login token when it needs one
+and keeps it in memory only.
+
+The WebODM account needs these permissions (Django's admin in WebODM, under Users or Groups, and Object permissions):
+
+- An ordinary, active account: not staff, not a superuser. A new account is in WebODM's **Default** group, which
+  holds the model permissions below, unless they were taken away from it.
+- `app.add_project`, to create projects. The account owns the projects it creates, with every permission on them.
+- `app.add_task`, `app.change_task` and `app.delete_task`, to create, upload to, cancel, restart and remove tasks.
+- `app.add_preset`, `app.change_preset` and `app.delete_preset`, to keep task options as presets.
+- `nodeodm.view_processingnode`, **and the same permission on each processing node** (admin › Processing nodes › the
+  node › Object permissions). WebODM gives it to the Default group only for the node there when it first started: a
+  node added later is not offered to the account until it, or its group, is given it.
+- On a project the account didn't create: `view_project` to see it, `change_project` to add tasks to it and
+  `delete_project` to remove its tasks. A project shared with the account is never deleted through the API.
 
 ## Where the data lives
 

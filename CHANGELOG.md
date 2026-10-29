@@ -6,6 +6,18 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- System Settings › WebODM: WebODM's address and an account's login, saved to `.env` (`WEBODM_URL`,
+  `WEBODM_USERNAME`, `WEBODM_PASSWORD`) once WebODM has taken them, with the processing nodes the account sees. The
+  password is never shown, the user name masked; the saved login can be checked again or removed. The permissions
+  the WebODM account needs are listed there and in the README.
+
+### Changed
+
+- The `.env` values (the Mapbox token, WebODM's login) are read and written by one module; the setting
+  `MAPBOX_ENV_FILES` is now `ENV_FILES`.
+
 ## [0.9.0] - 2026-10-29
 
 ### Added

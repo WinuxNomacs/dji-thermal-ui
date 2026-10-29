@@ -258,7 +258,7 @@ ul { padding-left: 20px; }
 
 /* Forms */
 
-input[type="text"], input[type="search"], input[type="number"], select, textarea {
+input[type="text"], input[type="search"], input[type="number"], input[type="url"], input[type="password"], select, textarea {
     padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius);
     background: var(--surface); color: var(--text); font: inherit; line-height: 1.4; max-width: 100%;
 }
@@ -408,7 +408,7 @@ details > summary h5 { display: inline; }
 .token-row input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 #mapbox-settings code.path, #token-saved code { overflow-wrap: anywhere; }
 /* WebODM's address and login */
-.webodm-form input[type="url"], .webodm-form input[type="text"], .webodm-form input[type="password"] { width: 100%; }
+.webodm-form .field input { width: 100%; }
 .webodm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .webodm-permissions { margin-top: 8px; }
 .webodm-permissions ul { margin: 6px 0 0; padding-left: 20px; max-width: 720px; }
