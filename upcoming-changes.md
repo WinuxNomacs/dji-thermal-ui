@@ -9,7 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **M: exports**: frames, flights and mosaics exported as Raw, PNG, TIFF and R-JPEG, with Private options that
+1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
 
 **Then**
@@ -1107,18 +1107,22 @@ Requested 2026-10-29 (`new.md`):
    - The free-text fields added to what Private removes (see the decisions), in `--strip-location` too.
    - An `rjpeg` output: the source with the measurement parameters written into its header, for each camera family
      the port reads, checked against the native SDK.
-2. **M2: the exports on the server:** one endpoint for a frame, the frames chosen, or a whole flight, and for a
-   dataset's mosaics, in a format: Raw, Raw (Private), TIFF, TIFF (Private), PNG, R-JPEG and R-JPEG (Private).
-   The Convert tab offers R-JPEG among its outputs. Several files come
-   as a zip, streamed as it is made (as the conversion's zip is today).
+2. **M2: the exports on the server:** one endpoint for a frame, the frames chosen, or a whole flight, in a format:
+   Original, Original Private, TIFF, TIFF (Private), PNG, R-JPEG and R-JPEG (Private); and for a dataset's
+   mosaics: TIFF, TIFF (Private) and PNG. The Convert tab offers R-JPEG among its outputs. Several files come as a
+   zip, streamed as it is made (as the conversion's zip is today). The view's adjustments (palette, range, tone
+   curve, sharpening) are made in the browser today (`map/colour.ts`): the server needs the same colouring in
+   Python for the PNGs and the R-JPEGs' pictures it makes, checked against the browser's on the same values.
 3. **M3: the export dialog:** on the frame explorer (this frame), on the flight's Files tab (the frames chosen, or
    all of them), and on the viewer (the mosaic). Each format is described by what it is for. The current "PNG"
    button stays as the export of the view as shown.
 
 ### Decisions (2026-10-29)
 
-- **Raw** is each source file exactly as it is (an R-JPEG, as the flights are), unconverted. Raw (Private) is the
-  same file with the private information removed, and still radiometric.
+- **Original** (named so, not Raw: 2026-10-29) is each source file exactly as it is, unconverted. Its menu item
+  names the file's own format: "Original (R-JPG)", or "Original (TIFF)" for a camera that writes radiometric TIFFs.
+  "Original (R-JPG, Private)" is the same file with the private information removed, still radiometric. Choosing
+  R-JPEG instead is choosing to write new R-JPEGs.
 - **R-JPEG output** is added to the converter and to the exports, if it is not a huge lift: the source R-JPEG with
   a dataset's measurement parameters (emissivity, distance, humidity, reflected and ambient temperature) written
   into DJI's header, so DJI's tools measure with them.
@@ -1128,6 +1132,14 @@ Requested 2026-10-29 (`new.md`):
     the copy as the port does.
   - **Limits:** a family that stores no parameters, or one with no sample image to check against, is skipped with
     the reason. Normalizing and value replacement are not carried in an R-JPEG: only the parameters are.
+  - **Frames only:** a mosaic is not an R-JPEG (it has no sensor counts or camera calibration). Its exports are
+    TIFF, TIFF (Private) and PNG.
+  - **Its picture** (2026-10-29): the R-JPEG's visible JPEG is redrawn with the view's palette, range and
+    adjustments (brightness, contrast, gamma, sharpening), so photo viewers show the adjusted view; DJI's
+    original picture can be kept instead, as an option. DJI's tools colour it from the counts as always.
+- **A format that cannot carry what is asked** (2026-10-29): when the export would include normalizing or replaced
+  values and the format cannot hold them (R-JPEG, Original), the dialog says so and points to the formats that do
+  (TIFF).
 - **TIFF and PNG of frames** are made when exported, from the source, with a dataset's settings chosen in the
   dialog or the flight's own embedded values. A flight need not be converted first.
 - **Private** removes dji-thermal-cli's list, and also the free-text fields where a name or an email address could
