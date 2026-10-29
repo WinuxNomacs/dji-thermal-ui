@@ -181,6 +181,32 @@ describe("the navigation pane", () => {
         expect(links()).toContain("Storage");
     });
 
+    it("unfolds and folds System Settings as its name is clicked to open its page, but not one opened elsewhere", async () => {
+        localStorage.clear();
+        await pane();
+        root().addEventListener("click", (e) => e.preventDefault());   // jsdom does not navigate
+        const name = () => $('.nav-settings a[href="/settings"]') as HTMLAnchorElement;
+        const follow = (init: MouseEventInit = {}) => name().dispatchEvent(
+            new MouseEvent("click", {bubbles: true, cancelable: true, button: 0, ...init}));
+        follow();
+        await ticks();
+        expect(links()).toContain("Storage");
+        expect(name().getAttribute("aria-expanded")).toBe("true");
+        // Kept for the page it opens
+        render(null, root());
+        await pane({page: "settings", id: NaN});
+        expect(links()).toContain("Storage");
+        follow();
+        await ticks();
+        expect(links()).not.toContain("Storage");
+        expect($(".nav-settings-toggle")!.getAttribute("aria-expanded")).toBe("false");
+        // Opened in another tab: left as it is
+        follow({ctrlKey: true});
+        follow({button: 1});
+        await ticks();
+        expect(links()).not.toContain("Storage");
+    });
+
     it("marks the viewer's tab shown, and follows it to another", async () => {
         history.replaceState(null, "", "/conversion/9?tab=harmonized&palette=iron");
         await pane({page: "viewer", id: 9});
