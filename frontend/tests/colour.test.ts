@@ -1,7 +1,9 @@
 // Tests of how the browser colours the values the server sends: the tone curve, the palettes it is baked into, the
 // isotherm, the values read, the unsharp mask's sigma, the WebGL style and the same colouring without WebGL
+import fs from "node:fs";
+import path from "node:path";
 import {describe, expect, it} from "vitest";
-import {colourStyle, colourValues, decodeValues, isothermRange, readValues, sharpenSigma, TONE_STEPS, toned,
+import {type Colouring, colourStyle, colourValues, decodeValues, isothermRange, readValues, sharpenSigma, TONE_STEPS, toned,
         tonedPalette} from "../src/map/colour";
 
 const BLACK_WHITE = [0x000000ff, 0xffffffff];
@@ -147,5 +149,25 @@ describe("the colouring without WebGL", () => {
         const row = (y: number) => [0, 1, 2, 3, 4].map((x) => pixel(rgba, y * 5 + x)[3] ? pixel(rgba, y * 5 + x)[0] : null);
         expect(row(0)).toEqual([null, 255, 20, null, null]);
         expect(row(1)).toEqual(row(0));
+    });
+});
+
+// The server colours the images it exports as colourValues does (analyzer/colouring.py): both are checked against the
+// same fixture, which UPDATE_COLOURING_FIXTURE=1 makes again from colourValues
+describe("the colouring the server matches", () => {
+    const file = path.resolve(import.meta.dirname, "../../tests/fixtures/colouring.json");
+    const fixture = JSON.parse(fs.readFileSync(file, "utf8")) as {cases: {
+        name: string; width: number; height: number; values: (number | null)[]; colouring: Colouring; sigma: number;
+        rgba: string}[]};
+    const made = (c: typeof fixture.cases[number]) => Buffer.from(colourValues(
+        new Float32Array(c.values.map((v) => v ?? NONE)), c.width, c.height, c.colouring, c.sigma)).toString("base64");
+
+    if (process.env.UPDATE_COLOURING_FIXTURE === "1") {
+        fixture.cases.forEach((c) => { c.rgba = made(c); });
+        fs.writeFileSync(file, JSON.stringify(fixture));
+    }
+
+    it.each(fixture.cases.map((c) => [c.name, c]))("colours %s as the fixture holds", (_name, c) => {
+        expect(made(c)).toBe(c.rgba);
     });
 });
