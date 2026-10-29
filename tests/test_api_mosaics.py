@@ -463,10 +463,27 @@ def test_the_palette_the_map_pages_start_with_is_chosen_in_the_preferences(api):
     assert res['palette'] == ""
     keys = [p['key'] for p in res['view_palettes']]
     assert keys[0] == 'dji_whitehot' and 'ironbow' in keys and 'viridis' in keys
-    assert {'key': 'gray', 'label': 'White hot'} in res['view_palettes']
+    gray = next(p for p in res['view_palettes'] if p['key'] == 'gray')
+    assert (gray['label'], len(gray['color_map']), gray['color_map'][-1]) == ('White hot', 256, 0xffffffff)
     assert api.put(PREFERENCES, {'palette': 'dji_ironred'}, format='json').data == {'palette': 'dji_ironred'}
     assert api.get(PREFERENCES).data['palette'] == 'dji_ironred'
     for bad in ('rdbu_r', 'ironred', None, 3):
         res = api.put(PREFERENCES, {'palette': bad}, format='json')
         assert res.status_code == 400 and str(res.data['palette']).startswith('One of "", dji_whitehot')
     assert api.get(PREFERENCES).data['palette'] == 'dji_ironred'
+
+
+def test_the_preferences_preview_each_palette_dji_s_as_the_newest_flight_holds_them(api):
+    # Without a converted flight: the app's colour maps only, and each flight's own palette is ironbow
+    res = api.get(PREFERENCES).data
+    assert not [p for p in res['view_palettes'] if p['key'].startswith('dji_') and 'color_map' in p]
+    assert all(len(p['color_map']) == 256 for p in res['view_palettes'] if not p['key'].startswith('dji_'))
+    assert res['images_palette'] == 'ironbow'
+    converted(api)
+    res = api.get(PREFERENCES).data
+    ironred = next(p for p in res['view_palettes'] if p['key'] == 'dji_ironred')
+    assert len(ironred['color_map']) == 256
+    assert res['images_palette'] == 'dji_ironred'
+    # The preference does not change the images' own
+    api.put(PREFERENCES, {'palette': 'magma'}, format='json')
+    assert api.get(PREFERENCES).data['images_palette'] == 'dji_ironred'

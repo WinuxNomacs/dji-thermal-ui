@@ -15,7 +15,8 @@ All notable changes are recorded here. The format follows
 
 - A preferred palette in User Preferences: the viewer, the frame explorer, the compare page and the mosaic report
   start with it (a DJI palette where the flight's images carry it), and can still switch to another. "As each
-  flight's images", the default, keeps the palette they started with before.
+  flight's images", the default, keeps the palette they started with before. A small made-up thermal scene beside
+  the choice shows the palette, with its scale.
 - A small tab on the navigation pane's edge, near the top, hides and shows the pane in one click (beside the
   header's menu button, which still does too); with the pane hidden it waits at the page's left edge.
 - System Settings › Storage, below User Preferences in the navigation pane (System Settings folds away, by its name

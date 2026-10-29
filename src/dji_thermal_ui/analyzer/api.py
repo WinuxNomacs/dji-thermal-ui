@@ -309,6 +309,22 @@ def palette_choices():
             [{'key': name, 'label': COLORMAP_LABELS.get(name, name)} for name in VIEWER_COLORMAPS])
 
 
+def palette_previews():
+    """What the preferences page shows each palette with: the choices with their colour maps (DJI's as the newest
+    conversion that has them holds them, none without one), and the palette "As each flight's images" gives that
+    conversion (ironbow without one): ([{key, label, color_map?}], key)"""
+    from .raster.tiler import colormap_entries
+    maps = {p['key']: p['color_map'] for p in colormap_entries(VIEWER_COLORMAPS)}
+    images = 'ironbow'
+    for conversion in ThermalConversion.objects.filter(status='ready').order_by('-created_at', '-id')[:5]:
+        dji = conversion_palettes(conversion)
+        if dji:
+            maps.update({DJI_PREFIX + name: encoded(lut) for name, lut in dji.items()})
+            images = images_palette(conversion, set(maps))
+            break
+    return [dict(p, color_map=maps[p['key']]) if p['key'] in maps else p for p in palette_choices()], images
+
+
 def app_palette():
     """The palette the map pages start with (the preferences'), "" for each flight's images' own"""
     palette = Preferences.load().data.get(PALETTE_KEY)
@@ -973,6 +989,7 @@ class PreferencesView(DatasetView):
     def get(self, request):
         """The saved conversion settings (or the defaults), the temperature unit, and what can be chosen"""
         saved = preferences()
+        previews, images = palette_previews()
         return Response({
             'settings': saved if saved is not None else defaults(),
             'saved': saved is not None,
@@ -984,7 +1001,8 @@ class PreferencesView(DatasetView):
             'locale': app_locale(),
             'locales': list(LOCALES),
             'palette': app_palette(),
-            'view_palettes': palette_choices(),
+            'view_palettes': previews,
+            'images_palette': images,
             'products': thermal_conversion.products(),
             'palettes': thermal_conversion.palettes(),
             'limits': thermal_conversion.LIMITS,
@@ -1149,12 +1167,16 @@ def range_params(request):
 
 
 def default_palette(conversion, palettes):
-    """The preferences' palette (where the flight has it), else the conversion's own, else the flight's (as
-    dji-thermal-cli's preview used it), else ironbow"""
+    """The preferences' palette (where the flight has it), else the images' own (images_palette)"""
     keys = {p['key'] for p in palettes}
     preferred = app_palette()
     if preferred in keys:
         return preferred
+    return images_palette(conversion, keys)
+
+
+def images_palette(conversion, keys):
+    """The conversion's own palette, else the flight's (as dji-thermal-cli's preview used it), else ironbow"""
     m = conversion.mosaics or {}
     for name in ((conversion.options or {}).get('palette'),
                  ((m.get('kinds') or {}).get('as_converted') or {}).get('palette')):
