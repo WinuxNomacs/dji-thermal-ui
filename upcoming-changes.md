@@ -1845,3 +1845,7 @@ Requested 2026-10-29 (`new.md`):
   its whole text (title, labels, help, choices), again when its content loads. Tests: `navigation.test.tsx` (the
   pane, the preferences page), `settings.test.tsx`, `datasets.test.tsx` (`matchesText`). Checked live on 8081,
   light and dark.
+- **Fix: the Mapbox tests on Windows** (2026-10-29, branch `fix-windows-modes`, found by 0.9.0's Windows check). Two
+  tests in `tests/test_basemaps.py` checked the `.env` file's Unix mode (0o600, 0o640 kept), which Windows has not:
+  they failed there since the Mapbox token moved to System Settings. They check the mode only where files have one
+  (`POSIX`). 348 passed on Windows, 10 skipped.
