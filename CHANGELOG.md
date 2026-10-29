@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-29
+
 ### Added
 
 - Exports on the server: a flight's frames as Original, TIFF, PNG or R-JPEG, each also Private (no location, serial
@@ -21,27 +23,6 @@ All notable changes are recorded here. The format follows
   to page, as the folds are; Escape empties it, as it does every search box.
 - A filter at the top of User Preferences and System Settings: the sections whose title, labels, help or choices
   have every word typed.
-
-### Changed
-
-- The Mapbox token moves to a System Settings page of its own (System Settings in the navigation pane is now a link
-  to it, which also folds or unfolds it to Storage). The basemap switch no longer offers to add or change it. A new token is
-  checked with Mapbox (one tile asked for) before it is saved, and the reason is shown when Mapbox refuses it. It is
-  kept as `MAPBOX_API_TOKEN` in a `.env` file, in place of the one there (the file it was read from, else the data
-  folder's), and is no longer kept in the preferences: a token saved there by an earlier version is moved to the
-  data folder's `.env` when the app starts. A token in the environment is shown, and is changed there.
-
-- dji-thermal-cli 1.8.0 (was 1.6.1). A conversion with "strip location" now also removes the free-text fields where
-  a name or an email address could be: EXIF Artist, Copyright, ImageDescription, UserComment and the XP fields, their
-  XMP counterparts, and the sensor serial in DJI's debug block.
-
-### Fixed
-
-- The Convert tab's settings, once opened with Edit settings, fold away again: the button stays, as Hide settings,
-  and the values chosen are kept.
-
-### Added
-
 - A preferred basemap in User Preferences › Map: every map (the viewer, the compare page, the project maps, the
   location picker and the dataset report) starts with ESRI Satellite, OpenStreetMap, Mapbox Satellite (once it has a
   token) or none, and can still switch to another. ESRI Satellite stays the default, and a preferred Mapbox whose
@@ -66,10 +47,23 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The Mapbox token moves to a System Settings page of its own (System Settings in the navigation pane is now a link
+  to it, which also folds or unfolds it to Storage). The basemap switch no longer offers to add or change it. A new token is
+  checked with Mapbox (one tile asked for) before it is saved, and the reason is shown when Mapbox refuses it. It is
+  kept as `MAPBOX_API_TOKEN` in a `.env` file, in place of the one there (the file it was read from, else the data
+  folder's), and is no longer kept in the preferences: a token saved there by an earlier version is moved to the
+  data folder's `.env` when the app starts. A token in the environment is shown, and is changed there.
 - A thermal image of a format that cannot be read is called an "Unsupported image type" (it was "Unsupported
   camera"), on the Files tab and in its filter.
-- dji-thermal-cli 1.6.1: a FLIR radiometric JPEG (a Zenmuse XT2's) is an "Unsupported image type", no longer
-  "Not thermal".
+- dji-thermal-cli 1.8.0 (was 1.6.0). A FLIR radiometric JPEG (a Zenmuse XT2's) is an "Unsupported image type", no
+  longer "Not thermal". A conversion with "strip location" now also removes the free-text fields where a name or an
+  email address could be: EXIF Artist, Copyright, ImageDescription, UserComment and the XP fields, their XMP
+  counterparts, and the sensor serial in DJI's debug block.
+
+### Fixed
+
+- The Convert tab's settings, once opened with Edit settings, fold away again: the button stays, as Hide settings,
+  and the values chosen are kept.
 
 ## [0.8.0] - 2026-10-28
 
