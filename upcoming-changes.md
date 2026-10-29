@@ -13,8 +13,8 @@ its title.
 
 **Later**
 1. **ODM processing** (on hold, 2026-10-29): send a conversion's temperature TIFFs to WebODM as a task with the
-   plan's options, and follow it, replacing the plugin's "Process in LuxODM". How it connects is evaluated first:
-   WebODM's REST API, or a wrapper that runs the analyzer as a WebODM plugin, in its process. See "ODM". (Integration)
+   plan's options, and follow it, replacing the plugin's "Process in LuxODM". Leaning to WebODM's REST API, which
+   the evaluation found covers it; a plugin wrapper was the other option. See "ODM". (Integration)
 
 ## Standalone (option A)
 
@@ -1404,8 +1404,32 @@ the task panel in `conversions.js` (at LuxODM a2a81052) show what it did.
 - The page shows them masked, never in full, and a value in the environment is shown and changed there, as with
   Mapbox. They are checked with the node (a login) before they are saved.
 
-**Open decisions:** which option (after the evaluation); the credentials kept (user name and password, or a token
-WebODM issues); the `.env` names.
+**Leaning (2026-10-29): the REST API**, if it covers what the app needs: adding and editing projects and tasks, and
+keeping the task options applied.
+
+**Evaluation of the REST API** (2026-10-29, from upstream WebODM's `app/api` at 51c8f98b, 2026-10-15; LuxODM's
+findings, reports and storage routes are its own and not counted on):
+- **Projects:** list (paged, searchable), create (`POST /api/projects/`), `POST .../edit` (name, description, tags,
+  permissions), delete, duplicate.
+- **Tasks:** create with the images in one request, or `partial: true` then chunked `.../upload` and `.../commit`
+  (the way for a few hundred TIFFs); `PATCH` its name, options, processing node and tags; `cancel`, `restart`
+  (with `rerun-from`, `can_rerun_from` saying where), `remove`, `duplicate`; `.../output` (the console log); the
+  task's status and progress on GET; its assets through `.../download/<asset>` and tiles.
+- **Processing nodes:** `/api/processingnodes/` and `/api/processingnodes/options/` (the ODM options the nodes
+  offer, for building the options form).
+- **Task options kept:** presets are kept on the server per user (`/api/presets/`: name and options, create,
+  edit, delete; the system ones read-only). WebODM remembers the last preset used only in its own browser
+  (`last_preset_id` in localStorage), and the user profile holds no preferences (`/api/user/profile/`: name and
+  quota). So the app keeps its own presets in WebODM, where WebODM's pages see them too, and remembers which it last
+  applied in its own preferences.
+- **Login:** `POST /api/token-auth/` with a user name and password gives a JWT that lasts 6 hours (refreshable).
+  WebODM issues no long-lived token, so `.env` keeps the user name and password, and the server asks for a token
+  when it needs one.
+- **Not covered:** nothing found for the work above. The plugin route would add only what the REST API can't do,
+  so it is not needed for this.
+
+**Open decisions:** confirm the REST API; the `.env` names (`WEBODM_URL`, `WEBODM_USERNAME`, `WEBODM_PASSWORD`
+proposed). To check against a running WebODM when built: the chunked upload and the presets' `options` format.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
