@@ -8,11 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned. ODM3 waits in Later until it is decided.
+**Up next**: **ODM3: ODM's orthophoto back** (planned 2026-10-29): a completed WebODM task's orthophoto brought
+back to a conversion, shown on its viewer and compare page beside the app's own mosaics. See "ODM". (Integration)
 
-**Later**
-1. **ODM3: ODM's results back** (undecided, 2026-10-29): perhaps download a task's 2D radiometric orthophoto to
-   compare it here with the app's own mosaics. See "ODM". (Integration)
+**Later**: nothing.
 
 ## Standalone (option A)
 
@@ -1499,8 +1498,22 @@ permissions above, with an account given only those. The live checks use the use
   being processed, the server asks WebODM for its status, at most every few seconds. Deleting a conversion keeps
   the WebODM task.
 
-**ODM3: ODM's results back** (Later, undecided, 2026-10-29): the user may want a task's 2D radiometric orthophoto
-downloaded, to compare it here with the app's own mosaics. Not planned until decided.
+**ODM3: ODM's orthophoto back** (decided 2026-10-29)
+- **Decisions:** planned now; only the orthophoto comes back (not ODM's report, DSM or DTM); it is brought back
+  with a button, not on its own; it is shown as a viewer tab, and offered on the compare page too.
+- **Where:** a completed task's line on the conversion card gets **Bring the orthophoto here**. The download is a job
+  on the upload worker (`jobs.UPLOADS`), with its progress on the task's line and a cancel.
+- **What is downloaded:** `.../download/orthophoto.tif`, into the conversion's `webodm/` folder. It is kept only as
+  temperatures: one band of floats (WebODM's alpha band as its no-data), converted from the TIFFs' °C to the
+  conversion's unit, written with overviews as the mosaics are. Anything else (an orthophoto of colours) is refused
+  in plain words and not kept.
+- **One per conversion:** bringing back another task's orthophoto replaces it; the card says which task the one
+  shown came from, and it can be removed there. Deleting the task's line or the conversion removes it; rebuilding
+  the conversion's mosaics keeps it.
+- **Shown as** a **WebODM** tab on the viewer (a mosaic kind `webodm`, read as temperatures like As converted: the
+  palettes, ranges, the scale, points, areas and measurements), and a mosaic to pick on the compare page. The
+  viewer opens for a conversion with an orthophoto even without mosaics of its own.
+- **To check live:** that the orthophoto WebODM makes from the TIFFs keeps their temperatures (one band of floats).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
