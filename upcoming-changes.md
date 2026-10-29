@@ -10,7 +10,8 @@ its title.
 
 **Up next**
 1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
-   remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
+   remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, waiting to be published);
+   M2 the server (pins 1.8.0 once it is on PyPI), M3 the dialog. (Exports)
 
 **Then**
 1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
@@ -1231,7 +1232,7 @@ Looked at on the SDK's samples (H20N, H20T, H30T, M2EA, M30T, M3T, M3TD, M4T, XT
   cameras, inside the EXIF block on the H20N, H20T and M2EA, and repeated in some `PADDING` blocks; the thermal
   module's serial in the M3TD's `HIDR` calibration block (APP5). The MPF preview image (a second JPEG after the
   first) has no EXIF of its own.
-- **Where each family reads its parameters:** girp (M2EA) in APP4's AA 55 line (emissivity %, humidity %,
+- **Where each family reads its parameters:** girp (some M30T firmware) in APP4's AA 55 line (emissivity %, humidity %,
   distance in 0.1 m, reflection in 0.1 °C; ambient is fixed); iirp (most cameras) as five floats at APP4's start
   (ambient, distance, emissivity, humidity 0-1, reflection); hirp (newer M3TD and M4T firmware) in APP4's
   TempParams (Q13/Q16 values, with flags saying whether reflection and ambient are the file's own). **dirp (H20T,
@@ -1257,6 +1258,7 @@ The design (dji-thermal-cli 1.8.0, `rjpeg.py` and its API):
   the port and in the native SDK (`native` tests); a private copy measures as the source, and none of the
   identifiers found in the source is left in it; the length and the MPF index are checked.
 - **Release:** 1.8.0 on a `release/1.8.0` branch; the user publishes it, then M2 pins it here.
+- **Done:** see Done below.
 
 ## Search
 
@@ -1712,3 +1714,15 @@ Requested 2026-10-29 (`new.md`):
   repository with a temporary data folder, light and dark: a wrong token refused by Mapbox (401) with the file left
   as it was; the user's token accepted and written (mode 600), written again in place; a project map then listing
   Mapbox Satellite and showing its tiles (200) and wordmark; no overflow at 380px; the temporary folder deleted.
+- **M1: R-JPEG copies in dji-thermal-cli 1.8.0** (2026-10-29, merged there with `release/1.8.0`, not yet pushed or
+  tagged). `rjpeg.py`: `copy(data, params, private, picture)`, every edit in place (parameters for iirp, girp and
+  hirp; dirp refused with the reason), the private removals and the serials (debug, padding and calibration
+  blocks), a new picture and MPF preview with the MPF index rewritten; `privacy.py` also removes the free-text
+  fields and the EXIF debug serial (for `--strip-location` too); the `rjpeg` product of `process` with
+  `--rjpeg-picture palette|original`, refused for normalized or replaced temperatures; `rjpeg_copy()` and
+  `RJpegCopyError` in the API (what M2 uses). Tests: `tests/test_rjpeg.py` (every sample: the port and the native
+  SDK measure each copy as the source with the same parameters set; no identifier left; the layout kept; the
+  picture shown in both frames; the CLI and the API on the flight). The whole suite passed with the SDK and the
+  user's M4T flight on Python 3.14 (locked) and 3.9 (lowest dependencies), after leaving `rjpeg` out of the
+  pixel-product test and working around Pillow 11.3 not loading an MPO frame of another size after the first (DJI's
+  own files too). Release checks: the build, `check_dist`, twine, and the installed wheel writing private R-JPEGs.
