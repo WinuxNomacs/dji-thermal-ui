@@ -7,6 +7,7 @@ import {formatCapture, setUserLocale, zoneLabel} from "../core/format";
 import {applyTheme, onTheme, type Theme} from "../core/theme";
 import {type Unit} from "../core/units";
 import {savePreference} from "../components/header";
+import {SectionFilter} from "../components/section-filter";
 import {PalettePreview} from "./palette-preview";
 
 interface Props {
@@ -123,72 +124,74 @@ export function PreferencesPage({api, publicUrl = "/", unit, theme: initialTheme
     return (<div class="page preferences">
         <div class="page-header"><h1>User Preferences</h1></div>
         <p class="hint">Saved for the Thermal Analyzer on this computer, for every project.</p>
+        <SectionFilter label="Filter the preferences">
 
-        <fieldset class="preference" id="unit-preference">
-            <legend>Temperatures</legend>
-            <div class="field">
-                <label for="pref-unit">Shown in</label>
-                <select id="pref-unit" value={unit} disabled={saving} onChange={changeUnit}>
-                    {UNITS.map(([u, label]) => <option key={u} value={u}>{label}</option>)}
-                </select>
-                <p class="help">Also in the header. A dataset's files keep the unit they were written in.</p>
-            </div>
-        </fieldset>
+            <fieldset class="preference" id="unit-preference">
+                <legend>Temperatures</legend>
+                <div class="field">
+                    <label for="pref-unit">Shown in</label>
+                    <select id="pref-unit" value={unit} disabled={saving} onChange={changeUnit}>
+                        {UNITS.map(([u, label]) => <option key={u} value={u}>{label}</option>)}
+                    </select>
+                    <p class="help">Also in the header. A dataset's files keep the unit they were written in.</p>
+                </div>
+            </fieldset>
 
-        <fieldset class="preference" id="palette-preference">
-            <legend>Palette</legend>
-            <div class="field">
-                <label for="pref-palette">The maps start with</label>
-                <select id="pref-palette" value={palette} disabled={saving} onChange={(e) => changePalette(e.currentTarget.value)}>
-                    <option value="">As each flight's images</option>
-                    {palettes.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-                </select>
-                <p class="help">On the viewer, the frame explorer, the compare page and the mosaic report; each can still
-                    switch to another. A DJI palette is used where the flight's images carry it.</p>
-            </div>
-            {shown && <PalettePreview colors={shown.color_map} label={shown.label}
-                                      caption={palette ? undefined : shown.label + " (as the newest flight's images)"}/>}
-        </fieldset>
+            <fieldset class="preference" id="palette-preference">
+                <legend>Palette</legend>
+                <div class="field">
+                    <label for="pref-palette">The maps start with</label>
+                    <select id="pref-palette" value={palette} disabled={saving} onChange={(e) => changePalette(e.currentTarget.value)}>
+                        <option value="">As each flight's images</option>
+                        {palettes.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                    </select>
+                    <p class="help">On the viewer, the frame explorer, the compare page and the mosaic report; each can still
+                        switch to another. A DJI palette is used where the flight's images carry it.</p>
+                </div>
+                {shown && <PalettePreview colors={shown.color_map} label={shown.label}
+                                          caption={palette ? undefined : shown.label + " (as the newest flight's images)"}/>}
+            </fieldset>
 
-        {basemaps.length > 0 && <fieldset class="preference" id="basemap-preference">
-            <legend>Map</legend>
-            <div class="field">
-                <label for="pref-basemap">The maps start with</label>
-                <select id="pref-basemap" value={basemap} disabled={saving} onChange={(e) => changeBasemap(e.currentTarget.value)}>
-                    {/* A preferred Mapbox whose token has gone is still shown as chosen (the maps start on Esri) */}
-                    {basemap && !basemaps.some((b) => b.key === basemap) && <option value={basemap}>{basemap === "mapbox"
-                        ? "Mapbox Satellite (no token: ESRI Satellite)" : basemap}</option>}
-                    {basemaps.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
-                </select>
-                <p class="help">Under the mosaics, the frames and the projects' areas; each map can still switch to
-                    another.{!basemaps.some((b) => b.key === "mapbox") && <> Mapbox Satellite is offered once its token
-                    is saved under <a href={publicUrl + "settings"}>System Settings</a>.</>}</p>
-            </div>
-        </fieldset>}
+            {basemaps.length > 0 && <fieldset class="preference" id="basemap-preference">
+                <legend>Map</legend>
+                <div class="field">
+                    <label for="pref-basemap">The maps start with</label>
+                    <select id="pref-basemap" value={basemap} disabled={saving} onChange={(e) => changeBasemap(e.currentTarget.value)}>
+                        {/* A preferred Mapbox whose token has gone is still shown as chosen (the maps start on Esri) */}
+                        {basemap && !basemaps.some((b) => b.key === basemap) && <option value={basemap}>{basemap === "mapbox"
+                            ? "Mapbox Satellite (no token: ESRI Satellite)" : basemap}</option>}
+                        {basemaps.map((b) => <option key={b.key} value={b.key}>{b.label}</option>)}
+                    </select>
+                    <p class="help">Under the mosaics, the frames and the projects' areas; each map can still switch to
+                        another.{!basemaps.some((b) => b.key === "mapbox") && <> Mapbox Satellite is offered once its token
+                        is saved under <a href={publicUrl + "settings"}>System Settings</a>.</>}</p>
+                </div>
+            </fieldset>}
 
-        <fieldset class="preference" id="theme-preference">
-            <legend>Theme</legend>
-            <div class="radios">
-                {THEMES.map(([t, label]) => (
-                    <label key={t}><input type="radio" name="theme" value={t} checked={theme === t} disabled={saving}
-                                          onChange={() => changeTheme(t)}/> {label}</label>))}
-            </div>
-            <p class="help">Also in the header.</p>
-        </fieldset>
+            <fieldset class="preference" id="theme-preference">
+                <legend>Theme</legend>
+                <div class="radios">
+                    {THEMES.map(([t, label]) => (
+                        <label key={t}><input type="radio" name="theme" value={t} checked={theme === t} disabled={saving}
+                                              onChange={() => changeTheme(t)}/> {label}</label>))}
+                </div>
+                <p class="help">Also in the header.</p>
+            </fieldset>
 
-        <fieldset class="preference" id="locale-preference">
-            <legend>Dates and times</legend>
-            <div class="field">
-                <label for="pref-locale">Written as in</label>
-                <select id="pref-locale" value={locale} disabled={saving} onChange={(e) => changeLocale(e.currentTarget.value)}>
-                    <option value="">As the computer ({localeExample("")})</option>
-                    {locales.map((tag) => <option key={tag} value={tag}>{localeName(tag)} ({localeExample(tag)})</option>)}
-                </select>
-                <p class="help">A flight's capture times are in the time where it was flown, labelled with its time zone
-                    (e.g. {zoneLabel(-300)}), found from the frames' two clocks; when the app made or changed something,
-                    in this computer's time.</p>
-            </div>
-        </fieldset>
+            <fieldset class="preference" id="locale-preference">
+                <legend>Dates and times</legend>
+                <div class="field">
+                    <label for="pref-locale">Written as in</label>
+                    <select id="pref-locale" value={locale} disabled={saving} onChange={(e) => changeLocale(e.currentTarget.value)}>
+                        <option value="">As the computer ({localeExample("")})</option>
+                        {locales.map((tag) => <option key={tag} value={tag}>{localeName(tag)} ({localeExample(tag)})</option>)}
+                    </select>
+                    <p class="help">A flight's capture times are in the time where it was flown, labelled with its time zone
+                        (e.g. {zoneLabel(-300)}), found from the frames' two clocks; when the app made or changed something,
+                        in this computer's time.</p>
+                </div>
+            </fieldset>
+        </SectionFilter>
 
         <p id="preferences-status" role="status" class={status.error ? "text-danger" : "text-muted"}>{status.text}</p>
     </div>);

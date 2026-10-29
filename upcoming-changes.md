@@ -9,8 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
-   filter at the top of User Preferences and System Settings, both on one shared matcher. (Search)
+(none)
 
 **Later**
 1. **ODM processing through LuxODM's or WebODM's REST API**: send a conversion's temperature TIFFs as a task with
@@ -1838,3 +1837,11 @@ Requested 2026-10-29 (`new.md`):
   with dataset 1, light and dark: a PNG, an Original (Private) and a zip of 9 TIFFs from the Files tab (R-JPEG and
   Original off for the normalized dataset), an R-JPEG from the frame explorer with the emissivity changed (it reads
   back 0.9), a PNG as converted, and the harmonized mosaic's PNG from the viewer.
+- **S: search** (2026-10-29, branch `s1-search`). S1: one matcher, `core/search.ts` (`searchWords`, `matchesText`,
+  `matchesSearch`: every word, any order, any case), used by the Projects and flights searches and the Files tab's
+  text conditions; `components/search-box.tsx` (Escape empties it); the pane's project filter under Projects
+  (`components/nav-pane.tsx`, kept in `localStorage` as `thermal-analyzer.nav.search`). S2:
+  `components/section-filter.tsx` on User Preferences and System Settings, matching each `fieldset.preference` on
+  its whole text (title, labels, help, choices), again when its content loads. Tests: `navigation.test.tsx` (the
+  pane, the preferences page), `settings.test.tsx`, `datasets.test.tsx` (`matchesText`). Checked live on 8081,
+  light and dark.

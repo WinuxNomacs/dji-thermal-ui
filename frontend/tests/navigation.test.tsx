@@ -488,6 +488,34 @@ describe("the preferences page", () => {
         expect($("#preferences-status")!.textContent).toBe("Saved.");
     });
 
+    it("filters its sections by every word typed, in their titles, labels, help or choices", async () => {
+        await page();
+        const box = $("#section-filter") as HTMLInputElement;
+        expect(box.getAttribute("aria-label")).toBe("Filter the preferences");
+        const shown = () => [...root().querySelectorAll<HTMLElement>("fieldset.preference")].filter((f) => !f.hidden)
+            .map((f) => f.querySelector("legend")!.textContent);
+        expect(shown()).toEqual(["Temperatures", "Palette", "Theme", "Dates and times"]);
+        type(box, "THEME");
+        await ticks();
+        expect(shown()).toEqual(["Theme"]);
+        // A choice's name, a help text's words in any order
+        type(box, "deutsch");
+        await ticks();
+        expect(shown()).toEqual(["Dates and times"]);
+        type(box, "compare viewer");
+        await ticks();
+        expect(shown()).toEqual(["Palette"]);
+        type(box, "yard");
+        await ticks();
+        expect(shown()).toEqual([]);
+        expect($(".section-none")!.textContent).toBe("Nothing here matches the filter.");
+        key(box, "Escape");
+        await ticks();
+        expect(box.value).toBe("");
+        expect(shown()).toEqual(["Temperatures", "Palette", "Theme", "Dates and times"]);
+        expect($(".section-none")).toBeNull();
+    });
+
     it("applies a theme at once, the header's switch following, and goes back when it is not saved", async () => {
         const {fetchFn} = await page(server({"/api/preferences": {locales: LOCALES},
                                              "PUT /api/preferences": [{}, () => jsonResponse({}, false)]}));

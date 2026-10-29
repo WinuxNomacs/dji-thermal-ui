@@ -1,7 +1,7 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {type MapboxToken, SettingsPage, shortToken, SIGN_UP, TOKENS_PAGE} from "../src/settings/settings-page";
-import {calls, jsonResponse, server, ticks} from "./helpers";
+import {calls, jsonResponse, key, server, ticks} from "./helpers";
 
 const TOKEN = "pk.eyJ1IjoidGVzdCJ9.abcd";
 const OTHER = "pk.eyJ1IjoidGVzdCJ9.wxyz";
@@ -38,6 +38,28 @@ afterEach(() => {
 });
 
 describe("System Settings", () => {
+    it("filters its sections, matching a section again once its content has loaded", async () => {
+        let answer!: (r: Response) => void;
+        vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { answer = resolve; })));
+        render(<SettingsPage api="/api/" publicUrl="/"/>, root());
+        await ticks();
+        const shown = () => [...root().querySelectorAll<HTMLElement>("fieldset.preference")].filter((f) => !f.hidden)
+            .map((f) => f.id);
+        const box = $("#section-filter") as HTMLInputElement;
+        expect(box.getAttribute("aria-label")).toBe("Filter the settings");
+        box.value = "token";
+        box.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        // Before the token's state has loaded, only the title says Mapbox
+        expect(shown()).toEqual([]);
+        jsonResponse(NONE).then(answer);
+        await ticks();
+        expect(shown()).toEqual(["mapbox-settings"]);
+        key(box, "Escape");
+        await ticks();
+        expect(shown()).toEqual(["mapbox-settings", "storage-settings"]);
+    });
+
     it("shows a token shortened to its start and its last characters", () => {
         expect(shortToken(TOKEN)).toBe("pk.…abcd");
     });

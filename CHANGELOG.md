@@ -19,6 +19,8 @@ All notable changes are recorded here. The format follows
   reason, where only TIFF can carry the temperatures.
 - A filter under Projects in the navigation pane: the projects whose name has every word typed. It is kept from page
   to page, as the folds are; Escape empties it, as it does every search box.
+- A filter at the top of User Preferences and System Settings: the sections whose title, labels, help or choices
+  have every word typed.
 
 ### Changed
 

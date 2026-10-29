@@ -93,6 +93,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   on its edge; over a narrow screen it opens on top of the page. The box under Projects filters the projects by
   name, and stays as typed from page to page until it is emptied (Escape empties it). Every search in the app
   matches the same way, as you type: each word typed, in any order and any case ("roof north" finds "North roof").
+  User Preferences and System Settings have a filter at the top too, showing the sections whose title, labels, help
+  or choices have the words typed ("dark" finds Theme).
 - **Frames explorer:** the frame page lists its frames (those of the pane's list, or all of them) beside the frame
   shown, in the order they were taken, as a list (name, time, and whether a frame is in the mosaic, oblique at its
   angle, left out as unusable or not converted) or as thumbnails, a switch the browser remembers. The first is shown
