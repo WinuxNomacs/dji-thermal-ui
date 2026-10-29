@@ -9,7 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing planned: the next phase comes from `new.md`, or from Later.
+- **I1: the preferred palette** (Preferred palette): planned 2026-10-29.
 
 **Then**
 - Nothing yet.
@@ -1001,6 +1001,44 @@ Requested 2026-10-28 (`new.md`):
   projects.
 - **What the new folder held:** once its chosen projects are imported, its old database and files are set aside in a
   subfolder there (`replaced-<date>/`), nothing deleted; the page says so.
+
+## Preferred palette
+
+Requested 2026-10-29: a preferred thermal palette, chosen under User Preferences, that the map pages start with
+everywhere; the palette can still be switched on each page as now.
+
+**Builds on:**
+- **Server:** `default_palette()` in `api.py` already picks each conversion's starting palette for the viewer, the
+  frame explorer, the compare page and the mosaic report: the conversion's own palette, else the flight's (as its
+  images hold it), else ironbow.
+- **Preferences:** the unit, theme and locale are saved the same way, in `Preferences.data`
+  (`save_preference`, `PreferencesView`).
+- **Palettes:** DJI's ten palettes are read from each flight's images (`dji_<name>`), and are present only where the
+  flight has them. The app also has twelve colour maps of its own (ironbow, gray, magma...).
+
+### I1: the preferred palette
+
+- **Preference:**
+  - A "Palette" select on the preferences page, saved as `palette` in `Preferences.data`.
+  - The select offers "As each flight's images" (the default, which keeps today's behaviour), DJI's ten palettes
+    and the app's colour maps.
+  - The PUT validates the value against that list.
+- **Server:** `default_palette()` starts from the preference. A DJI palette the conversion lacks falls back to
+  today's rule.
+- **Not changed:**
+  - A palette in the URL (a reload or a copied link) still wins.
+  - The view-angle tab keeps viridis, since it shows angles, not temperatures.
+  - The Convert tab's palette setting still sets the palette of the converted images, not the view.
+- **Decisions (2026-10-29):**
+  - **The preference wins** over the conversion's and the flight's own palette wherever that palette exists. The
+    images' palette is used only for "As each flight's images", or when a flight lacks the DJI palette chosen.
+  - **Temperatures only:** the compare page's difference keeps its own diverging palettes, starting with rdbu_r.
+- **Tests:**
+  - pytest: the PUT saves the palette and refuses unknown ones. `default_palette()` follows the preference, falls
+    back for a missing DJI palette, and keeps today's rule for "As each flight's images".
+  - Vitest: the preferences page offers the palette and saves it.
+  - Live check on 8081: the viewer, the frame explorer and the compare page open with the preferred palette; a
+    link's palette still wins; the preference is put back afterwards.
 
 ## Integration
 
