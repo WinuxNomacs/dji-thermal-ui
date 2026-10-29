@@ -327,7 +327,8 @@ Asked for on 2026-10-29: the switch still offered "Mapbox Satellite: the tokenâ€
 replaces B3's "The token" above (the form in the switch, the `mapbox_token` preference).
 
 - **Where:** System Settings gets a page of its own (`/settings`, its name in the navigation pane a link to it;
-  Storage stays under it). Its "Mapbox Satellite" section says whether a token is known and where from (shown
+  Storage stays under it). Clicking the name opens the page and folds or unfolds it too, as the user
+  asked on 2026-10-29; the chevron only folds. Its "Mapbox Satellite" section says whether a token is known and where from (shown
   shortened: `pk.` and its last characters), has the steps to get one (B3's), and a field to paste a new one.
 - **The basemap switch** lists the basemaps and None only. A refused token's message points to System Settings.
 - **Where it is kept:** `MAPBOX_API_TOKEN` in a `.env` file, no longer in the preferences.

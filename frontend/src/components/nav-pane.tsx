@@ -120,6 +120,11 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
     const marked = projects ? markedItem(trailTo(projects, current), expanded) : null;
     const item: ItemBase = {expanded, toggle, onNavigate};
     const settingsOpen = expanded.has(SETTINGS_KEY);
+    // System Settings' name opens its page and folds or unfolds it too (not when opened in another tab or window)
+    const openSettings = (e: MouseEvent) => {
+        if (e.button === 0 && !(e.ctrlKey || e.metaKey || e.shiftKey || e.altKey)) toggle(SETTINGS_KEY);
+        onNavigate?.();
+    };
 
     return (<nav class="app-nav" id="app-nav" aria-label="Projects and preferences">
         {onClose && <div class="nav-close"><button type="button" class="close" aria-label="Close the navigation"
@@ -160,7 +165,7 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
             <li class="nav-item level-0 nav-settings">
                 <div class={"nav-row" + (is("settings") ? " current" : "")}>
                     <HardDrive/><a href={publicUrl + "settings"} aria-current={is("settings") ? "page" : undefined}
-                                   onClick={onNavigate}>System Settings</a>
+                                   aria-expanded={settingsOpen} onClick={openSettings}>System Settings</a>
                     <button type="button" class="nav-fold nav-settings-toggle" aria-expanded={settingsOpen}
                             data-key={SETTINGS_KEY} aria-label={(settingsOpen ? "Fold " : "Unfold ") + "System Settings"}
                             onClick={() => toggle(SETTINGS_KEY)}>{settingsOpen ? <ChevronDown/> : <ChevronRight/>}</button>
