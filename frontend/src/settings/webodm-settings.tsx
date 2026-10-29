@@ -133,6 +133,16 @@ export function WebODMSettings({api}: {api: string}) {
         <legend>WebODM</legend>
         <p class="hint">Conversions are processed with ODM in a WebODM of your own, through its API: here are its
             address and the account the app logs in as.</p>
+        <p class="hint">Once it is set up:</p>
+        <ul class="hint webodm-benefits">
+            <li><strong>Process in WebODM</strong> on a converted dataset's card makes a WebODM task straight from its
+                temperature TIFFs: no export, no upload by hand.</li>
+            <li>The project, the processing node and the options are chosen there, from the WebODM plan's recommended
+                options or a WebODM preset.</li>
+            <li>The upload runs in the background, and the card follows each task's progress in WebODM.</li>
+            <li>A completed task's orthophoto comes back as temperatures: a WebODM tab in the viewer, to read, measure
+                and compare with the app's own mosaics.</li>
+        </ul>
         {state && <p id="webodm-state">{!state.configured
             ? "Not set up yet."
             : <>The app logs in to <code class="path">{state.url}</code> as <code>{state.username}</code>, from

@@ -12,7 +12,8 @@ All notable changes are recorded here. The format follows
   `WEBODM_USERNAME`, `WEBODM_PASSWORD`) once WebODM has taken them, with the processing nodes the account sees. The
   password is never shown, the user name masked; the saved login can be checked again or removed. Setting the
   account up in WebODM's admin is walked through there step by step (and in the README), with the permissions as
-  its pages name them and links to those pages.
+  its pages name them and links to those pages. It opens with what connecting WebODM brings: tasks made straight from a
+  converted dataset, its options and presets, the progress followed on the card, the orthophoto brought back.
 - Process in WebODM, on a converted dataset's card: a WebODM task from its temperature TIFFs, in a new project or
   one of the account's, with the WebODM plan's options and any other the nodes offer, WebODM's presets applied or
   the options kept as one, a processing node and a name. The upload runs in the background on a worker of its own
