@@ -10,7 +10,7 @@ import {Overview} from "../src/dataset/tabs";
 import {PreferencesPage} from "../src/preferences/preferences-page";
 import {previewScene, SCENE_RANGE, SCENE_SIZE} from "../src/preferences/palette-preview";
 import {takenText} from "../src/viewer/view";
-import {calls, click, jsonResponse, server, ticks} from "./helpers";
+import {calls, click, jsonResponse, key, server, ticks} from "./helpers";
 
 const PROJECTS: NavProject[] = [
     {id: 1, name: "Default Project", datasets: []},
@@ -51,6 +51,10 @@ const root = () => document.getElementById("root")!;
 const $ = (sel: string) => root().querySelector(sel);
 const links = () => [...root().querySelectorAll(".app-nav a")].map((a) => a.textContent!.trim());
 const currentLink = () => root().querySelector(".app-nav [aria-current=page]")?.textContent;
+function type(el: HTMLInputElement, value: string) {
+    el.value = value;
+    el.dispatchEvent(new Event("input", {bubbles: true}));
+}
 const fold = (key: string) => $(`.nav-fold[data-key="${key}"]`) as HTMLButtonElement;
 
 async function pane(current: Current = {page: "projects", id: NaN}, fetchFn = server({"/api/navigation": {projects: PROJECTS}})) {
@@ -116,6 +120,42 @@ describe("the navigation pane", () => {
         expect(fold("d4").getAttribute("aria-expanded")).toBe("true");
         expect(currentLink()).toBe("Report");
         expect($('a[aria-current=page]')!.getAttribute("href")).toBe("/dataset/4/report");
+    });
+
+    it("lists only the projects whose name has every word typed, kept for the next page", async () => {
+        await pane({page: "dataset", id: 5});
+        const box = $("#nav-search") as HTMLInputElement;
+        expect(box.getAttribute("aria-label")).toBe("Filter projects");
+        type(box, "SIL");
+        await ticks();
+        expect(links()).toEqual(["Projects", "Silos", "Roof", "Field", "User Preferences", "System Settings"]);
+        // The page shown stays marked
+        expect(currentLink()).toBe("Roof");
+        type(box, "project default");
+        await ticks();
+        expect(links()).toEqual(["Projects", "Default Project", "User Preferences", "System Settings"]);
+        type(box, "yard");
+        await ticks();
+        expect(links()).toEqual(["Projects", "User Preferences", "System Settings"]);
+        expect($(".nav-none")!.textContent).toBe("No projects match the filter.");
+        // Kept from page to page, as the folds are
+        expect(localStorage.getItem("thermal-analyzer.nav.search")).toBe("yard");
+        render(null, root());
+        await pane();
+        expect(($("#nav-search") as HTMLInputElement).value).toBe("yard");
+        expect(links()).toEqual(["Projects", "User Preferences", "System Settings"]);
+        // Escape empties it, and it is forgotten
+        key($("#nav-search")!, "Escape");
+        await ticks();
+        expect(($("#nav-search") as HTMLInputElement).value).toBe("");
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings"]);
+        expect(localStorage.getItem("thermal-analyzer.nav.search")).toBeNull();
+    });
+
+    it("offers no filter before there are projects", async () => {
+        await pane(undefined, server({"/api/navigation": {projects: []}}));
+        expect($("#nav-search")).toBeNull();
+        expect($(".nav-none")).toBeNull();
     });
 
     it("keeps what is unfolded for the next visit", async () => {

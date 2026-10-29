@@ -17,6 +17,8 @@ All notable changes are recorded here. The format follows
   the Files tab (the frames the filter shows, or all of them, measured with a dataset or the frames' own values) and
   on the viewer (the mosaic tab shown). Each format says what it is for; R-JPEG and Original are turned off, with the
   reason, where only TIFF can carry the temperatures.
+- A filter under Projects in the navigation pane: the projects whose name has every word typed. It is kept from page
+  to page, as the folds are; Escape empties it, as it does every search box.
 
 ### Changed
 

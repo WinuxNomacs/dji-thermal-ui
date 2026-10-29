@@ -1,6 +1,7 @@
 // A dataset's analysis as the pages use it: the figures above the tabs, the Files tab's rows and columns, and the
 // conversion a frame opens in
 import {fileKind, formatCapture, median} from "../core/format";
+import {searchWords} from "../core/search";
 import {convertTemp} from "../core/units";
 
 export interface FileRow {
@@ -179,14 +180,13 @@ export function flagged(f: FileRow, flags: Record<string, Problem[]>): boolean {
     return !!flags[f.path] || f.kind !== "thermal" && f.kind !== "not_thermal" || !!(f.warnings || []).length;
 }
 
-function words(v: unknown): string[] { return String(v || "").toLowerCase().split(/\s+/).filter((w) => w); }
 
 // Whether a condition is set enough to filter: a value typed (a number for a number's), kinds chosen or not
 export function active(c: Condition): boolean {
     const type = columnType(c.key);
     if (type === "kind" || type === "flag") return true;
     if (type === "number") return c.value !== "" && !isNaN(Number(c.value));
-    return words(c.value).length > 0;
+    return searchWords(c.value).length > 0;
 }
 
 export function matches(row: FileRow, c: Condition): boolean {
@@ -198,7 +198,7 @@ export function matches(row: FileRow, c: Condition): boolean {
         const v = row[c.key];
         if (v === null || v === undefined || v === "") return false;
         // A capture time as written and as shown: "2026-10-12 18:29" or the locale's
-        const text = (c.key === "time" ? captureTime(v) + " " + formatCapture(v as string) : String(v)).toLowerCase(), found = words(c.value).map((w) => text.includes(w));
+        const text = (c.key === "time" ? captureTime(v) + " " + formatCapture(v as string) : String(v)).toLowerCase(), found = searchWords(c.value).map((w) => text.includes(w));
         return c.op === "not" ? !found.some(Boolean) : found.every(Boolean);
     }
     const raw = row[c.key];

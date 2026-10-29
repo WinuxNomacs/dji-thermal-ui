@@ -1374,15 +1374,14 @@ Requested 2026-10-29 (`new.md`):
    its section's title; a section with no match is hidden, a section whose title matches shows whole. The same
    box and matcher.
 
-### Open decisions
+### Decisions (2026-10-29)
 
-- **The match:** the request says "contains". Today's searches match every word, in any order ("roof north" finds
-  "North roof"), which also finds every exact "contains" match. Keep words (recommended, the same everywhere), or
-  the whole query as one string?
-- **What the pane's filter looks through:** project names only (as asked), or also their flights' and datasets'
-  names, showing a project when one of its flights matches (unfolded to it)?
-- **Kept or not:** is the pane's filter text kept from page to page (as the folds are), or empty on each page?
-- **When:** after M (as listed), or before it?
+- **The match:** every word of the query, in any order and any case, as today's searches (it also finds every exact
+  "contains" match), the same everywhere.
+- **The pane's filter** looks through the projects' names only. A project hidden by it hides the page shown under it
+  too (its mark with it); the page itself is unchanged.
+- **Kept:** the pane's filter text is kept from page to page (`localStorage`), as the folds are, until emptied.
+- **When:** after M, now done.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 

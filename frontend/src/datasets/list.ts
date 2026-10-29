@@ -61,12 +61,6 @@ export function sortDatasets(list: Dataset[], key: string, desc: boolean): Datas
     }).map((x) => x.d);
 }
 
-// Whether the search (words, any order) is in a dataset's name
-export function matchesSearch(d: {name?: string}, query: string): boolean {
-    const text = (d.name || "").toLowerCase();
-    return String(query || "").toLowerCase().split(/\s+/).every((w) => text.includes(w));
-}
-
 // The parts of the File and Directory Entries API a drop gives
 interface Entry {isFile: boolean; fullPath: string}
 interface FileEntry extends Entry {file(ok: (f: File) => void, err: () => void): void}

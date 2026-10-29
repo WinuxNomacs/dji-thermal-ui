@@ -5,9 +5,11 @@ import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {count, deleteText, formatBytes, formatDate, statusLabel} from "../core/format";
+import {matchesSearch} from "../core/search";
 import {ask, askName, dialog} from "../components/dialog";
 import {CaretDown, CaretUp, Check, Cog, Folder, Images, MoveTo, Pencil, Plus, Refresh, Trash} from "../components/icons";
-import {type Dataset, droppedFiles, filesCell, matchesSearch, sortDatasets} from "./list";
+import {SearchBox} from "../components/search-box";
+import {type Dataset, droppedFiles, filesCell, sortDatasets} from "./list";
 import {NewDataset, type Stage} from "./new-dataset";
 
 const POLL_MS = 3000;
@@ -231,8 +233,7 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
             <div class="page-header">
                 <h2>Flights</h2>
                 <div class="page-actions">
-                    <input type="search" id="search" placeholder="Search flights" aria-label="Search flights"
-                           value={query} onInput={(e) => setQuery(e.currentTarget.value)}/>
+                    <SearchBox id="search" label="Search flights" query={query} setQuery={setQuery}/>
                     <button type="button" class="button primary" id="new-dataset-button" onClick={openNew}>
                         <Plus/> New Flight</button>
                 </div>

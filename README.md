@@ -90,7 +90,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   "Mosaic" (the frames the mosaic placed) and "Oblique" (those it left out for their angle, whose angles show what a
   view straight down misses, including those a conversion with a pitch limit did not convert), each with its count, opening the frame explorer on those frames. The
   page shown is marked, down to the viewer's tab. Each level folds, and the whole pane hides, by the header's menu button or the small tab
-  on its edge; over a narrow screen it opens on top of the page.
+  on its edge; over a narrow screen it opens on top of the page. The box under Projects filters the projects by
+  name, and stays as typed from page to page until it is emptied (Escape empties it). Every search in the app
+  matches the same way, as you type: each word typed, in any order and any case ("roof north" finds "North roof").
 - **Frames explorer:** the frame page lists its frames (those of the pane's list, or all of them) beside the frame
   shown, in the order they were taken, as a list (name, time, and whether a frame is in the mosaic, oblique at its
   angle, left out as unusable or not converted) or as thumbnails, a switch the browser remembers. The first is shown

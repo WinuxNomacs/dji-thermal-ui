@@ -1,16 +1,20 @@
 // The navigation pane on the left of every page: the projects, under each its datasets, under each its conversions
 // with their tools, mosaics and frames, then User Preferences and System Settings (Storage). Each level folds; what is folded is kept for the
 // next visit, and the page shown is always unfolded to and marked (down to the viewer's tab or the frame page's list
-// it shows). The pane lists again when a page says what it lists has changed.
+// it shows). The pane lists again when a page says what it lists has changed. A filter under Projects lists only the
+// projects whose name matches; like the folds, it is kept from page to page.
 import {type ComponentChildren} from "preact";
 import {useEffect, useState} from "preact/hooks";
 import {conversionHref, conversionItems, conversionKey, type Current, datasetKey, fetchNavigation, markedItem,
         type NavItem, type NavProject, onNavigationChanged, onPartChanged, partOf, pathTo, projectKey,
         trailTo} from "../core/navigation";
+import {matchesSearch} from "../core/search";
 import {ChevronDown, ChevronRight, Cog, Folder, HardDrive} from "./icons";
+import {SearchBox} from "./search-box";
 
 const EXPANDED_KEY = "thermal-analyzer.nav.expanded";
 const SETTINGS_KEY = "settings";            // System Settings, folded as the other items are
+const SEARCH_KEY = "thermal-analyzer.nav.search";
 
 function storedExpanded(): string[] {
     try {
@@ -23,6 +27,16 @@ function storedExpanded(): string[] {
 
 function storeExpanded(keys: Set<string>): void {
     try { localStorage.setItem(EXPANDED_KEY, JSON.stringify([...keys])); } catch { /* not remembered */ }
+}
+
+function storedSearch(): string {
+    try { return localStorage.getItem(SEARCH_KEY) || ""; } catch { return ""; }
+}
+
+function storeSearch(query: string): void {
+    try {
+        if (query) localStorage.setItem(SEARCH_KEY, query); else localStorage.removeItem(SEARCH_KEY);
+    } catch { /* not remembered */ }
 }
 
 export interface NavPaneProps {
@@ -79,6 +93,7 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
     // System Settings is unfolded to when one of its pages is shown
     const [expanded, setExpanded] = useState(() => new Set([...storedExpanded(),
                                                             ...(page.page === "storage" ? [SETTINGS_KEY] : [])]));
+    const [query, setQuery] = useState(storedSearch);
 
     useEffect(() => {
         let first = true;
@@ -116,7 +131,13 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
         });
     }
 
+    function search(q: string) {
+        setQuery(q);
+        storeSearch(q);
+    }
+
     const is = (name: string) => current.page === name;
+    const shown = projects?.filter((p) => matchesSearch(p, query.trim())) ?? null;
     const marked = projects ? markedItem(trailTo(projects, current), expanded) : null;
     const item: ItemBase = {expanded, toggle, onNavigate};
     const settingsOpen = expanded.has(SETTINGS_KEY);
@@ -135,7 +156,10 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
                     <Folder/><a href={publicUrl} aria-current={is("projects") ? "page" : undefined} onClick={onNavigate}>
                         Projects</a>
                 </div>
-                {projects && <ul>{projects.map((p) => (
+                {projects && projects.length > 0 && <div class="nav-search">
+                    <SearchBox id="nav-search" label="Filter projects" query={query} setQuery={search}/></div>}
+                {shown && !shown.length && projects!.length > 0 && <p class="nav-none text-muted">No projects match the filter.</p>}
+                {shown && <ul>{shown.map((p) => (
                     <Item key={p.id} itemKey={p.datasets.length ? projectKey(p.id) : undefined} {...item} level={1}
                           href={publicUrl + "project/" + p.id} label={p.name || "(untitled)"} current={marked === projectKey(p.id)}>
                         <ul>{p.datasets.map((d) => (

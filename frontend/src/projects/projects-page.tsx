@@ -3,9 +3,10 @@
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {count, formatBytes, formatDate} from "../core/format";
+import {matchesSearch} from "../core/search";
 import {ask} from "../components/dialog";
 import {MapPin, Pencil, Plus, Trash, Upload} from "../components/icons";
-import {matchesSearch} from "../datasets/list";
+import {SearchBox} from "../components/search-box";
 import type {Basemap} from "../map/map";
 import {ImportDialog} from "./import-dialog";
 import {type Project, projectDeleteText} from "./list";
@@ -59,8 +60,7 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
             <div class="page-header">
                 <h1>Projects</h1>
                 <div class="page-actions">
-                    <input type="search" id="search" placeholder="Search projects" aria-label="Search projects"
-                           value={query} onInput={(e) => setQuery(e.currentTarget.value)}/>
+                    <SearchBox id="search" label="Search projects" query={query} setQuery={setQuery}/>
                     <button type="button" class="button default" id="import-project-button" disabled={!projects}
                             onClick={() => setImporting(true)}><Upload/> Import</button>
                     <button type="button" class="button primary" id="new-project-button"
