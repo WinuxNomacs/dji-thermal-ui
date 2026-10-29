@@ -110,7 +110,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
 - **System Settings:** the Mapbox token (see [The maps under the mosaics](#the-maps-under-the-mosaics)), WebODM's
-  address and login (see [WebODM](#webodm)), and a link to Storage.
+  address and login, with a short list of what connecting it brings (see [WebODM](#webodm)), and a link to Storage.
 - **System Settings › Storage** (System Settings in the pane opens its page and folds or unfolds it; its chevron only folds): where the data
   folder is, its size on disk as measured when the page opens (and again on asking) and the free space on its
   drive, with each project and its flights, the database and the rest. A flight read in place from a folder says

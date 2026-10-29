@@ -46,6 +46,14 @@ afterEach(() => {
 });
 
 describe("System Settings › WebODM", () => {
+    it("says what connecting WebODM brings, before its login is asked for", async () => {
+        await page(server({"/api/settings/webodm": UNSET}));
+        const items = [...root().querySelectorAll(".webodm-benefits li")].map((li) => li.textContent);
+        expect(items).toHaveLength(4);
+        expect(items[0]).toContain("Process in WebODM");
+        expect(items[3]).toContain("orthophoto comes back as temperatures");
+    });
+
     it("saves an address and login WebODM took, lists the nodes the account sees, and never shows the password", async () => {
         const fetchFn = await page(server({"/api/settings/webodm": UNSET,
                                            "PUT /api/settings/webodm": {...SAVED, nodes: NODES}}));
