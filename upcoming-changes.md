@@ -9,9 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **N2: the Mapbox token in System Settings**: the token moves from the basemap switch to a new System Settings
-   page, is checked with Mapbox before it is saved, and is written to `.env`. (Basemaps)
-2. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
+1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
 
 **Then**
@@ -349,6 +347,7 @@ replaces B3's "The token" above (the form in the switch, the `mapbox_token` pref
 - **Live check:** on 8081 started outside the repository with a temporary data folder (so the repository's `.env`
   is not written): a wrong token refused by Mapbox and nothing written; the user's token (read from the repo's
   `.env` by the script, never printed) accepted and written; the viewer then showing Mapbox; light and dark.
+- **Done:** see Done below.
 
 ## Findings
 
@@ -1627,3 +1626,13 @@ Requested 2026-10-29 (`new.md`):
   `frontend/tests/navigation.test.tsx`. Checked live on 8081, light and dark: the viewer, both compare maps and a
   project map opened on OpenStreetMap, Mapbox (wordmark shown, tiles from Mapbox) and none; the preference was
   removed afterwards.
+- **N2: the Mapbox token in System Settings** (2026-10-29). `analyzer/basemaps.py`: `mapbox_token()` reads the
+  environment, then the `.env` files; `check_token()` asks Mapbox for tile `0/0/0`; `write_token()` replaces the
+  `MAPBOX_API_TOKEN` line of the file it was read from (else the data folder's, mode 600); `move_saved_token()` at
+  the server's start (`cli.py`). `api/settings/mapbox` (`MapboxTokenView`); the page `/settings`
+  (`settings/settings-page.tsx`), linked from the navigation pane; the switch's token entry and
+  `map/mapbox-token.tsx` removed. Tests: `tests/test_basemaps.py`, `frontend/tests/settings.test.tsx`,
+  `frontend/tests/basemaps.test.tsx`, `frontend/tests/navigation.test.tsx`. Checked live on 8081 started outside the
+  repository with a temporary data folder, light and dark: a wrong token refused by Mapbox (401) with the file left
+  as it was; the user's token accepted and written (mode 600), written again in place; a project map then listing
+  Mapbox Satellite and showing its tiles (200) and wordmark; no overflow at 380px; the temporary folder deleted.
