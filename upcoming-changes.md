@@ -9,7 +9,9 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
+1. **N1: the preferred basemap**: the basemap every map starts with, chosen under User Preferences. (Preferred
+   basemap)
+2. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
 
 **Then**
@@ -1064,6 +1066,49 @@ Requested 2026-10-29: a small thermal image under User Preferences that shows th
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
   plan's options, and follow its progress. The plugin's `thermal_task.py` and the task panel in `conversions.js`
   (at LuxODM a2a81052) show what it did.
+
+## Preferred basemap
+
+Requested 2026-10-29: a user preference for the default map provider.
+
+**Builds on:**
+- **Server:** `BASEMAPS` in `settings.py` (ESRI Satellite, the default, and OpenStreetMap) and Mapbox Satellite,
+  added by `page_basemaps()` in `analyzer/basemaps.py` once a token is known (B3). Each entry's `default` says which
+  one a map starts with. The preferences are saved through `PUT /api/preferences`, as I1's `palette` is.
+- **Front end:** `addBasemaps()` in `map/basemaps.ts` shows the `default` basemap on every map (the viewer, the
+  compare page, the project maps, the location picker and the dataset report). If Mapbox's tiles are refused, it
+  goes back to the basemap shown before. The preferences page (`preferences/preferences-page.tsx`) has I1's
+  "Palette" select to follow.
+
+### N1: the preferred basemap
+
+- **Decisions (2026-10-29):**
+  - **Where it is chosen:** only on the preferences page, like the palette. Switching the basemap on a map
+    changes that map only.
+  - **Order:** before M, since it is small.
+- **Preference:**
+  - A "Map" select on the preferences page ("The maps start with"), saved as `basemap` in `Preferences.data`.
+  - It offers ESRI Satellite (the default, which keeps today's behaviour), OpenStreetMap, Mapbox Satellite and
+    None. Mapbox Satellite is listed only when a token is known. Without one, the page says the token is added
+    from a map's basemap switch.
+  - Each basemap gets a `key` (`esri`, `osm`, `mapbox`), and the PUT checks the value against them and `none`.
+- **Server:** `page_basemaps()` marks the preferred basemap as the `default`. If Mapbox is preferred and no token
+  is known any more, Esri stays the default.
+- **Front end:**
+  - `addBasemaps()` already starts with the `default`. If the preferred Mapbox is refused (a wrong or expired
+    token), the map goes to the settings' own default (Esri), not to None.
+  - None is honoured: a map starts with no basemap.
+- **Tests:**
+  - pytest:
+    - The preference is saved, and a value that isn't a basemap is refused.
+    - The pages' basemaps mark the preferred one as the default.
+    - A preferred Mapbox without a token falls back to Esri.
+  - Vitest:
+    - The preferences page offers the basemaps and saves the choice, and lists Mapbox only with a token.
+    - A map starts on the preferred basemap, and a refused Mapbox goes to Esri.
+  - Live check: the viewer, compare page and a project map open on OpenStreetMap, then on Mapbox with the token
+    from `.env` (never printed), light and dark. The preference is put back afterwards.
+- **Docs:** the README's preferences and basemaps sections, and a CHANGELOG entry under Unreleased.
 
 ## Exports
 
