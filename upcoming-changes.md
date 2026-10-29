@@ -9,7 +9,8 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- Nothing planned: the next phase comes from `new.md`, or from Later.
+1. **M: exports**: frames, flights and mosaics exported as Raw, PNG, TIFF and R-JPEG, with Private options that
+   remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
 
 **Then**
 - Nothing yet.
@@ -1063,6 +1064,77 @@ Requested 2026-10-29: a small thermal image under User Preferences that shows th
 - **ODM through the REST API** (LuxODM or WebODM): authenticate, create a task from a conversion's TIFFs with the
   plan's options, and follow its progress. The plugin's `thermal_task.py` and the task panel in `conversions.js`
   (at LuxODM a2a81052) show what it did.
+
+## Exports
+
+Requested 2026-10-29 (`new.md`):
+- **Formats:** export frames, mosaics and images in several formats, for one frame as well as a whole flight:
+  Raw, PNG, TIFF and DJI's radiometric JPEG (R-JPEG). Today only a PNG of the view can be exported.
+- **Private options**, such as "Raw (Private)" and "TIFF (Private)", that remove the GPS and personal information
+  (an email address, the location...) from the files.
+- **What each format is for:**
+  - PNG: a compressed RGB image, to look at only.
+  - Raw: the source files as they are.
+  - Private: a radiometric file without the GPS or personal information.
+  - R-JPEG: DJI's own radiometric JPEG. dji-thermal-cli and its SDK port may need changes for it.
+
+### What it builds on
+
+- **Today's exports:**
+  - The "PNG" button on the viewer, the frame explorer and the compare page (`saveCanvas` in `viewer/canvas.ts`)
+    saves the view as shown, with its scale and caption.
+  - A dataset's outputs download as a zip, or one at a time (`ConversionDownloadView`). These are dji-thermal-cli's
+    per-frame TIFFs and PNGs, and the mosaics' TIFFs and preview PNGs.
+  - A project exports whole as a `.tar` (K1).
+- **dji-thermal-cli 1.7.0** (the app pins 1.6.1):
+  - Products `temp_c/f/k` (float32 TIFF or EXR), `temp_ck`, `temp_dc`, `raw` and `gray16` (uint16 TIFF or PNG),
+    and `pseudo` (an RGB PNG or TIFF).
+  - `--strip-location` (`privacy.py`) removes from every output's metadata the EXIF GPS IFD, the serial numbers,
+    the owner name and the image ID, and from the XMP the GPS, DJI's position, altitude, RTK and rangefinder-target
+    fields, the serial numbers and `SelfData`. The capture time is kept. A mosaic is then written without its
+    georeference.
+  - It never writes an R-JPEG: DJI's measurement parameters live in binary APP4 blocks fixed at capture. The SDK
+    port only changes them in memory (`set_measurement_params`), and the block's layout differs between cameras.
+- **The source files:** a flight's R-JPEGs in `datasets/<id>/images/` or read in place from its folder, and the
+  visual `_V` JPEGs beside them where the drone took them.
+
+### Proposed phases
+
+1. **M1: in dji-thermal-cli** (a release, then pinned here):
+   - A location-free copy of an R-JPEG that stays radiometric: the same removals as `--strip-location`, made in
+     the JPEG's EXIF and XMP. DJI's APP blocks are kept, after checking they hold no position or serial number.
+     The SDK port must measure the copy exactly as it measures the source.
+   - The free-text fields added to what Private removes (see the decisions), in `--strip-location` too.
+   - An `rjpeg` output: the source with the measurement parameters written into its header, for each camera family
+     the port reads, checked against the native SDK.
+2. **M2: the exports on the server:** one endpoint for a frame, the frames chosen, or a whole flight, and for a
+   dataset's mosaics, in a format: Raw, Raw (Private), TIFF, TIFF (Private), PNG, R-JPEG and R-JPEG (Private).
+   The Convert tab offers R-JPEG among its outputs. Several files come
+   as a zip, streamed as it is made (as the conversion's zip is today).
+3. **M3: the export dialog:** on the frame explorer (this frame), on the flight's Files tab (the frames chosen, or
+   all of them), and on the viewer (the mosaic). Each format is described by what it is for. The current "PNG"
+   button stays as the export of the view as shown.
+
+### Decisions (2026-10-29)
+
+- **Raw** is each source file exactly as it is (an R-JPEG, as the flights are), unconverted. Raw (Private) is the
+  same file with the private information removed, and still radiometric.
+- **R-JPEG output** is added to the converter and to the exports, if it is not a huge lift: the source R-JPEG with
+  a dataset's measurement parameters (emissivity, distance, humidity, reflected and ambient temperature) written
+  into DJI's header, so DJI's tools measure with them.
+  - **The lift** (looked at on 2026-10-29): each camera family the SDK port reads (girp, dirp, iirp, hirp) reads its
+    parameters at fixed offsets in its APP blocks, so writing them is the reverse, per family. A written copy can
+    be checked with the native SDK in dji-thermal-cli's `native` tests: it reads the parameters back and measures
+    the copy as the port does.
+  - **Limits:** a family that stores no parameters, or one with no sample image to check against, is skipped with
+    the reason. Normalizing and value replacement are not carried in an R-JPEG: only the parameters are.
+- **TIFF and PNG of frames** are made when exported, from the source, with a dataset's settings chosen in the
+  dialog or the flight's own embedded values. A flight need not be converted first.
+- **Private** removes dji-thermal-cli's list, and also the free-text fields where a name or an email address could
+  be: EXIF Artist, Copyright, UserComment, ImageDescription and the XP fields, and their XMP counterparts
+  (dc:creator, dc:rights, dc:description...). The capture time is kept.
+- **PNG of several frames:** one temperature range shared by all of them (the flight's, changeable in the dialog),
+  so a colour means the same temperature in every frame.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
