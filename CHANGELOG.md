@@ -18,6 +18,9 @@ All notable changes are recorded here. The format follows
   the options kept as one, a processing node and a name. The upload runs in the background on a worker of its own
   and can be canceled; one that doesn't finish removes its half-made task from WebODM. The card lists the tasks
   made, with links into WebODM, followed while they are queued or processing.
+- A completed WebODM task's orthophoto brought back from its line on the card, in the background: kept as
+  temperatures in the dataset's unit and shown as a WebODM tab on the viewer, measured, made a finding on and
+  compared as the app's own mosaics are. A dataset shows one; another task's replaces it, and the card removes it.
 
 ### Changed
 

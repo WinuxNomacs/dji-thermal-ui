@@ -8,8 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: **ODM3: ODM's orthophoto back** (planned 2026-10-29): a completed WebODM task's orthophoto brought
-back to a conversion, shown on its viewer and compare page beside the app's own mosaics. See "ODM". (Integration)
+**Up next**: nothing planned.
 
 **Later**: nothing.
 
@@ -1498,7 +1497,7 @@ permissions above, with an account given only those. The live checks use the use
   being processed, the server asks WebODM for its status, at most every few seconds. Deleting a conversion keeps
   the WebODM task.
 
-**ODM3: ODM's orthophoto back** (decided 2026-10-29)
+**ODM3: ODM's orthophoto back** (decided 2026-10-29; built, see "Done")
 - **Decisions:** planned now; only the orthophoto comes back (not ODM's report, DSM or DTM); it is brought back
   with a button, not on its own; it is shown as a viewer tab, and offered on the compare page too.
 - **Where:** a completed task's line on the conversion card gets **Bring the orthophoto here**. The download is a job
@@ -2015,3 +2014,21 @@ permissions above, with an account given only those. The live checks use the use
   uploaded into a new project with the plan's options and two more, kept as a preset, processed to Completed and
   followed on the card; a second upload canceled, its task removed from WebODM; light and dark. Then the project and
   the preset removed from WebODM. The account needed nothing beyond the listed permissions.
+- **ODM3: ODM's orthophoto back** (2026-10-29, branch `odm3-orthophoto-back`). `analyzer/webodm.py`: a task's
+  result downloaded as it comes (`download`). `analyzer/webodm_tasks.py`: the download job on `jobs.UPLOADS`
+  (`fetch`, `run_orthophoto`, cancel, a download a closed server left marked failed), one orthophoto per conversion
+  (another task's replaces it; removed with its task's line or from the card). `analyzer/thermal_mosaics.py`:
+  `orthophoto` writes WebODM's (°C and its alpha) in the mosaics' layout in the conversion's unit, with overviews;
+  `kinds(conversion)` adds it as the kind `webodm` beside the built mosaics (kept apart in
+  `ThermalConversion.orthophoto`, so rebuilding them keeps it), the tab `webodm` in `TABS`, `tab_raster` takes the
+  conversion. Measured, compared and made a finding on as a mosaic; its spots and areas say it records no frames
+  (`not_recorded`). Migration 0008; a restore keeps the orthophoto without its task's link. The API
+  `webodm-tasks/<id>/orthophoto` (POST, DELETE cancels) and `conversions/<id>/orthophoto` (DELETE). The page: the
+  task line's **Bring the orthophoto here** with its progress (`webodm-panel.tsx`), the card's note and Remove
+  (`convert.tsx`), the WebODM tab named and taken as a temperature tab. Tests: `tests/test_webodm_tasks.py` (the
+  fake WebODM serves results), `frontend/tests/webodm.test.tsx`, `dataset.test.tsx`, `sources.test.tsx`. Checked
+  first against the user's WebODM: its orthophoto of the TIFFs keeps the temperatures (float32 °C and an alpha
+  band). Live check on 8081 as `thermaltest`: 60 frames of m4t-220 converted, processed in WebODM to Completed,
+  the orthophoto brought back from the card, shown on the viewer's WebODM tab (temperatures under the pointer), on
+  the compare page beside the mosaic, a spot picked on it, then removed from the card; light and dark, no console
+  errors. Then the WebODM projects removed.

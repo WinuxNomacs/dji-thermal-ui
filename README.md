@@ -263,6 +263,15 @@ The card lists the tasks made from the dataset, each with a link to it in WebODM
 then WebODM's while it is queued or processing (asked at most every 5 seconds while the page shows it). A task can
 be taken off the list; deleting the dataset does the same. Neither removes it from WebODM.
 
+Once WebODM has completed a task, **Bring the orthophoto here** on its line downloads its orthophoto in the
+background (with its progress, and a cancel). It is kept as temperatures, in the dataset's unit, and shown on the
+dataset's viewer as a **WebODM** tab beside its mosaics (even without mosaics of its own): coloured, read under the
+pointer, measured and saved as findings as they are, and offered on the compare page, beside the app's own mosaics
+or as their difference. ODM blends the frames, so it doesn't say which frames a spot came from. The orthophoto has
+to hold temperatures, which the WebODM plan's `radiometric-calibration none` keeps; one of colours is refused. A
+dataset shows one orthophoto: another task's replaces it. The card says which task it came from and can remove it;
+taking that task off the list removes it too. WebODM keeps its own copy either way.
+
 ## Where the data lives
 
 The database (SQLite), the secret key and each flight's files (`datasets/<id>/`) are kept in one data folder:

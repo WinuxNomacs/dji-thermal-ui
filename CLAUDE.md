@@ -40,9 +40,9 @@ machine. Keep it short; edit in place.
   is made by the command as it restarts, before it opens the database (`move.py`); `DJI_THERMAL_UI_CONFIG_DIR` keeps
   tests and live checks off the user's config folder.
 - **Jobs:** analyses, conversions and mosaics run in a local job runner (`analyzer/jobs.py`), not Celery:
-  `jobs.submit(fn, pk, run_id)`; uploads to WebODM on a second worker (`jobs.UPLOADS`). Each job writes its progress
-  to its row, and is cancelled cooperatively through its `run_id`. Tests run jobs inline unless they use the
-  `threaded_jobs` fixture.
+  `jobs.submit(fn, pk, run_id)`; uploads to WebODM, and its orthophotos' downloads, on a second worker
+  (`jobs.UPLOADS`). Each job writes its progress to its row, and is cancelled cooperatively through its `run_id`.
+  Tests run jobs inline unless they use the `threaded_jobs` fixture.
 - **API:** DRF with no users: `csrf.CsrfCheck` only enforces CSRF.
 - **Front end:** TypeScript and Preact with OpenLayers 10.11.0, built by Vite (`vite.config.mts`) from `frontend/src`
   (one entry per page in `pages/`) into `static/dist` with a manifest that `{% vite_entry %}` reads. The pages
