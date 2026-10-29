@@ -1221,6 +1221,42 @@ Requested 2026-10-29 (`new.md`):
 - **PNG of several frames:** one temperature range shared by all of them (the flight's, changeable in the dialog),
   so a colour means the same temperature in every frame.
 
+### M1: R-JPEG copies in dji-thermal-cli (planned 2026-10-29)
+
+Looked at on the SDK's samples (H20N, H20T, H30T, M2EA, M30T, M3T, M3TD, M4T, XT S) before planning:
+
+- **Where identifiers are, besides what `--strip-location` removes:** the EXIF free-text fields (ImageDescription,
+  XPComment, XPKeywords...); the sensor's serial (`sensor_id`) in DJI's `DJI-DBG` block (APP7) on the newer
+  cameras, inside the EXIF block on the H20N, H20T and M2EA, and repeated in some `PADDING` blocks; the thermal
+  module's serial in the M3TD's `HIDR` calibration block (APP5). The MPF preview image (a second JPEG after the
+  first) has no EXIF of its own.
+- **Where each family reads its parameters:** girp (M2EA) in APP4's AA 55 line (emissivity %, humidity %,
+  distance in 0.1 m, reflection in 0.1 °C; ambient is fixed); iirp (most cameras) as five floats at APP4's start
+  (ambient, distance, emissivity, humidity 0-1, reflection); hirp (newer M3TD and M4T firmware) in APP4's
+  TempParams (Q13/Q16 values, with flags saying whether reflection and ambient are the file's own). **dirp (H20T,
+  XT S) reads none:** DJI's SDK starts it from fixed defaults, so its R-JPEGs cannot carry parameters.
+
+The design (dji-thermal-cli 1.8.0, `rjpeg.py` and its API):
+- **Every edit in place, the file's length and layout unchanged** (the SDK reads some tables past their segment's
+  end, and the MPF index points into the file by offset): values are zeroed, an XMP packet keeps its length with
+  padding.
+- **A private copy** (`private=True`): `--strip-location`'s removals, the free-text fields (EXIF Artist, Copyright,
+  ImageDescription, UserComment, the XP fields; XMP dc:creator, dc:rights, dc:description, dc:title and
+  dc:subject), and every occurrence of the sensor's and module's serials anywhere in the file. The free-text fields
+  are added to `--strip-location` too. The capture time is kept.
+- **A copy with parameters** (`params=`): the dataset's emissivity, distance, humidity, reflected and ambient
+  temperature written where the family reads them; a dirp file (or a gain mode that has none) is refused with the
+  reason.
+- **Its picture:** DJI's own, or one given (an RGB image the size of the frame, from the app's colouring in M2, or
+  the CLI's palette): the visible JPEG and the MPF preview are re-encoded and the MPF index rewritten; the APP
+  segments are left as they are.
+- **The CLI:** an `rjpeg` product in `process`, honouring `--strip-location`, with the picture coloured with the
+  palette asked for (`--rjpeg-picture original` keeps DJI's).
+- **Tests:** for every sample, the copy measures exactly as the source measured with the same parameters set, in
+  the port and in the native SDK (`native` tests); a private copy measures as the source, and none of the
+  identifiers found in the source is left in it; the length and the MPF index are checked.
+- **Release:** 1.8.0 on a `release/1.8.0` branch; the user publishes it, then M2 pins it here.
+
 ## Done (kept here briefly as a note, not a tracked deferral)
 
 - **A1: the skeleton** (2026-10-25). The tooling (above), then the package in `src/dji_thermal_ui/`: the data
