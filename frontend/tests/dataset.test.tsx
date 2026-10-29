@@ -45,7 +45,8 @@ const DEFAULTS: Settings = {
     distance: "lrf", humidity: null, emissivity: null, reflected_temp: null, ambient_temp: null, unit: "C", range_min: null,
     range_max: null, palette: null, gimbal_yaw: null, gimbal_pitch: null, gimbal_roll: null, replace_above: null,
     replace_above_value: null, replace_below: null, replace_below_value: null, strip_location: false, normalize: false,
-    max_pitch: null, outputs: ["temp_c:tiff", "pseudo:png"], compression: "deflate", mosaics: true, visual: true,
+    max_pitch: null, outputs: ["temp_c:tiff", "pseudo:png"], compression: "deflate", rjpeg_picture: "palette",
+    mosaics: true, visual: true,
 };
 const PREFERENCES = {
     settings: DEFAULTS, saved: false, defaults: DEFAULTS, palettes: ["whitehot", "ironred"],
@@ -53,6 +54,7 @@ const PREFERENCES = {
         {product: "temp_c", description: "float32 temperature in degrees C", formats: ["tiff", "exr"]},
         {product: "pseudo", description: "8-bit RGB pseudo-colour image", formats: ["png", "tiff"]},
         {product: "gray16", description: "uint16 grayscale view", formats: ["png", "tiff"]},
+        {product: "rjpeg", description: "the source R-JPEG with the measurement parameters", formats: ["jpg"]},
     ],
 };
 const CONVERSION: Conversion = {
@@ -804,6 +806,25 @@ describe("the Convert tab", () => {
         await ticks();
         const post = fetchFn.mock.calls.find((c) => c[0] === URL + "/conversions")!;
         expect(body(post[1])).toEqual({name: "", settings: {...DEFAULTS, visual: false}});
+    });
+
+    it("offers an R-JPEG output's picture once it is chosen, and sends it", async () => {
+        const fetchFn = routes({...DETAIL, conversions: []}, {["POST " + URL + "/conversions"]: {...CONVERSION, id: 12}});
+        page(fetchFn);
+        await ticks();
+        expect($("select[name=rjpeg_picture]")).toBeNull();
+        click($<HTMLInputElement>("input[name=output-rjpeg]")!);
+        await ticks();
+        const picture = $<HTMLSelectElement>("select[name=rjpeg_picture]")!;
+        expect(picture.value).toBe("palette");
+        change(picture, "original");
+        await ticks();
+        expect($(".convert-summary .chips")!.textContent).toContain("R-JPEGs with DJI's picture");
+        click(byId("convert-start"));
+        await ticks();
+        const post = fetchFn.mock.calls.find((c) => c[0] === URL + "/conversions")!;
+        expect(body(post[1])).toEqual({name: "", settings: {...DEFAULTS, rjpeg_picture: "original",
+                                                            outputs: ["temp_c:tiff", "pseudo:png", "rjpeg:jpg"]}});
     });
 
     it("does not offer the visual mosaic without visual images", async () => {

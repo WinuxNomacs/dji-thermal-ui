@@ -32,7 +32,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
+from . import backup, basemaps, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics
 from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
@@ -940,6 +940,111 @@ class ConversionDownloadView(DatasetView):
                     zs.add_path(full, thermal_analysis.relative(full, out_dir))
         name = download_name("{}-{}".format(conversion.dataset.name, conversion.name)) + ".zip"
         return download_file_stream(request, zs, 'attachment', download_filename=name)
+
+
+class FramesExportView(DatasetView):
+    def post(self, request, pk):
+        """A flight's frames exported (see exports.check_frames for what is asked; conversion: whose settings measure
+        them, none for the frames' own): {url} to download it from, for an hour"""
+        dataset = get_dataset(pk)
+        data = request.data if isinstance(request.data, dict) else {}
+        conversion = None
+        if data.get('conversion') is not None:
+            conversion = ThermalConversion.objects.filter(pk=data.get('conversion'), dataset=dataset).first() \
+                if str(data.get('conversion')).isdigit() else None
+            if conversion is None:
+                raise ValidationError({'error': "Not a conversion of this flight"})
+        unit = (conversion.options or {}).get('unit') if conversion else app_unit()
+        try:
+            asked = exports.check_frames(dataset, conversion, data, unit or 'C')
+        except exports.ExportError as e:
+            raise ValidationError({'error': str(e)}) from None
+        return Response({'url': '/api/exports/' + exports.keep(asked)})
+
+
+class MosaicExportView(DatasetView):
+    def post(self, request, pk, tab):
+        """A mosaic tab exported ({format: tiff, tiff_private or png, view, correction: as the tiles are asked}):
+        {url} to download it from, for an hour"""
+        conversion = get_conversion(pk)
+        data = request.data if isinstance(request.data, dict) else {}
+        if tab != thermal_mosaics.VISUAL:
+            path, band = mosaic_raster(conversion, tab)
+        elif not (conversion.mosaics or {}).get(thermal_mosaics.VISUAL):
+            raise NotFound()
+        correction = None
+        if tab != thermal_mosaics.VISUAL and band == 1:
+            try:
+                correction = thermal_measure.mosaic_correction(conversion, tab, data.get('correction') or {})
+            except thermal_measure.MeasureError as e:
+                raise ValidationError({'error': str(e)}) from None
+        try:
+            asked = exports.check_mosaic(conversion, tab, data, correction)
+        except exports.ExportError as e:
+            raise ValidationError({'error': str(e)}) from None
+        return Response({'url': '/api/exports/' + exports.keep(asked)})
+
+
+def mosaic_colouring(conversion, asked):
+    """A mosaic PNG's palette (or the source frames' colours) and equalization over its range, as the viewer draws
+    the tab"""
+    tab, view = asked['tab'], asked['view']
+    if tab == 'source_frame':
+        return encoded(frame_colormap()[i] for i in range(FRAME_COLORS)), None
+    palettes = {p['key']: p['color_map'] for p in viewer_palettes(conversion)}
+    key = view['palette'] or default_palette(conversion, viewer_palettes(conversion))
+    if key not in palettes:
+        raise ValidationError({'error': "Not a palette: " + key})
+    path, band = mosaic_raster(conversion, tab)
+    curve = mosaic_curve(conversion, tab, path, band, asked['correction'], *view['range'], view['adjust'])
+    return palettes[key], curve
+
+
+class ExportDownloadView(DatasetView):
+    def get(self, request, token):
+        """An export asked for (FramesExportView, MosaicExportView): one file, or a zip streamed as it is made"""
+        from django.http import HttpResponse
+        asked = exports.kept(token)
+        if asked is None:
+            raise NotFound({'error': "This export is no longer kept: ask for it again"})
+        try:
+            if asked['kind'] == 'frames':
+                dataset = get_dataset(asked['dataset'])
+                conversion = get_conversion(asked['conversion']) if asked['conversion'] else None
+                name, data = exports.frames_export(dataset, conversion, asked, asked['view']['unit'])
+            else:
+                conversion = get_conversion(asked['conversion'])
+                colors = curve = None
+                if asked['format'] == 'png' and asked['tab'] != thermal_mosaics.VISUAL:
+                    asked = dict(asked, view=dict(asked['view'], range=asked['view']['range'] or
+                                                  mosaic_default_range(conversion, asked['tab'])))
+                    colors, curve = mosaic_colouring(conversion, asked)
+                name, data = exports.mosaic_export(conversion, asked, colors, curve)
+        except exports.ExportError as e:
+            raise ValidationError({'error': str(e)}) from None
+        stem, ext = os.path.splitext(name)
+        filename = download_name(stem) + ext
+        if isinstance(data, bytes):
+            res = HttpResponse(data, content_type=mimetypes_of(filename))
+            res['Content-Length'] = len(data)
+        elif isinstance(data, str):
+            return download_file_response(request, data, 'attachment', filename)
+        else:
+            res = StreamingHttpResponse(data, content_type=mimetypes_of(filename))
+        res['Content-Disposition'] = 'attachment; filename={}'.format(filename)
+        return res
+
+
+def mosaic_default_range(conversion, tab):
+    """The viewer's range for a tab when none is given"""
+    kind = next(k for t, k, _b in thermal_mosaics.TABS if t == tab)
+    k = ((conversion.mosaics or {}).get('kinds') or {}).get(kind) or {}
+    return exports.stats_range(k.get('view_angle') if tab == 'view_angle' else k.get('temperature'))
+
+
+def mimetypes_of(filename):
+    import mimetypes
+    return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
 
 
 class StorageView(DatasetView):
