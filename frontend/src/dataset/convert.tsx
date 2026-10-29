@@ -13,6 +13,7 @@ import {badgeClass, type Conversion, conversionLabel, type Detail, figures, isBu
 import {DISTANCE_MODES, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
         UNIT_LABELS} from "./settings";
+import {WebODMPanel, WebODMTasks} from "./webodm-panel";
 
 export interface ConvertDataset {id: number; analysis?: Analysis | null; conversions?: Conversion[]}
 
@@ -184,16 +185,20 @@ function Results({d, base, frames}: {d: Detail; base: string; frames: string | n
 interface CardProps {
     c: Conversion;
     defaults?: Settings;
+    api: string;
+    publicUrl: string;
     base: string;
     viewer: string;
     fresh: boolean;
     act: (what: string, c: Conversion) => void;
+    onChange: () => void;
 }
 
-function Card({c, defaults, base, viewer, fresh, act}: CardProps) {
+function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}: CardProps) {
     const [menu, setMenu] = useState(false);
     const [detail, setDetail] = useState<Detail | null>(null);
     const [shown, setShown] = useState(false);
+    const [webodm, setWebodm] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
     const ready = c.status === "ready", busy = isBusy(c), mosaics = ready && c.mosaic_status === "ready";
 
@@ -240,6 +245,8 @@ function Card({c, defaults, base, viewer, fresh, act}: CardProps) {
                             {shown ? "Hide files" : "Files"}</button></li>
                         {(ready || busy) && item("use", "Use settings")}
                         {ready && c.mosaic_status !== "ready" && c.mosaic_status !== "building" && item("mosaics", "Build mosaics")}
+                        {ready && <li><button type="button" data-action="webodm" onClick={() => { setMenu(false); setWebodm(true); }}>
+                            Process in WebODM</button></li>}
                         {item("rename", "Rename")}
                         <li class="divider" role="separator"></li>
                         {item("delete", "Delete", "text-danger")}
@@ -256,6 +263,9 @@ function Card({c, defaults, base, viewer, fresh, act}: CardProps) {
             c.mosaic_status === "failed" ? <div class="mosaic-status text-danger">The mosaics failed: {c.mosaic_error}</div> :
             c.mosaic_status === "canceled" ? <div class="mosaic-status text-muted">Building the mosaics was canceled.</div> :
             ready && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">No mosaics.</div> : null}
+        <WebODMTasks api={api} tasks={c.webodm_tasks || []} onChange={onChange}/>
+        {webodm && <WebODMPanel api={api} publicUrl={publicUrl} conversion={c.id} onClose={() => setWebodm(false)}
+                                onMade={onChange}/>}
         {shown && (detail ? <Results d={detail} base={base} frames={ready ? viewer + c.id + "/frame" : null}/> :
             <p class="text-muted">Loading…</p>)}
     </div>);
@@ -386,8 +396,9 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         return (<>
             <h2>Datasets</h2>
             {!conversions.length && <p class="text-muted">No datasets yet.</p>}
-            {conversions.map((c) => <Card key={c.id} c={c} defaults={meta?.defaults} base={base} viewer={viewer}
-                                          fresh={c.id === fresh} act={act}/>)}
+            {conversions.map((c) => <Card key={c.id} c={c} defaults={meta?.defaults} api={api} publicUrl={publicUrl}
+                                          base={base} viewer={viewer} fresh={c.id === fresh} act={act}
+                                          onChange={onChange}/>)}
         </>);
     }
 

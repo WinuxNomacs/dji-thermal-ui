@@ -13,6 +13,11 @@ All notable changes are recorded here. The format follows
   password is never shown, the user name masked; the saved login can be checked again or removed. Setting the
   account up in WebODM's admin is walked through there step by step (and in the README), with the permissions as
   its pages name them and links to those pages.
+- Process in WebODM, on a converted dataset's card: a WebODM task from its temperature TIFFs, in a new project or
+  one of the account's, with the WebODM plan's options and any other the nodes offer, WebODM's presets applied or
+  the options kept as one, a processing node and a name. The upload runs in the background on a worker of its own
+  and can be canceled; one that doesn't finish removes its half-made task from WebODM. The card lists the tasks
+  made, with links into WebODM, followed while they are queued or processing.
 
 ### Changed
 

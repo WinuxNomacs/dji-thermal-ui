@@ -8,9 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**
-1. **ODM2: Process in WebODM**: a task from a conversion's temperature TIFFs, with the plan's options and any
-   other, WebODM's presets, a chunked upload and the task followed on the conversion. See "ODM". (Integration)
+**Up next**: nothing planned. ODM3 waits in Later until it is decided.
 
 **Later**
 1. **ODM3: ODM's results back** (undecided, 2026-10-29): perhaps download a task's 2D radiometric orthophoto to
@@ -1986,3 +1984,21 @@ downloaded, to compare it here with the app's own mosaics. Not planned until dec
   WebODM), `frontend/tests/webodm-settings.test.tsx`. Live check against the user's WebODM on 8001 (admin): a wrong
   password refused, saved, checked after a reload, removed, light and dark. The check with an account holding only
   the listed permissions is left for ODM2, where they are used.
+- **ODM2: Process in WebODM** (2026-10-29, branch `odm2-process-in-webodm`). `analyzer/webodm_tasks.py`: the
+  plugin's checks and plan options, the TIFFs (a name two subfolders share keeps its folders), the upload job
+  (project made when asked, task made `partial`, batches of at most 50 files or 32 MB, commit), a half-made task and
+  the project the upload made removed when it doesn't finish (`half_made`, retried at start by `remove_half_made`),
+  following a task at most every 5 s (`refresh`), a task gone from WebODM marked `gone`. `analyzer/webodm.py`:
+  projects, nodes, options, presets (save or change), create, upload (multipart), commit, remove, a task's status;
+  `WebODMError.status`. `analyzer/jobs.py`: a second worker, `jobs.UPLOADS`. The model `WebODMTask` (migration
+  0007), listed on the conversion (`webodm_tasks`); the API `conversions/<id>/webodm` (GET, POST),
+  `webodm/projects`, `webodm/choices`, `webodm/presets`, `webodm-tasks/<id>` (GET follows, DELETE takes it off the
+  list) and `.../cancel`; the preset last applied in the preferences (`webodm_preset`). The page:
+  `frontend/src/dataset/webodm.ts` (typed options, presets applied), `webodm-panel.tsx` (the panel and the task
+  lines), the card's menu (`convert.tsx`), the dataset page polling while an upload runs. Tests:
+  `tests/test_webodm_tasks.py` (a fake WebODM keeping projects, tasks and presets; the upload on its own worker,
+  canceled part way), `frontend/tests/webodm.test.tsx`, `dataset.test.tsx`. Live check on 8081 against the user's
+  WebODM on 8001 as `thermaltest` (Default group and the node's object permission only): 60 TIFFs of m4t-220
+  uploaded into a new project with the plan's options and two more, kept as a preset, processed to Completed and
+  followed on the card; a second upload canceled, its task removed from WebODM; light and dark. Then the project and
+  the preset removed from WebODM. The account needed nothing beyond the listed permissions.

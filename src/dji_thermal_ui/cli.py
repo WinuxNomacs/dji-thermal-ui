@@ -59,7 +59,7 @@ def make_server(port):
     """Starts the job runner and returns the waitress server, ready to run"""
     from waitress.server import create_server
 
-    from .analyzer import basemaps, jobs, restore
+    from .analyzer import basemaps, jobs, restore, webodm_tasks
     from .wsgi import application
 
     n = jobs.mark_interrupted()
@@ -68,6 +68,7 @@ def make_server(port):
     restore.clear_imports()
     basemaps.move_saved_token()
     jobs.start()
+    webodm_tasks.remove_half_made()
     return create_server(application, host=HOST, port=port, threads=8)
 
 

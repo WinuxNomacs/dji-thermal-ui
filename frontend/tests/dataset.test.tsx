@@ -980,6 +980,31 @@ describe("the Convert tab", () => {
         expect(card().querySelector(".menu-items")).toBeNull();
     });
 
+    it("lists the tasks made in WebODM, and opens Process in WebODM from a converted dataset's menu", async () => {
+        const task = {id: 4, project_id: 2, project_name: "Site", task_id: "t", name: "Roof - Nadir", node: "",
+                      status: "completed", progress: 1, uploaded: 10, total: 10, error: "", link: "http://w/dashboard/"};
+        page(routes({...DETAIL, conversions: [{...CONVERSION, webodm_tasks: [task]}]},
+                    {[API + "conversions/9/webodm"]: {configured: false, problems: [], warnings: [], options: [],
+                                                      frames: 2, bytes: 10, name: "n", project_name: "p",
+                                                      process_args: [], preset: null}}));
+        await ticks();
+        expect(card().querySelector(".webodm-task")!.textContent).toContain("WebODM: Roof - Nadir in Site Completed");
+        await openMenu();
+        click(menuItem("Process in WebODM")!);
+        await ticks();
+        expect(card().querySelector(".webodm-panel")!.textContent).toContain("WebODM is not set up yet");
+        click([...card().querySelectorAll<HTMLButtonElement>(".webodm-panel button")].find((b) => b.textContent === "Close")!);
+        await ticks();
+        expect(card().querySelector(".webodm-panel")).toBeNull();
+    });
+
+    it("offers Process in WebODM only once a dataset is converted", async () => {
+        page(routes({...DETAIL, conversions: [{...CONVERSION, status: "failed", mosaic_status: null}]}));
+        await ticks();
+        await openMenu();
+        expect(menuItem("Process in WebODM")).toBeUndefined();
+    });
+
     it("unfolds what a conversion wrote per image", async () => {
         const detail = {...CONVERSION, results: {
             files: [{path: "a_T.JPG", ok: true, outputs: ["sub/a_T_temp_c.tiff"], notes: [], distance: 21.4, distance_source: "lrf"},

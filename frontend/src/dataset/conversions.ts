@@ -1,6 +1,7 @@
 // A dataset's conversions as the Convert tab lists them: their status, figures, results and the links that start one
 import {count, formatBytes, formatDate, type Maybe, type Stage} from "../core/format";
 import {MEASUREMENTS, type Settings} from "./settings";
+import {type WebODMTask} from "./webodm";
 
 export interface Conversion {
     id: number;
@@ -21,6 +22,7 @@ export interface Conversion {
     size?: number;
     created_at?: string;
     finished_at?: string | null;
+    webodm_tasks?: WebODMTask[];
 }
 
 export interface ResultFile {
