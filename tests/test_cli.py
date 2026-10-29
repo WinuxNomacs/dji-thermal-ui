@@ -59,7 +59,10 @@ def test_the_server_serves_the_home_page(threaded_jobs):
         assert status == 200
         assert body.startswith(b"<svg")
     finally:
-        server.close()
+        # closed in its loop's thread: closing it from here races the loop's select, which fails (EBADF on macOS)
+        server.trigger.pull_trigger(server.close)
+        thread.join(TIMEOUT)
+    assert not thread.is_alive()
 
 
 def run_app(data_dir, port, extra_env=None):

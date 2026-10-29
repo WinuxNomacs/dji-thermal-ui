@@ -1726,3 +1726,9 @@ Requested 2026-10-29 (`new.md`):
   user's M4T flight on Python 3.14 (locked) and 3.9 (lowest dependencies), after leaving `rjpeg` out of the
   pixel-product test and working around Pillow 11.3 not loading an MPO frame of another size after the first (DJI's
   own files too). Release checks: the build, `check_dist`, twine, and the installed wheel writing private R-JPEGs.
+- **The full set on macOS** (2026-10-29, macOS 26.6 arm64, Node 25, uv 0.12). `test_the_server_serves_the_home_page`
+  failed at teardown every time: the test closed the server while waitress' loop was in `select` on its sockets
+  (EBADF). It now closes the server in the loop's own thread (`pull_trigger(server.close)`) and joins it; the command
+  was not affected (it closes the server after `run` returns). Then: 322 pytest (3 flight tests skipped), ruff, 326
+  Vitest, ESLint, the build, check_dist, twine and the smoke check of the wheel. dji-thermal-cli 1.8.0 on macOS: 194
+  passed, 122 skipped (no SDK samples or flight here), ruff clean.
