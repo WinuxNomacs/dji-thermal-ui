@@ -15,8 +15,10 @@ export const TAB_HINTS: Record<string, string> = {
     view_angle: "How far from straight down each pixel was seen, in degrees.",
     visual: "The visual camera's images, each placed where its thermal frame is: what the temperatures are of. " +
         "Pointer info gives the Mosaic tab's temperatures.",
+    webodm: "WebODM's orthophoto of the conversion's temperature TIFFs, brought back from one of its tasks: ODM placed " +
+        "and blended the frames, so it doesn't say which frame each pixel comes from.",
 };
-export const TEMPERATURE_TABS = ["as_converted", "harmonized"];
+export const TEMPERATURE_TABS = ["as_converted", "harmonized", "webodm"];
 // The adjustments' limits and the legend's samples, as the server has them (thermal_measure)
 export const GAMMA_LIMITS = [0.2, 5], SHARPEN_MAX = 5, CURVE_SAMPLES = 65;
 

@@ -225,6 +225,36 @@ describe("the tasks made in WebODM", () => {
         expect(changed).toHaveBeenCalledTimes(2);
     });
 
+    it("brings a completed task's orthophoto back, follows the download and cancels it", async () => {
+        const done = {...TASK, status: "completed", progress: 1};
+        const fetchFn = server({"POST /api/webodm-tasks/9/orthophoto": {...done, orthophoto_status: "downloading",
+                                                                         orthophoto_progress: 0.4},
+                                "DELETE /api/webodm-tasks/9/orthophoto": {...done, orthophoto_status: ""}});
+        vi.stubGlobal("fetch", fetchFn);
+        const changed = vi.fn();
+        render(<WebODMTasks api="/api/" onChange={changed} tasks={[done, {...TASK, id: 10, status: "running"}]}/>, root());
+        expect($('[data-task="10"] [data-action="webodm-orthophoto"]')).toBeNull();
+        expect(text('[data-task="9"] [data-action="webodm-orthophoto"]')).toBe("Bring the orthophoto here");
+        $('[data-task="9"] [data-action="webodm-orthophoto"]')!.click();
+        await ticks();
+        expect(text('[data-task="9"] .webodm-orthophoto')).toContain("Bringing the orthophoto back… Cancel40%");
+        $('[data-task="9"] [data-action="webodm-orthophoto-cancel"]')!.click();
+        await ticks();
+        expect(calls(fetchFn)).toEqual(["POST /api/webodm-tasks/9/orthophoto", "DELETE /api/webodm-tasks/9/orthophoto"]);
+        expect(changed).toHaveBeenCalledTimes(2);
+        expect(text('[data-task="9"] [data-action="webodm-orthophoto"]')).toBe("Bring the orthophoto here");
+    });
+
+    it("says why an orthophoto wasn't brought back, and offers the one shown again", () => {
+        const done = {...TASK, status: "completed", progress: 1};
+        render(<WebODMTasks api="/api/" onChange={() => {}} shown={10} tasks={[
+            {...done, orthophoto_status: "failed", orthophoto_error: "WebODM's orthophoto holds colours"},
+            {...done, id: 10}]}/>, root());
+        expect(text('[data-task="9"] .webodm-orthophoto .text-danger')).toBe("WebODM's orthophoto holds colours");
+        expect(text('[data-task="9"] [data-action="webodm-orthophoto"]')).toBe("Bring the orthophoto here");
+        expect(text('[data-task="10"] [data-action="webodm-orthophoto"]')).toBe("Bring it back again");
+    });
+
     it("follows a task queued or running in WebODM, and says when WebODM can't be asked", async () => {
         vi.useFakeTimers();
         const fetchFn = server({"/api/webodm-tasks/9": [{...TASK, status: "running", progress: 0.3, check_error: ""},
