@@ -11,7 +11,7 @@ its title.
 **Up next**
 1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, on PyPI and
-   pinned here); M2 the server (planned), M3 the dialog. (Exports)
+   pinned here); M2 the server is done; M3 the dialog is next (to plan). (Exports)
 
 **Then**
 1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
@@ -1311,6 +1311,8 @@ dji-thermal-cli 1.8.0 is pinned (its `rjpeg` output kept off the Convert tab unt
 3. **A frame's PNG is the plain image:** the coloured frame, one pixel per sensor pixel, nothing drawn on it. The
    view's PNG button still saves the view with its scale and caption.
 
+- **Done:** see Done below.
+
 ## Search
 
 Requested 2026-10-29 (`new.md`):
@@ -1783,3 +1785,15 @@ Requested 2026-10-29 (`new.md`):
   was not affected (it closes the server after `run` returns). Then: 322 pytest (3 flight tests skipped), ruff, 326
   Vitest, ESLint, the build, check_dist, twine and the smoke check of the wheel. dji-thermal-cli 1.8.0 on macOS: 194
   passed, 122 skipped (no SDK samples or flight here), ruff clean.
+- **M2: the exports on the server** (2026-10-29, branch `m2-exports`). `analyzer/colouring.py` (the browser's
+  `colourValues` in Python, byte for byte, in strips with the unsharp mask's margin; both checked against
+  `tests/fixtures/colouring.json`, which `UPDATE_COLOURING_FIXTURE=1` makes again from the browser's), `exports.py`
+  (what is asked, checked and kept an hour; a frame as Original, TIFF through dji-thermal-cli's `process_file`, PNG or
+  R-JPEG through `rjpeg_copy`, each private too; a zip made as it is sent with `export-notes.txt` for frames that can't
+  be made; a shared range and equalization from every 8th pixel of the frames; a mosaic's GeoTIFF, a private copy
+  kept in `viewer/private/`, a full-size PNG streamed in strips), `api.py` (`FramesExportView`, `MosaicExportView`,
+  `ExportDownloadView`), the Convert tab's `rjpeg` output with `rjpeg_picture`. Tests: `tests/test_colouring.py`,
+  `tests/test_api_exports.py` (a flight test on real frames), `frontend/tests/colour.test.ts`,
+  `frontend/tests/dataset.test.tsx`. Checked live on 8081 with dataset 1: every format for 1 and 3 frames (0.1–0.75
+  s), the mosaics' PNGs (the 5746 × 6240 visual one in 4 s) and private GeoTIFF, the images looked at; the private
+  copy removed after.

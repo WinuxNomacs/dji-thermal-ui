@@ -26,7 +26,15 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   the page's link, and can be saved under a name as a favourite, offered on every flight's Files tab (a favourite is
   deleted, never overwritten).
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
-  mosaics. You can keep several side by side, cancel one, or download it.
+  mosaics. You can keep several side by side, cancel one, or download it. The R-JPEG output (`rjpeg`) writes each
+  frame again as an R-JPEG with the dataset's measurement parameters in DJI's header, so DJI's own tools measure it
+  as this app does; its picture, what photo viewers show, is coloured with the dataset's palette or kept as DJI's.
+- **Exports:** a frame, the frames chosen or a whole flight as Original (the files as they are), TIFF
+  (temperatures), PNG (coloured as the view, one pixel per sensor pixel) or R-JPEG, each also Private: without the
+  location, the serial numbers and the free-text fields where a name or an email address could be. A mosaic exports
+  as its GeoTIFF, a private one without its place, or a PNG of the view at full size. Several files come as a zip,
+  made as it downloads. The server side is built (`POST /api/datasets/<id>/exports`,
+  `POST /api/conversions/<id>/mosaics/<tab>/exports`); the export dialog on the pages comes next.
 - **Mosaics:** the viewer's tabs are Mosaic (the temperatures as converted), Harmonized, Source frame (the mosaic
   with a line along each seam between the frames it is made of, in the mosaic report too) and View angle, over a
   street map or Esri's or Mapbox's satellite imagery. The viewer has palettes, a temperature range, brightness and contrast, gamma,
@@ -101,8 +109,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   how much its images take there, outside the data folder's total. The data folder can be moved from there to
   another folder (see [Where the data lives](#where-the-data-lives)).
 
-It runs on Linux and Windows. The server listens on 127.0.0.1 only, for the one person using the computer: there
-are no logins or accounts.
+It runs on Linux, macOS and Windows. The server listens on 127.0.0.1 only, for the one person using the computer:
+there are no logins or accounts.
 
 ## Install
 

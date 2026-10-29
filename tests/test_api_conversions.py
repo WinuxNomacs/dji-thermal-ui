@@ -26,8 +26,10 @@ def test_settings_are_checked_and_completed_from_dji_thermal_clis_defaults():
     assert s['outputs'] == ['temp_c:tiff', 'gray16:png', 'pseudo:png']
 
     s, errors = conversion.parse_settings({'distance': 'far', 'humidity': 140, 'emissivity': 'x', 'unit': 'R',
-                                           'palette': 'neon', 'outputs': ['temp_c:png'], 'compression': 'zip'})
-    assert sorted(errors) == ['compression', 'distance', 'emissivity', 'humidity', 'outputs', 'palette', 'unit']
+                                           'palette': 'neon', 'outputs': ['temp_c:png'], 'compression': 'zip',
+                                           'rjpeg_picture': 'mine'})
+    assert sorted(errors) == ['compression', 'distance', 'emissivity', 'humidity', 'outputs', 'palette',
+                              'rjpeg_picture', 'unit']
     assert conversion.parse_settings({'outputs': []})[1] == {'outputs': "Choose at least one output"}
 
     # What dji-thermal-cli's Settings refuses: half a range, a temperature below absolute zero
@@ -40,12 +42,13 @@ def test_conversions_are_kept_side_by_side_with_their_settings_results_and_downl
     url = "{}/{}/conversions".format(DATASETS, d.id)
     with mock.patch('dji_thermal_cli.api.process', side_effect=fake_process) as process:
         res = api.post(url, {'settings': {'emissivity': 0.95, 'normalize': True, 'max_pitch': -80,
-                                          'outputs': ['temp_c:tiff']}}, format='json')
+                                          'outputs': ['temp_c:tiff', 'rjpeg:jpeg'], 'rjpeg_picture': 'original'}},
+                       format='json')
         assert res.status_code == 201, res.data
         # Converted straight away (jobs run inline in tests), with the settings given
         kw = process.call_args.kwargs
-        assert (kw['settings'].emissivity, kw['normalize'], kw['max_pitch'], kw['outputs'], kw['jobs']) == \
-            (0.95, True, -80.0, ('temp_c:tiff',), 1)
+        assert (kw['settings'].emissivity, kw['normalize'], kw['max_pitch'], kw['outputs'], kw['rjpeg_picture'],
+                kw['jobs']) == (0.95, True, -80.0, ('temp_c:tiff', 'rjpeg:jpg'), 'original', 1)
         second = api.post(url, {'name': "Defaults", 'settings': {}}, format='json')
         assert second.status_code == 201
 
@@ -144,7 +147,7 @@ def test_preferences_are_saved_once_for_the_app_and_reset_to_the_defaults(api):
     assert (res.data['settings'], res.data['saved']) == (dict(conversion.DEFAULTS, unit='F'), False)
     assert 'ironred' in res.data['palettes']
     assert {'product': 'temp_c', 'description': mock.ANY, 'formats': ['tiff', 'exr']} in res.data['products']
-    assert 'rjpeg' not in [p['product'] for p in res.data['products']]   # offered from M2
+    assert {'product': 'rjpeg', 'description': mock.ANY, 'formats': ['jpg']} in res.data['products']
 
     assert api.put(PREFERENCES, {'settings': {'emissivity': 7}}, format='json').status_code == 400
     res = api.put(PREFERENCES, {'settings': {'emissivity': 0.9, 'normalize': True}}, format='json')

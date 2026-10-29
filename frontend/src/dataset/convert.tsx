@@ -94,6 +94,12 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) 
                                                      onChange={(e) => set({format: e.currentTarget.value})}>
                         {p.formats.map((f) => <option key={f} value={f}>{f}</option>)}</select>}
                     <span class="text-muted"> {p.description}</span>
+                    {p.product === "rjpeg" && o.on && <Field ctx={ctx} name="rjpeg_picture" label="Its picture"
+                            help="What photo viewers show. DJI's tools colour the temperatures themselves.">
+                        <select name="rjpeg_picture" value={value("rjpeg_picture")}
+                                onChange={(e) => setValue("rjpeg_picture", e.currentTarget.value)}>
+                            <option value="palette">The palette's colours</option>
+                            <option value="original">DJI's own</option></select></Field>}
                 </div>);
             })}
             <Field ctx={ctx} name="compression" label="Compression">

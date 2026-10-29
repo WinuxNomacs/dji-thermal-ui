@@ -18,6 +18,7 @@ from .thermal_analysis import Canceled, clean, relative, PROGRESS_INTERVAL
 
 UNITS = ('C', 'F', 'K')
 COMPRESSIONS = ('deflate', 'none')
+RJPEG_PICTURES = ('palette', 'original')
 
 # dji-thermal-cli's own defaults (Settings(), process()), what "Reset to defaults" goes back to
 DEFAULTS = {
@@ -42,6 +43,7 @@ DEFAULTS = {
     'max_pitch': None,
     'outputs': ['temp_c:tiff', 'pseudo:png'],
     'compression': 'deflate',
+    'rjpeg_picture': 'palette',     # an R-JPEG output's picture: the palette's colours, or DJI's own ('original')
     'mosaics': True,        # the app's own: build the mosaics after the images
     'visual': True,         # the app's own: and the visual mosaic with them, when the dataset has visual frames
 }
@@ -64,12 +66,10 @@ SETTINGS_FIELDS = ('distance', 'humidity', 'emissivity', 'reflected_temp', 'ambi
 
 
 def products():
-    """The outputs dji-thermal-cli can write: [{product, description, formats}]
-
-    Its R-JPEG copies (rjpeg) are left out until M2 offers them, with their picture."""
+    """The outputs dji-thermal-cli can write: [{product, description, formats}]"""
     from dji_thermal_cli import outputs
     return [{'product': name, 'description': p.description, 'formats': list(p.formats)}
-            for name, p in outputs.PRODUCTS.items() if name != 'rjpeg']
+            for name, p in outputs.PRODUCTS.items()]
 
 
 def palettes():
@@ -167,6 +167,13 @@ def parse_settings(raw):
     else:
         errors['compression'] = "deflate or none"
 
+    picture = get('rjpeg_picture')
+    if picture in RJPEG_PICTURES:
+        out['rjpeg_picture'] = picture
+    else:
+        errors['rjpeg_picture'] = "palette or original"
+
+    from dji_thermal_cli import outputs
     wanted = get('outputs')
     allowed = {p['product']: p['formats'] for p in products()}
     if not isinstance(wanted, (list, tuple)) or not wanted:
@@ -175,7 +182,7 @@ def parse_settings(raw):
         chosen = []
         for spec in wanted:
             product, _, fmt = str(spec).partition(':')
-            fmt = 'tiff' if fmt == 'tif' else fmt
+            fmt = outputs.FORMAT_ALIASES.get(fmt, fmt)        # tif, jpeg
             if product not in allowed or (fmt and fmt not in allowed[product]):
                 errors['outputs'] = "{} is not an output dji-thermal-cli writes".format(spec)
                 break
@@ -220,6 +227,7 @@ def api_arguments(s):
         'settings': api.Settings(**{f: s[f] for f in SETTINGS_FIELDS}),
         'outputs': tuple(s['outputs']),
         'compression': s['compression'],
+        'rjpeg_picture': s.get('rjpeg_picture') or DEFAULTS['rjpeg_picture'],
         'normalize': bool(s['normalize']),
         'max_pitch': s['max_pitch'],
     }

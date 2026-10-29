@@ -7,6 +7,7 @@ import type {Analysis} from "./files";
 export interface Settings {
     outputs?: string[];
     compression?: string;
+    rjpeg_picture?: string;     // an R-JPEG output's picture: "palette" (the palette's colours) or "original" (DJI's)
     mosaics?: boolean;
     visual?: boolean;           // with the mosaics, the visual one (missing: on, as before it was offered)
     distance?: number | string | null;
@@ -102,6 +103,7 @@ export function formValues(settings: Settings, products: Product[]): FormValues 
     values.unit = unitOf(settings.unit || userUnit());
     values.palette = s.palette || "";
     values.compression = s.compression || "deflate";
+    values.rjpeg_picture = s.rjpeg_picture || "palette";
     const checks: Record<string, boolean> = {
         normalize: !!s.normalize, mosaics: !!s.mosaics, visual: s.visual !== false, strip_location: !!s.strip_location,
     };
@@ -144,6 +146,7 @@ export function readValues(f: FormValues): Settings {
     s.visual = !!f.checks.visual;
     s.max_pitch = num("max_pitch");
     s.compression = f.values.compression;
+    s.rjpeg_picture = f.values.rjpeg_picture;
     s.outputs = Object.entries(f.outputs).filter(([, o]) => o.on).map(([p, o]) => p + ":" + o.format);
     return settingsIn(s, userUnit(), s.unit);
 }
@@ -208,15 +211,18 @@ function sameOutputs(a: Maybe<string[]>, b: Maybe<string[]>): boolean {
 interface Difference {
     key: string;
     fields: string[];   // the form's fields that set it, the first the one it is marked on
-    same?: (a: Maybe<string[]>, b: Maybe<string[]>) => boolean;
+    same?: (a: Settings, b: Settings) => boolean;
     text: (s: Settings, u: string) => string;
 }
 
 // The settings told apart in the summaries: each with its form fields and its text (u: the temperatures' unit symbol)
 const DIFFERENCES: Difference[] = [
-    {key: "outputs", fields: ["output"], same: sameOutputs, text: (s) => (s.outputs || []).join(", ") || "no outputs"},
+    {key: "outputs", fields: ["output"], same: (a, b) => sameOutputs(a.outputs, b.outputs), text: (s) => (s.outputs || []).join(", ") || "no outputs"},
     {key: "compression", fields: ["compression"],
      text: (s) => s.compression === "none" ? "no compression" : s.compression + " compression"},
+    {key: "rjpeg_picture", fields: ["rjpeg_picture"],
+     same: (a, b) => (a.rjpeg_picture || "palette") === (b.rjpeg_picture || "palette"),
+     text: (s) => s.rjpeg_picture === "original" ? "R-JPEGs with DJI's picture" : "R-JPEGs with the palette's picture"},
     {key: "mosaics", fields: ["mosaics"], text: (s) => s.mosaics ? "mosaics" : "no mosaics"},
     {key: "visual", fields: ["visual"], text: (s) => s.visual !== false ? "visual mosaic" : "no visual mosaic"},
     {key: "distance", fields: ["distance_mode", "distance"], text: (s) =>
@@ -277,7 +283,7 @@ export function differences(s: Settings, defaults: Maybe<Settings>, plan: Maybe<
     const u = unitSymbol(shown);
     const out: Diff[] = [];
     DIFFERENCES.forEach((d) => {
-        const alike = (a: Settings, b: Settings) => d.same ? d.same(a.outputs, b.outputs) : same(valuesOf(d, a), valuesOf(d, b));
+        const alike = (a: Settings, b: Settings) => d.same ? d.same(a, b) : same(valuesOf(d, a), valuesOf(d, b));
         const changed = !alike(S, D);
         const offPlan = !!P && !alike(P, D) && !alike(S, P);
         if (changed || offPlan) out.push({key: d.key, text: d.text(S, u), changed, offPlan, plan: P ? d.text(P, u) : null});
