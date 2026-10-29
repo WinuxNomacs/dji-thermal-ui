@@ -321,6 +321,34 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
 - **Release:** 0.4.0 (a feature).
 - **Done:** see Done below.
 
+### N2: the Mapbox token in System Settings
+
+Asked for on 2026-10-29: the switch still offered "Mapbox Satellite: the token…" once a token was known. This
+replaces B3's "The token" above (the form in the switch, the `mapbox_token` preference).
+
+- **Where:** System Settings gets a page of its own (`/settings`, its name in the navigation pane a link to it;
+  Storage stays under it). Its "Mapbox Satellite" section says whether a token is known and where from (shown
+  shortened: `pk.` and its last characters), has the steps to get one (B3's), and a field to paste a new one.
+- **The basemap switch** lists the basemaps and None only. A refused token's message points to System Settings.
+- **Where it is kept:** `MAPBOX_API_TOKEN` in a `.env` file, no longer in the preferences.
+  - Saving overwrites the token in the `.env` it was read from (only that line; the file's other lines kept), else
+    adds it to the data folder's `.env` (made, readable by the user only). No earlier token is kept, and there is
+    no Remove: a token can only be replaced.
+  - A `MAPBOX_API_TOKEN` in the environment wins over the files, so then the page shows it and cannot change it.
+  - A token saved in the preferences by an earlier version is moved to the data folder's `.env` when the server
+    starts (unless a `.env` or the environment already has one), and the preference is removed.
+- **The check:** before anything is written, the server asks Mapbox for one tile of the imagery the maps use
+  (Static Tiles API, `0/0/0`). 200 saves it; 401, 403 or 429 is said as in the switch; no answer in 10 s or no
+  connection says Mapbox could not be reached. The format check (public `pk.` token only) comes first.
+- **API:** `api/settings/mapbox` (GET the state, PUT `{token}`); `mapbox_token` leaves `api/preferences`.
+- **Tests:** pytest for the `.env` written (replaced in place, other lines kept, made in the data folder), the
+  check's answers (Mapbox stubbed), the environment's token not changeable, the old preference moved; Vitest for
+  the switch without the token entry and the settings page (save, refusal, environment); the navigation's link.
+- **Live check:** on 8081 started outside the repository with a temporary data folder (so the repository's `.env`
+  is not written): a wrong token refused by Mapbox and nothing written; the user's token (read from the repo's
+  `.env` by the script, never printed) accepted and written; the viewer then showing Mapbox; light and dark.
+- **Done:** see Done below.
+
 ## Findings
 
 Requested 2026-10-27 (`new.md`) and put before the reports at the user's request:
@@ -1598,3 +1626,13 @@ Requested 2026-10-29 (`new.md`):
   `frontend/tests/navigation.test.tsx`. Checked live on 8081, light and dark: the viewer, both compare maps and a
   project map opened on OpenStreetMap, Mapbox (wordmark shown, tiles from Mapbox) and none; the preference was
   removed afterwards.
+- **N2: the Mapbox token in System Settings** (2026-10-29). `analyzer/basemaps.py`: `mapbox_token()` reads the
+  environment, then the `.env` files; `check_token()` asks Mapbox for tile `0/0/0`; `write_token()` replaces the
+  `MAPBOX_API_TOKEN` line of the file it was read from (else the data folder's, mode 600); `move_saved_token()` at
+  the server's start (`cli.py`). `api/settings/mapbox` (`MapboxTokenView`); the page `/settings`
+  (`settings/settings-page.tsx`), linked from the navigation pane; the switch's token entry and
+  `map/mapbox-token.tsx` removed. Tests: `tests/test_basemaps.py`, `frontend/tests/settings.test.tsx`,
+  `frontend/tests/basemaps.test.tsx`, `frontend/tests/navigation.test.tsx`. Checked live on 8081 started outside the
+  repository with a temporary data folder, light and dark: a wrong token refused by Mapbox (401) with the file left
+  as it was; the user's token accepted and written (mode 600), written again in place; a project map then listing
+  Mapbox Satellite and showing its tiles (200) and wordmark; no overflow at 380px; the temporary folder deleted.

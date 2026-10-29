@@ -59,13 +59,14 @@ def make_server(port):
     """Starts the job runner and returns the waitress server, ready to run"""
     from waitress.server import create_server
 
-    from .analyzer import jobs, restore
+    from .analyzer import basemaps, jobs, restore
     from .wsgi import application
 
     n = jobs.mark_interrupted()
     if n:
         print("Marked %d job(s) left running by a closed server as failed" % n)
     restore.clear_imports()
+    basemaps.move_saved_token()
     jobs.start()
     return create_server(application, host=HOST, port=port, threads=8)
 

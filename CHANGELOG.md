@@ -6,6 +6,15 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The Mapbox token moves to a System Settings page of its own (System Settings in the navigation pane is now a link
+  to it, and still folds to Storage). The basemap switch no longer offers to add or change it. A new token is
+  checked with Mapbox (one tile asked for) before it is saved, and the reason is shown when Mapbox refuses it. It is
+  kept as `MAPBOX_API_TOKEN` in a `.env` file, in place of the one there (the file it was read from, else the data
+  folder's), and is no longer kept in the preferences: a token saved there by an earlier version is moved to the
+  data folder's `.env` when the app starts. A token in the environment is shown, and is changed there.
+
 ### Fixed
 
 - The Convert tab's settings, once opened with Edit settings, fold away again: the button stays, as Hide settings,

@@ -22,7 +22,7 @@ def conversion(d, name="Conversion 1"):
 def test_each_page_is_served_with_the_csrf_cookie(client):
     d = dataset()
     c = conversion(d)
-    for url, page_id in [("/", "app"), ("/preferences", "app"), ("/settings/storage", "app"), ("/project/%d" % d.project_id, "app"), ("/dataset/%d" % d.id, "app"),
+    for url, page_id in [("/", "app"), ("/preferences", "app"), ("/settings", "app"), ("/settings/storage", "app"), ("/project/%d" % d.project_id, "app"), ("/dataset/%d" % d.id, "app"),
                          ("/dataset/%d/report" % d.id, "app"),
                          ("/conversion/%d" % c.id, "app"), ("/conversion/%d/frame" % c.id, "app"),
                          ("/conversion/%d/compare" % c.id, "app"), ("/conversion/%d/report" % c.id, "app")]:

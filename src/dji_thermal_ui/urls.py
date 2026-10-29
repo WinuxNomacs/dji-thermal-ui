@@ -8,6 +8,7 @@ urlpatterns = [
     path("api/", include("dji_thermal_ui.analyzer.urls")),
     path("", views.projects_list, name="projects"),
     path("preferences", views.preferences_page, name="preferences"),
+    path("settings", views.settings_page, name="settings"),
     path("settings/storage", views.storage_page, name="storage"),
     path("project/<int:project_id>", views.project_page, name="project"),
     path("dataset/<int:dataset_id>", views.dataset_page, name="dataset"),

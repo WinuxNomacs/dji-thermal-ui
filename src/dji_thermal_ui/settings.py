@@ -115,7 +115,7 @@ BASEMAPS = [
 ]
 
 # Where MAPBOX_API_TOKEN is looked for when it is not in the environment: a .env file in the folder the app is
-# started from, then in the data folder
+# started from, then in the data folder (the last, where a token is written when none of them has one)
 MAPBOX_ENV_FILES = [Path.cwd() / ".env", DATA_DIR / ".env"]
 
 # Jobs run inline instead of on the runner's thread (the tests set it)

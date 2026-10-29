@@ -1,5 +1,5 @@
 // The basemaps under the mosaics and their switch: the settings' (Esri's satellite imagery, OpenStreetMap), and
-// Mapbox's satellite imagery once there is a token (the user's own, saved through the switch). Esri's layer loads no
+// Mapbox's satellite imagery once there is a token (the user's own, saved under System Settings). Esri's layer loads no
 // tile its tilemap says is missing, so the deepest level it has there is stretched in place of "Map data not yet
 // available".
 import type ImageTile from "ol/ImageTile";
@@ -12,7 +12,6 @@ import TileLayer from "ol/layer/Tile";
 import {toLonLat} from "ol/proj";
 import TileWMS from "ol/source/TileWMS";
 import XYZ from "ol/source/XYZ";
-import {askMapboxToken, type MapboxToken} from "./mapbox-token";
 
 export interface Basemap {
     label: string; url: string; type?: string; attribution?: string; maxzoom?: number; minzoom?: number;
@@ -20,9 +19,7 @@ export interface Basemap {
     key?: string; default?: boolean;                        // the one shown first (the preferred one)
     fallback?: boolean;                                     // the one a refused Mapbox goes back to (the settings' default)
     tilemap?: string;                                       // Esri's: which tiles exist
-    // Mapbox's: its wordmark, where the token is saved, and the token (MapboxToken)
-    logo?: string; preferences?: string; token?: string | null; token_source?: MapboxToken["token_source"];
-    env_token?: boolean;
+    logo?: string; token?: string | null;                   // Mapbox's: its wordmark, and the token
 }
 
 // --- Esri's tilemap ---------------------------------------------------------------------------------------------
@@ -79,7 +76,7 @@ export class TileAvailability {
 // --- Mapbox -----------------------------------------------------------------------------------------------------
 
 export const MAPBOX_REFUSED: Record<number, string> = {
-    401: "Mapbox refused the token: check it with “Mapbox Satellite: the token…”",
+    401: "Mapbox refused the token: change it under System Settings",
     403: "Mapbox refused the token here (its URL restrictions, or the account)",
     429: "The Mapbox account's limit is reached for now",
 };
@@ -111,16 +108,7 @@ export function loadMapboxTile(tile: Tile, src: string, refused: (status: number
     }).catch(() => tile.setState(TileState.ERROR));
 }
 
-const mapboxUrl = (bm: Basemap, token: string | null) => bm.url + "?access_token=" + encodeURIComponent(token || "");
-
-// The token, shared by the maps of a page (the compare page's two)
-let mapbox: MapboxToken = {token: null, token_source: null, env_token: false};
-const mapboxListeners = new Set<() => void>();
-
-function setMapbox(state: MapboxToken) {
-    mapbox = state;
-    mapboxListeners.forEach((l) => l());
-}
+const mapboxUrl = (bm: Basemap) => bm.url + "?access_token=" + encodeURIComponent(bm.token || "");
 
 // --- the layers and their switch --------------------------------------------------------------------------------
 
@@ -132,7 +120,7 @@ function basemapLayer(bm: Basemap, refused: (status: number) => void): TileLayer
     }
     if (bm.type === "mapbox") {
         return new TileLayer({source: new XYZ({...opts, attributions: mapboxAttributions,
-                                               url: mapboxUrl(bm, mapbox.token), tileSize: 512,
+                                               url: mapboxUrl(bm), tileSize: 512,
                                                tileLoadFunction: (tile, src) => loadMapboxTile(tile, src, refused)})});
     }
     // {s} (as Leaflet wrote basemap URLs): one URL for each subdomain
@@ -149,22 +137,18 @@ function basemapLayer(bm: Basemap, refused: (status: number) => void): TileLayer
     }})});
 }
 
-const TOKEN_OPTION = "mapbox-token";
-
 // The basemaps under everything else (the default one shown, else none), and their switch (top right): Mapbox is
-// listed once it has a token, after "Mapbox Satellite: add a token…" has saved one. When Mapbox goes (refused, or its
-// token removed), the map goes back to the basemap shown before it, or to the fallback when it was the first shown.
+// listed once it has a token. When its tiles are refused, the map goes back to the basemap shown before it, or to the
+// fallback when it was the first shown.
 export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
     const mapboxAt = basemaps.findIndex((bm) => bm.type === "mapbox");
     const fallbackAt = basemaps.findIndex((bm, i) => bm.fallback && i !== mapboxAt);
     const before = () => previous === mapboxAt ? fallbackAt : previous;
     const mapboxBm = basemaps[mapboxAt];
-    if (mapboxBm) mapbox = {token: mapboxBm.token || null, token_source: mapboxBm.token_source || null,
-                            env_token: !!mapboxBm.env_token};
-    let refusedToken: string | null = null;
+    let wasRefused = false;
     const refused = (status: number) => {
-        if (refusedToken === mapbox.token) return;
-        refusedToken = mapbox.token;
+        if (wasRefused) return;
+        wasRefused = true;
         if (shown === mapboxAt) show(before());
         message.textContent = MAPBOX_REFUSED[status];
         message.hidden = false;
@@ -228,40 +212,16 @@ export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
             o.textContent = label;
             select.appendChild(o);
         };
-        basemaps.forEach((bm, i) => { if (i !== mapboxAt || mapbox.token) add(String(i), bm.label); });
+        basemaps.forEach((bm, i) => { if (i !== mapboxAt || bm.token) add(String(i), bm.label); });
         add("-1", "None");
-        if (mapboxBm) add(TOKEN_OPTION, mapbox.token ? "Mapbox Satellite: the token…" : "Mapbox Satellite: add a token…");
         select.value = String(shown);
     }
 
     select.addEventListener("change", () => {
-        if (select.value !== TOKEN_OPTION) {
-            message.hidden = true;
-            show(Number(select.value));
-            return;
-        }
-        select.value = String(shown);
-        askMapboxToken(mapbox, mapboxBm!.preferences || "").then((state) => {
-            if (!state) return;
-            setMapbox(state);
-            message.hidden = true;
-            // A new token is shown at once
-            if (state.token) show(mapboxAt);
-        });
+        message.hidden = true;
+        show(Number(select.value));
     });
 
-    // Another map's switch (or this one's) changed the token
-    const changed = () => {
-        if (!map.getTargetElement()?.isConnected) {
-            mapboxListeners.delete(changed);
-            return;
-        }
-        (layers[mapboxAt].getSource() as XYZ).setUrl(mapboxUrl(mapboxBm!, mapbox.token));
-        if (!mapbox.token && shown === mapboxAt) show(before());
-        else options();
-    };
-    if (mapboxBm) mapboxListeners.add(changed);
-
-    show(basemaps.findIndex((bm) => bm.default && (bm.type !== "mapbox" || mapbox.token)));
+    show(basemaps.findIndex((bm) => bm.default && (bm.type !== "mapbox" || bm.token)));
     previous = shown;
 }

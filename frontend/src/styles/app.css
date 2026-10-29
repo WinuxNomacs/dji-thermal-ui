@@ -169,13 +169,7 @@ ul { padding-left: 20px; }
 .nav-row.current a { color: var(--accent); font-weight: 600; }
 .nav-home, .nav-preferences .nav-row, .nav-settings > .nav-row { padding-left: 12px; gap: 6px; }
 .nav-home .icon, .nav-preferences .icon, .nav-settings > .nav-row .icon { color: var(--muted); }
-.nav-home a, .nav-preferences a { font-weight: 600; }
-/* System Settings folds its pages away: the whole row is its button */
-.nav-settings-toggle { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; margin-left: -4px;
-                       padding: 3px 4px; border: 0; border-radius: var(--radius); background: none; color: var(--text);
-                       font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
-.nav-settings-toggle:hover { background: var(--hover); }
-.nav-settings-toggle span { flex: 1; }
+.nav-home a, .nav-preferences a, .nav-settings > .nav-row a { font-weight: 600; }
 .nav-preferences { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
 .nav-fold, .nav-fold-space { flex: none; width: 22px; height: 22px; }
 .nav-fold {
@@ -194,7 +188,7 @@ ul { padding-left: 20px; }
 .nav-error { margin: 4px 12px; font-size: 12px; }
 .nav-close { display: flex; justify-content: flex-end; padding: 0 8px 4px; }
 
-.page.preferences { max-width: 720px; }
+.page.preferences, .page.settings { max-width: 720px; }
 .preference { padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
 .preference .help { max-width: 560px; }
 .palette-preview { margin: 12px 0 0; width: 240px; max-width: 100%; }
@@ -395,6 +389,9 @@ details > summary h5 { display: inline; }
 .mapbox-help ol { margin: 0 0 12px; padding-left: 20px; }
 .mapbox-help li { margin-bottom: 6px; }
 .mapbox-help code { font-size: 12px; }
+.token-row { display: flex; gap: 8px; margin-top: 4px; }
+.token-row input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+#mapbox-settings code.path, #token-saved code { overflow-wrap: anywhere; }
 
 .drop-hint {
     position: fixed; inset: 0; z-index: 1040; display: flex; align-items: center; justify-content: center; gap: 10px;

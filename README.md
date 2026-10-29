@@ -93,7 +93,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   times are written in (the computer's, or one chosen). A flight's capture times
   are shown in the time where it was flown, labelled with its time zone (e.g. UTC−5), found from the frames' two
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
-- **System Settings › Storage** (System Settings folds in the pane, by its name or its chevron): where the data
+- **System Settings:** the Mapbox token (see [The maps under the mosaics](#the-maps-under-the-mosaics)), and a link
+  to Storage.
+- **System Settings › Storage** (System Settings folds in the pane by its chevron): where the data
   folder is, its size on disk as measured when the page opens (and again on asking) and the free space on its
   drive, with each project and its flights, the database and the rest. A flight read in place from a folder says
   how much its images take there, outside the data folder's total. The data folder can be moved from there to
@@ -155,8 +157,8 @@ User Preferences › Map (ESRI Satellite unless another is chosen), and switchin
 
 - **ESRI Satellite** (the default) and **OpenStreetMap** need nothing set up. Where Esri's imagery stops short of the
   zoom shown, its deepest level there is stretched instead of showing "Map data not yet available".
-- **Mapbox Satellite** needs a Mapbox account of your own and its access token. Choose "Mapbox Satellite: add a
-  token…" in the switch: the form says how to get one and saves it. The same form changes or removes it.
+- **Mapbox Satellite** needs a Mapbox account of your own and its access token, saved under System Settings, which
+  says how to get one. The switch lists it once a token is known.
 
 To get the token:
 
@@ -167,12 +169,18 @@ To get the token:
    (it starts with `pk.`), or create a token with the public scopes only. A secret token (`sk.`) is refused: the
    browser sends the token to Mapbox with each tile, so anyone using the page could read it. Mapbox's URL
    restrictions do not accept `127.0.0.1`, so leave the token unrestricted.
-3. Paste it into the form. Mapbox's [Statistics](https://console.mapbox.com/account/statistics/) page shows how many
-   tiles have been used.
+3. Paste it under System Settings › Mapbox Satellite and press Check and save. Mapbox's
+   [Statistics](https://console.mapbox.com/account/statistics/) page shows how many tiles have been used.
 
-Whoever sets the app up can give the token in `MAPBOX_API_TOKEN` instead, in the environment or in a `.env` file
-(`MAPBOX_API_TOKEN=pk....`) in the folder the app is started from or in the data folder. A token saved in the form
-is used instead of it, and removing that one goes back to it.
+The app first asks Mapbox for one tile with the token, and saves it only if Mapbox serves it; otherwise it says why
+(a wrong token, the account's limit, or Mapbox out of reach), and nothing is changed. The token is kept as
+`MAPBOX_API_TOKEN` in a `.env` file: the one in the folder the app is started from or in the data folder, whichever it
+was read from (else the data folder's, made readable by you only). A new token replaces the old one in that file, the
+file's other lines kept; no earlier token is kept, and a token can be replaced but not removed there. You can also
+write `MAPBOX_API_TOKEN=pk....` in one of those files yourself. A `MAPBOX_API_TOKEN` in the environment the app is
+started from wins over the files: System Settings then shows it, and it is changed there. A token saved by an earlier
+version of the app (in its preferences) is moved to the data folder's `.env` when the app starts, unless a token is
+already known.
 
 ## Where the data lives
 

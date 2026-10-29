@@ -76,8 +76,9 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
     const current = {...page, part};
     const [projects, setProjects] = useState<NavProject[] | null>(null);
     const [failed, setFailed] = useState(false);
-    // System Settings is unfolded to when its page is shown
-    const [expanded, setExpanded] = useState(() => new Set([...storedExpanded(), ...(page.page === "storage" ? [SETTINGS_KEY] : [])]));
+    // System Settings is unfolded to when one of its pages is shown
+    const [expanded, setExpanded] = useState(() => new Set([...storedExpanded(),
+                                                            ...(page.page === "storage" ? [SETTINGS_KEY] : [])]));
 
     useEffect(() => {
         let first = true;
@@ -157,10 +158,12 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
                 </div>
             </li>
             <li class="nav-item level-0 nav-settings">
-                <div class="nav-row">
-                    <button type="button" class="nav-settings-toggle" aria-expanded={settingsOpen} data-key={SETTINGS_KEY}
-                            onClick={() => toggle(SETTINGS_KEY)}>
-                        <HardDrive/><span>System Settings</span>{settingsOpen ? <ChevronDown/> : <ChevronRight/>}</button>
+                <div class={"nav-row" + (is("settings") ? " current" : "")}>
+                    <HardDrive/><a href={publicUrl + "settings"} aria-current={is("settings") ? "page" : undefined}
+                                   onClick={onNavigate}>System Settings</a>
+                    <button type="button" class="nav-fold nav-settings-toggle" aria-expanded={settingsOpen}
+                            data-key={SETTINGS_KEY} aria-label={(settingsOpen ? "Fold " : "Unfold ") + "System Settings"}
+                            onClick={() => toggle(SETTINGS_KEY)}>{settingsOpen ? <ChevronDown/> : <ChevronRight/>}</button>
                 </div>
                 {settingsOpen && <ul><Item {...item} level={1} href={publicUrl + "settings/storage"} label="Storage"
                                            current={is("storage")}/></ul>}

@@ -63,13 +63,13 @@ async function pane(current: Current = {page: "projects", id: NaN}, fetchFn = se
 describe("the navigation pane", () => {
     it("lists the projects folded, and unfolds each level to what is under it", async () => {
         await pane();
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings"]);
         expect(currentLink()).toBe("Projects");
         // A project without datasets has nothing to unfold
         expect(fold("p1")).toBeNull();
         click(fold("p2"));
         await ticks(2);
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "Roof", "Field", "User Preferences"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "Roof", "Field", "User Preferences", "System Settings"]);
         expect(($('a[href="/dataset/5"]'))).not.toBeNull();
         click(fold("d5"));
         await ticks(2);
@@ -107,7 +107,7 @@ describe("the navigation pane", () => {
         // Folded again, with what is under it
         click(fold("p2"));
         await ticks(2);
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings"]);
     });
 
     it("unfolds a dataset's report to it and marks it, even for a dataset without conversions", async () => {
@@ -152,13 +152,18 @@ describe("the navigation pane", () => {
         await pane({page: "storage", id: NaN});
         expect(currentLink()).toBe("Storage");
         expect($(".nav-settings-toggle")!.getAttribute("aria-expanded")).toBe("true");
+        // System Settings' own page, marked
+        render(null, root());
+        await pane({page: "settings", id: NaN});
+        expect(currentLink()).toBe("System Settings");
     });
 
-    it("folds System Settings, by its name or its chevron, and remembers it", async () => {
+    it("links System Settings to its page, folds it by its chevron, and remembers it", async () => {
         localStorage.clear();
         await pane();
+        expect($('.nav-settings a[href="/settings"]')!.textContent).toBe("System Settings");
         const toggle = () => $(".nav-settings-toggle") as HTMLButtonElement;
-        expect(toggle().textContent).toBe("System Settings");
+        expect(toggle().getAttribute("aria-label")).toBe("Unfold System Settings");
         expect(toggle().getAttribute("aria-expanded")).toBe("false");
         expect(links()).not.toContain("Storage");
         click(toggle());
@@ -220,7 +225,7 @@ describe("the navigation pane", () => {
                                                                           () => jsonResponse({}, false)]}));
         navigationChanged();
         await ticks();
-        expect(links()).toEqual(["Projects", "Home", "User Preferences"]);
+        expect(links()).toEqual(["Projects", "Home", "User Preferences", "System Settings"]);
         navigationChanged();
         await ticks();
         expect(calls(fetchFn)).toEqual(["GET /api/navigation", "GET /api/navigation", "GET /api/navigation"]);
@@ -473,7 +478,7 @@ describe("the preferences page", () => {
         const options = () => [...root().querySelectorAll("#pref-basemap option")].map((o) => o.textContent);
         expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "None"]);
         expect(($("#pref-basemap") as HTMLSelectElement).value).toBe("esri");
-        expect($("#basemap-preference")!.textContent).toContain("Mapbox Satellite is offered once a token is added");
+        expect($("#basemap-preference")!.textContent).toContain("Mapbox Satellite is offered once its token is saved under System Settings");
         select("pref-basemap", "osm");
         await ticks();
         expect(sent(fetchFn)).toEqual([{basemap: "osm"}]);
