@@ -1,5 +1,6 @@
-// User Preferences: the unit temperatures are shown in and the theme (as in the header), and the locale dates and
-// times are shown in (the computer's, or one chosen). Each is saved for the app as it is chosen.
+// User Preferences: the unit temperatures are shown in and the theme (as in the header), the palette the map pages
+// start with (each flight's images' own, or one chosen), and the locale dates and times are shown in (the computer's,
+// or one chosen). Each is saved for the app as it is chosen.
 import {useEffect, useState} from "preact/hooks";
 import {readJson} from "../core/api";
 import {formatCapture, setUserLocale, zoneLabel} from "../core/format";
@@ -17,6 +18,8 @@ interface Props {
 
 const UNITS: [Unit, string][] = [["F", "°F (Fahrenheit)"], ["C", "°C (Celsius)"], ["K", "K (kelvin)"]];
 const THEMES: [Theme, string][] = [["light", "Light"], ["dark", "Dark"], ["system", "As the computer"]];
+interface Choices {locales?: string[]; palette?: string; view_palettes?: {key: string; label: string}[]}
+
 const EXAMPLE = "2026:10:22 16:34:57";      // a frame's capture time, shown in each locale
 
 // A locale's name in its own language: "English (United Kingdom)", "français (Canada)"; the tag when the browser has none
@@ -34,6 +37,8 @@ export function localeExample(tag: string): string { return formatCapture(EXAMPL
 export function PreferencesPage({api, unit, theme: initialTheme, locale: initialLocale,
                                  reload = () => window.location.reload()}: Props) {
     const [locales, setLocales] = useState<string[]>([]);
+    const [palettes, setPalettes] = useState<{key: string; label: string}[]>([]);
+    const [palette, setPalette] = useState("");
     const [theme, setTheme] = useState(initialTheme);
     const [locale, setLocale] = useState(initialLocale);
     const [status, setStatus] = useState<{text: string; error?: boolean}>({text: ""});
@@ -43,9 +48,13 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
     useEffect(() => {
         (async () => {
             try {
-                const {ok, data} = await readJson<{locales?: string[]}>(await fetch(api + "preferences", {credentials: "same-origin"}));
+                const {ok, data} = await readJson<Choices>(await fetch(api + "preferences", {credentials: "same-origin"}));
                 if (ok && Array.isArray(data.locales)) setLocales(data.locales);
-            } catch { /* only the computer's is offered */ }
+                if (ok && Array.isArray(data.view_palettes)) {
+                    setPalettes(data.view_palettes);
+                    setPalette(data.palette || "");
+                }
+            } catch { /* only the computer's locale and the images' palettes are offered */ }
         })();
     }, [api]);
 
@@ -76,6 +85,12 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
         await save({theme: next}, () => applyTheme(before));
     }
 
+    async function changePalette(next: string) {
+        const before = palette;
+        setPalette(next);
+        await save({palette: next}, () => setPalette(before));
+    }
+
     async function changeLocale(next: string) {
         const before = locale;
         setLocale(next);
@@ -95,6 +110,19 @@ export function PreferencesPage({api, unit, theme: initialTheme, locale: initial
                     {UNITS.map(([u, label]) => <option key={u} value={u}>{label}</option>)}
                 </select>
                 <p class="help">Also in the header. A dataset's files keep the unit they were written in.</p>
+            </div>
+        </fieldset>
+
+        <fieldset class="preference" id="palette-preference">
+            <legend>Palette</legend>
+            <div class="field">
+                <label for="pref-palette">The maps start with</label>
+                <select id="pref-palette" value={palette} disabled={saving} onChange={(e) => changePalette(e.currentTarget.value)}>
+                    <option value="">As each flight's images</option>
+                    {palettes.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                </select>
+                <p class="help">On the viewer, the frame explorer, the compare page and the mosaic report; each can still
+                    switch to another. A DJI palette is used where the flight's images carry it.</p>
             </div>
         </fieldset>
 

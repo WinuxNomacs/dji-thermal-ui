@@ -14,7 +14,7 @@ from dji_thermal_ui.analyzer import jobs
 from dji_thermal_ui.analyzer import thermal_conversion as conversion
 from dji_thermal_ui.analyzer import thermal_mosaics as mosaics
 from dji_thermal_ui.analyzer.models import ThermalConversion
-from tests.fakes import (CONVERSIONS, DATASETS, MOSAIC_ORIGIN, analysed, converted, fake_make_mosaic, fake_process,
+from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, MOSAIC_ORIGIN, analysed, converted, fake_make_mosaic, fake_process,
                          mosaic_events, mosaic_lonlat, mosaic_temperature, mosaic_tile, uploaded, write_mosaic)
 
 
@@ -50,6 +50,10 @@ def test_conversions_build_their_mosaics_which_the_viewer_reads(api):
     v = api.get("{}/{}/mosaics".format(CONVERSIONS, c.id)).data
     assert [t['tab'] for t in v['tabs']] == ['as_converted', 'harmonized', 'source_frame', 'view_angle']
     assert (v['default_palette'], v['unit']) == ('dji_ironred', 'C')
+    # The palette preferred in the preferences wins where the flight has it; a DJI one it lacks, the images' own
+    for preferred, starts in (('magma', 'magma'), ('dji_arctic', 'dji_arctic'), ('', 'dji_ironred')):
+        assert api.put(PREFERENCES, {'palette': preferred}, format='json').data == {'palette': preferred}
+        assert api.get("{}/{}/mosaics".format(CONVERSIONS, c.id)).data['default_palette'] == starts
     assert 'can_change' not in v
     from dji_thermal_cli import api as dji_api
     assert [p['key'] for p in v['palettes']][:len(dji_api.PALETTES) + 1] == \
@@ -123,6 +127,11 @@ def test_mosaics_are_optional_and_can_be_built_later_or_again(api):
     assert c.size == pytest.approx(size)
     # Without DJI's palettes (none read from the frames), the app's colour maps
     assert api.get(url).data['default_palette'] == 'ironbow'
+    api.put(PREFERENCES, {'palette': 'dji_arctic'}, format='json')
+    assert api.get(url).data['default_palette'] == 'ironbow'
+    api.put(PREFERENCES, {'palette': 'viridis'}, format='json')
+    assert api.get(url).data['default_palette'] == 'viridis'
+    api.put(PREFERENCES, {'palette': ''}, format='json')
 
     # Only once the images are converted, and not twice at once
     ThermalConversion.objects.filter(pk=c.pk).update(status='failed')
@@ -447,3 +456,17 @@ def test_a_difference_is_sent_as_data_tiles_in_the_first_mosaics_unit(api):
     assert api.get(data.format('as_converted'), {'b': b.id}, HTTP_IF_NONE_MATCH=res['ETag']).status_code == 200
     assert api.get(data.format('as_converted'), {'b': 'x'}).status_code == 400
     assert api.get(data.format('source_frame'), {'b': a.id}).status_code == 404
+
+
+def test_the_palette_the_map_pages_start_with_is_chosen_in_the_preferences(api):
+    res = api.get(PREFERENCES).data
+    assert res['palette'] == ""
+    keys = [p['key'] for p in res['view_palettes']]
+    assert keys[0] == 'dji_whitehot' and 'ironbow' in keys and 'viridis' in keys
+    assert {'key': 'gray', 'label': 'White hot'} in res['view_palettes']
+    assert api.put(PREFERENCES, {'palette': 'dji_ironred'}, format='json').data == {'palette': 'dji_ironred'}
+    assert api.get(PREFERENCES).data['palette'] == 'dji_ironred'
+    for bad in ('rdbu_r', 'ironred', None, 3):
+        res = api.put(PREFERENCES, {'palette': bad}, format='json')
+        assert res.status_code == 400 and str(res.data['palette']).startswith('One of "", dji_whitehot')
+    assert api.get(PREFERENCES).data['palette'] == 'dji_ironred'

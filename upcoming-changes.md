@@ -9,7 +9,7 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-- **I1: the preferred palette** (Preferred palette): planned 2026-10-29.
+- Nothing planned: the next phase comes from `new.md`, or from Later.
 
 **Then**
 - Nothing yet.
@@ -1018,6 +1018,7 @@ everywhere; the palette can still be switched on each page as now.
 
 ### I1: the preferred palette
 
+- **Built** (2026-10-29): see Done.
 - **Preference:**
   - A "Palette" select on the preferences page, saved as `palette` in `Preferences.data`.
   - The select offers "As each flight's images" (the default, which keeps today's behaviour), DJI's ten palettes
@@ -1433,3 +1434,8 @@ everywhere; the palette can still be switched on each page as now.
   409 for a name in use). Tests: `tests/test_api_file_filters.py`, `frontend/tests/dataset.test.tsx`. Checked live on
   flight 1 (on 8081), light and dark: saved, refused under the same name, listed after a reload, chosen (67 files,
   its link), deleted; the menu kept inside the page at 700 px; none left behind.
+- **I1: the preferred palette** (2026-10-29). `palette` in `Preferences` (`PALETTE_KEY`, `palette_choices()` and
+  `app_palette()` in `api.py`), offered and saved through `api/preferences`; `default_palette()` starts from it where
+  the conversion has it. The "Palette" select is on the preferences page (`preferences/preferences-page.tsx`). Tests:
+  `tests/test_api_mosaics.py`, `frontend/tests/navigation.test.tsx`. Checked live on 8081: the viewer, frame
+  explorer and compare page opened in magma, a link's palette still won, and the preferences were put back as found.
