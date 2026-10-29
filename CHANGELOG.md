@@ -6,6 +6,14 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Exports on the server: a flight's frames as Original, TIFF, PNG or R-JPEG, each also Private (no location, serial
+  numbers or free-text fields), and a dataset's mosaics as GeoTIFF, a private GeoTIFF without its place, or a
+  full-size PNG. The PNGs and the R-JPEGs' pictures are coloured exactly as the browser colours the view. Several
+  files come as a zip made as it downloads; a frame that can't be made is listed in `export-notes.txt`.
+- The R-JPEG output on the Convert tab, with its picture: the palette's colours or DJI's own.
+
 ### Changed
 
 - The Mapbox token moves to a System Settings page of its own (System Settings in the navigation pane is now a link
