@@ -9,7 +9,9 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**
-1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
+1. **N2: the Mapbox token in System Settings**: the token moves from the basemap switch to a new System Settings
+   page, is checked with Mapbox before it is saved, and is written to `.env`. (Basemaps)
+2. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli, M2 the server, M3 the dialog. (Exports)
 
 **Then**
@@ -320,6 +322,33 @@ Planned 2026-10-27, changed the same day from Google to Mapbox.
   open only while Mapbox is shown.
 - **Release:** 0.4.0 (a feature).
 - **Done:** see Done below.
+
+### N2: the Mapbox token in System Settings
+
+Asked for on 2026-10-29: the switch still offered "Mapbox Satellite: the token…" once a token was known. This
+replaces B3's "The token" above (the form in the switch, the `mapbox_token` preference).
+
+- **Where:** System Settings gets a page of its own (`/settings`, its name in the navigation pane a link to it;
+  Storage stays under it). Its "Mapbox Satellite" section says whether a token is known and where from (shown
+  shortened: `pk.` and its last characters), has the steps to get one (B3's), and a field to paste a new one.
+- **The basemap switch** lists the basemaps and None only. A refused token's message points to System Settings.
+- **Where it is kept:** `MAPBOX_API_TOKEN` in a `.env` file, no longer in the preferences.
+  - Saving overwrites the token in the `.env` it was read from (only that line; the file's other lines kept), else
+    adds it to the data folder's `.env` (made, readable by the user only). No earlier token is kept, and there is
+    no Remove: a token can only be replaced.
+  - A `MAPBOX_API_TOKEN` in the environment wins over the files, so then the page shows it and cannot change it.
+  - A token saved in the preferences by an earlier version is moved to the data folder's `.env` when the server
+    starts (unless a `.env` or the environment already has one), and the preference is removed.
+- **The check:** before anything is written, the server asks Mapbox for one tile of the imagery the maps use
+  (Static Tiles API, `0/0/0`). 200 saves it; 401, 403 or 429 is said as in the switch; no answer in 10 s or no
+  connection says Mapbox could not be reached. The format check (public `pk.` token only) comes first.
+- **API:** `api/settings/mapbox` (GET the state, PUT `{token}`); `mapbox_token` leaves `api/preferences`.
+- **Tests:** pytest for the `.env` written (replaced in place, other lines kept, made in the data folder), the
+  check's answers (Mapbox stubbed), the environment's token not changeable, the old preference moved; Vitest for
+  the switch without the token entry and the settings page (save, refusal, environment); the navigation's link.
+- **Live check:** on 8081 started outside the repository with a temporary data folder (so the repository's `.env`
+  is not written): a wrong token refused by Mapbox and nothing written; the user's token (read from the repo's
+  `.env` by the script, never printed) accepted and written; the viewer then showing Mapbox; light and dark.
 
 ## Findings
 
