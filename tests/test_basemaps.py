@@ -25,7 +25,7 @@ POSIX = os.name != "nt"
 def env_file(settings, tmp_path):
     """A .env file the token is looked for in, and nothing in the environment"""
     path = tmp_path / ".env"
-    settings.MAPBOX_ENV_FILES = [path]
+    settings.ENV_FILES = [path]
     return path
 
 
@@ -73,7 +73,7 @@ def test_the_token_replaces_the_one_in_the_dotenv_it_was_read_from_keeping_the_o
     started = tmp_path / "started.env"
     started.write_text("# keys\nOTHER=1\nexport MAPBOX_API_TOKEN = '%s'\nLAST=2\n" % ENV_TOKEN)
     started.chmod(0o640)
-    settings.MAPBOX_ENV_FILES = [started, env_file]
+    settings.ENV_FILES = [started, env_file]
     assert api.get(MAPBOX).data == {'token': ENV_TOKEN, 'token_source': str(started), 'file': str(started)}
     assert api.put(MAPBOX, {'token': TOKEN}, format='json').status_code == 200
     assert started.read_text() == "# keys\nOTHER=1\nMAPBOX_API_TOKEN=%s\nLAST=2\n" % TOKEN
@@ -161,7 +161,7 @@ def test_the_token_is_read_from_a_dotenv_file_when_the_environment_has_none(db, 
     # The first file that has it: the folder started from, then the data folder
     second = tmp_path / "data.env"
     second.write_text("MAPBOX_API_TOKEN=%s\n" % TOKEN)
-    settings.MAPBOX_ENV_FILES = [tmp_path / "missing.env", env_file, second]
+    settings.ENV_FILES = [tmp_path / "missing.env", env_file, second]
     assert basemaps.env_token() == TOKEN
 
 

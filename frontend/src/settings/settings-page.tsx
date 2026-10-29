@@ -1,9 +1,10 @@
 // System Settings: the Mapbox token, with how to get one, checked with Mapbox by the server before it is written to
-// .env in place of the one there; and a way to Storage. A token from MAPBOX_API_TOKEN in the environment is shown
-// only: it is changed there.
+// .env in place of the one there; WebODM's address and login (webodm-settings.tsx); and a way to Storage. A token from
+// MAPBOX_API_TOKEN in the environment is shown only: it is changed there.
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {SectionFilter} from "../components/section-filter";
+import {WebODMSettings} from "./webodm-settings";
 
 // The token in use and where it comes from ("environment", or the .env file's path), and the file a new one goes to
 export interface MapboxToken {token: string | null; token_source: string | null; file: string | null}
@@ -105,6 +106,7 @@ export function SettingsPage({api, publicUrl}: {api: string; publicUrl: string})
         <p class="hint">For the Thermal Analyzer on this computer.</p>
         <SectionFilter label="Filter the settings">
             <MapboxSettings api={api}/>
+            <WebODMSettings api={api}/>
             <fieldset class="preference" id="storage-settings">
                 <legend>Storage</legend>
                 <p>Where the data folder is, its size on disk per project, and moving it: <a href={publicUrl + "settings/storage"}>

@@ -1,12 +1,10 @@
 """The basemaps under the mosaics: the settings' BASEMAPS, and Mapbox's satellite imagery with the user's own token.
 
-The token is MAPBOX_API_TOKEN from the environment, else from a .env file (the settings' MAPBOX_ENV_FILES). The System
+The token is MAPBOX_API_TOKEN from the environment, else from a .env file (envfile). The System
 Settings page replaces it in the .env it was read from (else the data folder's) once Mapbox has accepted it. The
 browser sends it to Mapbox itself: only public tokens (pk.) are taken, since anyone looking at the page can read it."""
 
-import os
 import re
-import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -14,6 +12,7 @@ import urllib.request
 from django.conf import settings
 from django.templatetags.static import static
 
+from . import envfile
 from .models import Preferences
 
 TOKEN_KEY = 'mapbox_token'   # where versions before 0.9 saved the token, moved to .env at the start (move_saved_token)
@@ -59,41 +58,9 @@ def token_error(token):
     return None
 
 
-def token_line(line):
-    """The value of a MAPBOX_API_TOKEN line of a .env file (export, quotes and comments allowed), else None"""
-    m = re.match(r'^\s*(?:export\s+)?' + TOKEN_ENV + r'\s*=\s*(.*?)\s*$', line)
-    if not m:
-        return None
-    value = m.group(1)
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in '"\'':
-        return value[1:-1].strip()
-    return value.split(' #')[0].strip()
-
-
-def env_file_token(path):
-    """MAPBOX_API_TOKEN in a .env file (KEY=value lines), or None"""
-    try:
-        with open(path, encoding='utf-8') as f:
-            lines = f.read().splitlines()
-    except (OSError, UnicodeDecodeError):
-        return None
-    for line in lines:
-        value = token_line(line)
-        if value is not None:
-            return value or None
-    return None
-
-
 def mapbox_token():
     """The token in use and where it comes from: (token, 'environment' | the .env file's path), or (None, None)"""
-    value = os.environ.get(TOKEN_ENV, '').strip()
-    if value:
-        return value, 'environment'
-    for path in settings.MAPBOX_ENV_FILES:
-        value = env_file_token(path)
-        if value:
-            return value, str(path)
-    return None, None
+    return envfile.lookup(TOKEN_ENV)
 
 
 def env_token():
@@ -102,39 +69,13 @@ def env_token():
 
 
 def token_file():
-    """The .env file a token is written to: the one it was read from, else the data folder's (the last looked in)"""
-    token, source = mapbox_token()
-    return source if token and source != 'environment' else str(settings.MAPBOX_ENV_FILES[-1])
+    """The .env file a token is written to: the one it was read from, else the data folder's"""
+    return envfile.target_file(TOKEN_ENV)
 
 
 def write_token(token, path=None):
-    """Puts the token in a .env file in place of the one there (the first MAPBOX_API_TOKEN line; the others are kept),
-    else adds it at the end; a new file is readable by the user only"""
-    path = path or token_file()
-    try:
-        with open(path, encoding='utf-8') as f:
-            lines = f.read().splitlines()
-        mode = os.stat(path).st_mode & 0o777
-    except FileNotFoundError:
-        lines, mode = [], 0o600
-    line = TOKEN_ENV + '=' + token
-    at = next((i for i, x in enumerate(lines) if token_line(x) is not None), None)
-    if at is None:
-        lines.append(line)
-    else:
-        lines[at] = line
-    folder = os.path.dirname(os.path.abspath(path))
-    os.makedirs(folder, exist_ok=True)
-    fd, temp = tempfile.mkstemp(dir=folder, prefix='.env.')
-    try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(lines) + '\n')
-        os.chmod(temp, mode)
-        os.replace(temp, path)
-    except BaseException:
-        os.unlink(temp)
-        raise
-    return path
+    """Puts the token in a .env file in place of the one there (the other lines kept)"""
+    return envfile.write({TOKEN_ENV: token}, path)
 
 
 def check_token(token):

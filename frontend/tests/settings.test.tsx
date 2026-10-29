@@ -7,6 +7,10 @@ const TOKEN = "pk.eyJ1IjoidGVzdCJ9.abcd";
 const OTHER = "pk.eyJ1IjoidGVzdCJ9.wxyz";
 const FILE = "/home/me/.local/share/dji-thermal-ui/.env";
 const NONE: MapboxToken = {token: null, token_source: null, file: FILE};
+const WEBODM = {url: null, username: null, password: false, configured: false, source: null, file: FILE};
+
+// The settings' server, WebODM's section not set up
+const settings = (routes: Parameters<typeof server>[0]) => server({"/api/settings/webodm": WEBODM, ...routes});
 
 const root = () => document.getElementById("root")!;
 const $ = (sel: string) => root().querySelector(sel) as HTMLElement | null;
@@ -39,8 +43,8 @@ afterEach(() => {
 
 describe("System Settings", () => {
     it("filters its sections, matching a section again once its content has loaded", async () => {
-        let answer!: (r: Response) => void;
-        vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { answer = resolve; })));
+        const answers: Record<string, (r: Response) => void> = {};
+        vi.stubGlobal("fetch", vi.fn((url: string) => new Promise<Response>((resolve) => { answers[url] = resolve; })));
         render(<SettingsPage api="/api/" publicUrl="/"/>, root());
         await ticks();
         const shown = () => [...root().querySelectorAll<HTMLElement>("fieldset.preference")].filter((f) => !f.hidden)
@@ -52,12 +56,12 @@ describe("System Settings", () => {
         await ticks();
         // Before the token's state has loaded, only the title says Mapbox
         expect(shown()).toEqual([]);
-        jsonResponse(NONE).then(answer);
+        jsonResponse(NONE).then(answers["/api/settings/mapbox"]);
         await ticks();
         expect(shown()).toEqual(["mapbox-settings"]);
         key(box, "Escape");
         await ticks();
-        expect(shown()).toEqual(["mapbox-settings", "storage-settings"]);
+        expect(shown()).toEqual(["mapbox-settings", "webodm-settings", "storage-settings"]);
     });
 
     it("shows a token shortened to its start and its last characters", () => {
@@ -66,7 +70,7 @@ describe("System Settings", () => {
 
     it("tells how to get a token, saves one Mapbox accepts, and says where it is written", async () => {
         const saved: MapboxToken = {token: TOKEN, token_source: FILE, file: FILE};
-        const fetchFn = await page(server({"/api/settings/mapbox": NONE, "PUT /api/settings/mapbox": saved}));
+        const fetchFn = await page(settings({"/api/settings/mapbox": NONE, "PUT /api/settings/mapbox": saved}));
         expect(text("#mapbox-state")).toContain("No token yet");
         const links = [...root().querySelectorAll("#mapbox-settings a")].map((a) => a.getAttribute("href"));
         expect(links).toEqual(expect.arrayContaining([SIGN_UP, TOKENS_PAGE]));
@@ -74,8 +78,8 @@ describe("System Settings", () => {
         expect(($("#save-token") as HTMLButtonElement).disabled).toBe(true);
 
         await saveToken(" " + TOKEN + " ");
-        expect(calls(fetchFn)).toEqual(["GET /api/settings/mapbox", "PUT /api/settings/mapbox"]);
-        expect(JSON.parse(fetchFn.mock.calls[1][1]!.body as string)).toEqual({token: TOKEN});
+        expect(calls(fetchFn).filter((c) => c.includes("mapbox"))).toEqual(["GET /api/settings/mapbox", "PUT /api/settings/mapbox"]);
+        expect(JSON.parse(fetchFn.mock.calls.find((c) => c[1]?.method === "PUT")![1]!.body as string)).toEqual({token: TOKEN});
         expect(text("#token-saved")).toContain("Mapbox accepted the token, and it is saved in " + FILE);
         expect(text("#mapbox-state")).toBe("The token in use is pk.…abcd, from " + FILE + ". A token saved here replaces it.");
         expect(($("#mapbox-token") as HTMLInputElement).value).toBe("");
@@ -86,7 +90,7 @@ describe("System Settings", () => {
 
     it("says why Mapbox refused a token, keeping it in the field and the one in use", async () => {
         const known: MapboxToken = {token: TOKEN, token_source: FILE, file: FILE};
-        const fetchFn = server({"/api/settings/mapbox": known});
+        const fetchFn = settings({"/api/settings/mapbox": known});
         fetchFn.mockImplementation((_url: string, opts?: RequestInit) => opts?.method === "PUT"
             ? jsonResponse({token: "Mapbox refused the token: check that it was copied whole"}, false)
             : jsonResponse(known));
@@ -99,14 +103,14 @@ describe("System Settings", () => {
     });
 
     it("shows the environment's token, which is changed there and not here", async () => {
-        await page(server({"/api/settings/mapbox": {token: TOKEN, token_source: "environment", file: null}}));
+        await page(settings({"/api/settings/mapbox": {token: TOKEN, token_source: "environment", file: null}}));
         expect(text("#mapbox-state")).toBe("The token in use is pk.…abcd, from MAPBOX_API_TOKEN in the environment the "
                                            + "app was started from: to change it, change it there.");
         expect($("#mapbox-token")).toBeNull();
     });
 
     it("links to Storage", async () => {
-        await page(server({"/api/settings/mapbox": NONE}));
+        await page(settings({"/api/settings/mapbox": NONE}));
         expect($('#storage-settings a[href="/settings/storage"]')!.textContent).toBe("Storage");
     });
 });
