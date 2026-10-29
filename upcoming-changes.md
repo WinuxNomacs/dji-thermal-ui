@@ -11,7 +11,7 @@ its title.
 **Up next**
 1. **M: exports**: frames, flights and mosaics exported as Original, PNG, TIFF and R-JPEG, with Private options that
    remove the location and personal information. M1 in dji-thermal-cli is done (1.8.0, on PyPI and
-   pinned here); M2 the server, M3 the dialog. (Exports)
+   pinned here); M2 the server (proposed, three decisions open), M3 the dialog. (Exports)
 
 **Then**
 1. **S: search in the navigation pane and the settings pages**: S1 a filter under Projects in the pane, S2 a
@@ -1259,6 +1259,52 @@ The design (dji-thermal-cli 1.8.0, `rjpeg.py` and its API):
   identifiers found in the source is left in it; the length and the MPF index are checked.
 - **Release:** 1.8.0 on a `release/1.8.0` branch; the user publishes it, then M2 pins it here.
 - **Done:** see Done below.
+
+### M2: the exports on the server (proposed 2026-10-29)
+
+dji-thermal-cli 1.8.0 is pinned (its `rjpeg` output kept off the Convert tab until now).
+
+- **Colouring in Python** (`analyzer/colouring.py`): `colour(values, colouring)` makes the RGB image the browser's
+  `colourValues` (`map/colour.ts`) makes: the range, the tone curve's shares (as `tone`/`curve_shares` give the
+  browser now), the unsharp mask, the isotherm's grey and the palette (DJI's from the frames, or the tiler's).
+  - **Matched on the same values:** one fixture (`tests/fixtures/colouring.json`: values with no-data, and a
+    colouring per feature) holds the RGB `colourValues` makes. Vitest checks `colourValues` against it, pytest
+    checks `colour`; a change to either side fails until the fixture is made again by a script.
+- **Frames:** `POST datasets/<id>/exports` with what is asked returns `{url}`, and `GET exports/<id>` streams the
+  file (one frame) or a zip (several), so a list of 300 frames is not in a URL and the browser downloads it itself.
+  The request is kept in memory for an hour.
+  - **Asked:** `format` (original, original_private, tiff, tiff_private, png, rjpeg, rjpeg_private), `frames` (paths,
+    or all), `conversion` (whose settings measure them; none: the flight's embedded values), and the view
+    (`palette`, `range`, the adjustments `gamma`, `equalize`, `sharpen`, `isotherm`) for PNG and the R-JPEG's picture.
+    - **PNG of several frames:** one range for all of them: the one given, else the flight's: the frame page's Auto
+      (2nd to 98th percentile) taken over all the frames chosen, measured in a first pass that the frame cache keeps.
+    - **R-JPEG picture:** `picture=view|original`.
+  - **Formats:**
+    - **Original:** the file as it is. Private: `rjpeg.copy(data, private=True)`.
+    - **TIFF:** the temperatures in the unit as float32 (dji-thermal-cli's `temp_c`/`temp_f`), Private with
+      `strip_location`.
+    - **PNG:** the coloured frame, one pixel per sensor pixel, with the location left out (there is none in a PNG
+      the app makes).
+    - **R-JPEG:** `rjpeg_copy` with the settings, its picture coloured from the view; Private with `strip_location`.
+  - **Refused (400, with the reason and the formats that can):** R-JPEG or Original for a normalized conversion or
+    one replacing values; R-JPEG with parameters on a camera that stores none (dirp).
+  - **Names:** a frame's own stem, `<stem>.jpg` (Original), `<stem>_temp_c.tiff`, `<stem>.png`, `<stem>_rjpeg.jpg`;
+    a zip `<flight>-<format>.zip` keeps the frames' folders.
+  - **Streamed:** each frame made as the zip reaches it (zipstream-ng), with `Content-Length` left out for made
+    files; the same frame cache as the frame page (`measured`).
+- **Mosaics:** `GET <conversion>/mosaics/<tab>/export?format=tiff|tiff_private|png&` the view. TIFF: the mosaic's
+  GeoTIFF; Private: dji-thermal-cli's copy without georeference, written once and kept. PNG: the coloured mosaic,
+  transparent where there is no data.
+- **The Convert tab** offers R-JPEG, with its picture (the conversion's palette, or DJI's own).
+- **Tests:** pytest on the sample frames for every format and its private form (the private files hold none of the
+  frame's identifiers or location, the R-JPEG measures with the settings), refusals, names, a zip of frames, the
+  mosaic exports; the colouring fixture in pytest and Vitest. Live: each format from the API on dataset 1, the files
+  opened (the R-JPEGs measured by dji-thermal-cli, the PNGs looked at).
+
+**Open decisions (M2):**
+1. A mosaic's PNG: full resolution (may be tens of thousands of pixels across), or at most a size?
+2. Original of a flight: the thermal frames only, or their visual `_V` images too?
+3. PNG of a frame: the plain image, or with the scale and caption as the view's PNG button saves it?
 
 ## Search
 
