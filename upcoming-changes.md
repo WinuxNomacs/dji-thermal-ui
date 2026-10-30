@@ -8,9 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: ODM4, WebODM's DSM under the mosaics (to plan with the user; see "ODM").
+**Up next**: ODM4, WebODM's DSM under the mosaics: brought back, used, asked for (planned; see "ODM").
 
-**Later**: Video, DJI thermal video in a flight (V1–V3, proposed; to plan with the user; see "Video").
+**Then**: ODM5, the DSM as a layer and the height under the pointer (planned; see "ODM").
+
+**Later**: Video, DJI thermal video in a flight (V1–V3 proposed, after ODM5; to plan with the user, with a sample
+video and its SRT; see "Video").
 
 ## Standalone (option A)
 
@@ -1538,7 +1541,7 @@ failed as "Normalization failed" after converting every frame, and the option re
 checks the DSM before the frames, and leaves paths alone. Then pinned here (from 1.8.0: 1.9.0's DJI SDK option
 comes with it, unused).
 
-**ODM4: WebODM's DSM under the mosaics** (proposed 2026-10-30, to plan with the user)
+**ODM4 and ODM5: WebODM's DSM under the mosaics** (planned 2026-10-30)
 - **Brought back** from a completed task as the orthophoto is (a button on its line, a job on the upload worker),
   kept in the conversion's `webodm/` folder; one per conversion.
 - **Used** by the mosaics: a choice when building them, "Use WebODM's DSM", with a finer height cell
@@ -1546,8 +1549,14 @@ comes with it, unused).
 - **Asked for:** a task made by the app turns `dsm` on and leaves `fast-orthophoto` off when the DSM is wanted
   (both are offered today, neither forced).
 - **Maybe:** the height under the pointer on the viewer, beside the temperature; heights in a measurement.
-- **Open decisions:** the above as a whole; the cell size (fixed at 24 cm-ish, or a setting); whether the DSM is
-  also shown as a layer; whether a task asks for the DSM always or by a tick.
+- **Decisions (2026-10-30):**
+  - **All of it:** brought back, used by the mosaics, asked for by tasks, and also the DSM as a layer and the height
+    under the pointer (with heights in measurements). Built in two steps: **ODM4** (brought back, used, asked for)
+    then **ODM5** (the layer and the heights).
+  - **The cell size is a setting:** a field among the mosaics' options, shown when "Use WebODM's DSM" is on,
+    defaulting to the DSM test's best (about 24 cm).
+  - **A task asks for the DSM by a tick** ("Make a DSM", off by default: it makes the task slower), which turns
+    `dsm` on and `fast-orthophoto` off.
 
 ## Video
 
@@ -1591,7 +1600,7 @@ Requested 2026-10-30 (`new.md`): planning for the analysis of DJI thermal drone 
   in the app.
 - **The decoder:** PyAV or imageio-ffmpeg.
 - **Storage:** videos are large; copied into the data folder as the stills are, or linked where they are.
-- **Order:** after ODM4, or sooner.
+- **Order:** after ODM5 (decided 2026-10-30).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
