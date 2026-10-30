@@ -8,8 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: Video, DJI thermal video in a flight (V1–V3 proposed; to plan with the user, with a sample video and
-its SRT; see "Video").
+**Up next**: V1, videos in a flight (see "Video").
+
+**Then**: V2, analysing a video in the browser; V3, frames kept.
 
 ## Standalone (option A)
 
@@ -1604,29 +1605,52 @@ Requested 2026-10-30 (`new.md`): planning for the analysis of DJI thermal drone 
   imageio-ffmpeg (a bundled `ffmpeg` binary). Either is a new pinned dependency, of dji-thermal-cli if the reading
   goes there, as the stills' does.
 
-### Proposed phases
+### The sample (2026-10-30)
 
-1. **V1: videos in a flight:** MP4s (with their SRTs) are added to a flight as the stills are, listed on a Videos
-   tab with a thumbnail, length and time. The SRT's track is drawn on the frames map, and the video plays beside the
-   map with a marker following it (and a click on the track seeks to that point). No decoding on the server beyond
-   the thumbnail.
-2. **V2: frames from a video:** frames taken at an interval or at the moments chosen while watching, saved with their
-   position and time from the SRT, so that they can be kept for findings (C3) and reports (D1) as stills are.
-   Values are colours, so measurements show colour, not temperature.
-3. **V3: temperatures from video** (only if V1 shows it is possible on the user's files): either a radiometric
-   video's own values, or the colours mapped back through the palette and range that were on screen, marked as
-   approximate.
-4. **Later, maybe:** a mosaic or a path strip from video frames (positions from the SRT, as the stills' mosaics).
+`ignored/m4t-test-thermal.mp4`: a Matrice 4T's `DJI_20261027151837_0001_T_Waypoint1.MP4`, a 68 s point-of-interest
+orbit around the house of the m4t-220 stills, about 15 m above take-off, gimbal at -45°. The mission also took
+stills, but the plan does not count on them.
 
-### Open decisions (to ask when planning)
+- **The picture:** H.264, 640×512, 30 fps, yuv420p, Ironbow already applied, and auto-ranged (each frame's range
+  differs). No temperatures and no span per frame: the metadata's only range is the camera's gain, -20 to 150 °C.
+  So nothing radiometric can be done (emissivity, reflected or ambient temperature, a temperature scale); what can
+  be done is relative: within a frame, brighter is warmer.
+- **No SRT:** the M4T writes the track into the MP4, in a `DJI meta` data track (`djmd` samples, one per frame,
+  protobuf `dvtm_wa345t.proto`). Read in plain Python with no dependency (fields found on the sample):
+  - `3.1.2`: the frame's time in µs; `3.3.4.1.2`/`.3`: latitude and longitude in radians; `3.3.4.2`: the absolute
+    altitude in mm; `3.3.5.1`: the height above take-off in mm; `3.3.3.{1,2,3}`: the aircraft's pitch, roll and yaw
+    in tenths of a degree; `3.3.2.{1,2}`: its speed in m/s; `3.4.3.{1,3}`: the gimbal's pitch and yaw in tenths
+    of a degree.
+  - The header (sample 0, field 1) names the drone (`DJI Matrice 4T`) and its serial; the moov's `udta` holds the
+    path it was recorded under (`fsid`), and a third stream is the cover JPEG (`covr`).
+- **The MRK file** the user found on the drone is DJI's photo timestamp log (for RTK); the video does not need it.
 
-- **A sample:** which drone and which files; whether the SRTs were recorded; whether any are radiometric. This
-  decides V3, and whether V1's decoder must read more than 8-bit colour.
-- **Where the reading lives:** in dji-thermal-cli (a `video` module, released and pinned first, as the stills') or
-  in the app.
-- **The decoder:** PyAV or imageio-ffmpeg.
-- **Storage:** videos are large; copied into the data folder as the stills are, or linked where they are.
-- **Order:** after ODM5 (decided 2026-10-30), so up next now that ODM5 is built.
+### Decisions (2026-10-30)
+
+- **dji-thermal-cli is not involved:** there are no thermal data in the video. The app reads the MP4's track and
+  cover itself, in plain Python, with no decoder: the browser plays H.264, so nothing on the server decodes frames.
+- **Analysis happens in the browser**, especially stepping frame by frame or at low speed, and looping a stretch
+  at several speeds.
+- **Videos are copied into the data folder**, as stills are (export, import and the Storage page's move keep
+  working).
+- **No temperatures from video** (the old V3): the video is not radiometric and auto-ranged. Matching video moments
+  to the mission's stills is possible but not counted on (Later).
+
+### Phases
+
+1. **V1: videos in a flight:** MP4s are added to a flight as stills are (upload or folder), copied into its
+   folder, and listed on a Videos tab with their cover, length, time and drone. Their track is read when added
+   (`analyzer/video.py`) and drawn on the frames map; the video plays beside it with a marker following it, and a
+   click on the track seeks to that moment.
+2. **V2: analysing a video in the browser:** each shown frame is turned back into levels (0–255) through DJI's
+   Ironbow table, shipped with the app as data, then coloured as the mosaics are (`colourValues`: palette, range,
+   tone curve, sharpening, a relative isotherm), always called relative, never temperatures. Step ±1 frame and
+   ±1 s, speeds ⅛× to 2×, a loop between an in and an out point at any speed, keyboard keys for all of it; the
+   readout gives the level and the frame's position, height and gimbal.
+3. **V3: frames kept:** the shown frame saved with its time and position, as levels and as the picture, so that
+   it can be kept for findings (C3) and reports (D1) as stills are.
+4. **Later, maybe:** a path of hot spots on the map; matching video moments to the mission's stills; an SRT for
+   drones that write one; a mosaic or path strip from video frames.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
