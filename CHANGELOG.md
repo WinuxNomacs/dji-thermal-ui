@@ -22,6 +22,10 @@ All notable changes are recorded here. The format follows
 - A completed WebODM task's orthophoto brought back from its line on the card, in the background: kept as
   temperatures in the dataset's unit and shown as a WebODM tab on the viewer, measured, made a finding on and
   compared as the app's own mosaics are. A dataset shows one; another task's replaces it, and the card removes it.
+- WebODM's DSM under the mosaics: **Make a DSM** on the task panel (sends `dsm`, leaves `fast-orthophoto` out); a
+  completed task that asked for one brings it back from its line, kept as WebODM wrote it; the card projects the
+  mosaics onto it (on by default) with a height cell in mosaic pixels (16 at first, about 24 cm in a test), and
+  offers to build them again when they were built otherwise. A backup keeps it, without its task.
 
 ### Changed
 
