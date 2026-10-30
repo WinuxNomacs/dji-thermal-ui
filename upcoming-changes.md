@@ -8,7 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned.
+**Up next**: CLI2, pin dji-thermal-cli 1.9.1 (it reads ODM's DSM; merged there 2026-10-30, waiting for the user's
+push and `v1.9.1` tag to reach PyPI), then ODM4, WebODM's DSM under the mosaics (to plan with the user; see "ODM").
 
 **Later**: nothing.
 
@@ -1513,6 +1514,41 @@ permissions above, with an account given only those. The live checks use the use
   palettes, ranges, the scale, points, areas and measurements), and a mosaic to pick on the compare page. The
   viewer opens for a conversion with an orthophoto even without mosaics of its own.
 - **To check live:** that the orthophoto WebODM makes from the TIFFs keeps their temperatures (one band of floats).
+
+**The DSM test** (2026-10-29/30, asked by the user: what would WebODM's DSM bring?). Flight m4t-220, its 209 nadir
+frames converted with the WebODM plan's settings, processed in WebODM (127.0.0.1:8001, as thermaltest) with `dsm` on
+and `fast-orthophoto` off: about 8 minutes. ODM's DSM from the thermal TIFFs alone is good: the house sharp-edged,
+its roof planes, lower wing and the trees clear, about 90 % of the flight covered (holes at its edges). The same
+mosaic (dji-thermal-cli 1.8.0, `--normalize --mosaic-normalize`), by the surface its frames were placed on:
+
+| Heights | Misalignment (median / p90) | Seams p95 |
+|---|---|---|
+| The ground plane | 14 / 46 cm | 4.01 °C |
+| dji-thermal-cli's own (the default, 96 cm cells) | 2 / 22 cm | 2.38 °C |
+| WebODM's DSM, 96 cm cells | 3 / 17 cm | 2.25 °C |
+| WebODM's DSM, 24 cm cells (`--mosaic-height-cell 16`) | 2 / 9 cm | 2.26 °C |
+
+At 24 cm cells the roof's hips are straight and its vents no longer step or double at the seams; at 96 cm the
+DSM's detail is mostly averaged away and the eaves smear. Past the DSM's edge the frames fall back to the plane.
+
+**CLI2: dji-thermal-cli 1.9.1 reads ODM's DSM** (found by the DSM test; fixed in dji-thermal-cli, branch
+`fix-dsm-reading`, then `release/1.9.1`, merged there 2026-10-30): `--mosaic-dsm` imported tifffile, a dev dependency only, so it failed when installed from PyPI;
+ODM's `dsm.tif` (Deflate with the floating-point predictor) needed imagecodecs besides; a DSM that couldn't be read
+failed as "Normalization failed" after converting every frame, and the option renaming in messages turned a path's
+`dsm` folder into `--mosaic-dsm`. 1.9.1 reads TIFFs itself (`tiffin.py`, checked against 816 files GDAL wrote),
+checks the DSM before the frames, and leaves paths alone. Then pinned here (from 1.8.0: 1.9.0's DJI SDK option
+comes with it, unused).
+
+**ODM4: WebODM's DSM under the mosaics** (proposed 2026-10-30, to plan with the user)
+- **Brought back** from a completed task as the orthophoto is (a button on its line, a job on the upload worker),
+  kept in the conversion's `webodm/` folder; one per conversion.
+- **Used** by the mosaics: a choice when building them, "Use WebODM's DSM", with a finer height cell
+  (`height_cell`) when it is on; the mosaic's report already says "Heights … from the DSM".
+- **Asked for:** a task made by the app turns `dsm` on and leaves `fast-orthophoto` off when the DSM is wanted
+  (both are offered today, neither forced).
+- **Maybe:** the height under the pointer on the viewer, beside the temperature; heights in a measurement.
+- **Open decisions:** the above as a whole; the cell size (fixed at 24 cm-ish, or a setting); whether the DSM is
+  also shown as a layer; whether a task asks for the DSM always or by a tick.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
