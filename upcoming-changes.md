@@ -8,9 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: ODM4, WebODM's DSM under the mosaics: brought back, used, asked for (planned; see "ODM").
-
-**Then**: ODM5, the DSM as a layer and the height under the pointer (planned; see "ODM").
+**Up next**: ODM5, the DSM as a layer and the height under the pointer (planned; see "ODM").
 
 **Later**: Video, DJI thermal video in a flight (V1–V3 proposed, after ODM5; to plan with the user, with a sample
 video and its SRT; see "Video").
@@ -2138,3 +2136,11 @@ Requested 2026-10-30 (`new.md`): planning for the analysis of DJI thermal drone 
 - **CLI2: dji-thermal-cli 1.9.1** (2026-10-30). Pinned in `pyproject.toml` and `uv.lock` (was 1.8.0): it reads a
   DSM, ODM's `dsm.tif` included, with no TIFF library, ready for ODM4; 1.9.0's DJI SDK option comes with it, unused.
   The full suite with the m4t-220 flight, the release checks and the wheel's smoke check pass on it.
+- **ODM4: WebODM's DSM under the mosaics** (2026-10-30). Brought back from a completed task that asked for it
+  (`webodm_tasks.run_download`, shared with the orthophoto; `WebODMTask.dsm_*`, `ThermalConversion.dsm`, migration
+  0009), kept as WebODM wrote it once dji-thermal-cli has read it; used by `thermal_mosaics.build` with its height
+  cell; `ConversionDsmView` (PATCH use/height_cell, DELETE), `WebODMDsmView`. Pages: the panel's "Make a DSM"
+  (`withDsm` in `dataset/webodm.ts`), the task line's "Bring the DSM here", the card's `DsmLine` (`dataset/convert.tsx`).
+  Tests: `tests/test_webodm_tasks.py` (the DSM's three), `tests/test_api_import.py`, `frontend/tests/webodm.test.tsx`,
+  `frontend/tests/dataset.test.tsx`. Live check: 70 frames of m4t-220 processed in WebODM with a DSM, brought back,
+  the mosaics rebuilt on it (heights "DSM", 67 rangefinder anchors, 16 px ≈ 21 cm).
