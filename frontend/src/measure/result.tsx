@@ -44,18 +44,19 @@ export interface IsothermState {mode: string; a?: string; b?: string}
 
 // The isotherm: the pixels above, below or between temperatures (typed in the user's unit) keep the palette.
 // onChange(state, field): field is the one changed (mode, a or b).
-export function Isotherm({state, error, onChange}: {state: IsothermState; error?: string;
-                                                    onChange: (s: IsothermState, field: string) => void}) {
+// what: the values' name; unit: theirs (the temperature's symbol unless given)
+export function Isotherm({state, error, onChange, what = "Temperature", unit}: {state: IsothermState; error?: string;
+                         onChange: (s: IsothermState, field: string) => void; what?: string; unit?: string}) {
     const mode = state.mode;
     return (<div class="isotherm">
         <select aria-label="Isotherm" value={mode} onChange={(e) => onChange({...state, mode: e.currentTarget.value}, "mode")}>
             {ISOTHERM_MODES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <input type="number" step="0.1" title="Temperature" aria-label="Temperature" hidden={!mode} value={state.a ?? ""}
+        <input type="number" step="0.1" title={what} aria-label={what} hidden={!mode} value={state.a ?? ""}
                onChange={(e) => onChange({...state, a: e.currentTarget.value}, "a")}/>
         <input type="number" step="0.1" title="Up to" aria-label="Up to" hidden={mode !== "between"} value={state.b ?? ""}
                onChange={(e) => onChange({...state, b: e.currentTarget.value}, "b")}/>
-        {mode && <span class="unit">{symbol()}</span>}
+        {mode && <span class="unit">{unit ?? symbol()}</span>}
         <div class="text-danger" role="alert">{error || ""}</div>
         {mode && <div class="message">Its pixels keep the palette, the rest is grey.</div>}
     </div>);

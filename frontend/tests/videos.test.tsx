@@ -6,7 +6,10 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {flightFilesText, isFlightFile} from "../src/core/upload";
 import {DatasetPage} from "../src/dataset/dataset-page";
 import {flagged, overview} from "../src/dataset/files";
-import {formatDuration, frameNumber, nearestPoint, pointAt, pointRows, trackPoints, videosOf, videoTime} from "../src/dataset/videos";
+import {DJI_IRONRED} from "../src/dataset/ironbow";
+import {levelCube, levelIsotherm, levelRange, toLevels} from "../src/dataset/video-levels";
+import {formatDuration, frameNumber, keyAction, loopBack, nearestPoint, nextSpeed, pointAt, pointRows, speedLabel,
+        steppedTime, trackPoints, VIDEO_PALETTE, videoPalettes, videosOf, videoTime} from "../src/dataset/videos";
 import {click, server, ticks} from "./helpers";
 
 const API = "/api/";
@@ -38,7 +41,10 @@ function page(fetchFn: ReturnType<typeof server>) {
     render(<DatasetPage api={API} publicUrl="/" id={5} projectId={4} projectName="Silos"/>, document.getElementById("root")!);
 }
 
-const routes = (detail: unknown = DETAIL) => server({[URL]: detail, [API + "preferences"]: {settings: {outputs: []}, defaults: {outputs: []}, products: [], palettes: []},
+const PALETTES = [{key: "dji_ironred", label: "DJI ironred"}, {key: "dji_whitehot", label: "DJI whitehot", color_map: [0x000000ff, 0xffffffff]},
+                  {key: "gray", label: "Gray", color_map: [0x000000ff, 0xffffffff]}];
+const routes = (detail: unknown = DETAIL) => server({[URL]: detail, [API + "preferences"]: {settings: {outputs: []}, defaults: {outputs: []}, products: [], palettes: [],
+                                                                                           view_palettes: PALETTES},
                                                      [URL + "/video-track?file=" + encodeURIComponent(VIDEO)]: TRACK});
 
 beforeEach(() => {
@@ -89,6 +95,10 @@ describe("a flight's videos", () => {
         expect(nearestPoint([[0, 0], null, [10, 0]], [8, 1])).toBe(2);
         expect(nearestPoint([[0, 0], [10, 0]], [5, 50], 10)).toBe(-1);
         expect(frameNumber(1, 30)).toBe(30);
+        // As the browser gives the frames' times (to the microsecond), against the track's (to 0.1 ms)
+        expect(frameNumber(0.033333, 30)).toBe(1);
+        expect(frameNumber(66.633333, 30)).toBe(1999);
+        expect(pointAt(trackPoints({fields: FIELDS, points: [[0], [0.0333], [0.0667]]}), 0.066667)!.t).toBe(0.0667);
         expect(pointRows(points[1], 1 / 30, 30)).toEqual([
             ["Time", "0:00.03 · frame 2"], ["Height", "15.3 m above take-off"], ["Gimbal pitch", "-45.0°"],
             ["Gimbal yaw", "36.4°"], ["Heading", "35.9°"], ["Speed", "1.2 m/s"], ["Position", "42.100010, -88.070000"]]);
@@ -136,6 +146,136 @@ describe("a flight's videos", () => {
         expect(video.currentTime).toBeCloseTo(2 / 30);
         clickAt([-88.0, 42.2]);
         expect(video.currentTime).toBeCloseTo(2 / 30);
+    });
+
+    it("are turned back into the camera's levels through its palette, relative and ranged by their percentiles", () => {
+        const cube = levelCube(DJI_IRONRED);
+        const rgba = (c: number) => [(c >>> 24) & 255, (c >>> 16) & 255, (c >>> 8) & 255, 255];
+        const levels = [0, 14, 128, 200, 255];
+        const frame = new Uint8ClampedArray(levels.flatMap((l) => rgba(DJI_IRONRED[l])));
+        toLevels(frame, cube).forEach((v, i) => expect(Math.abs(v - levels[i])).toBeLessThanOrEqual(3));
+        // A colour off the palette (as the video's compression leaves them) takes the nearest level
+        const [r, g, b] = rgba(DJI_IRONRED[128]);
+        expect(Math.abs(toLevels(new Uint8ClampedArray([r - 6, g + 5, b + 4, 255]), cube)[0] - 128)).toBeLessThanOrEqual(4);
+
+        const spread = Float32Array.from({length: 100}, (_, i) => i < 1 ? 0 : i >= 99 ? 255 : 50 + i);
+        expect(levelRange(spread)).toEqual([51, 147]);
+        expect(levelRange(new Float32Array(10).fill(255))).toEqual([254, 255]);
+        expect(levelRange(new Float32Array(0))).toEqual([0, 255]);
+
+        expect(levelIsotherm("", "", "")).toEqual({range: null});
+        expect(levelIsotherm("above", "200", "")).toEqual({range: [200, Infinity]});
+        expect(levelIsotherm("below", "40", "")).toEqual({range: [-Infinity, 40]});
+        expect(levelIsotherm("between", "40", "90")).toEqual({range: [40, 90]});
+        expect(levelIsotherm("between", "90", "40").error).toBe("The second level must be above the first");
+        expect(levelIsotherm("above", "", "").error).toBe("The isotherm needs a level");
+    });
+
+    it("step by frames, play slower or faster, loop between two points and answer to keys", () => {
+        expect(steppedTime(0, 1, 30, 10)).toBeCloseTo(1.5 / 30);
+        expect(steppedTime(1.5 / 30, -1, 30, 10)).toBeCloseTo(0.5 / 30);
+        expect(steppedTime(0.2, -30, 30, 10)).toBeCloseTo(0.5 / 30);
+        expect(steppedTime(9.99, 30, 30, 10)).toBeCloseTo(299.5 / 30);
+        expect(steppedTime(2, 30, 30, 10)).toBeCloseTo(90.5 / 30);
+
+        expect(nextSpeed(1, -1)).toBe(0.5);
+        expect(nextSpeed(0.125, -1)).toBe(0.125);
+        expect(nextSpeed(2, 1)).toBe(2);
+        expect(nextSpeed(0.3, 1)).toBe(0.5);
+        expect(speedLabel(0.125)).toBe("⅛×");
+
+        const loop = {start: 2, end: 4, on: true};
+        expect(loopBack(4, loop)).toBe(2);
+        expect(loopBack(1, loop)).toBe(2);
+        expect(loopBack(3, loop)).toBeNull();
+        expect(loopBack(5, {...loop, on: false})).toBeNull();
+        expect(loopBack(5, {...loop, end: 1})).toBeNull();
+
+        expect(keyAction({key: " "})).toBe("play");
+        expect(keyAction({key: "ArrowLeft"})).toBe("back");
+        expect(keyAction({key: "ArrowRight", shiftKey: true})).toBe("forward-second");
+        expect(keyAction({key: "I", shiftKey: true})).toBe("in");
+        expect(keyAction({key: "+"})).toBe("faster");
+        expect(keyAction({key: "-"})).toBe("slower");
+        expect(keyAction({key: "l", ctrlKey: true})).toBeNull();
+        expect(keyAction({key: "x"})).toBeNull();
+
+        const list = videoPalettes(PALETTES);
+        expect(list.map((p) => p.key)).toEqual([VIDEO_PALETTE, "dji_whitehot", "gray"]);
+        expect(list[0].color_map).toBe(DJI_IRONRED);
+        expect(videoPalettes(undefined).map((p) => p.key)).toEqual([VIDEO_PALETTE]);
+    });
+
+    it("are stepped, slowed and looped from the buttons and the keys, and recoloured in the levels' palette", async () => {
+        const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (this: HTMLMediaElement) {
+            Object.defineProperty(this, "paused", {value: false, configurable: true});
+            this.dispatchEvent(new Event("play"));
+            return Promise.resolve();
+        });
+        vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (this: HTMLMediaElement) {
+            Object.defineProperty(this, "paused", {value: true, configurable: true});
+            this.dispatchEvent(new Event("pause"));
+        });
+        page(routes());
+        await ticks();
+        click(tab("videos")!);
+        await ticks(10);
+        const video = $<HTMLVideoElement>("#video")!;
+        const key = (k: string, shiftKey = false) => document.body.dispatchEvent(new KeyboardEvent("keydown", {key: k, shiftKey, bubbles: true}));
+
+        click($("#forward")!);
+        expect(video.currentTime).toBeCloseTo(1.5 / 30);
+        key("ArrowRight", true);
+        expect(video.currentTime).toBeCloseTo(31.5 / 30);
+        key("ArrowLeft");
+        expect(video.currentTime).toBeCloseTo(30.5 / 30);
+        click($("#back-second")!);
+        expect(video.currentTime).toBeCloseTo(0.5 / 30);
+
+        key(" ");
+        await ticks();
+        expect(play).toHaveBeenCalledTimes(1);
+        expect($("#play")!.getAttribute("title")).toBe("Pause (Space)");
+        key(" ");
+        await ticks();
+        expect($("#play")!.getAttribute("title")).toBe("Play (Space)");
+
+        key("-");
+        await ticks();
+        expect(video.playbackRate).toBe(0.5);
+        expect($<HTMLSelectElement>("#speed")!.value).toBe("0.5");
+
+        video.currentTime = 2;
+        key("i");
+        video.currentTime = 4;
+        key("o");
+        key("l");
+        await ticks();
+        expect($("#in")!.textContent).toBe("In 0:02.00");
+        expect($("#out")!.textContent).toBe("Out 0:04.00");
+        expect($("#loop")!.getAttribute("aria-pressed")).toBe("true");
+        // An in point after the out point leaves the loop without an out point
+        video.currentTime = 5;
+        click($("#in")!);
+        await ticks();
+        expect($("#out")!.textContent).toBe("Out");
+
+        // Recoloured: the levels' palette, range and isotherm, never temperatures
+        expect($("#video-look")).toBeNull();
+        click($('[name="recoloured"]')!);
+        await ticks();
+        expect($("#video-recoloured")!.hasAttribute("hidden")).toBe(false);
+        expect(video.hasAttribute("controls")).toBe(false);
+        const palette = $<HTMLSelectElement>("#palette")!;
+        expect([...palette.options].map((o) => o.textContent)).toEqual(["DJI ironred", "DJI whitehot", "Gray"]);
+        expect(palette.value).toBe(VIDEO_PALETTE);
+        expect([$<HTMLInputElement>("#range-min")!.value, $<HTMLInputElement>("#range-max")!.value]).toEqual(["0", "255"]);
+        expect($("#video-look")!.textContent).toContain("Level (relative)");
+        expect($("#video-look")!.textContent).not.toMatch(/°[CF]/);
+        click($('[name="original"]')!);
+        await ticks();
+        expect($("#video-look")).toBeNull();
+        expect(video.hasAttribute("controls")).toBe(true);
     });
 
     it("leave no Videos tab on a flight without any", async () => {

@@ -47,6 +47,7 @@ export const CaretUp = (p: Props) => (<Icon {...p}><path d="M6 15l6-6 6 6"/></Ic
 export const CaretDown = (p: Props) => (<Icon {...p}><path d="M6 9l6 6 6-6"/></Icon>);
 export const Play = (p: Props) => (<Icon {...p}><path d="M7 4l13 8-13 8z"/></Icon>);
 export const Stop = (p: Props) => (<Icon {...p}><rect x="5" y="5" width="14" height="14" rx="1"/></Icon>);
+export const Pause = (p: Props) => (<Icon {...p}><path d="M8 5v14M16 5v14"/></Icon>);
 export const Copy = (p: Props) => (
     <Icon {...p}><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
     </Icon>);

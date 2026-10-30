@@ -24,6 +24,14 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   drones (the Matrice 4T among them) write no SRT: the track is read from the metadata DJI puts in the MP4, a point
   per frame, with nothing more installed, and the browser plays the video. A video's picture has the palette already
   applied, with a range that changes from frame to frame: it holds no temperatures.
+  - **Playback:** a frame or a second back or on, ⅛× to 2×, and a loop between an in and an out point at any speed.
+    Keys: Space plays and pauses, ← and → step a frame (with Shift, a second), I and O set the in and out points,
+    L turns the loop on and off, − and + change the speed.
+  - **Recoloured:** the frame shown turned back into the camera's levels (0 to 255) through DJI's Ironbow, then drawn
+    in any palette, with a range (Auto takes the frame's 2nd to 98th percentile; the range stays put from frame to
+    frame), brightness, contrast, gamma, sharpening and an isotherm in levels. It starts as filmed (DJI ironred, 0 to
+    255). The pointer gives the level and pixel under it. Levels are relative: the camera re-ranges each frame, so a
+    level is not the same heat from one frame to the next. The Ironbow table is the Matrice 4T's.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a flight.
 - **Files tab:** a flight's files, sorted by any column and filtered by conditions on any of them (Height ≤ 21,
   Min > 32 °F, Kind is one of Thermal…), every one of which a file shown matches: numbers in the unit shown,
