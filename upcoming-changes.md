@@ -1557,6 +1557,21 @@ comes with it, unused).
     defaulting to the DSM test's best (about 24 cm).
   - **A task asks for the DSM by a tick** ("Make a DSM", off by default: it makes the task slower), which turns
     `dsm` on and `fast-orthophoto` off.
+- **ODM4's build** (2026-10-30):
+  - **Server:** `WebODMTask` gets `dsm_status`, `dsm_progress`, `dsm_error`, and `ThermalConversion` a `dsm`
+    (migration 0009). `webodm_tasks` brings back an asset by name (`orthophoto.tif` or `dsm.tif`) with the same job;
+    one download per task at a time (they share its `run_id`). The DSM is kept as WebODM wrote it,
+    `webodm/dsm-<task>.tif`, once dji-thermal-cli has read it (`mosaic.read_dsm`); the conversion's `dsm` says where,
+    the task it came from, `use` (on when brought back) and `height_cell`. Endpoints: `webodm-tasks/<id>/dsm` (POST
+    brings it back, DELETE stops it), `conversions/<id>/dsm` (PATCH `{use, height_cell}`, DELETE removes it). A task
+    taken off the list takes its DSM with it, as its orthophoto; a restore keeps the DSM, not its task.
+  - **Mosaics:** when the conversion's DSM is used, `make_mosaic` gets `dsm` and `height_cell`; the mosaics keep
+    which DSM and cell they were built with.
+  - **The cell is in mosaic pixels** (dji-thermal-cli's `height_cell`, 8–1024, default 16 with a DSM), shown in
+    centimetres too once the mosaics' pixel size is known: the pixel size is only known once they are built.
+  - **Pages:** the task panel's "Make a DSM" tick (sends `dsm` true, leaves `fast-orthophoto` out); a completed task
+    that asked for it gets "Bring the DSM here"; the conversion's card says the DSM is here, with the tick "Use it
+    under the mosaics", the cell, "Build the mosaics again" when they were built otherwise, and Remove.
 
 ## Video
 
