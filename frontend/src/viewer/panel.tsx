@@ -8,8 +8,8 @@ import {convertTemp, unitSymbol, userUnit} from "../core/units";
 import {Histogram} from "../measure/charts";
 import {type Measured, symbol, temp} from "../measure/measure";
 import {gradientCss, type Scale} from "./canvas";
-import {type Adjust, EMISSIVITY_RANGE, gammaSlider, type MosaicTab, reflectedRange, scaleTicks,
-        SLIDERS, TAB_HINTS} from "./view";
+import {type Adjust, EMISSIVITY_RANGE, gammaSlider, inTemperatures, type MosaicTab, reflectedRange, scaleTicks,
+        SLIDERS, TAB_HINTS, valueUnit} from "./view";
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
 
@@ -63,7 +63,7 @@ interface ControlsProps {
 
 // What the tab shows, its palette and its range
 export function Controls(p: ControlsProps) {
-    const t = p.tab.tab, temperature = t !== "view_angle", s = p.tab.stats;
+    const t = p.tab.tab, temperature = inTemperatures(t), s = p.tab.stats, u = valueUnit(t);
     const hint = <p class="hint">{TAB_HINTS[t] || ""}</p>;
     if (t === "source_frame") {
         return (<>{hint}<ScaleView scale={p.scale}/><p class="message">{p.frames || 0} frames. The mosaic is in the Mosaic
@@ -86,13 +86,13 @@ export function Controls(p: ControlsProps) {
             <span>to</span>
             <input type="number" step="0.1" id="range-max" title="Maximum" value={p.range[1]}
                    onChange={(e) => typed(p.range[0], e.currentTarget.value)}/>
-            <span>{temperature ? unitSymbol(userUnit()) : "°"}</span>
+            <span>{temperature ? unitSymbol(userUnit()) : u.trim()}</span>
             <button type="button" class="button default small" id="auto" title="The 2nd to 98th percentile of this mosaic"
                     onClick={p.onAuto}>Auto</button>
         </div>
         {p.rangeError && <div class="text-danger" id="range-error">{p.rangeError}</div>}
         {s && <div class="message">{t === "frame" ? "This frame" : "This mosaic"}: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
-            " " + (temperature ? symbol() : "°"))}</div>}
+            temperature ? " " + symbol() : u)}</div>}
     </>);
 }
 
@@ -141,13 +141,14 @@ export function ImageControls(p: ImageProps) {
             <button type="button" class="button default small" id="reset" title="The Auto range, no adjustments"
                     onClick={p.onReset}>Reset</button>
         </div>
-        <p class="message">How the image is drawn: the temperatures stay as they are.</p>
+        <p class="message">How the image is drawn: the {p.temperature ? "temperatures" : "values"} stay as they are.</p>
     </>);
 }
 
 export interface Point {
     valid?: boolean; reason?: string; temperature?: number | null; frame?: string | null;
     frame_pixel?: [number, number] | null; view_angle?: number | null;
+    height?: number | null; base_m?: number | null;     // the ground's, above WebODM's DSM's lowest ground (base_m)
 }
 
 // The values under the cursor, or at the point clicked (pinned)
@@ -160,14 +161,15 @@ export function Readout({point, unit, frameUrl, pinned, onFollow}: {point: Maybe
             {follow}</>);
     }
     // A frame a link asked for has no temperature: only its name
-    const rows: [string, string][] = "temperature" in point ? [["Temperature", point.temperature === null ||
+    const rows: [string, string, string?][] = "temperature" in point ? [["Temperature", point.temperature === null ||
         point.temperature === undefined ? "no data" : temp(point.temperature, unit)]] : [];
     if (point.frame !== null && point.frame !== undefined) rows.push(["Frame", point.frame]);
     if (point.frame_pixel) rows.push(["Frame pixel", "x " + point.frame_pixel[0] + ", y " + point.frame_pixel[1]]);
     if (point.view_angle !== null && point.view_angle !== undefined) rows.push(["View angle", formatNumber(point.view_angle, 1, "°")]);
+    if ("height" in point) rows.push(heightRow(point.height, point.base_m));
     return (<>
         <table class="table values"><tbody>
-            {rows.map(([k, v]) => <tr key={k}><th>{k}</th><td>{v}</td></tr>)}
+            {rows.map(([k, v, title]) => <tr key={k}><th>{k}</th><td title={title}>{v}</td></tr>)}
         </tbody></table>
         <div class="inline">
             {point.frame && <a class="button default small" id="open-frame" href={frameUrl + encodeURIComponent(point.frame)}>
@@ -175,6 +177,13 @@ export function Readout({point, unit, frameUrl, pinned, onFollow}: {point: Maybe
             {follow}
         </div>
     </>);
+}
+
+// The ground's height as the readout gives it: above the DSM's lowest ground, and as WebODM gives it in the tooltip
+export function heightRow(height: Maybe<number>, base: Maybe<number>): [string, string, string?] {
+    if (height === null || height === undefined) return ["Ground height", "no data"];
+    return ["Ground height", formatNumber(height, 1, " m"),
+            base === null || base === undefined ? undefined : formatNumber(base + height, 1, " m as WebODM gives it")];
 }
 
 export type Baseline = {emissivity?: number | null; reflected_temp?: number | null};

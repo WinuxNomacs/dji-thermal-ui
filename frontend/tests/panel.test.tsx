@@ -2,6 +2,7 @@
 // report
 import {render} from "preact";
 import {beforeEach, describe, expect, it, vi} from "vitest";
+import {resultRows} from "../src/measure/measure";
 import {correctionStarts, Readout, Report, Section, Whole} from "../src/viewer/panel";
 import {click, ticks} from "./helpers";
 
@@ -39,12 +40,42 @@ describe("the readout", () => {
         expect(root().querySelector("#follow")).toBeNull();
     });
 
+    it("gives the ground's height above the DSM's lowest ground, as WebODM gives it in its tooltip", () => {
+        render(<Readout point={{valid: true, temperature: 21.46, frame: null, height: 8.24, base_m: 312.1}}
+                        unit="C" frameUrl="" pinned={false} onFollow={() => {}}/>, root());
+        const cell = [...root().querySelectorAll("tr")].find((r) => r.textContent!.startsWith("Ground height"))!
+            .querySelector("td")!;
+        expect(cell.textContent).toBe("8.2 m");
+        expect(cell.title).toBe("320.3 m as WebODM gives it");
+        render(<Readout point={{valid: true, height: null, base_m: 312.1}} unit="C" frameUrl="" pinned={false}
+                        onFollow={() => {}}/>, root());
+        expect(text()).toContain("Ground heightno data");
+        expect(text()).not.toContain("Temperature");
+    });
+
     it("says when the point is outside the mosaic, and lets a pinned readout follow the cursor again", () => {
         const onFollow = vi.fn();
         render(<Readout point={{valid: false, reason: "outside_raster"}} unit="C" frameUrl="" pinned={true} onFollow={onFollow}/>, root());
         expect(text()).toContain("Outside the mosaic.");
         click(root().querySelector("#follow")!);
         expect(onFollow).toHaveBeenCalled();
+    });
+});
+
+describe("a measure's heights", () => {
+    const rows = (results: Parameters<typeof resultRows>[0]) =>
+        resultRows(results, "C").filter((r) => /height/i.test(r.label)).map((r) => [r.label, ...r.values, r.difference]);
+
+    it("give a spot's ground height and an area's lowest, mean and highest, with their difference when compared", () => {
+        expect(rows([{kind: "Point", value: 20, valid_pixels: 1, height: 4.26}])).toEqual([["Ground height", "4.3 m", undefined]]);
+        expect(rows([{kind: "Polygon", mean: 20, valid_pixels: 9, heights: {min: 0.5, mean: 3, max: 7.25}},
+                     {kind: "Polygon", mean: 21, valid_pixels: 9, heights: {min: 1, mean: 2, max: 7.25}}])).toEqual([
+            ["Lowest height", "0.5 m", "1.0 m", "+0.5 m"], ["Mean height", "3.0 m", "2.0 m", "-1.0 m"],
+            ["Highest height", "7.3 m", "7.3 m", "0.0 m"]]);
+    });
+
+    it("are left out without a DSM", () => {
+        expect(rows([{kind: "Polygon", mean: 20, valid_pixels: 9}])).toEqual([]);
     });
 });
 

@@ -304,6 +304,23 @@ describe("the viewer page", () => {
         expect(location.search).toBe("?tab=source_frame");
     });
 
+    it("shows WebODM's DSM on a Heights tab, in viridis and metres, with no measuring", async () => {
+        const heights = {tab: "heights", kind: "dsm", stats: {percentiles: [0.4, 9.86], min: 0, max: 12.3}, bounds: BOUNDS,
+                         maxzoom: 22};
+        const fetchFn = server(routes({[BASE + "/mosaics"]: {...MOSAICS, tabs: [...MOSAICS.tabs!, heights]}}));
+        await open(fetchFn);
+        click($("[data-tab=heights]")!);
+        await ticks();
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Heights");
+        expect((byId("palette") as HTMLSelectElement).value).toBe("viridis");
+        expect([(byId("range-min") as HTMLInputElement).value, (byId("range-max") as HTMLInputElement).value]).toEqual(["0.4", "9.9"]);
+        const panel = $(".viewer-panel")!.textContent;
+        expect(panel).toContain("WebODM's DSM");
+        expect(panel).toContain("This mosaic: 0.0 to 12.3 m");
+        expect($("[data-section=measure]")).toBeNull();
+        expect(calls(fetchFn).some((c) => c.includes("/heights/curve"))).toBe(false);
+    });
+
     it("refuses a range whose maximum is not above its minimum, and Auto takes the whole mosaic's percentiles", async () => {
         await open(server(routes()));
         change(byId("range-max"), "10");

@@ -454,7 +454,8 @@ def mosaic_png(conversion, path, band, request, colors, value_range, curve):
                 stop = min(first + STRIP_ROWS, height)
                 top, bottom = max(0, first - colouring.MARGIN), min(height, stop + colouring.MARGIN)
                 read = src.read(band, window=Window(0, top, width, bottom - top), masked=True)
-                values = mosaic_band_values(read.astype(np.float64).filled(np.nan), band, unit, correction)
+                values = mosaic_band_values(read.astype(np.float64).filled(np.nan),
+                                                thermal_mosaics.temperatures(request['tab'], band), unit, correction)
                 rows = (first - top, stop - top)
                 if index:
                     yield colouring.colour(values, colors, index=True, rows=rows)
@@ -464,10 +465,10 @@ def mosaic_png(conversion, path, band, request, colors, value_range, curve):
     return png_stream(width, height, strips())
 
 
-def mosaic_band_values(values, band, unit, correction):
+def mosaic_band_values(values, temperatures, unit, correction):
     """A mosaic band's values as the viewer's tiles have them (mosaic_values): temperatures without the no-data
     marker and corrected as asked, NaN where there are none"""
-    if band != 1:
+    if not temperatures:
         return values
     values = thermal_measure.no_data(values, unit)
     return thermal_measure.corrected(values, unit, correction) if correction else values

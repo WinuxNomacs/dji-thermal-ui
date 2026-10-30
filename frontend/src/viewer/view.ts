@@ -17,8 +17,12 @@ export const TAB_HINTS: Record<string, string> = {
         "Pointer info gives the Mosaic tab's temperatures.",
     webodm: "WebODM's orthophoto of the conversion's temperature TIFFs, brought back from one of its tasks: ODM placed " +
         "and blended the frames, so it doesn't say which frame each pixel comes from.",
+    heights: "WebODM's DSM, brought back from one of its tasks: the height of the ground, roofs and trees in metres " +
+        "above its lowest ground.",
 };
 export const TEMPERATURE_TABS = ["as_converted", "harmonized", "webodm"];
+// The tabs whose values aren't temperatures: what they are, and their unit as written after a number
+const OTHER_VALUES: Record<string, [string, string]> = {view_angle: ["View angle", "°"], heights: ["Height", " m"]};
 // The adjustments' limits and the legend's samples, as the server has them (thermal_measure)
 export const GAMMA_LIMITS = [0.2, 5], SHARPEN_MAX = 5, CURVE_SAMPLES = 65;
 
@@ -32,6 +36,18 @@ export interface View {tab?: string; palette?: string; frame?: string | null; ra
 export type Extra = Record<string, Maybe<string | number>>;
 
 export function isTemperatureTab(tab: string): boolean { return TEMPERATURE_TABS.includes(tab); }
+
+// The unit a tab's values are written in after a number (" °C", "°", " m")
+export function valueUnit(tab: string): string { return OTHER_VALUES[tab]?.[1] ?? " " + symbol(); }
+
+// The legend's caption of a tab's values ("Temperature, °C")
+export function valueCaption(tab: string): string {
+    const [name, u] = OTHER_VALUES[tab] || ["Temperature", symbol()];
+    return name + ", " + u.trim();
+}
+
+// Whether a tab's range is a temperature's, shown in the user's unit
+export function inTemperatures(tab: string): boolean { return !OTHER_VALUES[tab]; }
 
 // The tabs that share a palette and range: both temperature mosaics show the same scale, to compare them
 export function styleGroup(tab: string): string { return isTemperatureTab(tab) ? "temperature" : tab; }
@@ -177,7 +193,7 @@ export function scaleTicks(lo: number, hi: number, count = 5, gap = 0.18): {valu
 
 // A tab's range as shown: a temperature's in the user's unit
 export function shownRange(tab: string, range: [number, number], unit: unknown): [number, number] {
-    return tab === "view_angle" ? [range[0], range[1]] : [convertTemp(range[0], unit) as number, convertTemp(range[1], unit) as number];
+    return !inTemperatures(tab) ? [range[0], range[1]] : [convertTemp(range[0], unit) as number, convertTemp(range[1], unit) as number];
 }
 
 // When frames were taken, from their recorded times ("YYYY:MM:DD HH:MM:SS", the flight's local time): "2026-09-18
@@ -263,6 +279,8 @@ interface Report {
 export interface Kind {
     frames?: number; oblique?: number; unusable?: number; width?: number; height?: number; gsd_m?: number;
     report?: Report | null; normalization?: number[] | null; files?: string[];
+    // brought back from WebODM: the task's name; the DSM's pixel size, lowest ground and heights above it
+    task_name?: string; pixel_m?: number; base_m?: number; heights?: Stats | null;
 }
 
 // The visual mosaic, as the server keeps it (thermal_mosaics.build_visual) and dji-thermal-cli reports it
@@ -300,8 +318,21 @@ export function visualRows(v: Maybe<VisualMosaic>): [string, string][] {
 }
 
 // What dji-thermal-cli reports about a mosaic: how many frames, how well they agree and line up
+// What WebODM's orthophoto or DSM says of itself: the task it came from; the DSM's size and heights
+function webodmRows(kind: Kind): [string, string][] {
+    const rows: [string, string][] = [["From", "WebODM's task " + kind.task_name]];
+    if (kind.width && kind.pixel_m) {
+        rows.push(["Size", kind.width + " × " + kind.height + " px at " + formatNumber(kind.pixel_m * 100, 1, " cm")]);
+    }
+    const h = kind.heights;
+    if (h && h.max !== undefined) rows.push(["Heights", formatNumber(h.min, 1) + " to " + formatNumber(h.max, 1, " m")]);
+    if (kind.base_m !== undefined) rows.push(["Lowest ground", formatNumber(kind.base_m, 1, " m as WebODM gives it")]);
+    return rows;
+}
+
 export function reportRows(kind: Maybe<Kind>): [string, string][] {
     if (!kind) return [];
+    if (kind.task_name !== undefined) return webodmRows(kind);
     const r = kind.report || {}, rows: [string, string][] = [];
     rows.push(["Frames", kind.frames + " placed" + (kind.oblique ? ", " + kind.oblique + " oblique left out" : "") +
         (kind.unusable ? ", " + kind.unusable + " unusable" : "")]);

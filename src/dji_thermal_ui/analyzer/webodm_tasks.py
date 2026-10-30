@@ -423,11 +423,17 @@ def made_dsm(conversion, part, made):
     if not np.isfinite(dsm.z).any():
         raise ValueError("WebODM's DSM holds no heights")
     rows, cols = dsm.z.shape
+    shown = thermal_mosaics.heights(part, heights_name(made))
     os.replace(part, made)
     before = conversion.dsm or {}
-    return {'width': cols, 'height': rows, 'pixel_m': round(dsm.pixel_m(), 4),
-            'use': before.get('use', True) if before.get('raster') else True,
-            'height_cell': before.get('height_cell') or DSM_CELL}
+    return dict(shown, width=cols, height=rows, pixel_m=round(dsm.pixel_m(), 4),
+                use=before.get('use', True) if before.get('raster') else True,
+                height_cell=before.get('height_cell') or DSM_CELL)
+
+
+def heights_name(name):
+    """The name of the DSM's copy the Heights tab reads (thermal_mosaics.heights), beside it"""
+    return name.replace('.tif', '-heights.tif', 1)
 
 
 def run_download(asset, pk, run_id):
@@ -458,6 +464,9 @@ def run_download(asset, pk, run_id):
         info = (made_orthophoto if asset == 'orthophoto' else made_dsm)(conversion, part, made)
         current(pk, run_id)
         os.replace(made, os.path.join(folder, name))
+        if asset == 'dsm':
+            os.replace(heights_name(made), os.path.join(folder, heights_name(name)))
+            info['heights_raster'] = os.path.join(thermal_mosaics.WEBODM, heights_name(name))
     except Stopped:
         return
     except Exception as e:
@@ -469,7 +478,7 @@ def run_download(asset, pk, run_id):
             asset + '_status': 'failed', asset + '_error': message, asset + '_progress': 0})
         return
     finally:
-        for path in (part, made):
+        for path in (part, made, heights_name(made)):
             if os.path.exists(path):
                 os.remove(path)
     from .models import ThermalConversion
@@ -480,15 +489,19 @@ def run_download(asset, pk, run_id):
     WebODMTask.objects.filter(pk=pk).update(run_id="", **{asset + '_status': "", asset + '_progress': 0,
                                                           asset + '_error': ""})
     if before and before.get('raster') and before['raster'] != shown['raster']:
-        remove_raster(conversion, before['raster'])
+        remove_rasters(conversion, before)
     update_size(conversion.pk)
 
 
-def remove_raster(conversion, raster):
-    try:
-        os.remove(path_traversal_check(os.path.join(conversion.data_dir(), raster), conversion.data_dir()))
-    except (OSError, SuspiciousFileOperation):
-        pass
+def remove_rasters(conversion, shown):
+    """Removes an orthophoto's or DSM's files (the DSM's copy for the Heights tab too)"""
+    for raster in (shown.get('raster'), shown.get('heights_raster')):
+        if not raster:
+            continue
+        try:
+            os.remove(path_traversal_check(os.path.join(conversion.data_dir(), raster), conversion.data_dir()))
+        except (OSError, SuspiciousFileOperation):
+            pass
 
 
 def remove_orthophoto(conversion, task=None, asset='orthophoto'):
@@ -500,7 +513,7 @@ def remove_orthophoto(conversion, task=None, asset='orthophoto'):
         return False
     ThermalConversion.objects.filter(pk=conversion.pk).update(**{asset: {}})
     setattr(conversion, asset, {})
-    remove_raster(conversion, shown['raster'])
+    remove_rasters(conversion, shown)
     update_size(conversion.pk)
     return True
 
