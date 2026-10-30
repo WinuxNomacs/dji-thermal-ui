@@ -13,6 +13,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from dji_thermal_cli import api as cli
 
 from .. import __version__
+from . import video
 from .models import ThermalDataset
 
 FORMAT = 'dji-thermal-ui project'
@@ -34,11 +35,14 @@ def row(obj):
 
 
 def image_files(dataset):
-    """The images the flight's analysis reads (the JPEGs under its images folder), as (path, path in the folder)"""
+    """The files the flight's analysis reads (the JPEGs under its images folder, and its videos), as (path, path in the
+    folder)"""
     root = dataset.images_dir()
     if not os.path.isdir(root):
         return []
-    return sorted((str(p), os.path.relpath(p, root).replace(os.sep, '/')) for p in cli.scan(root).jpegs)
+    scan = cli.scan(root)
+    found = list(scan.jpegs) + [p for p in scan.others if video.is_video(p)]
+    return sorted((str(p), os.path.relpath(p, root).replace(os.sep, '/')) for p in found)
 
 
 def output_files(conversion):

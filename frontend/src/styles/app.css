@@ -961,3 +961,22 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .webodm-dsm-line .dsm-cell { width: 5em; }
 .webodm-dsm-line .dsm-built { margin-top: 2px; }
 .webodm-panel .webodm-dsm { display: block; margin-bottom: 6px; }
+
+/* The Videos tab: the list, then the video chosen beside the map of its track */
+.videos { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 12px; align-items: start; }
+.video-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.video-item { display: flex; gap: 8px; width: 100%; padding: 6px; text-align: left; background: var(--surface);
+              border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); cursor: pointer; }
+.video-item:hover:not(:disabled) { background: var(--hover); }
+.video-item.active { border-color: var(--accent); background: var(--accent-soft); }
+.video-item:disabled { cursor: default; }
+.video-item img { width: 72px; height: 58px; object-fit: cover; flex: none; border-radius: 2px; background: var(--frame-bg); }
+.video-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; }
+.video-name { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.video-panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.video-pane video { display: block; width: 100%; background: var(--frame-bg); border-radius: var(--radius); }
+.video-readout { margin-top: 6px; }
+.video-readout th { font-weight: normal; color: var(--muted); width: 40%; }
+.video-map { min-height: 360px; height: 100%; border: 1px solid var(--border); border-radius: var(--radius); }
+@media (max-width: 1100px) { .video-panes { grid-template-columns: 1fr; } .video-map { height: 360px; } }
+@media (max-width: 760px) { .videos { grid-template-columns: 1fr; } }

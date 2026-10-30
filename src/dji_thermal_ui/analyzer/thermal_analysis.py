@@ -13,6 +13,8 @@ from collections import Counter
 from django.conf import settings
 from django.utils import timezone
 
+from . import video
+
 PROGRESS_INTERVAL = 1.0     # seconds between progress writes (each also checks the run is still wanted)
 ZONE_STEP = 15              # minutes: time zones' offsets are whole quarter hours, the camera's two clocks are not
 MAX_OFFSET = 14 * 60        # minutes: no time zone is further from UTC
@@ -104,6 +106,18 @@ def file_row(report, root):
     return row
 
 
+def video_row(path, root):
+    """A video of the dataset: its length, size, drone and first position (video.summary), or why it can't be read"""
+    row = {'path': relative(path, root), 'kind': 'video', 'reason': ""}
+    try:
+        row['size'] = os.path.getsize(path)
+        row.update(video.summary(path), thermal=bool(video.THERMAL_NAME.search(str(path))))
+    except (OSError, video.NotVideo) as e:
+        row['reason'] = str(e) if isinstance(e, video.NotVideo) else "can't be read"
+        row.setdefault('size', None)
+    return row
+
+
 def cameras(rows):
     """The cameras in a dataset, by model, serial and image size, with their frame count"""
     found = {}
@@ -120,7 +134,8 @@ def compact(result, root):
     """What a dataset keeps of api.check(..., webodm=True): {summary, files, cameras, findings, webodm, version}"""
     rows = [file_row(r, root) for r in result.reports]
     for p in result.scan.others:
-        rows.append({'path': relative(p, root), 'kind': 'not_jpeg', 'reason': "not a JPEG", 'size': None})
+        rows.append(video_row(p, root) if video.is_video(p) else
+                    {'path': relative(p, root), 'kind': 'not_jpeg', 'reason': "not a JPEG", 'size': None})
     rows.sort(key=lambda r: r['path'])
 
     findings = [{'severity': f.severity, 'code': f.code, 'message': f.message,

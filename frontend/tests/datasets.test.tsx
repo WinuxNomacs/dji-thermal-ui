@@ -278,8 +278,8 @@ describe("the datasets list", () => {
         const fetchFn = server({[LIST_URL]: {datasets: []}});
         page(fetchFn);
         await choose(["a_T_temp_c.tiff", "b_T_temp_c.tiff"]);
-        const said = "None of the 2 files chosen is a JPEG: a flight is made of a DJI drone's R-JPEGs (the _T.JPG files), " +
-            "and other files (TIFFs among them) are left out.";
+        const said = "None of the 2 files chosen is a JPEG or an MP4: a flight is made of a DJI drone's R-JPEGs (the " +
+            "_T.JPG files) and its videos, and other files (TIFFs among them) are left out.";
         expect(byId("new-chosen").textContent).toBe("0 image(s), 0 B (2 other file(s) left out)");
         expect(byId("new-error").textContent).toBe(said);
         click(byId("new-create"));

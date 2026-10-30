@@ -3,7 +3,9 @@ app/tests/test_thermal_analyzer_plugin.py, commit a2a81052), a small JPEG, and h
 """
 
 import io
+import math
 import os
+import struct
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
@@ -26,6 +28,102 @@ def jpeg_bytes():
 
 
 JPEG = jpeg_bytes()
+
+
+# --- a DJI drone's MP4, as the Matrice 4T writes it: a video track, a "DJI meta" track and a cover ---
+
+def _box(kind, *parts):
+    data = b''.join(parts)
+    return (8 + len(data)).to_bytes(4, 'big') + kind + data
+
+
+def _full_box(kind, *parts, version=0):
+    return _box(kind, bytes([version, 0, 0, 0]), *parts)
+
+
+def _pb(fields):
+    """A protobuf message from {field: value}: ints as varints, floats as fixed32, (x,) as a double, text, bytes and
+    dicts as length-delimited"""
+    def varint(v):
+        v &= (1 << 64) - 1
+        out = b''
+        while True:
+            out += bytes([(v & 0x7f) | (0x80 if v > 0x7f else 0)])
+            v >>= 7
+            if not v:
+                return out
+    out = b''
+    for k, v in fields.items():
+        if isinstance(v, tuple):
+            out += varint(k << 3 | 1) + struct.pack('<d', v[0])
+        elif isinstance(v, float):
+            out += varint(k << 3 | 5) + struct.pack('<f', v)
+        elif isinstance(v, int):
+            out += varint(k << 3) + varint(v)
+        else:
+            v = _pb(v) if isinstance(v, dict) else v.encode() if isinstance(v, str) else v
+            out += varint(k << 3 | 2) + varint(len(v)) + v
+    return out
+
+
+def video_frame_meta(i, lat=42.1, lon=-88.07, pitch=-450, yaw=364):
+    """One frame of DJI's metadata: the aircraft 0.00001° further north each frame, 15.2 m above take-off; the gimbal
+    at pitch and yaw (tenths of a degree, 0 left out as protobuf does)"""
+    gimbal = {k: v for k, v in ((1, pitch), (3, yaw)) if v}
+    return {3: {1: {2: 1000000 + 33333 * i},
+                3: {2: {1: 1.2, 2: -0.5}, 3: {3: -270},
+                    4: {1: {2: (math.radians(lat + i * 1e-5),), 3: (math.radians(lon),)}, 2: 222800},
+                    5: {1: 15200.0}},
+                4: {3: gimbal}}}
+
+
+def dji_video(frames=3, meta=True, cover=True, width=640, height=512):
+    """The bytes of a DJI MP4 of so many frames at 30 fps (frames not decodable: only their sizes are read)"""
+    video_samples = [b'\0' * 10] * frames
+    meta_samples = []
+    if meta:
+        meta_samples = [_pb({**({1: {1: {5: "SN1", 10: "DJI DJI Matrice 4T"}}} if i == 0 else {}),
+                             **video_frame_meta(i, pitch=0 if i == 0 else -450)}) for i in range(frames)]
+    head = _box(b'ftyp', b'isom', b'\0\0\2\0', b'isomiso2avc1mp41')
+    mdat_start = len(head) + 8
+    samples = video_samples + meta_samples
+    offsets = [mdat_start + sum(len(x) for x in samples[:i]) for i in range(len(samples))]
+    mdat = _box(b'mdat', *samples)
+
+    def stbl(entry, sizes, firsts):
+        return _box(b'stbl',
+                    _full_box(b'stsd', struct.pack('>I', 1), entry),
+                    _full_box(b'stts', struct.pack('>III', 1, len(sizes), 1000)),
+                    _full_box(b'stsc', struct.pack('>IIII', 1, 1, 1, 1)),
+                    _full_box(b'stsz', struct.pack('>II', 0, len(sizes)), *(struct.pack('>I', n) for n in sizes)),
+                    _full_box(b'stco', struct.pack('>I', len(firsts)), *(struct.pack('>I', o) for o in firsts)))
+
+    def trak(handler, name, entry, sizes, firsts):
+        return _box(b'trak', _box(b'mdia',
+                    _full_box(b'mdhd', struct.pack('>IIII', 0, 0, 30000, 1000 * len(sizes)), b'\x55\xc4\0\0'),
+                    _full_box(b'hdlr', b'\0' * 4, handler, b'\0' * 12, name.encode() + b'\0'),
+                    _box(b'minf', stbl(entry, sizes, firsts))))
+
+    avc1 = _box(b'avc1', b'\0' * 6, struct.pack('>H', 1), b'\0' * 16, struct.pack('>HH', width, height), b'\0' * 50)
+    traks = [trak(b'vide', "VideoHandler", avc1, [len(x) for x in video_samples], offsets[:frames])]
+    if meta:
+        traks.append(trak(b'meta', "DJI meta", _box(b'djmd', b'\0' * 8), [len(x) for x in meta_samples],
+                          offsets[frames:]))
+    created = 0xe706b79e    # 2026-10-27T20:18:38Z, in seconds since 1904
+    mvhd = _full_box(b'mvhd', struct.pack('>IIII', created, created, 30000, 1000 * frames), b'\0' * 80)
+    udta = []
+    if cover:
+        udta = [_box(b'udta', _full_box(b'meta', _full_box(b'hdlr', b'\0' * 4, b'mdirappl', b'\0' * 9),
+                                         _box(b'ilst', _box(b'covr', _box(b'data', b'\0\0\0\x0d\0\0\0\0', JPEG)))))]
+    return head + mdat + _box(b'moov', mvhd, *traks, *udta)
+
+
+def video_file(path, **kw):
+    """A DJI MP4 written at path (dji_video's arguments)"""
+    os.makedirs(os.path.dirname(str(path)) or '.', exist_ok=True)
+    with open(path, 'wb') as out:
+        out.write(dji_video(**kw))
+    return str(path)
 
 
 def fake_process(path, output_dir, jobs=None, progress=None, **kw):

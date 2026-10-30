@@ -4,7 +4,7 @@
 import {useEffect, useRef, useState} from "preact/hooks";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
 import {count, failedText, formatBytes} from "../core/format";
-import {isImage, type Progress, uploadFiles} from "../core/upload";
+import {FLIGHT_FILES_ACCEPT, flightFilesText, isFlightFile, type Progress, uploadFiles} from "../core/upload";
 import {ask} from "../components/dialog";
 import {Folder, Images} from "../components/icons";
 
@@ -36,8 +36,8 @@ const HINT = "The R-JPEGs of a flight (the _T.JPG files). Visible images can be 
 
 // What is said when files were chosen but none is an image a flight takes (TIFFs, a converted dataset's outputs...)
 export function noImagesText(files: File[]): string {
-    return "None of the " + count(files.length, "file", "files") + " chosen is a JPEG: a flight is made of a DJI " +
-        "drone's R-JPEGs (the _T.JPG files), and other files (TIFFs among them) are left out.";
+    return "None of the " + count(files.length, "file", "files") + " chosen is a JPEG or an MP4: a flight is made of " +
+        "a DJI drone's R-JPEGs (the _T.JPG files) and its videos, and other files (TIFFs among them) are left out.";
 }
 
 export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onClose, onError, load}: Props) {
@@ -66,7 +66,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
 
     function choose(files: File[]) {
         setChosen(files);
-        const images = files.filter(isImage);
+        const images = files.filter(isFlightFile);
         setError(files.length && !images.length ? noImagesText(files) : "");
         if (images.length) {
             setName((n) => n || images[0].webkitRelativePath.split("/")[0] || "Thermal flight");
@@ -132,7 +132,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
         setError("");
         setStage("uploading");
         m.controller = new AbortController();
-        setProgress({sent: 0, total: files.filter(isImage).length, bytesSent: 0, bytesTotal: 1});
+        setProgress({sent: 0, total: files.filter(isFlightFile).length, bytesSent: 0, bytesTotal: 1});
         const sending = uploadFiles((u, i) => fetch(u, i), api + "datasets/" + m.dataset.id + "/upload", csrfToken(),
                                     files, setProgress, {signal: m.controller.signal});
         m.sending = sending;
@@ -150,7 +150,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
     async function create() {
         const n = name.trim(), path = folder.trim();
         if (!n) return setError("Give the flight a name.");
-        if (source === "upload" && !chosen.some(isImage)) {
+        if (source === "upload" && !chosen.some(isFlightFile)) {
             return setError(chosen.length ? noImagesText(chosen) : "Choose the images to upload.");
         }
         if (source === "folder" && !path) return setError("Enter the folder's path.");
@@ -173,7 +173,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
         }
     }
 
-    const images = chosen.filter(isImage);
+    const images = chosen.filter(isFlightFile);
     const bytes = images.reduce((s, f) => s + f.size, 0);
     const pct = progress && progress.bytesTotal ? Math.round(progress.bytesSent / progress.bytesTotal * 100) : 0;
     const locked = stage !== "idle";
@@ -197,7 +197,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
                 <div class="field" id="new-upload" hidden={source !== "upload"}>
                     <div class="pickers">
                         <label class={"button default" + (locked ? " disabled" : "")}><Images/> Choose images
-                            <input type="file" id="new-files" multiple accept=".jpg,.jpeg,image/jpeg" hidden
+                            <input type="file" id="new-files" multiple accept={FLIGHT_FILES_ACCEPT} hidden
                                    disabled={locked}
                                    onChange={(e) => choose(Array.from(e.currentTarget.files || []))}/></label>
                         <label class={"button default" + (locked ? " disabled" : "")}><Folder/> Choose a folder
@@ -206,7 +206,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
                                    onChange={(e) => choose(Array.from(e.currentTarget.files || []))}/></label>
                     </div>
                     <p class="help" id="new-chosen">
-                        {chosen.length ? images.length + " image(s), " + formatBytes(bytes) +
+                        {chosen.length ? flightFilesText(images) + ", " + formatBytes(bytes) +
                             (chosen.length > images.length ?
                                 " (" + (chosen.length - images.length) + " other file(s) left out)" : "") : HINT}
                     </p>

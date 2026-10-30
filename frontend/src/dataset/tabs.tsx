@@ -1,10 +1,10 @@
 // The dataset page's figures and its Files, Problems and WebODM plan tabs, drawn from the analysis
 import type {ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
-import {type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, fileKind, formatNumber, kindLabel, severityLabel,
+import {count, type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, fileKind, formatNumber, kindLabel, severityLabel,
         zoneText} from "../core/format";
 import {formatTemp, unitSymbol, userUnit} from "../core/units";
-import {isImage} from "../core/upload";
+import {isImage, isVideo} from "../core/upload";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask, dialog} from "../components/dialog";
 import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
@@ -33,7 +33,8 @@ export function Overview({d}: {d: DatasetFigures}) {
     const a = d.analysis || {};
     if (!a.files) return null;
     const o = overview(a);
-    const others = [o.visual ? o.visual + " visual" : "", o.other ? o.other + " other file(s)" : ""].filter(Boolean);
+    const others = [o.visual ? o.visual + " visual" : "", o.videos ? count(o.videos, "video", "videos") : "",
+                    o.other ? o.other + " other file(s)" : ""].filter(Boolean);
     const items: [string, string][] = [["Thermal frames", o.frames + (others.length ? " (and " + others.join(", ") + ")" : "")]];
     (a.cameras || []).forEach((c) => items.push(["Camera", (c.model || "?") + (c.width ? " · " + c.width + "×" + c.height : "") +
         (c.serial ? " · " + c.serial : "") + " · " + c.frames + " frame(s)"]));
@@ -301,7 +302,7 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
                         const href = frames && r.kind === "thermal" ? frames + "?frame=" + encodeURIComponent(r.path) : null;
                         const kind = fileKind(r);
                         return (<tr key={r.path} class={"kind-" + kind}>
-                            {showThumbs && <td class="thumb">{isImage({name: r.path} as File) &&
+                            {showThumbs && <td class="thumb">{(isImage({name: r.path} as File) || isVideo({name: r.path} as File)) &&
                                 <img loading="lazy" alt="" src={thumbs + encodeURIComponent(r.path)}/>}</td>}
                             {FILES_TAB_COLUMNS.map((c) => (<td key={c.key} class={columnType(c.key) === "flag" ? "flag" : undefined}>
                                 {columnType(c.key) === "flag" ? (r[c.key] ? <Check title="Yes"/> : "") :

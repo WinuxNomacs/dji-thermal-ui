@@ -64,7 +64,7 @@ export interface Analysis {
 export function captureTime(t: unknown): string { return t ? String(t).replace(/^(\d{4}):(\d{2}):/, "$1-$2-") : ""; }
 
 export interface Overview {
-    frames: number; visual: number; other: number; tmin?: number; tmax?: number; first?: string; last?: string;
+    frames: number; visual: number; videos: number; other: number; tmin?: number; tmax?: number; first?: string; last?: string;
     altitude?: number | null; gps?: number;
 }
 
@@ -73,7 +73,8 @@ export function overview(a: Analysis): Overview {
     const files = a.files || [];
     const thermal = files.filter((f) => f.kind === "thermal");
     const visual = files.filter((f) => fileKind(f) === "visual").length;
-    const out: Overview = {frames: thermal.length, visual, other: files.length - thermal.length - visual};
+    const videos = files.filter((f) => f.kind === "video").length;
+    const out: Overview = {frames: thermal.length, visual, videos, other: files.length - thermal.length - visual - videos};
     if (!thermal.length) return out;
     const present = (v: number | null | undefined): v is number => v !== null && v !== undefined;
     const mins = thermal.map((f) => f.tmin).filter(present);
@@ -177,7 +178,8 @@ export interface FilesView {filters: Condition[]; sort: string; desc: boolean}
 
 // A file's row with what the Files tab works out: whether it is a thermal frame, and whether it has problems
 export function flagged(f: FileRow, flags: Record<string, Problem[]>): boolean {
-    return !!flags[f.path] || f.kind !== "thermal" && f.kind !== "not_thermal" || !!(f.warnings || []).length;
+    return !!flags[f.path] || !["thermal", "not_thermal", "video"].includes(f.kind) || !!f.reason && f.kind === "video" ||
+        !!(f.warnings || []).length;
 }
 
 
