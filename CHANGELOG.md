@@ -27,6 +27,8 @@ All notable changes are recorded here. The format follows
 
 - The `.env` values (the Mapbox token, WebODM's login) are read and written by one module; the setting
   `MAPBOX_ENV_FILES` is now `ENV_FILES`.
+- dji-thermal-cli 1.9.1 (was 1.8.0). It reads a DSM, ODM's `dsm.tif` included, with nothing more installed, ahead of
+  WebODM's DSM under the mosaics. 1.9.0's option to use DJI's own Thermal SDK comes with it, unused here.
 
 ## [0.9.0] - 2026-10-29
 
