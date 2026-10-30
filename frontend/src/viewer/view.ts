@@ -279,6 +279,8 @@ interface Report {
 export interface Kind {
     frames?: number; oblique?: number; unusable?: number; width?: number; height?: number; gsd_m?: number;
     report?: Report | null; normalization?: number[] | null; files?: string[];
+    // brought back from WebODM: the task's name; the DSM's pixel size, lowest ground and heights above it
+    task_name?: string; pixel_m?: number; base_m?: number; heights?: Stats | null;
 }
 
 // The visual mosaic, as the server keeps it (thermal_mosaics.build_visual) and dji-thermal-cli reports it
@@ -316,8 +318,21 @@ export function visualRows(v: Maybe<VisualMosaic>): [string, string][] {
 }
 
 // What dji-thermal-cli reports about a mosaic: how many frames, how well they agree and line up
+// What WebODM's orthophoto or DSM says of itself: the task it came from; the DSM's size and heights
+function webodmRows(kind: Kind): [string, string][] {
+    const rows: [string, string][] = [["From", "WebODM's task " + kind.task_name]];
+    if (kind.width && kind.pixel_m) {
+        rows.push(["Size", kind.width + " × " + kind.height + " px at " + formatNumber(kind.pixel_m * 100, 1, " cm")]);
+    }
+    const h = kind.heights;
+    if (h && h.max !== undefined) rows.push(["Heights", formatNumber(h.min, 1) + " to " + formatNumber(h.max, 1, " m")]);
+    if (kind.base_m !== undefined) rows.push(["Lowest ground", formatNumber(kind.base_m, 1, " m as WebODM gives it")]);
+    return rows;
+}
+
 export function reportRows(kind: Maybe<Kind>): [string, string][] {
     if (!kind) return [];
+    if (kind.task_name !== undefined) return webodmRows(kind);
     const r = kind.report || {}, rows: [string, string][] = [];
     rows.push(["Frames", kind.frames + " placed" + (kind.oblique ? ", " + kind.oblique + " oblique left out" : "") +
         (kind.unusable ? ", " + kind.unusable + " unusable" : "")]);

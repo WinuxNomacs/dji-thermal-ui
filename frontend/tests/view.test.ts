@@ -31,6 +31,16 @@ describe("the view in the URL", () => {
     });
 });
 
+describe("the report of what WebODM brought back", () => {
+    it("names its task, and gives the DSM's size, heights and lowest ground", () => {
+        expect(reportRows({task_name: "Roof", unit: "C"} as never)).toEqual([["From", "WebODM's task Roof"]]);
+        expect(reportRows({task_name: "Roof", width: 400, height: 300, pixel_m: 0.026, base_m: 212.04,
+                           heights: {min: -0.3, max: 7.26}})).toEqual([
+            ["From", "WebODM's task Roof"], ["Size", "400 × 300 px at 2.6 cm"], ["Heights", "-0.3 to 7.3 m"],
+            ["Lowest ground", "212.0 m as WebODM gives it"]]);
+    });
+});
+
 describe("the tabs' values", () => {
     it("are temperatures in the user's unit, but for the view angles and heights", () => {
         setUserUnit("F");
