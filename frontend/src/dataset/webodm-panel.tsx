@@ -5,8 +5,8 @@ import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {count, formatBytes} from "../core/format";
 import {Download, Save, Stop, Upload, Warning} from "../components/icons";
-import {addedRow, applyPreset, type Choices, FOLLOW_MS, FOLLOWED, type OptionRow, planRows, sentOptions, type TaskInfo,
-        taskBadge, taskLabel, type WebODMProject, type WebODMTask} from "./webodm";
+import {addedRow, applyPreset, asksDsm, type Choices, FOLLOW_MS, FOLLOWED, type OptionRow, planRows, sentOptions,
+        type TaskInfo, taskBadge, taskLabel, type WebODMProject, type WebODMTask, withDsm} from "./webodm";
 
 const SEARCH_MS = 300;
 
@@ -55,6 +55,7 @@ export function WebODMPanel({api, publicUrl, conversion, onClose, onMade}: Panel
     const [preset, setPreset] = useState("");
     const [applied, setApplied] = useState<number | null>(null);
     const [presetName, setPresetName] = useState("");
+    const [dsm, setDsm] = useState(false);
     const [message, setMessage] = useState<{text: string; cls: string} | null>(null);
     const [busy, setBusy] = useState(false);
     const searched = useRef(0);
@@ -72,7 +73,9 @@ export function WebODMPanel({api, publicUrl, conversion, onClose, onMade}: Panel
                                               getJson<{projects: WebODMProject[]; count: number}>(api + "webodm/projects")]);
             if (!c.ok) return say(errorText(c.data, "Could not ask WebODM."));
             setChoices(c.data);
-            setRows(planRows(r.data.options, c.data.options));
+            const planned = planRows(r.data.options, c.data.options);
+            setRows(planned);
+            setDsm(asksDsm(sentOptions(planned).options));
             if (c.data.presets.some((x) => x.id === r.data.preset)) setPreset(String(r.data.preset));
             if (p.ok) {
                 setProjects(p.data);
@@ -157,7 +160,7 @@ export function WebODMPanel({api, publicUrl, conversion, onClose, onMade}: Panel
         setMessage(null);
         try {
             const body: Record<string, unknown> = {
-                name: name.trim(), options: sent.options, node: node === "auto" ? null : Number(node),
+                name: name.trim(), options: withDsm(sent.options, dsm), node: node === "auto" ? null : Number(node),
                 project: newProject ? null : project, project_name: projectName.trim(),
             };
             if (applied !== null) body.preset = applied;
@@ -212,6 +215,9 @@ export function WebODMPanel({api, publicUrl, conversion, onClose, onMade}: Panel
                                  title="Ticks the preset's options with its values; the others are left as they are"
                                  onClick={apply}>Apply</button>
                 </div>
+                <label class="check webodm-dsm" title="For the mosaics to be projected onto: brought back once the task is completed">
+                    <input type="checkbox" data-action="webodm-dsm" checked={dsm} onChange={(e) => setDsm(e.currentTarget.checked)}/>
+                    {" "}Make a DSM <span class="text-muted">(slower: sends dsm, and leaves fast-orthophoto out)</span></label>
                 {rows.length ? <div class="table-scroll"><table class="table webodm-options-table">
                     <thead><tr><th></th><th>Option</th><th>Value</th><th>Why</th></tr></thead>
                     <tbody>{rows.map((r, i) => (<tr key={r.name} class={r.on ? undefined : "off"} data-option={r.name}>
@@ -258,11 +264,12 @@ export function WebODMPanel({api, publicUrl, conversion, onClose, onMade}: Panel
     </div>);
 }
 
-interface TaskProps {api: string; task: WebODMTask; shown: boolean; onChange: () => void}
+interface TaskProps {api: string; task: WebODMTask; shown: boolean; dsmShown: boolean; onChange: () => void}
 
 // A task made in WebODM, on its conversion's card: asked about while queued or running; once completed, its
-// orthophoto can be brought back (shown: the one the viewer shows is its)
-function TaskLine({api, task, shown, onChange}: TaskProps) {
+// orthophoto can be brought back (shown: the one the viewer shows is its), and its DSM when it asked for one (dsmShown:
+// the conversion's is its)
+function TaskLine({api, task, shown, dsmShown, onChange}: TaskProps) {
     const [t, setT] = useState(task);
     const [problem, setProblem] = useState("");
     useEffect(() => setT(task), [task]);
@@ -287,8 +294,24 @@ function TaskLine({api, task, shown, onChange}: TaskProps) {
         onChange();
     }
 
-    const pct = Math.round((t.progress || 0) * 100), orthophoto = api + "webodm-tasks/" + t.id + "/orthophoto";
-    const downloading = t.orthophoto_status === "downloading", got = Math.round((t.orthophoto_progress || 0) * 100);
+    const pct = Math.round((t.progress || 0) * 100);
+    const busy = t.orthophoto_status === "downloading" || t.dsm_status === "downloading";
+    // An asset of the task brought back here: its button, or its download's progress and Cancel
+    const asset = (name: "orthophoto" | "dsm", label: string, title: string, again: boolean) => {
+        const url = api + "webodm-tasks/" + t.id + "/" + name, got = Math.round((t[`${name}_progress`] || 0) * 100);
+        const error = t[`${name}_error`];
+        return (<div class={"webodm-" + name}>
+            {t[`${name}_status`] === "downloading" ? <>
+                <span class="text-info">Bringing the {label} back…</span>{" "}
+                <button type="button" class="button default small" data-action={"webodm-" + name + "-cancel"}
+                        onClick={() => act("DELETE", url)}><Stop/> Cancel</button>
+                <div class="progress row-progress"><div class="progress-bar active" style={{width: got + "%"}}>{got}%</div></div>
+            </> : <button type="button" class="button default small" data-action={"webodm-" + name} title={title}
+                          disabled={busy} onClick={() => act("POST", url)}>
+                <Download/> {again ? "Bring the " + label + " back again" : "Bring the " + label + " here"}</button>}
+            {error && <div class="text-danger"><Warning/> {error}</div>}
+        </div>);
+    };
     return (<li class="webodm-task" data-task={t.id}>
         <span class="webodm-task-name">WebODM: {t.link ? <a href={t.link} target="_blank" rel="noopener noreferrer">{t.name}</a>
             : t.name}</span>
@@ -302,29 +325,19 @@ function TaskLine({api, task, shown, onChange}: TaskProps) {
                     onClick={() => act("DELETE", api + "webodm-tasks/" + t.id)}>×</button>}
         {(t.status === "uploading" || t.status === "running") &&
             <div class="progress row-progress"><div class="progress-bar active" style={{width: pct + "%"}}>{pct}%</div></div>}
-        {t.status === "completed" && <div class="webodm-orthophoto">
-            {downloading ? <>
-                <span class="text-info">Bringing the orthophoto back…</span>{" "}
-                <button type="button" class="button default small" data-action="webodm-orthophoto-cancel"
-                        onClick={() => act("DELETE", orthophoto)}><Stop/> Cancel</button>
-                <div class="progress row-progress"><div class="progress-bar active" style={{width: got + "%"}}>{got}%</div></div>
-            </> : <>
-                <button type="button" class="button default small" data-action="webodm-orthophoto"
-                        title="Download its orthophoto, to view, measure and compare it beside the mosaics"
-                        onClick={() => act("POST", orthophoto)}>
-                    <Download/> {shown ? "Bring it back again" : "Bring the orthophoto here"}</button>
-            </>}
-            {t.orthophoto_error && <div class="text-danger"><Warning/> {t.orthophoto_error}</div>}
-        </div>}
+        {t.status === "completed" && asset("orthophoto", "orthophoto",
+                                           "Download its orthophoto, to view, measure and compare it beside the mosaics", shown)}
+        {t.status === "completed" && t.dsm_asked && asset("dsm", "DSM",
+                                                          "Download its surface model, for the mosaics to be projected onto", dsmShown)}
         {t.error && <div class="text-danger"><Warning/> {t.error}</div>}
         {problem && <div class="text-warning">{problem}</div>}
     </li>);
 }
 
-interface TasksProps {api: string; tasks: WebODMTask[]; shown?: number | null; onChange: () => void}
+interface TasksProps {api: string; tasks: WebODMTask[]; shown?: number | null; dsm?: number | null; onChange: () => void}
 
-export function WebODMTasks({api, tasks, shown, onChange}: TasksProps) {
+export function WebODMTasks({api, tasks, shown, dsm, onChange}: TasksProps) {
     if (!tasks.length) return null;
     return <ul class="webodm-tasks">{tasks.map((t) => <TaskLine key={t.id} api={api} task={t} shown={t.id === shown}
-                                                                onChange={onChange}/>)}</ul>;
+                                                                dsmShown={t.id === dsm} onChange={onChange}/>)}</ul>;
 }

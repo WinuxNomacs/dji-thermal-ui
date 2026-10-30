@@ -269,6 +269,8 @@ def conversion_summary(c):
         'dsm': webodm_tasks.dsm_summary(c),
         # The DSM the mosaics were built on: {task_name, height_cell}, or None (their own heights)
         'mosaics_dsm': (c.mosaics or {}).get('dsm'),
+        # The mosaics' pixel size, which their height cell is counted in
+        'mosaics_gsd_m': ((c.mosaics or {}).get('kinds', {}).get('as_converted') or {}).get('gsd_m'),
         'file_count': c.file_count,
         'size': int(c.size * 1024 * 1024),
         'created_at': c.created_at,

@@ -955,6 +955,9 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .webodm-tasks { list-style: none; margin: 4px 0 0; padding: 0; }
 .webodm-task { padding: 2px 0; }
 .webodm-task .button, .webodm-task .icon-button { margin-left: 6px; }
-.webodm-orthophoto { margin: 2px 0 0 12px; }
-.webodm-orthophoto > .button:first-child { margin-left: 0; }
+.webodm-orthophoto, .webodm-task .webodm-dsm { margin: 2px 0 0 12px; }
+.webodm-orthophoto > .button:first-child, .webodm-task .webodm-dsm > .button:first-child { margin-left: 0; }
 .webodm-shown { margin-top: 4px; }
+.webodm-dsm-line .dsm-cell { width: 5em; }
+.webodm-dsm-line .dsm-built { margin-top: 2px; }
+.webodm-panel .webodm-dsm { display: block; margin-bottom: 6px; }

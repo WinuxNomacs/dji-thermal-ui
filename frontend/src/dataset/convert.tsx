@@ -3,7 +3,7 @@
 import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
-import {fileKind, formatNumber, mosaicLabel, stageText} from "../core/format";
+import {fileKind, formatNumber, type Maybe, mosaicLabel, stageText} from "../core/format";
 import {convertDelta, formatDelta, formatTemp, unitOf, unitSymbol, userUnit} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/icons";
@@ -13,6 +13,7 @@ import {badgeClass, type Conversion, conversionLabel, type Detail, figures, isBu
 import {DISTANCE_MODES, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
         UNIT_LABELS} from "./settings";
+import {CELL_RANGE} from "./webodm";
 import {WebODMPanel, WebODMTasks} from "./webodm-panel";
 
 export interface ConvertDataset {id: number; analysis?: Analysis | null; conversions?: Conversion[]}
@@ -194,6 +195,61 @@ interface CardProps {
     onChange: () => void;
 }
 
+// The cell's size on the ground, at the mosaics' pixel size (known once they are built)
+function cellText(cell: number, gsd: Maybe<number>): string {
+    return gsd ? " (about " + formatNumber(cell * gsd * 100, 0, " cm") + ")" : "";
+}
+
+interface DsmProps {c: Conversion; base: string; onChange: () => void; build: () => void}
+
+// WebODM's DSM brought back: whether the mosaics are projected onto it and on what cell, and whether the mosaics built
+// were (else they can be built again)
+function DsmLine({c, base, onChange, build}: DsmProps) {
+    const dsm = c.dsm!;
+    const [cell, setCell] = useState(String(dsm.height_cell));
+    const [problem, setProblem] = useState("");
+    useEffect(() => setCell(String(dsm.height_cell)), [dsm.height_cell]);
+
+    async function change(body: Record<string, unknown>) {
+        const r = await readJson(await sendJson(base + c.id + "/dsm", "PATCH", body));
+        setProblem(r.ok ? "" : errorText(r.data, "Could not change it."));
+        onChange();
+    }
+
+    function setCellSize(value: string) {
+        const n = Number(value);
+        if (!Number.isInteger(n) || n < CELL_RANGE[0] || n > CELL_RANGE[1]) {
+            return setProblem("The cell is a whole number of pixels, " + CELL_RANGE[0] + " to " + CELL_RANGE[1] + ".");
+        }
+        if (n !== dsm.height_cell) change({height_cell: n});
+    }
+
+    async function remove() {
+        await sendJson(base + c.id + "/dsm", "DELETE");
+        onChange();
+    }
+
+    const built = c.mosaics_dsm, ready = c.mosaic_status === "ready";
+    const same = dsm.use ? built?.height_cell === dsm.height_cell : !built;
+    return (<div class="webodm-shown webodm-dsm-line text-muted">
+        WebODM's DSM{dsm.task_name ? " of " + dsm.task_name : ""} is here.{" "}
+        <label class="check"><input type="checkbox" data-action="dsm-use" checked={dsm.use}
+                                    onChange={(e) => change({use: e.currentTarget.checked})}/> Project the mosaics onto
+            it</label>, on height cells of{" "}
+        <input type="number" class="dsm-cell" aria-label="The height cell, in mosaic pixels" min={CELL_RANGE[0]}
+               max={CELL_RANGE[1]} step="1" value={cell} disabled={!dsm.use}
+               onInput={(e) => setCell(e.currentTarget.value)} onChange={(e) => setCellSize(e.currentTarget.value)}/> px
+        {cellText(Number(cell) || dsm.height_cell, c.mosaics_gsd_m)}.{" "}
+        <button type="button" class="button default small" data-action="dsm-remove"
+                title="Removed here only: WebODM keeps its own; the mosaics built on it are kept" onClick={remove}>Remove</button>
+        {ready && !same && <div class="dsm-built">
+            The mosaics were built {built ? "on WebODM's DSM, on cells of " + built.height_cell + " px" : "on their own heights"}.{" "}
+            <button type="button" class="button default small" data-action="dsm-build" onClick={build}>
+                Build the mosaics again</button></div>}
+        {problem && <div class="text-danger"><Warning/> {problem}</div>}
+    </div>);
+}
+
 function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}: CardProps) {
     const [menu, setMenu] = useState(false);
     const [detail, setDetail] = useState<Detail | null>(null);
@@ -276,7 +332,9 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
             <button type="button" class="button default small" data-action="orthophoto-remove"
                     title="Removed here only: WebODM keeps its own" onClick={removeOrthophoto}>Remove</button>
         </div>}
-        <WebODMTasks api={api} tasks={c.webodm_tasks || []} shown={c.orthophoto?.task ?? null} onChange={onChange}/>
+        {c.dsm && <DsmLine c={c} base={base} onChange={onChange} build={() => act("mosaics", c)}/>}
+        <WebODMTasks api={api} tasks={c.webodm_tasks || []} shown={c.orthophoto?.task ?? null} dsm={c.dsm?.task ?? null}
+                     onChange={onChange}/>
         {webodm && <WebODMPanel api={api} publicUrl={publicUrl} conversion={c.id} onClose={() => setWebodm(false)}
                                 onMade={onChange}/>}
         {shown && (detail ? <Results d={detail} base={base} frames={ready ? viewer + c.id + "/frame" : null}/> :

@@ -1,7 +1,7 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {addedRow, applyPreset, type NodeOption, optionRow, planRows, sentOptions, type TaskInfo, taskLabel,
-        type WebODMTask} from "../src/dataset/webodm";
+import {addedRow, applyPreset, asksDsm, type NodeOption, optionRow, planRows, sentOptions, type TaskInfo, taskLabel,
+        type WebODMTask, withDsm} from "../src/dataset/webodm";
 import {WebODMPanel, WebODMTasks} from "../src/dataset/webodm-panel";
 import {calls, jsonResponse, server, ticks} from "./helpers";
 
@@ -78,6 +78,13 @@ describe("the WebODM options", () => {
         expect(again[1]).toMatchObject({on: true, value: false});
     });
 
+    it("asks for a DSM with fast-orthophoto left out, and leaves the options as they are otherwise", () => {
+        const options = [{name: "fast-orthophoto", value: true}, {name: "dsm", value: false}, {name: "pc-quality", value: "low"}];
+        expect(withDsm(options, true)).toEqual([{name: "pc-quality", value: "low"}, {name: "dsm", value: true}]);
+        expect(withDsm(options, false)).toBe(options);
+        expect([asksDsm(options), asksDsm([{name: "dsm", value: "true"}])]).toEqual([false, true]);
+    });
+
     it("labels a task by where it is", () => {
         expect(taskLabel(TASK)).toBe("Uploading 50% (1.0 KB of 2.0 KB)");
         expect(taskLabel({...TASK, status: "running", progress: 0.42})).toBe("Processing in WebODM 42%");
@@ -136,6 +143,18 @@ describe("Process in WebODM", () => {
                       {name: "dsm", value: true}]});
         expect(made).toHaveBeenCalled();
         expect(closed).toHaveBeenCalled();
+    });
+
+    it("makes a DSM when ticked: dsm sent and fast-orthophoto left out", async () => {
+        const {fetchFn} = panel({"POST /api/conversions/3/webodm": {id: 9}});
+        await ticks();
+        expect($<HTMLInputElement>('[data-action="webodm-dsm"]')!.checked).toBe(false);
+        document.querySelector<HTMLInputElement>('[aria-label="Send fast-orthophoto"]')!.click();
+        $<HTMLInputElement>('[data-action="webodm-dsm"]')!.click();
+        await ticks();
+        await press("webodm-start");
+        expect(sent(fetchFn, "POST /api/conversions/3/webodm").options).toEqual([
+            {name: "radiometric-calibration", value: "none"}, {name: "dsm", value: true}]);
     });
 
     it("makes a new project, named as typed, and says what WebODM refused", async () => {
@@ -252,7 +271,27 @@ describe("the tasks made in WebODM", () => {
             {...done, id: 10}]}/>, root());
         expect(text('[data-task="9"] .webodm-orthophoto .text-danger')).toBe("WebODM's orthophoto holds colours");
         expect(text('[data-task="9"] [data-action="webodm-orthophoto"]')).toBe("Bring the orthophoto here");
-        expect(text('[data-task="10"] [data-action="webodm-orthophoto"]')).toBe("Bring it back again");
+        expect(text('[data-task="10"] [data-action="webodm-orthophoto"]')).toBe("Bring the orthophoto back again");
+    });
+
+    it("brings back the DSM of a task that asked for one, one download at a time", async () => {
+        const done = {...TASK, status: "completed", progress: 1};
+        const fetchFn = server({"POST /api/webodm-tasks/10/dsm": {...done, id: 10, dsm_asked: true, dsm_status: "downloading",
+                                                                  dsm_progress: 0.5}});
+        vi.stubGlobal("fetch", fetchFn);
+        render(<WebODMTasks api="/api/" onChange={() => {}} dsm={10} tasks={[
+            {...done, dsm_asked: false}, {...done, id: 10, dsm_asked: true},
+            {...done, id: 11, dsm_asked: true, orthophoto_status: "downloading", dsm_error: "not a readable GeoTIFF"}]}/>,
+               root());
+        expect($('[data-task="9"] [data-action="webodm-dsm"]')).toBeNull();
+        expect(text('[data-task="10"] [data-action="webodm-dsm"]')).toBe("Bring the DSM back again");
+        expect($<HTMLButtonElement>('[data-task="11"] [data-action="webodm-dsm"]')!.disabled).toBe(true);
+        expect(text('[data-task="11"] .webodm-dsm .text-danger')).toBe("not a readable GeoTIFF");
+        $('[data-task="10"] [data-action="webodm-dsm"]')!.click();
+        await ticks();
+        expect(calls(fetchFn)).toEqual(["POST /api/webodm-tasks/10/dsm"]);
+        expect(text('[data-task="10"] .webodm-dsm')).toContain("Bringing the DSM back… Cancel50%");
+        expect($<HTMLButtonElement>('[data-task="10"] [data-action="webodm-orthophoto"]')!.disabled).toBe(true);
     });
 
     it("follows a task queued or running in WebODM, and says when WebODM can't be asked", async () => {
