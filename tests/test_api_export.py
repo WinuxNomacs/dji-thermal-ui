@@ -6,7 +6,7 @@ import json
 import tarfile
 
 from dji_thermal_ui.analyzer.models import Finding, Project, ThermalConversion, ThermalDataset, ThermalMeasurement
-from tests.fakes import converted, dataset, server_folder
+from tests.fakes import converted, dataset, server_folder, video_file
 
 PROJECTS = "/api/projects"
 
@@ -81,12 +81,14 @@ def test_flights_not_in_the_project_or_not_ids_are_refused(api):
     assert api.get("{}/999/export".format(PROJECTS)).status_code == 404
 
 
-def test_a_folder_flight_s_images_are_copied_from_its_folder_without_the_other_files(api, tmp_path):
+def test_a_folder_flight_s_images_and_videos_are_copied_from_its_folder_without_the_other_files(api, tmp_path):
     root = server_folder(tmp_path / "flight", ('DJI_0001_T.JPG', 'sub/DJI_0002_T.jpg', 'notes.txt'))
+    video_file(tmp_path / "flight" / 'DJI_0003_T.MP4')
     d = dataset(source='folder', folder=root)
     tar = archive(api.get("{}/{}/export.tar".format(PROJECTS, d.project_id)))
     base = 'datasets/{}/images/'.format(d.id)
-    assert [n for n in tar.getnames() if n != 'manifest.json'] == [base + 'DJI_0001_T.JPG', base + 'sub/DJI_0002_T.jpg']
+    assert [n for n in tar.getnames() if n != 'manifest.json'] == \
+        [base + 'DJI_0001_T.JPG', base + 'DJI_0003_T.MP4', base + 'sub/DJI_0002_T.jpg']
     assert tar.extractfile(base + 'DJI_0001_T.JPG').read() == (tmp_path / "flight" / 'DJI_0001_T.JPG').read_bytes()
     assert manifest(tar)['flights'][0]['folder'] == root
 

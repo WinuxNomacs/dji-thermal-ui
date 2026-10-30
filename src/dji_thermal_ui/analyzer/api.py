@@ -32,7 +32,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, webodm, webodm_tasks
+from . import backup, basemaps, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, video, webodm, webodm_tasks
 from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
@@ -50,6 +50,8 @@ PALETTE_KEY = 'palette'     # the palette the map pages start with: "" for each 
 LOCALES = ('en-US', 'en-GB', 'en-CA', 'en-AU', 'fr-CA', 'fr-FR', 'de-DE', 'es-ES', 'es-MX', 'it-IT', 'nl-NL',
            'pt-BR', 'pl-PL', 'sv-SE', 'ja-JP', 'ko-KR', 'zh-CN')
 IMAGE_EXTENSIONS = ('.jpg', '.jpeg')
+# What can be uploaded to a flight: its images, and its videos
+UPLOAD_EXTENSIONS = IMAGE_EXTENSIONS + video.VIDEO_EXTENSIONS
 MAX_FOLDER_DEPTH = 4    # subfolders kept from an uploaded folder (e.g. thermal/, 100MEDIA/)
 MAX_NAME_LENGTH = 255
 MAX_DESCRIPTION_LENGTH = 10000
@@ -770,7 +772,7 @@ class DatasetUploadView(DatasetView):
             paths = [f.name for f in files]
         for f, name in zip(files, paths):
             rel = upload_path(name or "")
-            if rel is None or not rel.lower().endswith(IMAGE_EXTENSIONS):
+            if rel is None or not rel.lower().endswith(UPLOAD_EXTENSIONS):
                 skipped.append(name)
                 continue
             dst = path_traversal_check(os.path.join(images_dir, rel), images_dir)
@@ -821,25 +823,42 @@ class DatasetCancelView(DatasetView):
 THUMBNAIL_SIZE = (96, 96)
 
 
+def flight_file(dataset, rel, kind=None):
+    """The path of a file its analysis lists (of that kind, if given), or 404"""
+    rows = (dataset.analysis or {}).get('files') or []
+    if not rel or not any(r.get('path') == rel and (kind is None or r.get('kind') == kind) for r in rows):
+        raise NotFound({'error': "Not a {} of this flight".format('video' if kind == 'video' else 'file')})
+    root = dataset.images_dir()
+    try:
+        path = path_traversal_check(os.path.join(root, rel), root)
+    except SuspiciousFileOperation:
+        raise NotFound({'error': "Not a file of this flight"}) from None
+    if not os.path.isfile(path):
+        raise NotFound({'error': "The file is not there any more"})
+    return path
+
+
+def video_cover(path):
+    """A video's cover picture (a JPEG's bytes), or 404"""
+    try:
+        with video.Reader(path) as r:
+            picture = r.cover()
+    except video.NotVideo:
+        picture = None
+    if picture is None:
+        raise NotFound({'error': "The video has no cover picture"})
+    return picture
+
+
 class DatasetThumbnailView(DatasetView):
     def get(self, request, pk):
-        """A small JPEG of one of the files its analysis lists (?file=), for the Files tab"""
+        """A small JPEG of one of the files its analysis lists (?file=; a video's cover), for the Files tab"""
         from PIL import Image
         from django.http import HttpResponse
-        dataset = get_dataset(pk)
-        rel = request.query_params.get('file') or ""
-        if not rel or rel not in {r.get('path') for r in (dataset.analysis or {}).get('files') or []}:
-            raise NotFound({'error': "Not a file of this flight"})
-        root = dataset.images_dir()
-        try:
-            path = path_traversal_check(os.path.join(root, rel), root)
-        except SuspiciousFileOperation:
-            raise NotFound({'error': "Not a file of this flight"}) from None
-        if not os.path.isfile(path):
-            raise NotFound({'error': "The file is not there any more"})
+        path = flight_file(get_dataset(pk), request.query_params.get('file') or "")
         out = io.BytesIO()
         try:
-            with Image.open(path) as im:
+            with Image.open(io.BytesIO(video_cover(path)) if video.is_video(path) else path) as im:
                 # The JPEG decoder scales down while reading: a few milliseconds a frame
                 im.draft('RGB', THUMBNAIL_SIZE)
                 im = im.convert('RGB')
@@ -848,6 +867,41 @@ class DatasetThumbnailView(DatasetView):
         except (OSError, ValueError):
             raise NotFound({'error': "The file is not an image"}) from None
         response = HttpResponse(out.getvalue(), content_type="image/jpeg")
+        response['Cache-Control'] = 'private, max-age=86400'
+        return response
+
+
+class DatasetVideoView(DatasetView):
+    def get(self, request, pk):
+        """One of its videos (?file=), in ranges, for the player to seek in"""
+        path = flight_file(get_dataset(pk), request.query_params.get('file') or "", 'video')
+        response = download_file_response(request, path, 'inline', accept_ranges=True)
+        response['Content-Type'] = 'video/mp4'
+        response['Cache-Control'] = 'private, max-age=86400'
+        return response
+
+
+class DatasetVideoCoverView(DatasetView):
+    def get(self, request, pk):
+        """A video's cover picture (?file=), as DJI put it in the MP4"""
+        from django.http import HttpResponse
+        path = flight_file(get_dataset(pk), request.query_params.get('file') or "", 'video')
+        response = HttpResponse(video_cover(path), content_type="image/jpeg")
+        response['Cache-Control'] = 'private, max-age=86400'
+        return response
+
+
+class DatasetVideoTrackView(DatasetView):
+    def get(self, request, pk):
+        """A video's track (?file=): {fields, points}, a point per frame (video.TRACK_FIELDS); no points without DJI's
+        metadata"""
+        path = flight_file(get_dataset(pk), request.query_params.get('file') or "", 'video')
+        try:
+            with video.Reader(path) as r:
+                points = r.track()
+        except video.NotVideo as e:
+            raise NotFound({'error': str(e)}) from None
+        response = Response({'fields': video.TRACK_FIELDS, 'points': points})
         response['Cache-Control'] = 'private, max-age=86400'
         return response
 

@@ -4,7 +4,7 @@
 import {useEffect, useRef, useState} from "preact/hooks";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
 import {count, deleteText, failedText, fileKind, type FlightZone, formatDate} from "../core/format";
-import {isImage, type Progress, uploadFiles} from "../core/upload";
+import {FLIGHT_FILES_ACCEPT, isFlightFile, type Progress, uploadFiles} from "../core/upload";
 import {ask, askName, dialog} from "../components/dialog";
 import {ArrowLeft, Check, FileText, Link, Pencil, Play, Plus, Refresh, Stop, Trash, Warning} from "../components/icons";
 import {navigationChanged} from "../core/navigation";
@@ -13,11 +13,15 @@ import {ConvertTab} from "./convert";
 import {type Analysis, filterQuery, type FilesView, newestReady, parseFilters} from "./files";
 import {FilesExport} from "./export";
 import {copyText, FilesTab, Overview, PlanTab, ProblemsTab} from "./tabs";
+import {VideosTab} from "./video-tab";
+import {videosOf} from "./videos";
 import {transferring} from "./webodm";
+import type {Basemap} from "../map/map";
 
 const POLL_MS = 2000;
 
-const TABS = [["files", "Files"], ["problems", "Problems"], ["webodm", "WebODM plan"], ["convert", "Convert"]] as const;
+const TABS = [["files", "Files"], ["videos", "Videos"], ["problems", "Problems"], ["webodm", "WebODM plan"],
+              ["convert", "Convert"]] as const;
 type Tab = typeof TABS[number][0];
 
 export interface Dataset {
@@ -71,10 +75,11 @@ interface Props {
     id: number;
     projectId: number;                          // the project it is in
     projectName: string;
+    basemaps?: Basemap[];
     nav?: (url: string) => void;
 }
 
-export function DatasetPage({api, publicUrl, id, projectId, projectName,
+export function DatasetPage({api, publicUrl, id, projectId, projectName, basemaps = [],
                              nav = (url) => { location.href = url; }}: Props) {
     const projectUrl = publicUrl + "project/" + projectId;
     const url = api + "datasets/" + id;
@@ -177,7 +182,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
         setUnsent(null);
         setNotice("");
         controller.current = new AbortController();
-        setProgress({sent: 0, total: files.filter(isImage).length, bytesSent: 0, bytesTotal: 1});
+        setProgress({sent: 0, total: files.filter(isFlightFile).length, bytesSent: 0, bytesTotal: 1});
         const u = await uploadFiles((x, i) => fetch(x, i), url + "/upload", csrfToken(), files, setProgress,
                                     {signal: controller.current.signal});
         controller.current = null;
@@ -194,7 +199,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
         const input = e.currentTarget as HTMLInputElement;
         const files = Array.from(input.files || []);
         input.value = "";
-        if (!files.some(isImage)) return setNotice("Choose JPEG images (the flight's R-JPEGs).");
+        if (!files.some(isFlightFile)) return setNotice("Choose JPEG images (the flight's R-JPEGs) or the drone's MP4 videos.");
         addImages(files);
     }
 
@@ -210,18 +215,19 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
     }
 
     const a = d.analysis || null;
+    const videos = videosOf(a?.files);
     const analyzing = d.status === "analyzing", uploading = progress !== null;
     // Converting needs no analysis: the tabs show as soon as there are images (or conversions); before the analysis
     // only the Convert tab has something to show, after it the files unless a tab was chosen
     const hasTabs = !!a?.files || !!d.file_count || !!(d.conversions || []).length;
-    const tab: Tab = !a?.files ? "convert" : chosen || "files";
+    const tab: Tab = !a?.files ? "convert" : chosen === "videos" && !videos.length ? "files" : chosen || "files";
     const ready = newestReady(d.conversions);
     const frames = ready ? publicUrl + "conversion/" + ready.id + "/frame" : null;
     const mosaics = (d.conversions || []).find((c) => c.status === "ready" && c.mosaic_status === "ready");
     const serious = (a?.findings || []).filter((f) => f.severity !== "info").length;
     const convertCount = (d.conversions || []).length;
-    const badges: Record<Tab, number | string> = {files: a?.files?.length || "", problems: serious || "", webodm: "",
-                                                   convert: convertCount || ""};
+    const badges: Record<Tab, number | string> = {files: a?.files?.length || "", videos: videos.length || "",
+                                                   problems: serious || "", webodm: "", convert: convertCount || ""};
     const pct = progress && progress.bytesTotal ? Math.round(progress.bytesSent / progress.bytesTotal * 100) : 0;
 
     function showFile(path: string) {
@@ -249,8 +255,8 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                 </div>
                 <div class="page-actions">
                     {d.source === "upload" && !analyzing && !uploading && (
-                        <label class="button default" id="add-images" title="Add images to this flight"><Plus/> Add images
-                            <input type="file" multiple accept=".jpg,.jpeg,image/jpeg" hidden onChange={chooseImages}/></label>)}
+                        <label class="button default" id="add-images" title="Add images or videos to this flight"><Plus/> Add images
+                            <input type="file" multiple accept={FLIGHT_FILES_ACCEPT} hidden onChange={chooseImages}/></label>)}
                     {!analyzing && !uploading && (
                         <button type="button" class="button default" id="analyze"
                                 onClick={() => action("/analyze", "Could not start the analysis.")}>
@@ -287,7 +293,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
 
             {hasTabs && (<>
                 <div class="tabs" role="tablist">
-                    {TABS.filter(([key]) => key === "convert" || a?.files).map(([key, label]) => (
+                    {TABS.filter(([key]) => key === "convert" || a?.files && (key !== "videos" || videos.length)).map(([key, label]) => (
                         <a key={key} href={"#" + key} role="tab" aria-selected={tab === key} class={tab === key ? "active" : ""}
                            data-tab={key} onClick={(e) => { e.preventDefault(); setChosen(key); }}>
                             {label}{badges[key] !== "" && <> <span class="badge">{badges[key]}</span></>}</a>))}
@@ -297,6 +303,8 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName,
                 {exporting && a?.files && <FilesExport api={api} datasetId={d.id} shown={exporting}
                     all={a.files.filter((f) => f.kind === "thermal").map((f) => f.path)} conversions={d.conversions || []}
                     hasVisual={a.files.some((f) => fileKind(f) === "visual")} onClose={() => setExporting(null)}/>}
+                {a?.files && tab === "videos" && <VideosTab url={url} files={a.files} videos={videos} zone={d.flight_zone}
+                                                            basemaps={basemaps}/>}
                 {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}
                 {/* Kept mounted, hidden: its form keeps what was typed while another tab is open */}

@@ -53,7 +53,8 @@ def project_page(request, project_id):
 @ensure_csrf_cookie
 def dataset_page(request, dataset_id):
     dataset = get_object_or_404(ThermalDataset.objects.select_related('project'), pk=dataset_id)
-    return page(request, "dataset.html", title=dataset.name, dataset=dataset, project=dataset.project, entry="dataset")
+    return page(request, "dataset.html", title=dataset.name, dataset=dataset, project=dataset.project, entry="dataset",
+                basemaps=page_basemaps())
 
 
 @ensure_csrf_cookie

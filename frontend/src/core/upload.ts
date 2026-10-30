@@ -12,6 +12,16 @@ export function uploadName(file: File): string {
 }
 
 export function isImage(file: File): boolean { return /\.jpe?g$/i.test(file.name || ""); }
+export function isVideo(file: File): boolean { return /\.mp4$/i.test(file.name || ""); }
+// What a flight takes: its images, and its drone's videos
+export function isFlightFile(file: File): boolean { return isImage(file) || isVideo(file); }
+export const FLIGHT_FILES_ACCEPT = ".jpg,.jpeg,image/jpeg,.mp4,video/mp4";
+
+// "12 image(s)", or "12 image(s) and 1 video(s)" when there are videos
+export function flightFilesText(files: File[]): string {
+    const videos = files.filter(isVideo).length;
+    return files.filter(isImage).length + " image(s)" + (videos ? " and " + videos + " video(s)" : "");
+}
 
 // The upload requests: at most maxFiles images and maxBytes each (a larger image goes alone)
 export function batches<F extends {size: number}>(files: F[], maxFiles = BATCH_FILES, maxBytes = BATCH_BYTES): F[][] {
@@ -52,7 +62,7 @@ export async function uploadFiles(fetchFn: Fetch, url: string, csrf: string, fil
                                   onProgress?: (p: Progress) => void,
                                   options: {signal?: AbortSignal} = {}): Promise<UploadResult> {
     const {signal} = options;
-    const images = files.filter(isImage);
+    const images = files.filter(isFlightFile);
     const queue = batches(images);
     const total = images.length;
     const bytesTotal = sizeOf(images);

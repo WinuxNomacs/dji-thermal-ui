@@ -416,7 +416,7 @@ describe("the dataset page", () => {
         await ticks();
         choose(byId("add-images").querySelector("input")!, [file("notes.txt")]);
         await ticks();
-        expect($(".notice.error")!.textContent).toBe("Choose JPEG images (the flight's R-JPEGs).");
+        expect($(".notice.error")!.textContent).toBe("Choose JPEG images (the flight's R-JPEGs) or the drone's MP4 videos.");
         expect(calls(fetchFn)).not.toContain("POST " + URL + "/upload");
     });
 
