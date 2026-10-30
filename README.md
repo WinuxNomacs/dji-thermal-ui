@@ -253,6 +253,8 @@ WebODM task from them:
   as they are. The ticked options can be kept as a preset of the account's own (the same name changes it). The
   preset last applied is offered first next time.
 - **The processing node** (or WebODM's choice) and the task's name, "flight - dataset" unless changed.
+- **Make a DSM:** asks WebODM for a surface model as well (`dsm`, and `fast-orthophoto` left out, as it makes none),
+  for the mosaics to be projected onto (below). The task takes longer.
 
 **Upload to WebODM** sends the TIFFs in the background, beside conversions, so a long upload holds nothing up: the
 task is made waiting for its images, the TIFFs sent in batches, then the task committed and processed. An upload
@@ -271,6 +273,20 @@ or as their difference. ODM blends the frames, so it doesn't say which frames a 
 to hold temperatures, which the WebODM plan's `radiometric-calibration none` keeps; one of colours is refused. A
 dataset shows one orthophoto: another task's replaces it. The card says which task it came from and can remove it;
 taking that task off the list removes it too. WebODM keeps its own copy either way.
+
+A completed task that was asked for a DSM also has **Bring the DSM here** (one download per task at a time). The DSM
+is kept as WebODM wrote it, once dji-thermal-cli has read it, and the card says it is there:
+
+- **Project the mosaics onto it:** ticked when it arrives. The next time the mosaics are built, the frames are
+  projected onto WebODM's surface instead of the heights dji-thermal-cli estimates from the frames themselves, so
+  roofs and walls line up better at the seams. The mosaic's report says the heights came from the DSM.
+- **The height cell:** the size of the cells the surface is read on, in mosaic pixels (8 to 1024; 16 at first),
+  with its size on the ground once the mosaics are built (16 px was about 24 cm in a test flight, and gave straight
+  roof edges where the default 64 px stepped).
+- **Build the mosaics again** shows when the mosaics were built otherwise (without it, or on another cell).
+
+A dataset keeps one DSM: another task's replaces it, keeping the tick and the cell. **Remove**, or taking its task
+off the list, removes it; the mosaics built on it are kept.
 
 ## Where the data lives
 

@@ -375,8 +375,9 @@ def make_project(m, folder, name, keep_folders=False):
                                 status='canceled' if c.get('status') == 'converting' else c.get('status', 'ready'),
                                 mosaic_status='canceled' if c.get('mosaic_status') == 'building'
                                 else c.get('mosaic_status', ''),
-                                # Its WebODM tasks aren't carried over: the orthophoto shown is kept, not their link
-                                orthophoto=dict(c['orthophoto'], task=None) if c.get('orthophoto') else {})
+                                # Its WebODM tasks aren't carried over: the orthophoto and DSM are kept, not their link
+                                orthophoto=dict(c['orthophoto'], task=None) if c.get('orthophoto') else {},
+                                dsm=dict(c['dsm'], task=None) if c.get('dsm') else {})
                     conversions[c['id']] = conv
                     old = os.path.join(d.data_dir(), 'conversions', str(c['id']))
                     if os.path.isdir(old):

@@ -1012,6 +1012,50 @@ describe("the Convert tab", () => {
         expect(calls(fetchFn)).toContain("DELETE " + API + "conversions/9/orthophoto");
     });
 
+    it("says WebODM's DSM is here, projects the mosaics onto it on the cell typed, offers them again, and removes it", async () => {
+        const dsm = {task: 4, task_name: "Roof - Nadir", downloaded_at: "2026-10-30T10:00:00Z", use: true, height_cell: 16,
+                     pixel_m: 0.05};
+        const conversion = {...CONVERSION, dsm, mosaics_dsm: null, mosaics_gsd_m: 0.015};
+        const fetchFn = routes({...DETAIL, conversions: [conversion]}, {
+            ["PATCH " + API + "conversions/9/dsm"]: conversion, ["DELETE " + API + "conversions/9/dsm"]: conversion,
+            ["POST " + API + "conversions/9/mosaics"]: conversion});
+        page(fetchFn);
+        await ticks();
+        const line = () => card().querySelector(".webodm-dsm-line")!.textContent!.replace(/\s+/g, " ").trim();
+        expect(line()).toMatch(/^WebODM's DSM of Roof - Nadir is here\. Project the mosaics onto it, on height cells of px /);
+        expect(line()).toContain("(about 24 cm). Remove");
+        expect(card().querySelector(".dsm-built")!.textContent!.replace(/\s+/g, " ").trim())
+            .toBe("The mosaics were built on their own heights. Build the mosaics again");
+        const cell = card().querySelector<HTMLInputElement>(".dsm-cell")!;
+        cell.value = "4";
+        cell.dispatchEvent(new Event("input", {bubbles: true}));
+        cell.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        expect(line()).toContain("The cell is a whole number of pixels, 8 to 1024.");
+        cell.value = "32";
+        cell.dispatchEvent(new Event("input", {bubbles: true}));
+        cell.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        expect(line()).toContain("(about 48 cm)");
+        click(card().querySelector<HTMLElement>('[data-action="dsm-use"]')!);
+        await ticks();
+        click(card().querySelector<HTMLElement>('[data-action="dsm-build"]')!);
+        await ticks();
+        click(card().querySelector<HTMLElement>('[data-action="dsm-remove"]')!);
+        await ticks();
+        const sentBodies = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH").map((c) => JSON.parse(c[1]!.body as string));
+        expect(sentBodies).toEqual([{height_cell: 32}, {use: false}]);
+        expect(calls(fetchFn)).toContain("POST " + API + "conversions/9/mosaics");
+        expect(calls(fetchFn)).toContain("DELETE " + API + "conversions/9/dsm");
+    });
+
+    it("says nothing of building again when the mosaics were built as the DSM is set", async () => {
+        const dsm = {task: 4, task_name: "Roof - Nadir", downloaded_at: "", use: true, height_cell: 16, pixel_m: 0.05};
+        page(routes({...DETAIL, conversions: [{...CONVERSION, dsm, mosaics_dsm: {task_name: "Roof - Nadir", height_cell: 16}}]}));
+        await ticks();
+        expect(card().querySelector(".dsm-built")).toBeNull();
+    });
+
     it("offers Process in WebODM only once a dataset is converted", async () => {
         page(routes({...DETAIL, conversions: [{...CONVERSION, status: "failed", mosaic_status: null}]}));
         await ticks();

@@ -1,7 +1,7 @@
 // A dataset's conversions as the Convert tab lists them: their status, figures, results and the links that start one
 import {count, formatBytes, formatDate, type Maybe, type Stage} from "../core/format";
 import {MEASUREMENTS, type Settings} from "./settings";
-import {type Orthophoto, type WebODMTask} from "./webodm";
+import {type Dsm, type Orthophoto, type WebODMTask} from "./webodm";
 
 export interface Conversion {
     id: number;
@@ -24,6 +24,9 @@ export interface Conversion {
     finished_at?: string | null;
     webodm_tasks?: WebODMTask[];
     orthophoto?: Orthophoto | null;
+    dsm?: Dsm | null;
+    mosaics_dsm?: {task_name: string; height_cell: number} | null;    // the DSM the mosaics were built on
+    mosaics_gsd_m?: number | null;
 }
 
 export interface ResultFile {

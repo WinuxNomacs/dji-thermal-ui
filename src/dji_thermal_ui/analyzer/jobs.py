@@ -79,6 +79,8 @@ def mark_interrupted():
     n += WebODMTask.objects.filter(status='uploading').update(status='failed', error=INTERRUPTED, run_id="")
     n += WebODMTask.objects.filter(orthophoto_status='downloading').update(orthophoto_status='failed',
                                                                          orthophoto_error=INTERRUPTED, run_id="")
+    n += WebODMTask.objects.filter(dsm_status='downloading').update(dsm_status='failed', dsm_error=INTERRUPTED,
+                                                                  run_id="")
     return n
 
 

@@ -8,8 +8,9 @@ WebODM, and the project too when the upload made it. Once committed, WebODM is a
 page shows it (refresh).
 
 A completed task's orthophoto can be brought back, by a job on the same worker: downloaded into the conversion's
-webodm folder and kept as temperatures (thermal_mosaics.orthophoto), shown beside its mosaics. A conversion keeps one:
-another task's replaces it."""
+webodm folder and kept as temperatures (thermal_mosaics.orthophoto), shown beside its mosaics. Its DSM likewise, kept
+as WebODM wrote it once dji-thermal-cli has read it, for the mosaics to be projected onto (thermal_mosaics.build). A
+conversion keeps one of each: another task's replaces it. A task brings back one at a time (they share its run_id)."""
 
 import logging
 import os
@@ -17,7 +18,9 @@ import re
 import time
 import uuid
 from datetime import timedelta
+from pathlib import Path
 
+import numpy as np
 from django.core.exceptions import SuspiciousFileOperation
 from django.utils import timezone
 
@@ -36,7 +39,9 @@ FOLLOWED = ('queued', 'running')    # the statuses WebODM is asked about
 OPTION_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,99}$')
 MAX_OPTIONS = 200
 MAX_VALUE = 10000
-ORTHOPHOTO = 'orthophoto.tif'       # the asset brought back
+ASSETS = {'orthophoto': 'orthophoto.tif', 'dsm': 'dsm.tif'}    # what can be brought back: its asset in WebODM
+MIN_CELL, MAX_CELL = 8, 1024        # dji-thermal-cli's bounds of the height cell
+DSM_CELL = 16                       # the mosaics' height cell on WebODM's DSM, in mosaic pixels (24 cm in the DSM test)
 PROGRESS_SECONDS = 0.5              # a download's progress is written at most this often
 DOWNLOAD_SHARE = 0.9                # of its progress; writing it as temperatures is the rest
 
@@ -158,15 +163,40 @@ def summary(task):
     """A task as the conversion's card lists it"""
     out = {k: getattr(task, k) for k in ('id', 'project_id', 'project_name', 'task_id', 'name', 'node', 'status',
                                          'progress', 'uploaded', 'total', 'error', 'created_at',
-                                         'orthophoto_status', 'orthophoto_progress', 'orthophoto_error')}
+                                         'orthophoto_status', 'orthophoto_progress', 'orthophoto_error',
+                                         'dsm_status', 'dsm_progress', 'dsm_error')}
     out['link'] = link(task)
+    out['dsm_asked'] = asked_dsm(task.options)
     return out
+
+
+def asked_dsm(options):
+    """Whether a task's options ask ODM for a DSM"""
+    return any(o.get('name') == 'dsm' and str(o.get('value')).lower() == 'true' for o in options or []
+               if isinstance(o, dict))
 
 
 def orthophoto_summary(conversion):
     """The orthophoto shown, as the card says it: {task, task_name, downloaded_at}, or None"""
     o = conversion.orthophoto or {}
     return {k: o.get(k) for k in ('task', 'task_name', 'downloaded_at')} if o.get('raster') else None
+
+
+def dsm_summary(conversion):
+    """The DSM brought back, as the card says it: {task, task_name, downloaded_at, use, height_cell, pixel_m}, or
+    None"""
+    d = conversion.dsm or {}
+    return {k: d.get(k) for k in ('task', 'task_name', 'downloaded_at', 'use', 'height_cell', 'pixel_m')} \
+        if d.get('raster') else None
+
+
+def used_dsm(conversion):
+    """(the DSM's path, the height cell) when the mosaics are to be projected onto it, else None"""
+    d = conversion.dsm or {}
+    if not d.get('raster') or not d.get('use'):
+        return None
+    path = path_traversal_check(os.path.join(conversion.data_dir(), d['raster']), conversion.data_dir())
+    return path, int(d.get('height_cell') or DSM_CELL)
 
 
 def link(task):
@@ -316,12 +346,20 @@ def check_stale(task):
         if WebODMTask.objects.filter(pk=task.pk, run_id=task.run_id, status='uploading').update(
                 status='failed', error=message, run_id=""):
             task.status, task.error, task.run_id = 'failed', message, ""
-    if task.orthophoto_status == 'downloading' and not jobs.alive(task.run_id):
-        message = "The download stopped before it finished"
-        if WebODMTask.objects.filter(pk=task.pk, run_id=task.run_id, orthophoto_status='downloading').update(
-                orthophoto_status='failed', orthophoto_error=message, run_id=""):
-            task.orthophoto_status, task.orthophoto_error, task.run_id = 'failed', message, ""
+    for asset in ASSETS:
+        if getattr(task, asset + '_status') == 'downloading' and not jobs.alive(task.run_id):
+            message = "The download stopped before it finished"
+            if WebODMTask.objects.filter(pk=task.pk, run_id=task.run_id, **{asset + '_status': 'downloading'}).update(
+                    run_id="", **{asset + '_status': 'failed', asset + '_error': message}):
+                setattr(task, asset + '_status', 'failed')
+                setattr(task, asset + '_error', message)
+                task.run_id = ""
     return task
+
+
+def downloading(task):
+    """Whether something of the task is being brought back"""
+    return any(getattr(task, asset + '_status') == 'downloading' for asset in ASSETS)
 
 
 def refresh(task):
@@ -352,19 +390,47 @@ def orthophoto_folder(conversion):
     return os.path.join(conversion.data_dir(), thermal_mosaics.WEBODM)
 
 
-def fetch(task):
-    """Brings back a completed task's orthophoto: its download queued on the uploads worker"""
+def fetch(task, asset='orthophoto'):
+    """Brings back a completed task's orthophoto or DSM: its download queued on the uploads worker"""
     run_id = uuid.uuid4().hex
-    WebODMTask.objects.filter(pk=task.pk).update(orthophoto_status='downloading', orthophoto_progress=0,
-                                                 orthophoto_error="", run_id=run_id)
-    jobs.submit(run_orthophoto, task.pk, run_id, jobs.UPLOADS)
+    WebODMTask.objects.filter(pk=task.pk).update(run_id=run_id, **{asset + '_status': 'downloading',
+                                                                  asset + '_progress': 0, asset + '_error': ""})
+    jobs.submit(run_orthophoto if asset == 'orthophoto' else run_dsm, task.pk, run_id, jobs.UPLOADS)
     task.refresh_from_db()
     return task
 
 
 def run_orthophoto(pk, run_id):
-    """The download job: the orthophoto written beside the conversion's mosaics as temperatures, then shown in place
-    of the one shown before"""
+    """The orthophoto's download job: written beside the conversion's mosaics as temperatures, then shown in place of
+    the one shown before"""
+    run_download('orthophoto', pk, run_id)
+
+
+def run_dsm(pk, run_id):
+    """The DSM's download job: kept as WebODM wrote it once dji-thermal-cli has read it, in place of the one before
+    (whose use and height cell it keeps)"""
+    run_download('dsm', pk, run_id)
+
+
+def made_orthophoto(conversion, part, made):
+    unit = (conversion.options or {}).get('unit') or 'C'
+    return dict(thermal_mosaics.orthophoto(part, made, unit), unit=unit)
+
+
+def made_dsm(conversion, part, made):
+    from dji_thermal_cli import mosaic as dji_mosaic
+    dsm = dji_mosaic.read_dsm(Path(part))
+    if not np.isfinite(dsm.z).any():
+        raise ValueError("WebODM's DSM holds no heights")
+    rows, cols = dsm.z.shape
+    os.replace(part, made)
+    before = conversion.dsm or {}
+    return {'width': cols, 'height': rows, 'pixel_m': round(dsm.pixel_m(), 4),
+            'use': before.get('use', True) if before.get('raster') else True,
+            'height_cell': before.get('height_cell') or DSM_CELL}
+
+
+def run_download(asset, pk, run_id):
     try:
         task = WebODMTask.objects.select_related('conversion').get(pk=pk, run_id=run_id)
     except WebODMTask.DoesNotExist:
@@ -372,7 +438,7 @@ def run_orthophoto(pk, run_id):
     conversion = task.conversion
     folder = orthophoto_folder(conversion)
     part = os.path.join(folder, 'download-%d.part' % pk)
-    name = 'orthophoto-%d.tif' % pk
+    name = '%s-%d.tif' % (asset, pk)
     made = os.path.join(folder, name + '.part')
     written = [0.0]
 
@@ -380,39 +446,39 @@ def run_orthophoto(pk, run_id):
         now = time.monotonic()
         if total and now - written[0] >= PROGRESS_SECONDS:
             written[0] = now
-            current(pk, run_id, orthophoto_progress=done / total * DOWNLOAD_SHARE)
+            current(pk, run_id, **{asset + '_progress': done / total * DOWNLOAD_SHARE})
         else:
             current(pk, run_id)
 
+    what = "orthophoto" if asset == 'orthophoto' else "DSM"
     try:
         os.makedirs(folder, exist_ok=True)
-        webodm.Client.from_config().download(task.project_id, task.task_id, ORTHOPHOTO, part, progress)
-        current(pk, run_id, orthophoto_progress=DOWNLOAD_SHARE)
-        unit = (conversion.options or {}).get('unit') or 'C'
-        info = thermal_mosaics.orthophoto(part, made, unit)
+        webodm.Client.from_config().download(task.project_id, task.task_id, ASSETS[asset], part, progress)
+        current(pk, run_id, **{asset + '_progress': DOWNLOAD_SHARE})
+        info = (made_orthophoto if asset == 'orthophoto' else made_dsm)(conversion, part, made)
         current(pk, run_id)
         os.replace(made, os.path.join(folder, name))
     except Stopped:
         return
     except Exception as e:
         if not isinstance(e, (webodm.WebODMError, ValueError)):
-            logger.exception("The orthophoto of WebODM task %s could not be brought back", pk)
+            logger.exception("The %s of WebODM task %s could not be brought back", what, pk)
         message = str(e) if isinstance(e, (webodm.WebODMError, ValueError)) else \
-            "The orthophoto could not be brought back: {}".format(e)
-        WebODMTask.objects.filter(pk=pk, run_id=run_id).update(orthophoto_status='failed', orthophoto_error=message,
-                                                               orthophoto_progress=0, run_id="")
+            "The {} could not be brought back: {}".format(what, e)
+        WebODMTask.objects.filter(pk=pk, run_id=run_id).update(run_id="", **{
+            asset + '_status': 'failed', asset + '_error': message, asset + '_progress': 0})
         return
     finally:
         for path in (part, made):
             if os.path.exists(path):
                 os.remove(path)
     from .models import ThermalConversion
-    shown = dict(info, raster=os.path.join(thermal_mosaics.WEBODM, name), unit=unit, task=pk, task_name=task.name,
+    shown = dict(info, raster=os.path.join(thermal_mosaics.WEBODM, name), task=pk, task_name=task.name,
                  downloaded_at=timezone.now().isoformat())
-    before = ThermalConversion.objects.filter(pk=conversion.pk).values_list('orthophoto', flat=True).first()
-    ThermalConversion.objects.filter(pk=conversion.pk).update(orthophoto=shown)
-    WebODMTask.objects.filter(pk=pk).update(orthophoto_status="", orthophoto_progress=0, orthophoto_error="",
-                                            run_id="")
+    before = ThermalConversion.objects.filter(pk=conversion.pk).values_list(asset, flat=True).first()
+    ThermalConversion.objects.filter(pk=conversion.pk).update(**{asset: shown})
+    WebODMTask.objects.filter(pk=pk).update(run_id="", **{asset + '_status': "", asset + '_progress': 0,
+                                                          asset + '_error': ""})
     if before and before.get('raster') and before['raster'] != shown['raster']:
         remove_raster(conversion, before['raster'])
     update_size(conversion.pk)
@@ -425,23 +491,24 @@ def remove_raster(conversion, raster):
         pass
 
 
-def remove_orthophoto(conversion, task=None):
-    """Stops showing the conversion's orthophoto (only when it came from task, if given), and removes its file"""
+def remove_orthophoto(conversion, task=None, asset='orthophoto'):
+    """Stops showing the conversion's orthophoto, or using its DSM (only when it came from task, if given), and
+    removes its file"""
     from .models import ThermalConversion
-    shown = conversion.orthophoto or {}
+    shown = getattr(conversion, asset) or {}
     if not shown.get('raster') or (task is not None and shown.get('task') != task.pk):
         return False
-    ThermalConversion.objects.filter(pk=conversion.pk).update(orthophoto={})
-    conversion.orthophoto = {}
+    ThermalConversion.objects.filter(pk=conversion.pk).update(**{asset: {}})
+    setattr(conversion, asset, {})
     remove_raster(conversion, shown['raster'])
     update_size(conversion.pk)
     return True
 
 
-def cancel_orthophoto(task):
+def cancel_orthophoto(task, asset='orthophoto'):
     """Stops a download: its job removes what it wrote"""
-    WebODMTask.objects.filter(pk=task.pk, orthophoto_status='downloading').update(orthophoto_status="",
-                                                                                  orthophoto_progress=0, run_id="")
+    WebODMTask.objects.filter(pk=task.pk, **{asset + '_status': 'downloading'}).update(
+        run_id="", **{asset + '_status': "", asset + '_progress': 0})
     task.refresh_from_db()
     return task
 

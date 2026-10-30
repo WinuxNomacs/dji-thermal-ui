@@ -189,6 +189,17 @@ def test_running_jobs_come_in_canceled_and_a_folder_flight_comes_in_uploaded(api
     assert folder.folder == root and os.path.isfile(os.path.join(root, 'notes.txt'))
 
 
+def test_webodms_orthophoto_and_dsm_come_in_kept_but_not_their_tasks(api):
+    c = flight(api)
+    shown = {'raster': "webodm/orthophoto-3.tif", 'task': 3, 'task_name': "Roof - C1", 'unit': 'C'}
+    dsm = {'raster': "webodm/dsm-3.tif", 'task': 3, 'task_name': "Roof - C1", 'use': False, 'height_cell': 24}
+    ThermalConversion.objects.filter(pk=c.id).update(orthophoto=shown, dsm=dsm)
+    import_id, _res = send(api, exported(api, c.dataset.project_id), piece=50000)
+    new = Project.objects.get(pk=api.post("{}/{}".format(IMPORTS, import_id), {'name': "Copy"}, format='json').data['id'])
+    conv = new.datasets.get().conversions.get()
+    assert conv.orthophoto == dict(shown, task=None) and conv.dsm == dict(dsm, task=None)
+
+
 def test_a_project_without_flights_is_imported_too(api):
     p = Project.objects.create(name="Empty", description="Nothing yet", location_lon=1.5, location_lat=2.5)
     import_id, _res = send(api, exported(api, p.id))

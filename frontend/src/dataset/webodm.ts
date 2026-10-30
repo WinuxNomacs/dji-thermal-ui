@@ -18,10 +18,14 @@ export interface WebODMTask {
     id: number; project_id: number | null; project_name: string; task_id: string; name: string; node: string;
     status: string; progress: number; uploaded: number; total: number; error: string; link: string | null;
     orthophoto_status?: string; orthophoto_progress?: number; orthophoto_error?: string; check_error?: string;
+    dsm_status?: string; dsm_progress?: number; dsm_error?: string; dsm_asked?: boolean;
 }
 // The orthophoto brought back and shown on the conversion's viewer: the task it came from (null once restored from a
 // backup, which leaves its tasks out)
 export interface Orthophoto {task: number | null; task_name: string; downloaded_at: string}
+// The DSM brought back for the mosaics: whether they are projected onto it, on cells of height_cell mosaic pixels
+export interface Dsm extends Orthophoto {use: boolean; height_cell: number; pixel_m: number}
+export const CELL_RANGE = [8, 1024];
 
 // An option's row in the panel: ticked ones are sent; value is a string, or a boolean for a bool option
 export interface OptionRow {
@@ -111,7 +115,20 @@ export function taskLabel(t: WebODMTask): string {
 
 export function taskBadge(t: WebODMTask): string { return "badge " + (BADGES[t.status] ?? ""); }
 
-// Whether a task's images are being sent, or its orthophoto brought back (the page follows its conversion meanwhile)
+// Whether a task's images are being sent, or its orthophoto or DSM brought back (the page follows its conversion
+// meanwhile)
 export function transferring(tasks: WebODMTask[] | undefined): boolean {
-    return (tasks || []).some((t) => t.status === "uploading" || t.orthophoto_status === "downloading");
+    return (tasks || []).some((t) => t.status === "uploading" || t.orthophoto_status === "downloading" ||
+                                     t.dsm_status === "downloading");
+}
+
+// Whether the options ask for a DSM
+export function asksDsm(options: {name: string; value: unknown}[]): boolean {
+    return options.some((o) => o.name === "dsm" && truthy(o.value));
+}
+
+// The options sent with "Make a DSM" ticked: dsm on, fast-orthophoto (which makes none) left out; unticked, as they are
+export function withDsm(options: {name: string; value: unknown}[], on: boolean): {name: string; value: unknown}[] {
+    if (!on) return options;
+    return [...options.filter((o) => o.name !== "dsm" && o.name !== "fast-orthophoto"), {name: "dsm", value: true}];
 }
