@@ -8,8 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: CLI2, pin dji-thermal-cli 1.9.1 (it reads ODM's DSM; merged there 2026-10-30, waiting for the user's
-push and `v1.9.1` tag to reach PyPI), then ODM4, WebODM's DSM under the mosaics (to plan with the user; see "ODM").
+**Up next**: ODM4, WebODM's DSM under the mosaics (to plan with the user; see "ODM").
 
 **Later**: nothing.
 
@@ -1531,7 +1530,7 @@ mosaic (dji-thermal-cli 1.8.0, `--normalize --mosaic-normalize`), by the surface
 At 24 cm cells the roof's hips are straight and its vents no longer step or double at the seams; at 96 cm the
 DSM's detail is mostly averaged away and the eaves smear. Past the DSM's edge the frames fall back to the plane.
 
-**CLI2: dji-thermal-cli 1.9.1 reads ODM's DSM** (found by the DSM test; fixed in dji-thermal-cli, branch
+**CLI2: dji-thermal-cli 1.9.1 reads ODM's DSM** (done 2026-10-30, see "Done"; found by the DSM test; fixed in dji-thermal-cli, branch
 `fix-dsm-reading`, then `release/1.9.1`, merged there 2026-10-30): `--mosaic-dsm` imported tifffile, a dev dependency only, so it failed when installed from PyPI;
 ODM's `dsm.tif` (Deflate with the floating-point predictor) needed imagecodecs besides; a DSM that couldn't be read
 failed as "Normalization failed" after converting every frame, and the option renaming in messages turned a path's
@@ -2068,3 +2067,6 @@ comes with it, unused).
   the orthophoto brought back from the card, shown on the viewer's WebODM tab (temperatures under the pointer), on
   the compare page beside the mosaic, a spot picked on it, then removed from the card; light and dark, no console
   errors. Then the WebODM projects removed.
+- **CLI2: dji-thermal-cli 1.9.1** (2026-10-30). Pinned in `pyproject.toml` and `uv.lock` (was 1.8.0): it reads a
+  DSM, ODM's `dsm.tif` included, with no TIFF library, ready for ODM4; 1.9.0's DJI SDK option comes with it, unused.
+  The full suite with the m4t-220 flight, the release checks and the wheel's smoke check pass on it.
