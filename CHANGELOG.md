@@ -42,6 +42,11 @@ All notable changes are recorded here. The format follows
 - dji-thermal-cli 1.9.1 (was 1.8.0). It reads a DSM, ODM's `dsm.tif` included, with nothing more installed, ahead of
   WebODM's DSM under the mosaics. 1.9.0's option to use DJI's own Thermal SDK comes with it, unused here.
 
+### Fixed
+
+- The flight report's map showed its zoom buttons, scale, attribution and basemap switch unstyled, piled up in its
+  corner: the page now loads OpenLayers' styles. Printing was not affected.
+
 ## [0.9.0] - 2026-10-29
 
 ### Added
