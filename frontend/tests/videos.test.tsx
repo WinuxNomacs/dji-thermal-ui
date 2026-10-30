@@ -95,6 +95,10 @@ describe("a flight's videos", () => {
         expect(nearestPoint([[0, 0], null, [10, 0]], [8, 1])).toBe(2);
         expect(nearestPoint([[0, 0], [10, 0]], [5, 50], 10)).toBe(-1);
         expect(frameNumber(1, 30)).toBe(30);
+        // As the browser gives the frames' times (to the microsecond), against the track's (to 0.1 ms)
+        expect(frameNumber(0.033333, 30)).toBe(1);
+        expect(frameNumber(66.633333, 30)).toBe(1999);
+        expect(pointAt(trackPoints({fields: FIELDS, points: [[0], [0.0333], [0.0667]]}), 0.066667)!.t).toBe(0.0667);
         expect(pointRows(points[1], 1 / 30, 30)).toEqual([
             ["Time", "0:00.03 · frame 2"], ["Height", "15.3 m above take-off"], ["Gimbal pitch", "-45.0°"],
             ["Gimbal yaw", "36.4°"], ["Heading", "35.9°"], ["Speed", "1.2 m/s"], ["Position", "42.100010, -88.070000"]]);

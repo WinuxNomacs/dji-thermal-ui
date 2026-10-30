@@ -60,13 +60,14 @@ export function trackPoints(track: Maybe<Track>): TrackPoint[] {
     return track.points.map((row) => Object.fromEntries(track.fields.map((f, i) => [f, row[i]])) as unknown as TrackPoint);
 }
 
-// The frame shown at moment t: the last point at or before it (the first before the first)
+// The frame shown at moment t: the last point at or before it (the first before the first); the points' times are
+// rounded to a tenth of a millisecond
 export function pointAt(points: TrackPoint[], t: number): TrackPoint | null {
     if (!points.length) return null;
     let lo = 0, hi = points.length - 1;
     while (lo < hi) {
         const mid = (lo + hi + 1) >> 1;
-        if (points[mid].t <= t + 1e-6) lo = mid;
+        if (points[mid].t <= t + 1e-4) lo = mid;
         else hi = mid - 1;
     }
     return points[lo];
@@ -87,9 +88,10 @@ export function nearestPoint(placed: (number[] | null)[], where: number[], reach
     return best;
 }
 
-// The frame a moment is in: 0 for the first
+// The frame a moment is in: 0 for the first (the browser gives a frame's time to the microsecond: 0.033333 is the
+// second frame's at 30 fps)
 export function frameNumber(t: number, fps: Maybe<number>): number {
-    return fps ? Math.floor(t * fps + 1e-6) : 0;
+    return fps ? Math.floor(t * fps + 1e-3) : 0;
 }
 
 // What the readout says of the frame shown: [label, value] rows

@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: V2, analysing a video in the browser (see "Video").
+**Up next**: V3, a video's frames kept (see "Video").
 
-**Then**: V3, frames kept.
+**Then**: nothing planned.
 
 ## Standalone (option A)
 
@@ -1662,7 +1662,7 @@ stills, but the plan does not count on them.
    read in place in a folder flight, as its stills are), and listed on a Videos tab with their cover, length, time and drone. Their track is read when added
    (`analyzer/video.py`) and drawn on the frames map; the video plays beside it with a marker following it, and a
    click on the track seeks to that moment.
-2. **V2: analysing a video in the browser:** each shown frame is turned back into levels (0–255) through DJI's
+2. **V2: analysing a video in the browser** (built 2026-10-30, see Done): each shown frame is turned back into levels (0–255) through DJI's
    Ironbow table, shipped with the app as data, then coloured as the mosaics are (`colourValues`: palette, range,
    tone curve, sharpening, a relative isotherm), always called relative, never temperatures. Step ±1 frame and
    ±1 s, speeds ⅛× to 2×, a loop between an in and an out point at any speed, keyboard keys for all of it; the
@@ -2225,3 +2225,14 @@ stills, but the plan does not count on them.
   through the page: the analysis, the Files row, the list, playback, the readout following, a seek, a click on the
   track (to 0:23.80) and one beside it (nothing), light and dark, no console or HTTP errors. Playwright's Chromium
   plays H.264.
+- **V2: analysing a video in the browser** (2026-10-30): the frame shown turned back into levels through the M4T's
+  Ironbow (`frontend/src/dataset/ironbow.ts`, taken with dji-thermal-cli's port from an m4t-220 still; the lookup cube
+  and the Auto range in `video-levels.ts`) and coloured with `colourValues` on a canvas over the video, behind an
+  Original/Recoloured switch, with the viewer's `Controls`, `ImageControls` and `Isotherm` (levels as a value kind
+  in `viewer/view.ts`). Stepping, speeds, the loop and the keys in `video-tab.tsx` (helpers in `videos.ts`); frame
+  numbers allow for the browser's frame times given to the microsecond. `colourValues` writes its pixels directly
+  and sharpens without closures (7 and 50 ms a 640×512 frame, from 34 and 112). Tests: `frontend/tests/videos.test.tsx`.
+  Checked live on 8081 (6 frames of m4t-220 and the M4T's video uploaded): stepping by buttons and keys, ⅛× moving
+  0.25 s in 2 s, a 10–11 s loop at 2× staying inside it, recoloured as filmed a mean 4.8 RGB units from the video,
+  the level under the pointer, Gray with Auto, sharpening, an isotherm, playing recoloured, light and dark, no
+  console or HTTP errors.

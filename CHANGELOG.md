@@ -34,9 +34,14 @@ All notable changes are recorded here. The format follows
   time and drone, played beside a map of its track (read from DJI's metadata in the MP4, a point per frame), a marker
   following the frame shown and a click on the track seeking to that moment, with the frame's height, gimbal angles,
   heading, speed and position. A project's export carries them.
+- A video analysed in the browser: stepped a frame or a second at a time, played at ⅛× to 2×, looped between an in
+  and an out point, from buttons or keys; and recoloured: the frame shown turned back into the camera's levels
+  through DJI's Ironbow (the Matrice 4T's) and drawn with the viewer's palette, range and Auto, brightness, contrast,
+  gamma, sharpening and an isotherm in levels, with the level under the pointer. Relative, never temperatures.
 
 ### Changed
 
+- The map pages colour a frame drawn without a map (the source frames, the palette previews) several times faster.
 - The `.env` values (the Mapbox token, WebODM's login) are read and written by one module; the setting
   `MAPBOX_ENV_FILES` is now `ENV_FILES`.
 - dji-thermal-cli 1.9.1 (was 1.8.0). It reads a DSM, ODM's `dsm.tif` included, with nothing more installed, ahead of
