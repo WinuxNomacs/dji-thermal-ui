@@ -1,4 +1,5 @@
 // A dataset's report, to print to PDF
+import "ol/ol.css";
 import {jsonScript, mountPage} from "../core/page";
 import {DatasetReportPage} from "../report/dataset-report-page";
 
