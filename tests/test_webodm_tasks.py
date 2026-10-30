@@ -585,6 +585,66 @@ def test_a_completed_tasks_dsm_is_brought_back_as_written_and_the_mosaics_are_pr
         assert api.patch(url, bad, format='json').status_code == 400, bad
 
 
+def test_the_dsm_is_shown_on_a_heights_tab_and_gives_the_grounds_height_to_the_readout_and_measurements(api, wo, tmp_path):
+    import rasterio
+    c = ready(api)
+    task = with_dsm(api, wo, c, tmp_path)
+    api.post("/api/webodm-tasks/%d/dsm" % task.id)
+    c.refresh_from_db()
+    # Its copy: heights above its lowest ground (200 m on column 0), tiled, its no-data column left out
+    assert c.dsm['heights_raster'] == "webodm/dsm-%d-heights.tif" % task.id and c.dsm['base_m'] == 200.0
+    assert c.dsm['heights']['min'] == pytest.approx(0) and c.dsm['heights']['max'] == pytest.approx(6.3, abs=1e-4)
+    with rasterio.open(os.path.join(c.data_dir(), c.dsm['heights_raster'])) as src:
+        assert src.count == 1 and src.profile['tiled']
+    viewer = api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data
+    tab = viewer['tabs'][-1]
+    assert tab['tab'] == 'heights' and tab['stats']['max'] == pytest.approx(6.3, abs=1e-4)
+    assert 'raster' not in viewer['kinds']['dsm']
+    # Not a temperature tab: no curve, nothing to compare, no measurement, no finding
+    assert api.get("%s/%d/mosaics/heights/curve?low=0&high=6" % (CONVERSIONS, c.id)).status_code == 404
+    assert 'heights' not in api.get("%s/%d/comparable" % (CONVERSIONS, c.id)).data[0]['tabs']
+    area = mosaic_square(30, 8, 34, 12)
+    assert api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'heights', 'geometry': area},
+                    format='json').status_code == 400
+    # Its tiles hold the heights as they are
+    import numpy as np
+    from dji_thermal_ui.analyzer import api as api_module
+    from tests.test_api_mosaics import data_tile, mosaic_tile
+    (z, x, y), _ = mosaic_tile()
+    t = data_tile(api.get("%s/%d/mosaics/heights/data/%d/%d/%d" % (CONVERSIONS, c.id, z, x, y)),
+                  api_module.DATA_TILE_SIZE + 2 * api_module.DATA_GUTTER)
+    shown = t[np.isfinite(t)]
+    assert shown.size and shown.min() >= 0 and shown.max() <= 6.31
+    # The readout: the height on the Heights tab, and beside the temperature on the others
+    lon, lat = mosaic_lonlat(31.5, 10.5)
+    point = api.get("%s/%d/mosaics/heights/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data
+    assert point['valid'] and point['height'] == pytest.approx(3.1, abs=1e-4) and point['base_m'] == 200.0
+    assert 'temperature' not in point
+    point = api.get("%s/%d/mosaics/as_converted/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data
+    assert point['temperature'] is not None and point['height'] == pytest.approx(3.1, abs=1e-4)
+    lon, lat = mosaic_lonlat(40.5, 10.5)
+    point = api.get("%s/%d/mosaics/heights/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data
+    assert point['valid'] is False and point['reason'] == 'nodata'
+    # A spot measured gets the ground's height, an area its range; a line nothing
+    spot = {'type': 'Point', 'coordinates': list(mosaic_lonlat(31.5, 10.5))}
+    result = api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'as_converted', 'geometry': spot},
+                      format='json').data['result']
+    assert result['height'] == pytest.approx(3.1, abs=1e-4)
+    result = api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'as_converted', 'geometry': area},
+                      format='json').data['result']
+    assert result['heights']['min'] == pytest.approx(3.0, abs=1e-4) and result["heights"]["max"] == pytest.approx(3.3, abs=1e-4)
+    line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(5.5, 5.5), mosaic_lonlat(30.5, 5.5)]}
+    result = api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'as_converted', 'geometry': line},
+                      format='json').data['result']
+    assert 'height' not in result and 'heights' not in result
+    # Removed: the tab and the heights go with it
+    api.delete("%s/%d/dsm" % (CONVERSIONS, c.id))
+    assert 'heights' not in [t['tab'] for t in api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data['tabs']]
+    lon, lat = mosaic_lonlat(31.5, 10.5)
+    assert 'height' not in api.get("%s/%d/mosaics/as_converted/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data
+    assert os.listdir(os.path.join(c.data_dir(), "webodm")) == []
+
+
 def test_another_tasks_dsm_replaces_it_keeping_its_choices_and_removing_it_or_its_task_removes_its_file(
         api, wo, tmp_path):
     c = ready(api)
@@ -595,10 +655,11 @@ def test_another_tasks_dsm_replaces_it_keeping_its_choices_and_removing_it_or_it
     api.post("/api/webodm-tasks/%d/dsm" % second.id)
     c.refresh_from_db()
     folder = os.path.join(c.data_dir(), "webodm")
-    assert c.dsm['task'] == second.id and os.listdir(folder) == ["dsm-%d.tif" % second.id]
+    kept = ["dsm-%d-heights.tif" % second.id, "dsm-%d.tif" % second.id]
+    assert c.dsm['task'] == second.id and sorted(os.listdir(folder)) == kept
     assert (c.dsm['use'], c.dsm['height_cell']) == (False, 24)
     assert api.delete("/api/webodm-tasks/%d" % first.id).status_code == 204
-    assert os.listdir(folder) == ["dsm-%d.tif" % second.id]
+    assert sorted(os.listdir(folder)) == kept
     assert api.delete("/api/webodm-tasks/%d" % second.id).status_code == 204
     c.refresh_from_db()
     assert c.dsm == {} and os.listdir(folder) == []

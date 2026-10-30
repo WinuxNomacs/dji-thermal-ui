@@ -1570,6 +1570,21 @@ comes with it, unused).
   - **Pages:** the task panel's "Make a DSM" tick (sends `dsm` true, leaves `fast-orthophoto` out); a completed task
     that asked for it gets "Bring the DSM here"; the conversion's card says the DSM is here, with the tick "Use it
     under the mosaics", the cell, "Build the mosaics again" when they were built otherwise, and Remove.
+- **ODM5's decisions (2026-10-30):**
+  - **A Heights tab** on the viewer, beside WebODM's: the DSM coloured with the palette and range controls (viridis
+    first, as the View angle tab), its legend in metres; not a temperature tab, so no correction, isotherm, Measure
+    or Source frames there (as on the View angle tab).
+  - **Heights above the lowest ground:** 0 m at the DSM's lowest ground (its 1st percentile, so a stray low pixel
+    doesn't set it), a roof reading its own height; the height WebODM gives is in the readout's tooltip.
+  - **Measurements** on the temperature tabs: a spot gets the ground's height there, an area its lowest, mean and
+    highest height. Not a line's profile, not in the CSV.
+- **ODM5's build** (2026-10-30):
+  - **Server:** bringing the DSM back also writes the copy the viewer reads (`webodm/dsm-<task>-heights.tif`: heights
+    above the lowest ground, tiled, with overviews; `heights_raster`, `base_m` and its `heights` statistics in the
+    conversion's `dsm`). The kind `dsm` and the tab `heights` (`thermal_mosaics.HEIGHTS`), kept apart from the
+    temperature tabs (`thermal_mosaics.temperatures(tab, band)`). A mosaic point gets `height` (on every tab), a
+    measurement `height` or `heights`. A DSM brought back before ODM5 has no copy: no tab until it is brought back again.
+  - **Pages:** the tab, its legend and range in m; the readout's "Ground height"; the measurement's rows.
 
 ## Video
 

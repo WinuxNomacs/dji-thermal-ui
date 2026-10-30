@@ -982,7 +982,7 @@ class MosaicExportView(DatasetView):
         elif not (conversion.mosaics or {}).get(thermal_mosaics.VISUAL):
             raise NotFound()
         correction = None
-        if tab != thermal_mosaics.VISUAL and band == 1:
+        if tab != thermal_mosaics.VISUAL and thermal_mosaics.temperatures(tab, band):
             try:
                 correction = thermal_measure.mosaic_correction(conversion, tab, data.get('correction') or {})
             except thermal_measure.MeasureError as e:
@@ -1048,7 +1048,7 @@ def mosaic_default_range(conversion, tab):
     """The viewer's range for a tab when none is given"""
     kind = next(k for t, k, _b in thermal_mosaics.TABS if t == tab)
     k = thermal_mosaics.kinds(conversion).get(kind) or {}
-    return exports.stats_range(k.get('view_angle') if tab == 'view_angle' else k.get('temperature'))
+    return exports.stats_range(thermal_mosaics.tab_stats(tab, k))
 
 
 def mimetypes_of(filename):
@@ -1618,7 +1618,7 @@ def viewer(conversion):
         k = kinds.get(kind)
         if not k:
             continue
-        stats = k.get('view_angle') if tab == 'view_angle' else k.get('temperature')
+        stats = thermal_mosaics.tab_stats(tab, k)
         tabs.append({'tab': tab, 'kind': kind, 'bounds': k.get('bounds'), 'minzoom': k.get('minzoom'),
                      'maxzoom': k.get('maxzoom'), 'stats': stats if tab != 'source_frame' else None})
     in_mosaic = set(m.get('frames') or [])
@@ -1648,7 +1648,7 @@ def mosaic_correction(request, conversion, kind):
 def mosaic_curve(conversion, tab, path, band, correction, low, high, adjust):
     """The equalization (thermal_measure.equalization) of a temperature tab's temperatures, corrected, over low..high,
     or None when not asked for (or not temperatures)"""
-    if not adjust['equalize'] or band != 1:
+    if not adjust['equalize'] or not thermal_mosaics.temperatures(tab, band):
         return None
     unit = (conversion.mosaics or {}).get('unit') or 'C'
     kept = os.path.join(conversion.data_dir(), thermal_mosaics.VIEWER_DIR, HISTOGRAM_FILE.format(tab))
@@ -1701,7 +1701,7 @@ def data_response(values, valid, etag, cache='private, no-cache'):
 def mosaic_values(conversion, tab, band, data, valid, correction):
     """A mosaic tile's values as drawn: temperatures without dji-thermal-cli's no-data marker, corrected"""
     valid = valid & np.isfinite(data)
-    if band != 1:
+    if not thermal_mosaics.temperatures(tab, band):
         return data, valid
     unit = mosaic_unit(conversion)
     valid &= data > thermal_mosaics.low_value(unit)
@@ -1751,7 +1751,7 @@ def mosaic_etag(request, conversion, tab, path, band):
     (which the dataset's analysis can change)"""
     from .raster.tiler import raster_etag
     palettes_file = os.path.join(conversion.data_dir(), thermal_mosaics.VIEWER_DIR, thermal_mosaics.PALETTES_FILE)
-    baseline = thermal_measure.mosaic_baseline(conversion, tab) if band == 1 else ''
+    baseline = thermal_measure.mosaic_baseline(conversion, tab) if thermal_mosaics.temperatures(tab, band) else ''
     return raster_etag(request, path, viewer_code_fingerprint(),
                        os.stat(palettes_file).st_mtime_ns if os.path.isfile(palettes_file) else '',
                        json.dumps(baseline, sort_keys=True))
@@ -1771,7 +1771,7 @@ class MosaicDataView(DatasetView):
         cached = not_modified(request, etag)
         if cached is not None:
             return cached
-        correction = mosaic_correction(request, conversion, tab) if band == 1 else None
+        correction = mosaic_correction(request, conversion, tab) if thermal_mosaics.temperatures(tab, band) else None
         with thermal_mosaics.open_raster(path) as src:
             data, valid = read_tile(src, int(x), int(y), int(z), band, DATA_GUTTER, DATA_TILE_SIZE)
         return data_response(*mosaic_values(conversion, tab, band, data, valid, correction), etag)
@@ -1783,7 +1783,7 @@ class MosaicCurveView(DatasetView):
         are): the palette's share at thermal_measure.CURVE_SAMPLES temperatures evenly across the range, for the legend"""
         conversion = get_conversion(pk)
         path, band = mosaic_raster(conversion, tab)
-        if band != 1:
+        if not thermal_mosaics.temperatures(tab, band):
             raise NotFound()
         low, high = range_params(request)
         adjust = adjust_params(request)
@@ -1792,12 +1792,34 @@ class MosaicCurveView(DatasetView):
         return Response({'shares': thermal_measure.curve_shares(low, high, adjust, curve)})
 
 
+def ground_height(conversion, lon, lat):
+    """The ground's height at a point (lon, lat) above the DSM's lowest ground (thermal_mosaics.heights), or None
+    (no DSM, or none there)"""
+    from .raster.tiler import point_values
+    path = thermal_mosaics.heights_raster(conversion)
+    if path is None:
+        return None
+    with thermal_mosaics.open_raster(path) as src:
+        values = point_values(src, lon, lat, indexes=(1,))
+    return values[0] if values else None
+
+
 def mosaic_point(request, conversion, tab, lon, lat):
     """A mosaic tab's values at a point (lon, lat): temperature (corrected as the tiles are), source frame, view angle
-    and the frame's pixel it was read from (column, row; none in a mosaic built before dji-thermal-cli 1.4.0)"""
+    and the frame's pixel it was read from (column, row; none in a mosaic built before dji-thermal-cli 1.4.0), and the
+    ground's height when the conversion has WebODM's DSM (base_m: its lowest ground, which heights are above). The
+    Heights tab's: only the height"""
     from .raster.tiler import point_values
 
     path, _band = mosaic_raster(conversion, tab)
+    base = (conversion.dsm or {}).get('base_m')
+    if tab == thermal_mosaics.HEIGHTS:
+        height = ground_height(conversion, lon, lat)
+        out = {'coordinates': [lon, lat], 'valid': height is not None, 'height': height, 'base_m': base}
+        if height is None:
+            with thermal_mosaics.open_raster(path) as src:
+                out['reason'] = 'nodata' if point_values(src, lon, lat, indexes=(1,)) else 'outside_raster'
+        return out
     m = conversion.mosaics or {}
     unit = mosaic_unit(conversion)
     out = {'coordinates': [lon, lat], 'valid': False, 'unit': unit,
@@ -1819,6 +1841,8 @@ def mosaic_point(request, conversion, tab, lon, lat):
         if len(values) == 5 and None not in values[3:]:
             out['frame_pixel'] = [int(values[3]), int(values[4])]
     out['view_angle'] = angle
+    if thermal_mosaics.heights_raster(conversion):
+        out.update(height=ground_height(conversion, lon, lat), base_m=base)
     out['valid'] = out['temperature'] is not None or out['frame'] is not None
     if not out['valid']:
         out['reason'] = 'nodata'
@@ -1921,7 +1945,7 @@ DIFFERENCE_SIZE = 512       # the difference's statistics are read at most this 
 def temperature_raster(conversion, tab):
     """The raster of a temperature tab (as converted, harmonized), or 404"""
     path, band = mosaic_raster(conversion, tab)
-    if band != 1:
+    if not thermal_mosaics.temperatures(tab, band):
         raise NotFound()
     return path
 
@@ -1958,7 +1982,7 @@ def comparable(conversion):
         'dataset__project__name', 'dataset__project_id', 'dataset__name', 'dataset_id', 'name', 'id')
     for c in sorted(found, key=lambda c: c.dataset.project_id != own):
         kinds = thermal_mosaics.kinds(c)
-        tabs = [tab for tab, kind, band in thermal_mosaics.TABS if band == 1 and kinds.get(kind)]
+        tabs = [tab for tab, kind, band in thermal_mosaics.TABS if thermal_mosaics.temperatures(tab, band) and kinds.get(kind)]
         if tabs:
             out.append({'id': c.id, 'name': c.name, 'dataset': c.dataset_id, 'dataset_name': c.dataset.name,
                         'project': c.dataset.project_id, 'project_name': c.dataset.project.name,
@@ -2109,6 +2133,9 @@ def analysis(conversion, target, frame, geometry, parameters, isotherm):
         out['result'] = thermal_measure.mosaic_measure(path, unit, geometry, correction, isotherm,
                                                        profile_frames(conversion, geometry)
                                                        if target != thermal_mosaics.WEBODM else None)
+        heights = thermal_mosaics.heights_raster(conversion)
+        if heights and geometry is not None:
+            out['result'].update(thermal_measure.ground_heights(heights, geometry))
     return clean(out)
 
 

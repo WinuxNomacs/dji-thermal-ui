@@ -29,8 +29,12 @@ from .thermal_conversion import api_arguments, mosaic_stage, stage_fraction, sta
 KINDS = (('as_converted', False), ('harmonized', True))
 # The viewer's tabs: (tab, kind whose file it reads, band)
 TABS = (('as_converted', 'as_converted', 1), ('harmonized', 'harmonized', 1),
-        ('source_frame', 'as_converted', 2), ('view_angle', 'as_converted', 3), ('webodm', 'webodm', 1))
+        ('source_frame', 'as_converted', 2), ('view_angle', 'as_converted', 3), ('webodm', 'webodm', 1),
+        ('heights', 'dsm', 1))
 WEBODM = 'webodm'           # the kind of the orthophoto brought back from WebODM (webodm_tasks), and its folder
+DSM = 'dsm'                 # the kind of WebODM's DSM, whose copy the Heights tab reads
+HEIGHTS = 'heights'
+BASE_PERCENTILE = 1         # the DSM's lowest ground, which its heights are shown above
 MOSAICS_DIR = 'mosaics'
 VIEWER_DIR = 'viewer'       # served by the app only: left out of the downloads
 PALETTES_FILE = 'palettes.json'
@@ -63,7 +67,26 @@ def kinds(conversion):
     found = dict((conversion.mosaics or {}).get('kinds') or {})
     if (conversion.orthophoto or {}).get('raster'):
         found[WEBODM] = conversion.orthophoto
+    if (conversion.dsm or {}).get('heights_raster'):
+        found[DSM] = dict(conversion.dsm, raster=conversion.dsm['heights_raster'])
     return found
+
+
+def temperatures(tab, band):
+    """Whether a tab's band holds temperatures (not the Heights tab's, nor the source frames' or view angles')"""
+    return band == 1 and tab != HEIGHTS
+
+
+def tab_stats(tab, kind):
+    """The range of the values a tab shows, as raster_info has it"""
+    return kind.get({'view_angle': 'view_angle', HEIGHTS: 'heights'}.get(tab, 'temperature'))
+
+
+def heights_raster(conversion):
+    """The path of the DSM's copy the Heights tab reads, or None"""
+    rel = (conversion.dsm or {}).get('heights_raster')
+    path = os.path.join(conversion.data_dir(), rel) if rel else None
+    return path if path and os.path.isfile(path) else None
 
 
 def tab_raster(conversion, tab):
@@ -114,6 +137,39 @@ def raster_info(path, unit):
         info['temperature'] = band_stats(temperature)
         info['view_angle'] = band_stats(src.dataset.read(3))
     return info
+
+
+def heights(src_path, path):
+    """WebODM's DSM copied for the Heights tab: heights in metres above its lowest ground (BASE_PERCENTILE of them),
+    tiled, with overviews. Where it is, the range of its heights and that lowest ground (base_m, as WebODM gives it);
+    ValueError when it holds no heights"""
+    import numpy as np
+    import rasterio
+    from rasterio.enums import Resampling
+    with rasterio.open(src_path) as src:
+        if src.crs is None:
+            raise ValueError("WebODM's DSM is not georeferenced")
+        z = src.read(1, masked=True).astype('float32').filled(np.nan)
+        z[~np.isfinite(z)] = np.nan
+        if not np.isfinite(z).any():
+            raise ValueError("WebODM's DSM holds no heights")
+        base = float(np.nanpercentile(z, BASE_PERCENTILE))
+        profile = dict(driver='GTiff', width=src.width, height=src.height, count=1, dtype='float32', crs=src.crs,
+                       transform=src.transform, nodata=float('nan'), tiled=True, blockxsize=ORTHOPHOTO_TILE,
+                       blockysize=ORTHOPHOTO_TILE, compress='DEFLATE', predictor=3)
+        with rasterio.open(path, 'w', **profile) as dst:
+            dst.write(z - base, 1)
+            factors, f = [], 2
+            while max(src.width, src.height) / f >= ORTHOPHOTO_TILE:
+                factors.append(f)
+                f *= 2
+            if factors:
+                dst.build_overviews(factors, Resampling.average)
+    from rio_tiler.constants import WGS84_CRS
+    with open_raster(path) as src:
+        west, south, east, north = src.get_geographic_bounds(WGS84_CRS)
+        return {'bounds': [west, south, east, north], 'minzoom': src.minzoom, 'maxzoom': src.maxzoom,
+                'heights': band_stats(src.dataset.read(1)), 'base_m': round(base, 3)}
 
 
 def trimmed(value):

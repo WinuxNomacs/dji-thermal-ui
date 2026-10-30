@@ -498,6 +498,17 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
     return out
 
 
+def ground_heights(path, geometry):
+    """The ground's heights (path: the DSM's copy the Heights tab reads) at a spot, {height}, or in an area, {heights:
+    {min, mean, max}}; None where the DSM has none. Nothing for a line"""
+    if geometry['type'] not in ('Point', 'Polygon'):
+        return {}
+    r = mosaic_measure(path, 'C', geometry)      # heights stay far above the no-data marker of °C
+    if geometry['type'] == 'Point':
+        return {'height': r.get('value')}
+    return {'heights': {k: r[k] for k in ('min', 'mean', 'max')} if r.get('valid_pixels') else None}
+
+
 def source_frames(frames, x, y, valid):
     """The source frames' names at points (in the raster's CRS) where valid, else None"""
     import rasterio
