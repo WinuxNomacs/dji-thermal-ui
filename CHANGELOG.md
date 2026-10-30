@@ -26,6 +26,9 @@ All notable changes are recorded here. The format follows
   completed task that asked for one brings it back from its line, kept as WebODM wrote it; the card projects the
   mosaics onto it (on by default) with a height cell in mosaic pixels (16 at first, about 24 cm in a test), and
   offers to build them again when they were built otherwise. A backup keeps it, without its task.
+- WebODM's DSM on the viewer: a Heights tab (heights in metres above the DSM's lowest ground, coloured with the
+  palette and range), the ground's height under the cursor on every tab (as WebODM gives it in its tooltip), and a
+  spot's ground height or an area's lowest, mean and highest in a measurement on a temperature tab.
 
 ### Changed
 

@@ -288,6 +288,12 @@ is kept as WebODM wrote it, once dji-thermal-cli has read it, and the card says 
 A dataset keeps one DSM: another task's replaces it, keeping the tick and the cell. **Remove**, or taking its task
 off the list, removes it; the mosaics built on it are kept.
 
+The DSM is also shown on the viewer, on a **Heights** tab: the height of the ground, roofs and trees in metres above
+the DSM's lowest ground (its 1st percentile, so a stray low pixel doesn't set it), with the palette (Viridis at first)
+and range as the View angle tab has them. On every tab, Pointer info gives the **Ground height** under the cursor (its
+tooltip, the height as WebODM gives it), and a spot measured on a temperature tab gets its ground height, an area its
+lowest, mean and highest.
+
 ## Where the data lives
 
 The database (SQLite), the secret key and each flight's files (`datasets/<id>/`) are kept in one data folder:
