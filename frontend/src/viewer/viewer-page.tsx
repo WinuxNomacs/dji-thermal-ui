@@ -23,7 +23,7 @@ import {ask, askName} from "../components/dialog";
 import {ArrowLeft, Columns, Download, FileText, Grid, Image, Images, Save, Stop} from "../components/icons";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
-        type Shape, symbol, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
+        type Shape, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
 import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {SourcesWindow} from "../sources/window";
@@ -41,7 +41,7 @@ import {type Baseline, Controls, Correction, correctionStarts, ImageControls, Mo
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
         type Extra, extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
         readView, reportRows, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
-        TAB_HINTS, takenText, toneShares, viewQuery, type VisualMosaic, visualRows} from "./view";
+        TAB_HINTS, takenText, toneShares, valueCaption, viewQuery, type VisualMosaic, visualRows} from "./view";
 
 const POLL_MS = 2000;
 const HOVER_MS = 120;
@@ -101,7 +101,7 @@ const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
 // A tab's palette and range before any is chosen
 export function defaultStyle(v: Mosaics, tab: string): Style {
     const group = styleGroup(tab), t = (v.tabs || []).find((x) => x.tab === tab);
-    return {palette: group === "view_angle" ? "viridis" : v.default_palette || "",
+    return {palette: group === "view_angle" || group === "heights" ? "viridis" : v.default_palette || "",
             range: defaultRange(t, group === "temperature" ? v.unit : undefined), adjust: defaultAdjust()};
 }
 
@@ -678,7 +678,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (!s || !v || !drawnTab || visual) return null;
         const colors = (v.palettes || []).find((p) => p.key === s.palette)?.color_map || [];
         return {colors, shown: shownRange(drawnTab, s.range, unit), shares: shares(s.adjust),
-                caption: drawnTab === "view_angle" ? "View angle, °" : "Temperature, " + symbol()};
+                caption: valueCaption(drawnTab)};
     }
 
     function chooseTab(chosen: string) {

@@ -8,10 +8,10 @@ import {type Coords, type Geometry, type Measurement} from "../measure/measure";
 import {type Finding, SEVERITY_COLORS} from "../findings/findings";
 import {centreOf} from "../findings/layer";
 import {type Scale} from "../viewer/canvas";
-import {defaultAdjust, isTemperatureTab, shownRange, type Style, tabLabel, toneShares, type View} from "../viewer/view";
+import {defaultAdjust, isTemperatureTab, shownRange, type Style, tabLabel, toneShares, valueCaption, valueUnit,
+        type View} from "../viewer/view";
 import {defaultStyle, type Mosaics} from "../viewer/viewer-page";
 import {formatNumber} from "../core/format";
-import {symbol} from "../measure/measure";
 import {type Typed} from "./text";
 
 // What is saved on the conversion (its "report")
@@ -61,7 +61,7 @@ export function colouringOf(v: Mosaics, tab: string, style: Style, curve: number
 export function legendOf(v: Mosaics, tab: string, style: Style, curve: number[] | null): Scale | null {
     if (tab === "source_frame") return null;
     return {colors: paletteOf(v, style.palette), shown: shownRange(tab, style.range, v.unit), shares: sharesOf(style, curve),
-            caption: tab === "view_angle" ? "View angle, °" : "Temperature, " + symbol()};
+            caption: valueCaption(tab)};
 }
 
 // The view in words: the mosaic, its palette, its range and the adjustments made (on the Source frame tab, those of
@@ -72,7 +72,7 @@ export function viewText(v: Mosaics, shownTab: string, shownStyle: Style): strin
     if (seams) parts.push("the seams between its frames over the " + tabLabel(tab));
     if (tab !== "source_frame") {
         const palette = (v.palettes || []).find((p) => p.key === style.palette);
-        const [lo, hi] = shownRange(tab, style.range, v.unit), u = tab === "view_angle" ? "°" : " " + symbol();
+        const [lo, hi] = shownRange(tab, style.range, v.unit), u = valueUnit(tab);
         parts.push((palette?.label || style.palette) + " palette", formatNumber(lo, 1) + " to " + formatNumber(hi, 1) + u);
         if (style.adjust.gamma !== 1) parts.push("gamma " + style.adjust.gamma);
         if (style.adjust.equalize) parts.push("equalized");

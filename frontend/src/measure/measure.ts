@@ -53,6 +53,9 @@ export interface Result {
     percentiles?: number[] | null;
     max_location?: Coords | null;
     min_location?: Coords | null;
+    // The ground's height (WebODM's DSM, above its lowest ground) at a spot, or an area's lowest, mean and highest
+    height?: number | null;
+    heights?: {min: number; mean: number; max: number} | null;
 }
 
 // What the API measured: as converted, and with the parameters changed
@@ -175,6 +178,18 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
                    difference: results.length === 2 && isPresent(share[0]) && isPresent(share[1]) ?
                        (share[1] - share[0] > 0 ? "+" : "") + formatNumber((share[1] - share[0]) * 100, 1, " %") : undefined});
     }
+    function height(label: string, vs: Maybe<number>[]) {
+        if (!vs.some(isPresent)) return;
+        const row: Row = {label, values: vs.map((v) => isPresent(v) ? formatNumber(v, 1, " m") : "")};
+        if (results.length === 2 && isPresent(vs[0]) && isPresent(vs[1])) {
+            row.difference = (vs[1] - vs[0] > 0 ? "+" : "") + formatNumber(vs[1] - vs[0], 1, " m");
+        }
+        rows.push(row);
+    }
+    height("Ground height", results.map((r) => r.height));
+    height("Lowest height", results.map((r) => r.heights?.min));
+    height("Mean height", results.map((r) => r.heights?.mean));
+    height("Highest height", results.map((r) => r.heights?.max));
     rows.push({label: "Pixels", values: results.map((r) => String(r.valid_pixels || 0))});
     return rows;
 }

@@ -5,7 +5,8 @@ import {setUserUnit} from "../src/core/units";
 import {gradientCss, gradientStops, paletteCss} from "../src/viewer/canvas";
 import {
     defaultRange, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
-    sliderPositions, SLIDERS, slidRange, styleGroup, takenText, dataUrl, toneShares, viewQuery, visualRows,
+    shownRange, sliderPositions, SLIDERS, slidRange, styleGroup, takenText, dataUrl, toneShares, valueCaption, valueUnit,
+    viewQuery, visualRows,
 } from "../src/viewer/view";
 
 afterEach(() => setUserUnit("C"));
@@ -27,6 +28,19 @@ describe("the view in the URL", () => {
         expect(viewQuery(view)).toBe("?tab=as_converted&min=1&max=2&gamma=2&sharpen=1&frame=a%20b");
         expect(readView(viewQuery(view))).toEqual(view);
         expect(viewQuery({})).toBe("");
+    });
+});
+
+describe("the tabs' values", () => {
+    it("are temperatures in the user's unit, but for the view angles and heights", () => {
+        setUserUnit("F");
+        expect(valueUnit("webodm")).toBe(" °F");
+        expect(valueCaption("as_converted")).toBe("Temperature, °F");
+        expect(shownRange("as_converted", [0, 10], "C")).toEqual([32, 50]);
+        expect([valueUnit("view_angle"), valueCaption("view_angle")]).toEqual(["°", "View angle, °"]);
+        expect([valueUnit("heights"), valueCaption("heights")]).toEqual([" m", "Height, m"]);
+        expect(shownRange("heights", [0, 10], "C")).toEqual([0, 10]);
+        expect(styleGroup("heights")).toBe("heights");
     });
 });
 
