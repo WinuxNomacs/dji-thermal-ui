@@ -149,7 +149,13 @@ export async function readValues(res: Response): Promise<{values: Float32Array; 
 export function colourValues(values: Float32Array, width: number, height: number, c: Colouring, sigma = 1): Uint8ClampedArray {
     const out = new Uint8ClampedArray(width * height * 4);
     const at = (x: number, y: number) => x < 0 || y < 0 || x >= width || y >= height ? -Infinity : values[y * width + x];
-    const put = (i: number, rgb: Rgba) => { out.set([rgb[0], rgb[1], rgb[2], 255], i * 4); };
+    const put = (i: number, rgb: Rgba) => {
+        const j = i * 4;
+        out[j] = rgb[0];
+        out[j + 1] = rgb[1];
+        out[j + 2] = rgb[2];
+        out[j + 3] = 255;
+    };
     if (c.seams) {
         const changed = (x: number, y: number, sides: number[][]) => sides.some(([dx, dy]) => {
             const n = at(x + dx, y + dy);
@@ -173,6 +179,7 @@ export function colourValues(values: Float32Array, width: number, height: number
     const s = Math.max(SIGMA_LIMITS[0], Math.min(SIGMA_LIMITS[1], sigma));
     const share = (v: number) => Math.max(0, Math.min(1, (v - range[0]) / span));
     const palette = tonedPalette(c.colors, c.shares), grey = c.isotherm ? tonedPalette(c.colors, c.shares, true) : palette;
+    const offsets = TAPS.map((d) => Math.round(d * s));
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const v = at(x, y);
@@ -180,10 +187,12 @@ export function colourValues(values: Float32Array, width: number, height: number
             let u = share(v);
             if (sharpen > 0) {
                 let sum = 0, weight = 0;
-                TAPS.forEach((dy, j) => TAPS.forEach((dx, i) => {
-                    const n = at(x + Math.round(dx * s), y + Math.round(dy * s)), w = WEIGHTS[i] * WEIGHTS[j];
-                    if (n >= NO_DATA_BELOW) { sum += w * share(n); weight += w; }
-                }));
+                for (let j = 0; j < offsets.length; j++) {
+                    for (let i = 0; i < offsets.length; i++) {
+                        const n = at(x + offsets[i], y + offsets[j]), w = WEIGHTS[i] * WEIGHTS[j];
+                        if (n >= NO_DATA_BELOW) { sum += w * share(n); weight += w; }
+                    }
+                }
                 u = Math.max(0, Math.min(1, u + sharpen * (u - sum / weight)));
             }
             const step = Math.round(u * (TONE_STEPS - 1)), inside = !c.isotherm || (v >= c.isotherm[0] && v <= c.isotherm[1]);

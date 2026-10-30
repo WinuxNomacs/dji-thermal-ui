@@ -19,10 +19,13 @@ export const TAB_HINTS: Record<string, string> = {
         "and blended the frames, so it doesn't say which frame each pixel comes from.",
     heights: "WebODM's DSM, brought back from one of its tasks: the height of the ground, roofs and trees in metres " +
         "above its lowest ground.",
+    video: "Each pixel's level (0 to 255) in the camera's Ironbow, recoloured. Relative, not temperatures: the camera " +
+        "re-ranges each frame, so a level is not the same heat from one frame to the next.",
 };
 export const TEMPERATURE_TABS = ["as_converted", "harmonized", "webodm"];
 // The tabs whose values aren't temperatures: what they are, and their unit as written after a number
-const OTHER_VALUES: Record<string, [string, string]> = {view_angle: ["View angle", "°"], heights: ["Height", " m"]};
+const OTHER_VALUES: Record<string, [string, string]> = {view_angle: ["View angle", "°"], heights: ["Height", " m"],
+                                                        video: ["Level (relative)", ""]};
 // The adjustments' limits and the legend's samples, as the server has them (thermal_measure)
 export const GAMMA_LIMITS = [0.2, 5], SHARPEN_MAX = 5, CURVE_SAMPLES = 65;
 

@@ -1636,6 +1636,26 @@ stills, but the plan does not count on them.
 - **No temperatures from video** (the old V3): the video is not radiometric and auto-ranged. Matching video moments
   to the mission's stills is possible but not counted on (Later).
 
+### V2: decisions (2026-10-30)
+
+- **The levels are DJI's Ironbow turned back:** checked on the sample, its colours are a median 7.6 RGB units from
+  the M4T's ironred table (compression noise; every other palette is 47 or more away), and its frames use levels
+  14 to 233. The table (256 colours, taken once with dji-thermal-cli's port from an m4t-220 still; the tables
+  differ between camera families) ships with the front end; each frame shown is drawn to a canvas and each pixel
+  takes the level of the nearest colour, through a precomputed lookup cube. Nothing on the server.
+- **In place, with a switch:** the re-coloured picture takes the video's place beside the map; a switch flips
+  between Original and Re-coloured, and the playback controls work in both.
+- **The range is fixed, with Auto:** the range set (0 to 255 to start) stays across frames, so the colours don't
+  flicker; Auto takes it from the frame shown (2nd to 98th percentile). The page says levels are relative: the
+  camera re-ranges each frame, so a level is not the same heat from one frame to the next.
+- **The colouring is the viewer's:** palette, range and Auto, brightness, contrast, gamma, sharpening, and an
+  isotherm in levels, through `colourValues`. The palettes are the preferences' (`view_palettes`), with DJI ironred
+  from the shipped table when no conversion holds DJI's; it starts as DJI ironred, so the picture starts as filmed.
+- **Playback:** ±1 frame and ±1 s, speeds ⅛× to 2×, an in and an out point and a loop between them at any speed.
+  Keys: Space play/pause, ←/→ a frame, Shift+←/→ a second, I/O the in and out points, L the loop, −/+ the speed.
+  While playing each painted frame is re-coloured (frames skipped if it falls behind); paused, the frame shown is.
+- **The readout** adds the level and pixel under the pointer.
+
 ### Phases
 
 1. **V1: videos in a flight** (built 2026-10-30, see Done): MP4s are added to a flight as stills are (uploaded, or

@@ -303,7 +303,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, basemap
                 {exporting && a?.files && <FilesExport api={api} datasetId={d.id} shown={exporting}
                     all={a.files.filter((f) => f.kind === "thermal").map((f) => f.path)} conversions={d.conversions || []}
                     hasVisual={a.files.some((f) => fileKind(f) === "visual")} onClose={() => setExporting(null)}/>}
-                {a?.files && tab === "videos" && <VideosTab url={url} files={a.files} videos={videos} zone={d.flight_zone}
+                {a?.files && tab === "videos" && <VideosTab api={api} url={url} files={a.files} videos={videos} zone={d.flight_zone}
                                                             basemaps={basemaps}/>}
                 {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}

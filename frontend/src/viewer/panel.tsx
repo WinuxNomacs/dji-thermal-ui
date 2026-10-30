@@ -71,7 +71,7 @@ export function Controls(p: ControlsProps) {
             that saw it, and a second click on it or Esc lets go of it.</p></>);
     }
     const conv = (x: Maybe<number>) => temperature ? convertTemp(x, p.unit) as number : x;
-    const typed = (min: string, max: string) => p.onRange(min, max);
+    const typed = (min: string, max: string) => p.onRange(min, max), frame = t === "frame" || t === "video";
     return (<>
         {hint}
         <label class="field">Palette
@@ -87,11 +87,11 @@ export function Controls(p: ControlsProps) {
             <input type="number" step="0.1" id="range-max" title="Maximum" value={p.range[1]}
                    onChange={(e) => typed(p.range[0], e.currentTarget.value)}/>
             <span>{temperature ? unitSymbol(userUnit()) : u.trim()}</span>
-            <button type="button" class="button default small" id="auto" title="The 2nd to 98th percentile of this mosaic"
+            <button type="button" class="button default small" id="auto" title={"The 2nd to 98th percentile of this " + (frame ? "frame" : "mosaic")}
                     onClick={p.onAuto}>Auto</button>
         </div>
         {p.rangeError && <div class="text-danger" id="range-error">{p.rangeError}</div>}
-        {s && <div class="message">{t === "frame" ? "This frame" : "This mosaic"}: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
+        {s && <div class="message">{frame ? "This frame" : "This mosaic"}: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
             temperature ? " " + symbol() : u)}</div>}
     </>);
 }
