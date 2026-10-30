@@ -1,4 +1,5 @@
 // A dataset's page: its analysis, files, problems, WebODM plan and conversions
+import "ol/ol.css";
 import {DatasetPage} from "../dataset/dataset-page";
 import {jsonScript, mountPage} from "../core/page";
 

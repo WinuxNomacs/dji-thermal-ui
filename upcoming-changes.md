@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: V1, videos in a flight (see "Video").
+**Up next**: V2, analysing a video in the browser (see "Video").
 
-**Then**: V2, analysing a video in the browser; V3, frames kept.
+**Then**: V3, frames kept.
 
 ## Standalone (option A)
 
@@ -1638,8 +1638,8 @@ stills, but the plan does not count on them.
 
 ### Phases
 
-1. **V1: videos in a flight:** MP4s are added to a flight as stills are (upload or folder), copied into its
-   folder, and listed on a Videos tab with their cover, length, time and drone. Their track is read when added
+1. **V1: videos in a flight** (built 2026-10-30, see Done): MP4s are added to a flight as stills are (uploaded, or
+   read in place in a folder flight, as its stills are), and listed on a Videos tab with their cover, length, time and drone. Their track is read when added
    (`analyzer/video.py`) and drawn on the frames map; the video plays beside it with a marker following it, and a
    click on the track seeks to that moment.
 2. **V2: analysing a video in the browser:** each shown frame is turned back into levels (0–255) through DJI's
@@ -2191,3 +2191,17 @@ stills, but the plan does not count on them.
   `panel.test.tsx`, `viewer.test.tsx`. Live check: 70 frames of m4t-220 processed in WebODM with a DSM, brought back:
   the Heights tab -0.3 to 7.3 m above 212.1 m, the ground's height in the readout on both tabs, a spot's and a box's
   heights, light and dark, no errors. Then the WebODM project removed.
+- **V1: videos in a flight** (2026-10-30). `analyzer/video.py` reads a DJI MP4 in plain Python: its info (length,
+  frames, fps, size, start in UTC, drone and serial), the `DJI meta` track (a point per frame: time, position, height
+  above take-off and absolute, gimbal pitch and yaw, heading, speed; protobuf's left-out zeros read as zeros) and the
+  cover JPEG. The analysis lists each MP4 as a `video` row (`thermal_analysis.video_row`), or why it can't be read;
+  the upload takes `.mp4`; `api.py` serves `datasets/<id>/video` (in ranges, for seeking), `video-cover` and
+  `video-track`, and the thumbnail of a video is its cover; a project's export carries videos (`backup.image_files`).
+  The Videos tab (`frontend/src/dataset/video-tab.tsx`, helpers in `videos.ts`): the list, the player beside a map of
+  the track and the flight's frames, the marker following `requestVideoFrameCallback` (else `timeupdate`), a click
+  within 12 px of the track seeking, the readout. The flight page now loads `ol/ol.css` and the basemaps. Tests:
+  `tests/test_video.py` (a fake DJI MP4 built in `tests/fakes.py`), `tests/test_api_export.py`,
+  `frontend/tests/videos.test.tsx`. Checked live on 8081 with 6 frames of m4t-220 and the M4T's video uploaded
+  through the page: the analysis, the Files row, the list, playback, the readout following, a seek, a click on the
+  track (to 0:23.80) and one beside it (nothing), light and dark, no console or HTTP errors. Playwright's Chromium
+  plays H.264.

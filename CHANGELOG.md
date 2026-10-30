@@ -29,6 +29,11 @@ All notable changes are recorded here. The format follows
 - WebODM's DSM on the viewer: a Heights tab (heights in metres above the DSM's lowest ground, coloured with the
   palette and range), the ground's height under the cursor on every tab (as WebODM gives it in its tooltip), and a
   spot's ground height or an area's lowest, mean and highest in a measurement on a temperature tab.
+- Videos in a flight: DJI's MP4s uploaded with the images or found in a folder flight, listed by the analysis (the
+  Files tab calls them Video, with their cover as thumbnail) and on a Videos tab: each with its cover, length, start
+  time and drone, played beside a map of its track (read from DJI's metadata in the MP4, a point per frame), a marker
+  following the frame shown and a click on the track seeking to that moment, with the frame's height, gimbal angles,
+  heading, speed and position. A project's export carries them.
 
 ### Changed
 
