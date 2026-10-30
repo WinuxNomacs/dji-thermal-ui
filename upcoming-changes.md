@@ -10,7 +10,7 @@ its title.
 
 **Up next**: ODM4, WebODM's DSM under the mosaics (to plan with the user; see "ODM").
 
-**Later**: nothing.
+**Later**: Video, DJI thermal video in a flight (V1–V3, proposed; to plan with the user; see "Video").
 
 ## Standalone (option A)
 
@@ -1548,6 +1548,50 @@ comes with it, unused).
 - **Maybe:** the height under the pointer on the viewer, beside the temperature; heights in a measurement.
 - **Open decisions:** the above as a whole; the cell size (fixed at 24 cm-ish, or a setting); whether the DSM is
   also shown as a layer; whether a task asks for the DSM always or by a tick.
+
+## Video
+
+Requested 2026-10-30 (`new.md`): planning for the analysis of DJI thermal drone video files.
+
+### What it builds on
+
+- **Today the app reads stills only:** a flight's files are DJI R-JPEGs (`IMAGE_EXTENSIONS` in `analyzer/api.py`),
+  whose temperatures dji-thermal-cli decodes. Positions come from each image's XMP (`djixmp.py`); the files, the
+  frames map, the source frames pop-out (C2), findings (C3) and the report (D1) all work per still.
+- **What DJI's thermal video is** (to confirm on the user's own files): the infrared camera records an MP4
+  (`DJI_<time>_<index>_T.MP4`, beside `_W`/`_Z` for the wide and zoom cameras) with the palette already applied:
+  8-bit colours, not temperatures. DJI's Thermal SDK reads R-JPEGs only. With subtitles on, each video has an
+  `.SRT` beside it with a line per frame: time, GPS, altitude, and for some models the gimbal and camera settings.
+- **So from a video the app can know** where each frame was taken (the SRT) and what it looked like; it cannot know
+  temperatures, unless the video is radiometric (some newer models) or the colours are mapped back through a known
+  palette and a fixed range (approximate, and only when the range was locked during the flight).
+- **Reading video** needs a decoder: PyAV (wheels that bundle FFmpeg, on Linux, Windows and macOS) or
+  imageio-ffmpeg (a bundled `ffmpeg` binary). Either is a new pinned dependency, of dji-thermal-cli if the reading
+  goes there, as the stills' does.
+
+### Proposed phases
+
+1. **V1: videos in a flight:** MP4s (with their SRTs) are added to a flight as the stills are, listed on a Videos
+   tab with a thumbnail, length and time. The SRT's track is drawn on the frames map, and the video plays beside the
+   map with a marker following it (and a click on the track seeks to that point). No decoding on the server beyond
+   the thumbnail.
+2. **V2: frames from a video:** frames taken at an interval or at the moments chosen while watching, saved with their
+   position and time from the SRT, so that they can be kept for findings (C3) and reports (D1) as stills are.
+   Values are colours, so measurements show colour, not temperature.
+3. **V3: temperatures from video** (only if V1 shows it is possible on the user's files): either a radiometric
+   video's own values, or the colours mapped back through the palette and range that were on screen, marked as
+   approximate.
+4. **Later, maybe:** a mosaic or a path strip from video frames (positions from the SRT, as the stills' mosaics).
+
+### Open decisions (to ask when planning)
+
+- **A sample:** which drone and which files; whether the SRTs were recorded; whether any are radiometric. This
+  decides V3, and whether V1's decoder must read more than 8-bit colour.
+- **Where the reading lives:** in dji-thermal-cli (a `video` module, released and pinned first, as the stills') or
+  in the app.
+- **The decoder:** PyAV or imageio-ffmpeg.
+- **Storage:** videos are large; copied into the data folder as the stills are, or linked where they are.
+- **Order:** after ODM4, or sooner.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
