@@ -191,6 +191,10 @@ class ThermalConversion(models.Model):
                                   help_text=_("The WebODM orthophoto brought back and shown beside the mosaics: the "
                                               "task it came from, its raster, where it is and its temperatures"),
                                   verbose_name=_("Orthophoto"))
+    dsm = models.JSONField(default=dict, blank=True,
+                           help_text=_("The WebODM surface model brought back for the mosaics: the task it came from, "
+                                       "its raster, whether the mosaics use it and their height cell"),
+                           verbose_name=_("DSM"))
 
     class Meta:
         verbose_name = _("Thermal conversion")
@@ -357,8 +361,8 @@ class WebODMTask(models.Model):
     total = models.BigIntegerField(default=0, help_text=_("Bytes to send"), verbose_name=_("Total"))
     error = models.TextField(blank=True, default="", help_text=_("Why it failed"), verbose_name=_("Error"))
     run_id = models.CharField(max_length=32, blank=True, default="",
-                              help_text=_("The upload, then the orthophoto's download: its job goes on only while "
-                                          "this is still its own (canceling changes it)"), verbose_name=_("Run ID"))
+                              help_text=_("The upload, then a download (the orthophoto's or the DSM's): its job goes "
+                                          "on only while this is still its own (canceling changes it)"), verbose_name=_("Run ID"))
     half_made = models.BooleanField(default=False,
                                     help_text=_("Made in WebODM but not committed: removed there when the upload "
                                                 "doesn't finish"), verbose_name=_("Half made"))
@@ -376,6 +380,13 @@ class WebODMTask(models.Model):
                                             verbose_name=_("Orthophoto progress"))
     orthophoto_error = models.TextField(blank=True, default="", help_text=_("Why the orthophoto wasn't brought back"),
                                         verbose_name=_("Orthophoto error"))
+    dsm_status = models.CharField(max_length=16, choices=ORTHOPHOTO_STATUSES, default="", blank=True,
+                                  help_text=_("Its DSM being brought back (once it is, the conversion's DSM says so)"),
+                                  verbose_name=_("DSM status"))
+    dsm_progress = models.FloatField(default=0.0, help_text=_("How far the DSM's download is, 0 to 1"),
+                                     verbose_name=_("DSM progress"))
+    dsm_error = models.TextField(blank=True, default="", help_text=_("Why the DSM wasn't brought back"),
+                                 verbose_name=_("DSM error"))
 
     class Meta:
         verbose_name = _("WebODM task")

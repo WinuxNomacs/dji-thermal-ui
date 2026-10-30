@@ -266,6 +266,9 @@ def conversion_summary(c):
         'mosaic_error': c.mosaic_error,
         'mosaic_files': sorted(f for k in (c.mosaics or {}).get('kinds', {}).values() for f in k.get('files', [])),
         'orthophoto': webodm_tasks.orthophoto_summary(c),
+        'dsm': webodm_tasks.dsm_summary(c),
+        # The DSM the mosaics were built on: {task_name, height_cell}, or None (their own heights)
+        'mosaics_dsm': (c.mosaics or {}).get('dsm'),
         'file_count': c.file_count,
         'size': int(c.size * 1024 * 1024),
         'created_at': c.created_at,
@@ -1318,6 +1321,7 @@ class WebODMTaskView(DatasetView):
         if task.status == 'uploading':
             return Response({'error': "Cancel the upload first"}, status=status.HTTP_409_CONFLICT)
         webodm_tasks.remove_orthophoto(task.conversion, task)
+        webodm_tasks.remove_orthophoto(task.conversion, task, 'dsm')
         task.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1329,8 +1333,9 @@ class WebODMOrthophotoView(DatasetView):
         task = webodm_tasks.check_stale(get_webodm_task(pk))
         if task.status != 'completed':
             raise ValidationError({'error': "The task's orthophoto can be brought back once WebODM has completed it"})
-        if task.orthophoto_status == 'downloading':
-            return Response({'error': "The orthophoto is already being brought back"}, status=status.HTTP_409_CONFLICT)
+        if webodm_tasks.downloading(task):
+            return Response({'error': "Wait for what is being brought back of the task"},
+                            status=status.HTTP_409_CONFLICT)
         if task.conversion.status != 'ready':
             raise ValidationError({'error': "The dataset is not converted"})
         webodm_client()
@@ -1339,6 +1344,58 @@ class WebODMOrthophotoView(DatasetView):
     def delete(self, request, pk):
         """Stops bringing back a task's orthophoto"""
         return Response(webodm_tasks.summary(webodm_tasks.cancel_orthophoto(get_webodm_task(pk))))
+
+
+class WebODMDsmView(DatasetView):
+    def post(self, request, pk):
+        """Brings back a completed task's DSM, for the conversion's mosaics to be projected onto, in place of the one
+        brought back before"""
+        task = webodm_tasks.check_stale(get_webodm_task(pk))
+        if task.status != 'completed':
+            raise ValidationError({'error': "The task's DSM can be brought back once WebODM has completed it"})
+        if webodm_tasks.downloading(task):
+            return Response({'error': "Wait for what is being brought back of the task"},
+                            status=status.HTTP_409_CONFLICT)
+        if task.conversion.status != 'ready':
+            raise ValidationError({'error': "The dataset is not converted"})
+        webodm_client()
+        return Response(webodm_tasks.summary(webodm_tasks.fetch(task, 'dsm')))
+
+    def delete(self, request, pk):
+        """Stops bringing back a task's DSM"""
+        return Response(webodm_tasks.summary(webodm_tasks.cancel_orthophoto(get_webodm_task(pk), 'dsm')))
+
+
+class ConversionDsmView(DatasetView):
+    def patch(self, request, pk):
+        """Whether the mosaics are projected onto the conversion's DSM, and on what height cell: {use, height_cell
+        (mosaic pixels)}; used the next time they are built"""
+        conversion = get_conversion(pk)
+        dsm = dict(conversion.dsm or {})
+        if not dsm.get('raster'):
+            raise NotFound()
+        data = request.data if isinstance(request.data, dict) else {}
+        if set(data) - {'use', 'height_cell'}:
+            raise ValidationError({'error': "Only use and height_cell can be changed"})
+        if 'use' in data:
+            if not isinstance(data['use'], bool):
+                raise ValidationError({'use': "true or false"})
+            dsm['use'] = data['use']
+        if 'height_cell' in data:
+            cell = data['height_cell']
+            if isinstance(cell, bool) or not isinstance(cell, int) or not \
+                    webodm_tasks.MIN_CELL <= cell <= webodm_tasks.MAX_CELL:
+                raise ValidationError({'height_cell': "A whole number of pixels, {} to {}".format(
+                    webodm_tasks.MIN_CELL, webodm_tasks.MAX_CELL)})
+            dsm['height_cell'] = cell
+        ThermalConversion.objects.filter(pk=conversion.pk).update(dsm=dsm)
+        return Response(conversion_detail(get_conversion(pk)))
+
+    def delete(self, request, pk):
+        """Removes the conversion's DSM (WebODM keeps its own); the mosaics built on it are kept"""
+        conversion = get_conversion(pk)
+        webodm_tasks.remove_orthophoto(conversion, asset='dsm')
+        return Response(conversion_detail(get_conversion(pk)))
 
 
 class ConversionOrthophotoView(DatasetView):

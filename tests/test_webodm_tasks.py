@@ -1,7 +1,7 @@
 """Process in WebODM: a task made in WebODM from a conversion's temperature TIFFs, through its API (made waiting for its
 images, the TIFFs uploaded in batches, then committed), the checks carried over from the plugin, the projects, nodes,
 options and presets offered, the task followed on the conversion, and its orthophoto brought back and shown beside
-the conversion's mosaics. WebODM is a fake keeping its projects, tasks, presets and results."""
+the conversion's mosaics, and its DSM brought back for the mosaics to be projected onto. WebODM is a fake keeping its projects, tasks, presets and results."""
 
 import io
 import json
@@ -17,7 +17,8 @@ import pytest
 
 from dji_thermal_ui.analyzer import envfile, jobs, webodm, webodm_tasks
 from dji_thermal_ui.analyzer.models import Preferences, ThermalConversion, ThermalDataset, WebODMTask
-from tests.fakes import CONVERSIONS, DATASETS, MOSAIC_ORIGIN, converted, mosaic_lonlat, mosaic_square
+from tests.fakes import (CONVERSIONS, DATASETS, MOSAIC_ORIGIN, converted, fake_make_mosaic, mosaic_lonlat,
+                         mosaic_square)
 
 URL = "http://127.0.0.1:8001"
 PLAN = {'process_args': ["-o", "temp_c:tiff", "--max-pitch", "-80", "--normalize"],
@@ -518,3 +519,121 @@ def test_a_download_canceled_part_way_leaves_nothing_and_one_a_closed_server_lef
     assert jobs.mark_interrupted() == 1
     task.refresh_from_db()
     assert task.orthophoto_status == 'failed' and task.orthophoto_error == jobs.INTERRUPTED and task.run_id == ""
+
+
+def dsm_bytes(tmp_path):
+    """WebODM's DSM of the fake mosaic's place: altitudes in metres, as ODM writes them (Deflate, the horizontal
+    predictor, tiled, -9999 for no data on column 40)"""
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+    path = tmp_path / "dsm.tif"
+    z = np.tile(200 + np.arange(64, dtype='float32') / 10, (64, 1))
+    z[:, 40] = -9999
+    with rasterio.open(path, 'w', driver='GTiff', width=64, height=64, count=1, dtype='float32', crs='EPSG:32616',
+                       transform=from_origin(*MOSAIC_ORIGIN, 0.05, 0.05), nodata=-9999, compress='deflate',
+                       predictor=2, tiled=True, blockxsize=32, blockysize=32) as dst:
+        dst.write(z, 1)
+    return path.read_bytes()
+
+
+def with_dsm(api, wo, c, tmp_path):
+    """A completed task of the conversion's that asked WebODM for a DSM, and has it"""
+    task = WebODMTask.objects.get(pk=start(api, c, options=[{'name': "dsm", 'value': True}]).data['id'])
+    WebODMTask.objects.filter(pk=task.pk).update(status='completed')
+    wo['assets'][(task.task_id, 'dsm.tif')] = dsm_bytes(tmp_path)
+    task.refresh_from_db()
+    return task
+
+
+def build_mosaics(api, c):
+    with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=fake_make_mosaic) as make:
+        assert api.post("%s/%d/mosaics" % (CONVERSIONS, c.id)).status_code == 200
+    return make.call_args.args[3]
+
+
+def test_a_completed_tasks_dsm_is_brought_back_as_written_and_the_mosaics_are_projected_onto_it(api, wo, tmp_path):
+    c = ready(api)
+    task = with_dsm(api, wo, c, tmp_path)
+    assert api.get("/api/webodm-tasks/%d" % task.id).data['dsm_asked'] is True
+    assert api.get("/api/webodm-tasks/%d" % completed(api, wo, c, tmp_path).id).data['dsm_asked'] is False
+    data = api.post("/api/webodm-tasks/%d/dsm" % task.id).data
+    assert data['dsm_status'] == "" and data['dsm_error'] == ""
+    c.refresh_from_db()
+    assert c.dsm['raster'] == "webodm/dsm-%d.tif" % task.id and c.dsm['task'] == task.id
+    assert (c.dsm['use'], c.dsm['height_cell'], c.dsm['pixel_m']) == (True, webodm_tasks.DSM_CELL, 0.05)
+    path = os.path.join(c.data_dir(), c.dsm['raster'])
+    with open(path, 'rb') as f:
+        assert f.read() == dsm_bytes(tmp_path)
+    assert c.orthophoto == {}
+    # Used the next time the mosaics are built, which say so
+    options = build_mosaics(api, c)
+    assert (str(options.dsm), options.height_cell) == (path, webodm_tasks.DSM_CELL)
+    detail = api.get("%s/%d" % (CONVERSIONS, c.id)).data
+    assert detail['dsm']['use'] is True and detail['dsm']['task_name'] == task.name
+    assert detail['mosaics_dsm'] == {'task_name': task.name, 'height_cell': webodm_tasks.DSM_CELL}
+    # Its cell changed, then not used: the mosaics are built on their own heights again
+    url = "%s/%d/dsm" % (CONVERSIONS, c.id)
+    assert api.patch(url, {'height_cell': 32}, format='json').data['dsm']['height_cell'] == 32
+    assert build_mosaics(api, c).height_cell == 32
+    assert api.patch(url, {'use': False}, format='json').data['dsm']['use'] is False
+    options = build_mosaics(api, c)
+    assert options.dsm is None and options.height_cell != 32
+    assert api.get("%s/%d" % (CONVERSIONS, c.id)).data['mosaics_dsm'] is None
+    for bad in ({'height_cell': 4}, {'height_cell': 2000}, {'height_cell': 16.5}, {'height_cell': True},
+                {'use': "yes"}, {'raster': "../x.tif"}):
+        assert api.patch(url, bad, format='json').status_code == 400, bad
+
+
+def test_another_tasks_dsm_replaces_it_keeping_its_choices_and_removing_it_or_its_task_removes_its_file(
+        api, wo, tmp_path):
+    c = ready(api)
+    first, second = with_dsm(api, wo, c, tmp_path), with_dsm(api, wo, c, tmp_path)
+    api.post("/api/webodm-tasks/%d/dsm" % first.id)
+    url = "%s/%d/dsm" % (CONVERSIONS, c.id)
+    api.patch(url, {'use': False, 'height_cell': 24}, format='json')
+    api.post("/api/webodm-tasks/%d/dsm" % second.id)
+    c.refresh_from_db()
+    folder = os.path.join(c.data_dir(), "webodm")
+    assert c.dsm['task'] == second.id and os.listdir(folder) == ["dsm-%d.tif" % second.id]
+    assert (c.dsm['use'], c.dsm['height_cell']) == (False, 24)
+    assert api.delete("/api/webodm-tasks/%d" % first.id).status_code == 204
+    assert os.listdir(folder) == ["dsm-%d.tif" % second.id]
+    assert api.delete("/api/webodm-tasks/%d" % second.id).status_code == 204
+    c.refresh_from_db()
+    assert c.dsm == {} and os.listdir(folder) == []
+    assert api.patch(url, {'use': True}, format='json').status_code == 404
+    # Removed from the card; a mosaic build that finds it gone says so
+    third = with_dsm(api, wo, c, tmp_path)
+    api.post("/api/webodm-tasks/%d/dsm" % third.id)
+    os.remove(os.path.join(folder, "dsm-%d.tif" % third.id))
+    with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=fake_make_mosaic):
+        api.post("%s/%d/mosaics" % (CONVERSIONS, c.id))
+    c.refresh_from_db()
+    assert c.mosaic_status == 'failed' and "WebODM's DSM is missing" in c.mosaic_error
+    res = api.delete(url)
+    assert res.status_code == 200 and res.data['dsm'] is None
+
+
+def test_a_dsm_is_brought_back_one_download_at_a_time_and_one_that_cannot_be_read_is_not_kept(api, wo, tmp_path):
+    c = ready(api)
+    task = with_dsm(api, wo, c, tmp_path)
+    WebODMTask.objects.filter(pk=task.pk).update(orthophoto_status='downloading', run_id="someone-else")
+    with mock.patch.object(jobs, 'alive', return_value=True):
+        assert api.post("/api/webodm-tasks/%d/dsm" % task.id).status_code == 409
+    WebODMTask.objects.filter(pk=task.pk).update(orthophoto_status="", run_id="")
+    wo['assets'][(task.task_id, 'dsm.tif')] = b"not a TIFF at all"
+    data = api.post("/api/webodm-tasks/%d/dsm" % task.id).data
+    assert data['dsm_status'] == 'failed' and "not a readable GeoTIFF" in data['dsm_error']
+    c.refresh_from_db()
+    assert c.dsm == {} and os.listdir(os.path.join(c.data_dir(), "webodm")) == []
+    # Canceled part way: nothing left; left by a closed server: failed
+    wo['assets'][(task.task_id, 'dsm.tif')] = dsm_bytes(tmp_path)
+    wo['on_download'] = lambda: api.delete("/api/webodm-tasks/%d/dsm" % task.id)
+    data = api.post("/api/webodm-tasks/%d/dsm" % task.id).data
+    assert data['dsm_status'] == "" and data['dsm_error'] == ""
+    assert os.listdir(os.path.join(c.data_dir(), "webodm")) == []
+    WebODMTask.objects.filter(pk=task.pk).update(dsm_status='downloading', run_id="gone")
+    assert jobs.mark_interrupted() == 1
+    task.refresh_from_db()
+    assert task.dsm_status == 'failed' and task.dsm_error == jobs.INTERRUPTED

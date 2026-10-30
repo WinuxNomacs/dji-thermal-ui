@@ -334,6 +334,13 @@ def build(conversion, run):
     # Asked for unless switched off (conversions made before it was offered build it too)
     visual = options.get('visual', True) is not False
 
+    # WebODM's DSM brought back (webodm_tasks), when the mosaics are to be projected onto it
+    from .webodm_tasks import used_dsm
+    dsm = used_dsm(conversion)
+    if dsm and not os.path.isfile(dsm[0]):
+        raise Exception("WebODM's DSM is missing: bring it back again, or stop using it")
+    surface = dict(dsm=Path(dsm[0]), height_cell=dsm[1]) if dsm else {}
+
     jpegs = api.scan(root).jpegs
     with open(os.path.join(out_dir, VIEWER_DIR, PALETTES_FILE), 'w') as f:
         json.dump(dji_palettes(jpegs), f)
@@ -362,7 +369,8 @@ def build(conversion, run):
     kind_dirs = {kind: os.path.join(out_dir, MOSAICS_DIR, kind) for kind, _ in KINDS}
     # The harmonized mosaic, and the as converted one from the same layout (aligned once)
     harmonized = api.make_mosaic(root, kind_dirs['harmonized'], settings,
-                                 api.MosaicOptions(max_pitch=pitch_limit, normalize=True, units=(unit,), visual=visual),
+                                 api.MosaicOptions(max_pitch=pitch_limit, normalize=True, units=(unit,), visual=visual,
+                                                   **surface),
                                  compression=args['compression'], jobs=django_settings.THERMAL_PROCESSES,
                                  progress=progress,
                                  as_converted_dir=kind_dirs['as_converted'])
@@ -388,6 +396,8 @@ def build(conversion, run):
             'report': trimmed(m.report),
         })
     out = {'kinds': kinds, 'frames': frames, 'unit': unit, 'stripped': stripped}
+    if dsm:
+        out['dsm'] = {'task_name': (conversion.dsm or {}).get('task_name', ""), 'height_cell': dsm[1]}
     if harmonized.visual is not None:
         out[VISUAL] = build_visual(harmonized.visual, os.path.join(out_dir, kinds['as_converted']['raster']), out_dir,
                                      stripped, args['compression'])
