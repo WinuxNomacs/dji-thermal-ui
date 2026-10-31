@@ -121,7 +121,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   shown, in the order they were taken, as a list (name, time, and whether a frame is in the mosaic, oblique at its
   angle, left out as unusable or not converted) or as thumbnails, a switch the browser remembers. The first is shown
   on opening; a click or ← → shows another, with the frame page's palette, range, Pointer info, measuring and
-  Thermal/Visual/Both. Its small map of where the frames are can show the flight's visual photos too (in orange),
+  Thermal/Visual/Both. Its small map of where the frames are can show the flight's visual photos too (orange squares),
   a switch the browser remembers.
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, the palette the map pages start with (each flight's images' own, or one chosen: the viewer, the frame

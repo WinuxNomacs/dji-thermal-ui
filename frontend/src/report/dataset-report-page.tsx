@@ -39,8 +39,8 @@ interface ReportDataset extends Dataset {report?: ReportText; flight_area?: [num
 
 const FRAME = new Style({image: new CircleStyle({radius: 3, fill: new Fill({color: "#00b8d4"}),
                                                  stroke: new Stroke({color: "#fff", width: 1})})});
-const VISUAL = new Style({image: new RegularShape({points: 4, radius: 4, angle: Math.PI / 4, fill: new Fill({color: "#ff9100"}),
-                                                    stroke: new Stroke({color: "#fff", width: 1})})});
+// A visual photo: a hollow square, around its thermal frame's point when taken with it
+const VISUAL = new Style({image: new RegularShape({points: 4, radius: 7, angle: Math.PI / 4, stroke: new Stroke({color: "#ff9100", width: 2})})});
 const AREA = new Style({stroke: new Stroke({color: "#00b8d4", width: 2}), fill: new Fill({color: "rgba(0, 184, 212, 0.1)"})});
 
 function findingStyle(f: Finding & {number: number}): Style {
@@ -94,18 +94,18 @@ function FramesMap({basemaps, d, findings, videoFrames, visual}: MapProps) {
             area.setStyle(AREA);
             source.addFeature(area);
         }
-        visual.forEach((c) => {
-            const at = lonLatToMap(c);
-            points.push(at);
-            const f = pointFeature(at);
-            f.setStyle(VISUAL);
-            source.addFeature(f);
-        });
         framePositions(d.analysis?.files).forEach((c) => {
             const at = lonLatToMap(c);
             points.push(at);
             const f = pointFeature(at);
             f.setStyle(FRAME);
+            source.addFeature(f);
+        });
+        visual.forEach((c) => {
+            const at = lonLatToMap(c);
+            points.push(at);
+            const f = pointFeature(at);
+            f.setStyle(VISUAL);
             source.addFeature(f);
         });
         findings.forEach((f) => {
@@ -225,7 +225,7 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                 {framePositions(files).length || placed.length || shownVisual.length ? <>
                     <FramesMap basemaps={basemaps} d={d} findings={items} videoFrames={shots} visual={shownVisual}/>
                     <p class="report-caption">{listed([framePositions(files).length ? count(framePositions(files).length, "frame", "frames") + " with a position" : "",
-                        shownVisual.length ? count(shownVisual.length, "visual photo", "visual photos") + " (orange)" : "",
+                        shownVisual.length ? count(shownVisual.length, "visual photo", "visual photos") + " (orange squares)" : "",
                         items.length ? "the findings by their numbers" : "",
                         placed.length ? "the saved video frames (V1, V2…)" : ""])}.</p>
                 </> : <p class="text-muted">None of the frames records where it was taken.</p>}

@@ -231,7 +231,7 @@ describe("the dataset report", () => {
         click($("#report-visual")!);
         await vi.advanceTimersByTimeAsync(0);
         await ticks();
-        expect(text("#report-where")).toContain("3 frames with a position, and 1 visual photo (orange)");
+        expect(text("#report-where")).toContain("3 frames with a position, and 1 visual photo (orange squares)");
         const patches = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH");
         expect(patches.map((c) => JSON.parse(c[1]!.body as string))).toEqual([{report: {visual: true}}]);
     });

@@ -55,8 +55,9 @@ export function cell(row: FileRow, col: FileColumn): string {
     const v = row[col.key] as number | string | null | undefined;
     if (col.key === "kind") return kindLabel(fileKind(row));
     if (col.key === "time") return formatCapture(v as string);
-    if (col.key === "distance") {
-        return formatNumber(v as number, 1, " m") + (row.lrf !== null && row.lrf !== undefined ? " / " + formatNumber(row.lrf, 1, " m") : "");
+    if (col.key === "distance") {      // the measurement's distance / the rangefinder's (a visual photo has only that)
+        const lrf = row.lrf !== null && row.lrf !== undefined ? formatNumber(row.lrf, 1, " m") : "";
+        return v === null || v === undefined ? lrf : formatNumber(v as number, 1, " m") + (lrf ? " / " + lrf : "");
     }
     if (col.temperature) return formatTemp(v as number, "C", col.digits);
     if (col.digits !== undefined) return formatNumber(v as number, col.digits, col.unit);

@@ -43,8 +43,9 @@ const HOVER_MS = 120;       // the readout asks for the point the cursor rests o
 const FOLDED_KEY = "thermal-analyzer.frame.folded";
 const LOCATOR_SPOT = new OlStyle({image: new CircleStyle({radius: 4, stroke: new Stroke({color: "#333", width: 1}),
                                                          fill: new Fill({color: "rgba(153, 170, 187, 0.9)"})})});
-const LOCATOR_VISUAL = new OlStyle({image: new RegularShape({points: 4, radius: 4, angle: Math.PI / 4,
-                                                          stroke: new Stroke({color: "#fff", width: 1}), fill: new Fill({color: "#ff9100"})})});
+// A visual photo, over the frames: a hollow square, around its thermal frame's spot when taken with it
+const LOCATOR_VISUAL = new OlStyle({image: new RegularShape({points: 4, radius: 7, angle: Math.PI / 4,
+                                                          stroke: new Stroke({color: "#ff9100", width: 2})})});
 const LOCATOR_VISUAL_KEY = "thermal-analyzer.frame.locator-visual";     // the visual photos on it, "1" (off unless kept)
 const LOCATOR_CURRENT = new OlStyle({zIndex: 1, image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2}),
                                                                         fill: new Fill({color: "#e8562a"})})});
@@ -435,7 +436,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // Where the frames were taken, on a small map: the frame shown highlighted, a click on another opens it
     function drawLocator() {
         if (locator.current || !locatorEl.current || !placed.length) return;
-        const m = pointsMap(locatorEl.current), photos = vectorLayer(m, 9), spots = vectorLayer(m);
+        const m = pointsMap(locatorEl.current), spots = vectorLayer(m), photos = vectorLayer(m, 11);
         locator.current = {map: m, spots, photos, fitted: false};
         placed.forEach((f) => spots.addFeature(pointFeature(lonLatToMap([f.lon!, f.lat!]), {path: f.path, tip: f.path})));
         hoverTips(m);
@@ -859,7 +860,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                             <div class="frame-locator" id="locator" ref={locatorEl}/>
                             {(meta.visual_photos || []).length > 0 && <label class="locator-visual">
                                 <input type="checkbox" id="locator-visual" checked={locatorVisual}
-                                       onChange={(e) => setLocatorVisual(e.currentTarget.checked)}/> Visual photos (orange)</label>}
+                                       onChange={(e) => setLocatorVisual(e.currentTarget.checked)}/> Visual photos (orange squares)</label>}
                         </Section>}
                         <Section name="saved" title={<span class="measurements-head"><span>Saved on this frame</span>
                             {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}
