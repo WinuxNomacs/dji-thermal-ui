@@ -823,6 +823,7 @@ class DatasetCancelView(DatasetView):
 
 
 THUMBNAIL_SIZE = (96, 96)
+PREVIEW_SIZE = (1280, 1280)      # ?size=preview: the Files tab's detail pane
 
 
 def flight_file(dataset, rel, kind=None):
@@ -854,18 +855,20 @@ def video_cover(path):
 
 class DatasetThumbnailView(DatasetView):
     def get(self, request, pk):
-        """A small JPEG of one of the files its analysis lists (?file=; a video's cover), for the Files tab"""
+        """A small JPEG of one of the files its analysis lists (?file=; a video's cover), for the Files tab; a larger
+        one with ?size=preview, for its detail pane"""
         from PIL import Image
         from django.http import HttpResponse
         path = flight_file(get_dataset(pk), request.query_params.get('file') or "")
+        size = PREVIEW_SIZE if request.query_params.get('size') == 'preview' else THUMBNAIL_SIZE
         out = io.BytesIO()
         try:
             with Image.open(io.BytesIO(video_cover(path)) if video.is_video(path) else path) as im:
                 # The JPEG decoder scales down while reading: a few milliseconds a frame
-                im.draft('RGB', THUMBNAIL_SIZE)
+                im.draft('RGB', size)
                 im = im.convert('RGB')
-                im.thumbnail(THUMBNAIL_SIZE)
-                im.save(out, 'JPEG', quality=75)
+                im.thumbnail(size)
+                im.save(out, 'JPEG', quality=75 if size == THUMBNAIL_SIZE else 85)
         except (OSError, ValueError):
             raise NotFound({'error': "The file is not an image"}) from None
         response = HttpResponse(out.getvalue(), content_type="image/jpeg")

@@ -475,6 +475,92 @@ describe("the dataset page", () => {
         expect($$("table.files a").length).toBe(2);
     });
 
+    it("shows a file's picture and details beside the list as the pointer passes over its name or thumbnail", async () => {
+        localStorage.setItem("thermalAnalyzer.thumbnails", "1");
+        page(routes());
+        await ticks();
+        const row = (path: string) => $$("table.files tbody tr").find((tr) => tr.textContent!.includes(path))!;
+        const enter = async (el: Element) => { el.dispatchEvent(new MouseEvent("mouseenter")); await ticks(); };
+        const shown = () => $(".files-detail-name")?.textContent ?? null;
+        expect($<HTMLInputElement>(".files-hover-detail")!.checked).toBe(true);
+        expect(shown()).toBeNull();
+
+        await enter(row("thermal/a_T.JPG").children[1]);
+        expect(shown()).toBe("thermal/a_T.JPG");
+        expect($<HTMLImageElement>(".files-detail img")!.getAttribute("src")).toBe(URL + "/thumbnail?file=thermal%2Fa_T.JPG&size=preview");
+        expect($(".files-detail-open a")!.getAttribute("href")).toBe("/conversion/9/frame?frame=thermal%2Fa_T.JPG");
+        const details = $(".files-detail-columns")!.textContent!;
+        expect(details).toContain("Emissivity");
+        expect(details).toContain("0.91");
+        await enter(row("rgb/a_V.JPG").querySelector("td.thumb")!);
+        expect(shown()).toBe("rgb/a_V.JPG");
+        expect($(".files-detail-open")).toBeNull();
+
+        // Closed, it stays shut until another row is hovered
+        click($(".files-detail .close")!);
+        await ticks();
+        expect(shown()).toBeNull();
+        await enter(row("rgb/a_V.JPG").children[1]);
+        expect(shown()).toBeNull();
+        await enter(row("thermal/b_T.JPG").children[1]);
+        expect(shown()).toBe("thermal/b_T.JPG");
+        await enter(row("rgb/a_V.JPG").children[1]);
+        expect(shown()).toBe("rgb/a_V.JPG");
+
+        // Unchecked, hovering shows nothing, and the box is remembered
+        click($(".files-hover-detail")!);
+        await ticks();
+        expect(shown()).toBeNull();
+        expect(localStorage.getItem("thermalAnalyzer.hoverDetail")).toBe("0");
+        await enter(row("thermal/b_T.JPG").children[1]);
+        expect(shown()).toBeNull();
+    });
+
+    it("keeps a selected file in the pane until it is deselected, whatever is hovered", async () => {
+        localStorage.setItem("thermalAnalyzer.thumbnails", "1");
+        page(routes());
+        await ticks();
+        const row = (path: string) => $$("table.files tbody tr").find((tr) => tr.textContent!.includes(path))!;
+        const enter = async (el: Element) => { el.dispatchEvent(new MouseEvent("mouseenter")); await ticks(); };
+        const shown = () => $(".files-detail-name")?.textContent ?? null;
+
+        // Hovering on: a selected row holds the pane; clicked again, the pane follows the pointer again
+        click(row("thermal/b_T.JPG").children[3]);
+        await ticks();
+        expect(row("thermal/b_T.JPG").classList.contains("selected")).toBe(true);
+        expect(shown()).toBe("thermal/b_T.JPG");
+        await enter(row("thermal/a_T.JPG").children[1]);
+        expect(shown()).toBe("thermal/b_T.JPG");
+        click(row("thermal/b_T.JPG").children[3]);
+        await ticks();
+        expect(row("thermal/b_T.JPG").classList.contains("selected")).toBe(false);
+        expect(shown()).toBe("thermal/a_T.JPG");
+
+        // Its thumbnail selects it too; Escape deselects and closes
+        click(row("rgb/a_V.JPG").querySelector(".thumb-button")!);
+        await ticks();
+        expect(row("rgb/a_V.JPG").querySelector(".thumb-button")!.getAttribute("aria-pressed")).toBe("true");
+        expect(shown()).toBe("rgb/a_V.JPG");
+        key(document.body, "Escape");
+        await ticks();
+        expect(shown()).toBeNull();
+        expect($$("table.files tr.selected").length).toBe(0);
+
+        // Hovering off: only a selected row opens the pane, and unchecking the box keeps it
+        click(row("thermal/a_T.JPG").children[3]);
+        await ticks();
+        click($(".files-hover-detail")!);
+        await ticks();
+        expect(shown()).toBe("thermal/a_T.JPG");
+        await enter(row("thermal/b_T.JPG").children[1]);
+        expect(shown()).toBe("thermal/a_T.JPG");
+        click($(".files-detail .close")!);
+        await ticks();
+        expect(shown()).toBeNull();
+        await enter(row("thermal/b_T.JPG").children[1]);
+        expect(shown()).toBeNull();
+    });
+
     it("sorts the files by a column, both ways", async () => {
         page(routes());
         await ticks();

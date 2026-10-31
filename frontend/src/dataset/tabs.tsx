@@ -9,11 +9,12 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {ask, dialog} from "../components/dialog";
 import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
 import {active, type Analysis, columnType, type Condition, type Favourite, type FileColumn, FILES_TAB_COLUMNS, type FileRow,
-        fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption,
+        fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption, type Problem,
         shownAs, SHOWS} from "./files";
 
 const FILES_SHOWN = 12;     // files listed under a problem before "and N more"
 const THUMBS_KEY = "thermalAnalyzer.thumbnails";     // the Files tab's Thumbnails box, remembered per browser
+const DETAIL_KEY = "thermalAnalyzer.hoverDetail";    // its Hover for detail box, on unless unchecked
 
 const SEVERITY_CLASSES: Record<string, string> = {error: "danger", warning: "warning", info: "info"};
 
@@ -66,6 +67,44 @@ export function cell(row: FileRow, col: FileColumn): string {
 
 function storedThumbs(): boolean {
     try { return localStorage.getItem(THUMBS_KEY) === "1"; } catch { return false; }
+}
+
+function storedDetail(): boolean {
+    try { return localStorage.getItem(DETAIL_KEY) !== "0"; } catch { return true; }
+}
+
+const pictured = (path: string) => isImage({name: path} as File) || isVideo({name: path} as File);
+
+// What the analysis says of a file beside its columns: its findings' codes, why it is not used, its warnings
+function Notes({row, flags}: {row: FileRow; flags: Problem[]}) {
+    const kind = fileKind(row);
+    return (<>
+        {flags.map((f) => (<><span class={"badge " + (SEVERITY_CLASSES[f.severity] || "")} title={f.message}>{f.code}</span> </>))}
+        {kind !== "thermal" && kind !== "visual" && row.reason && <span class="text-muted">{row.reason} </span>}
+        {(row.warnings || []).map((w) => <span class="text-warning">{w} </span>)}
+    </>);
+}
+
+// The detail pane: the file's picture at the pane's width (a video's cover) and its columns
+function DetailPane({row, flags, picture, thumb, frame, zone, selected, onClose}: {
+    row: FileRow; flags: Problem[]; picture: string; thumb: string; frame: string | null;
+    zone?: FlightZone | null; selected: boolean; onClose: () => void;
+}) {
+    return (<aside class={"files-detail" + (selected ? " selected" : "")} aria-label="File details">
+        <div class="files-detail-head">
+            <strong class="files-detail-name" title={row.path}>{row.path}</strong>
+            <button type="button" class="close" title="Close (Esc)" aria-label="Close" onClick={onClose}>×</button>
+        </div>
+        {pictured(row.path) && <div class="files-detail-picture" style={{backgroundImage: `url("${thumb}")`}}>
+            <img key={row.path} alt={row.path} src={picture}/></div>}
+        {frame && <p class="files-detail-open"><a href={frame}>Open the frame</a></p>}
+        <dl class="files-detail-columns">
+            {FILES_TAB_COLUMNS.map((c) => (<><dt key={c.key}>{c.key === "time" ? c.label + " (" + zoneText(zone) + ")" : c.label}</dt>
+                <dd>{columnType(c.key) === "flag" ? (row[c.key] ? "Yes" : "No") : cell(row, c) || "–"}</dd></>))}
+        </dl>
+        {(flags.length > 0 || row.reason || (row.warnings || []).length > 0) &&
+            <p class="files-detail-notes"><Notes row={row} flags={flags}/></p>}
+    </aside>);
 }
 
 interface FilesProps {
@@ -222,12 +261,47 @@ function ConditionRow({c, kinds, set, remove}: {c: Condition; kinds: string[]; s
 // The buttons start the filter from all files, the thermal frames or those with problems
 export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs, zone}: FilesProps) {
     const [showThumbs, setShowThumbs] = useState(storedThumbs);
+    const [hoverDetail, setHoverDetail] = useState(storedDetail);
+    const [selected, setSelected] = useState<string | null>(null);     // the row the pane shows whatever is hovered
+    const [hovered, setHovered] = useState<string | null>(null);
+    const [closedOn, setClosedOn] = useState<string | null>(null);     // closed on this row: shut until another is hovered
     const flags = flagsByFile(analysis.findings);
     const rows = fileRows(analysis, view);
     const filters = view.filters;
     const shown = shownAs(filters);
     const kinds = [...new Set((analysis.files || []).map(fileKind))].sort((x, y) => kindLabel(x).localeCompare(kindLabel(y)));
     const kindFilter = filters.find((c) => c.key === "kind");
+
+    const detail = selected ?? (hoverDetail && hovered !== closedOn ? hovered : null);
+    const detailRow = detail ? rows.find((r) => r.path === detail) : undefined;
+    const frameOf = (r: FileRow) => frames && r.kind === "thermal" ? frames + "?frame=" + encodeURIComponent(r.path) : null;
+
+    function hover(path: string) {
+        if (!hoverDetail) return;
+        setHovered(path);
+        if (path !== closedOn) setClosedOn(null);
+    }
+
+    function select(path: string) { setSelected(selected === path ? null : path); }
+
+    function close() {
+        setSelected(null);
+        setClosedOn(hovered);
+    }
+
+    function toggleDetail(on: boolean) {
+        setHoverDetail(on);
+        setHovered(null);
+        try { localStorage.setItem(DETAIL_KEY, on ? "1" : "0"); } catch { /* not remembered */ }
+    }
+
+    // Escape closes the pane as its close button does, unless something nearer used it (a menu, a dialog)
+    useEffect(() => {
+        if (!detailRow) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !e.defaultPrevented) close(); };
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    });
 
     function toggleThumbs(on: boolean) {
         setShowThumbs(on);
@@ -265,6 +339,9 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
             <Favourites api={api} filters={filters} setFilters={setFilters}/>
             <label><input type="checkbox" class="files-thumbs" checked={showThumbs}
                           onChange={(e) => toggleThumbs(e.currentTarget.checked)}/> Thumbnails</label>
+            <label title="Show a file's picture and details beside the list as the pointer passes over its thumbnail or name; click a row to keep it there">
+                <input type="checkbox" class="files-hover-detail" checked={hoverDetail}
+                       onChange={(e) => toggleDetail(e.currentTarget.checked)}/> Hover for detail</label>
             <span class="text-muted files-shown">{rows.length} shown</span>
             {onExport && <button type="button" class="button default small" id="export-frames"
                                  title="The thermal frames shown, or all of them, as PNG, TIFF, R-JPEG or their originals"
@@ -278,6 +355,7 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
         </div>}
         {!frames && <p class="text-muted files-hint"><Info/> Convert the images (on the Convert tab) to open each frame from
             here.</p>}
+        <div class="files-body">
         <div class="table-scroll">
             <table class={"table files" + (frames ? " linked" : "")}>
                 <thead><tr>
@@ -300,24 +378,27 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
                 </tr></thead>
                 <tbody>
                     {rows.map((r) => {
-                        const href = frames && r.kind === "thermal" ? frames + "?frame=" + encodeURIComponent(r.path) : null;
-                        const kind = fileKind(r);
-                        return (<tr key={r.path} class={"kind-" + kind}>
-                            {showThumbs && <td class="thumb">{(isImage({name: r.path} as File) || isVideo({name: r.path} as File)) &&
-                                <img loading="lazy" alt="" src={thumbs + encodeURIComponent(r.path)}/>}</td>}
-                            {FILES_TAB_COLUMNS.map((c) => (<td key={c.key} class={columnType(c.key) === "flag" ? "flag" : undefined}>
+                        const href = frameOf(r);
+                        // A click on the row (not on its name's link) selects it; on its thumbnail too, from the keyboard
+                        return (<tr key={r.path} class={"kind-" + fileKind(r) + (selected === r.path ? " selected" : "")}
+                                    onClick={(e) => { if (!(e.target as Element).closest("a, input")) select(r.path); }}>
+                            {showThumbs && <td class="thumb" onMouseEnter={() => hover(r.path)}>{pictured(r.path) &&
+                                <button type="button" class="thumb-button" aria-pressed={selected === r.path}
+                                        aria-label={"Show the details of " + r.path}>
+                                    <img loading="lazy" alt="" src={thumbs + encodeURIComponent(r.path)}/></button>}</td>}
+                            {FILES_TAB_COLUMNS.map((c) => (<td key={c.key} class={columnType(c.key) === "flag" ? "flag" : undefined}
+                                                               onMouseEnter={c.key === "path" ? () => hover(r.path) : undefined}>
                                 {columnType(c.key) === "flag" ? (r[c.key] ? <Check title="Yes"/> : "") :
                                     href && c.key === "path" ? <a href={href} title="Open the frame">{cell(r, c)}</a> : cell(r, c)}</td>))}
-                            <td>
-                                {(flags[r.path] || []).map((f) => (<><span class={"badge " + (SEVERITY_CLASSES[f.severity] || "")}
-                                                                          title={f.message}>{f.code}</span> </>))}
-                                {kind !== "thermal" && kind !== "visual" && r.reason && <span class="text-muted">{r.reason} </span>}
-                                {(r.warnings || []).map((w) => <span class="text-warning">{w} </span>)}
-                            </td>
+                            <td><Notes row={r} flags={flags[r.path] || []}/></td>
                         </tr>);
                     })}
                 </tbody>
             </table>
+        </div>
+        {detailRow && <DetailPane row={detailRow} flags={flags[detailRow.path] || []} frame={frameOf(detailRow)} zone={zone}
+            picture={thumbs + encodeURIComponent(detailRow.path) + "&size=preview"} thumb={thumbs + encodeURIComponent(detailRow.path)}
+            selected={selected === detailRow.path} onClose={close}/>}
         </div>
     </div>);
 }
