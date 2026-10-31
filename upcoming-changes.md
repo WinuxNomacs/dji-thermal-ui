@@ -1699,6 +1699,13 @@ Two requests from `new.md` (2026-10-31).
    row. The pane's close button closes it until another image is hovered; unchecking the box closes it and keeps it
    closed.
 
+### Decisions (2026-10-31)
+
+- P1: read by dji-thermal-cli (its check), released and pinned here; the visual photos get their own layer on the
+  frames map.
+- P2: the pane docked at the side; the Files tab only; selecting a row pins it in the pane, with or without Hover
+  for detail (the user's addition, details under P2).
+
 ### Why the visual photos are empty (found 2026-10-31)
 
 - The Files rows come from dji-thermal-cli's check (`thermal_analysis.file_row`). For a JPEG that is not an R-JPEG
@@ -1709,27 +1716,28 @@ Two requests from `new.md` (2026-10-31).
 - What a visual photo cannot have: temperatures and the measurement settings (emissivity, distance to the object,
   humidity, reflection, ambient), which belong to the thermal camera. Its "distance" is the rangefinder's (`lrf`).
 
-### P1: the visual photos' properties (proposed)
+### P1: the visual photos' properties
 
 - dji-thermal-cli's check returns `info` for a not-thermal JPEG with DJI XMP: camera (model, serial, size,
   capture time, UTC), geospatial (position, altitudes, GPS status, rangefinder) and attitude (gimbal pitch and yaw),
   no thermal or temperature sections; the kind stays `not_thermal`. A release (1.11.0), then pinned here.
-- `file_row` fills the same columns for these rows; filters, sorting, the report's appendix and the frames map pick
-  them up. Existing flights get them on their next Analyze.
-- Open: whether this goes into dji-thermal-cli (its check, and its own `check` command, gain it; the repo's rule) or
-  is read by the app alone from the XMP; whether visual photos then appear on the flight's frames map beside the
-  thermal ones.
+- `file_row` fills the same columns for these rows; filters, sorting and the report's appendix pick them up.
+  Existing flights get them on their next Analyze.
+- The flight's frames map gains a layer of the visual photos, off by default, switched on and off as the other layers.
 
-### P2: Hover for detail (proposed)
+### P2: Hover for detail
 
-- On the Files tab: the checkbox beside Thumbnails, on by default, remembered per browser as Thumbnails is.
-- Hovering a row's thumbnail or its name (every image and video row, not only the thermal links) shows the pane:
-  the image at a size that fits it (a preview from the server, about 1280 px on its long side, cached; the
-  M4T's visual photos are 4032×3024 and about 4.7 MB) and the row's columns under it. A video shows its cover.
-- The pane follows the hovered row without a delay between rows; its close button hides it until a different row
-  is hovered; unchecking the box closes it.
-- Open: where the pane sits (docked at the side of the window, or floating beside the pointer); whether the frames
-  page's list gets it too.
+- On the Files tab only: the checkbox beside Thumbnails, on by default, remembered per browser as Thumbnails is.
+- **The pane** is docked at the right of the window: the image at a size that fits it (a preview from the server,
+  about 1280 px on its long side, cached; the M4T's visual photos are 4032×3024 and about 4.7 MB) and the row's
+  columns under it. A video shows its cover. Every image and video row has it, not only the thermal links.
+- **Selecting a row** (clicking its thumbnail or the row; a thermal row's name still opens the frame) shows that
+  file in the pane and marks the row; clicking it again, Escape or the pane's close button deselects it.
+- **Hover for detail on:** with nothing selected, the pane follows the hovered row (thumbnail or name) without a
+  delay; with a row selected, the pane shows it and ignores hovering until it is deselected. The close button
+  hides the pane until another row is hovered.
+- **Hover for detail off:** the pane opens only for a selected row and closes when it is deselected. Unchecking
+  the box closes a pane shown by hovering; a selected row keeps it.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
