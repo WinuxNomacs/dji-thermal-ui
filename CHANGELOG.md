@@ -58,6 +58,12 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- Names (U6): the two reports are called Flight report (the flight page, the navigation pane) and Mosaic report (the
+  viewer, the navigation pane), their pages titled "<name> · Flight report" and "<name> · Mosaic report". A dataset
+  converted with no name typed is named after the settings that change its temperatures or mosaics ("Emissivity
+  0.9 · normalized", else "Default settings", with " (2)" after a name the flight has), shown as the Datasets tab's
+  name placeholder; existing datasets keep their names.
+
 - Measuring (U5): the mosaics viewer's two sets of drawing tools (Source frames, Measure) are one, on the map's top
   edge; a shape drawn on a temperature mosaic is measured in a card on the map, with Keep as finding (the form at
   once, the frames that saw it beside it), Save measurement and Source frames, closed with × or Esc. The Source frame
@@ -86,6 +92,11 @@ All notable changes are recorded here. The format follows
   `MAPBOX_ENV_FILES` is now `ENV_FILES`.
 - dji-thermal-cli 1.9.1 (was 1.8.0). It reads a DSM, ODM's `dsm.tif` included, with nothing more installed, ahead of
   WebODM's DSM under the mosaics. 1.9.0's option to use DJI's own Thermal SDK comes with it, unused here.
+
+### Removed
+
+- The New thermal flight dialog's "A folder on this computer" (images read in place from a typed path): images and
+  folders are chosen and uploaded. Flights already read in place keep working, and the API still takes them.
 
 ### Fixed
 
