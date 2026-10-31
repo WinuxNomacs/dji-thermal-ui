@@ -58,6 +58,9 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The mosaics viewer (U4) opens on Harmonized when the frames disagree (their offsets against their neighbours
+  spanning more than 3 °C over the middle 90% of them), with a notice saying why that can be closed; otherwise on
+  Mosaic, as before. A link that names a tab still opens that one. Each tab has a tooltip saying what it shows.
 - The Problems tab (U3) says each problem in the New dataset form's words rather than dji-thermal-cli's flags,
   with its temperatures in the preferred unit, its files listed once with their values and the code in a tooltip.
   A problem a setting fixes has a button that opens the New dataset form with it set: "Normalize the frames to

@@ -115,6 +115,7 @@ ul { padding-left: 20px; }
 }
 .notice.error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
 .notice.warning { border-color: var(--warning); background: var(--warning-soft); color: var(--warning); }
+.notice.dismissible { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .next-step {
     display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
     padding: 10px 12px; margin: 12px 0; border-radius: var(--radius);

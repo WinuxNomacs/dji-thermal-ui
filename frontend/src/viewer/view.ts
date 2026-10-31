@@ -22,7 +22,20 @@ export const TAB_HINTS: Record<string, string> = {
     video: "Each pixel's level (0 to 255) in the camera's Ironbow, recoloured. Relative, not temperatures: the camera " +
         "re-ranges each frame, so a level is not the same heat from one frame to the next.",
 };
+// Each tab's tooltip: what it shows, in a few words
+export const TAB_TIPS: Record<string, string> = {
+    as_converted: "Each frame as converted, with its own temperatures",
+    harmonized: "The frames evened out to match each other",
+    source_frame: "Which frame each pixel comes from, and the seams between them",
+    view_angle: "How far from straight down each pixel was seen",
+    visual: "The visual camera's images, placed where the thermal frames are",
+    webodm: "WebODM's orthophoto of the temperatures",
+    heights: "WebODM's heights of the ground, roofs and trees",
+};
 export const TEMPERATURE_TABS = ["as_converted", "harmonized", "webodm"];
+// The frames disagree when their offsets against their neighbours span more than this (°C) over their middle 90%:
+// the viewer then opens on Harmonized
+export const DISAGREE_C = 3;
 // The tabs whose values aren't temperatures: what they are, and their unit as written after a number
 const OTHER_VALUES: Record<string, [string, string]> = {view_angle: ["View angle", "°"], heights: ["Height", " m"],
                                                         video: ["Level (relative)", ""]};
@@ -274,7 +287,7 @@ export function correctionParams(c: Correction, unit: unknown): Extra {
 interface Report {
     radiometric_seams?: {pixels?: number; median_abs_c?: number; p95_abs_c?: number};
     misalignment?: {pairs?: number; median_m?: number; p90_m?: number};
-    frame_offsets?: {offset_c?: {min?: number; max?: number}; normalized?: boolean;
+    frame_offsets?: {offset_c?: {min?: number; max?: number; p5_p95_span?: number}; normalized?: boolean;
                      overlap_difference_c?: {median_abs?: number; median_abs_after_offsets?: number}};
     heights?: {range_m?: number[]; method?: string; file?: string; observed_cells?: number; cells?: number; cell_m?: number;
                reason?: string};
@@ -331,6 +344,13 @@ function webodmRows(kind: Kind): [string, string][] {
     if (h && h.max !== undefined) rows.push(["Heights", formatNumber(h.min, 1) + " to " + formatNumber(h.max, 1, " m")]);
     if (kind.base_m !== undefined) rows.push(["Lowest ground", formatNumber(kind.base_m, 1, " m as WebODM gives it")]);
     return rows;
+}
+
+// How far the as converted mosaic's frames disagree (their offsets' lowest and highest, °C), when they do
+export function disagreement(kinds: Maybe<Record<string, Kind>>): {min: number; max: number} | null {
+    const o = kinds?.as_converted?.report?.frame_offsets?.offset_c;
+    if (!o || o.min === undefined || o.max === undefined || !((o.p5_p95_span || 0) > DISAGREE_C)) return null;
+    return {min: o.min, max: o.max};
 }
 
 export function reportRows(kind: Maybe<Kind>): [string, string][] {

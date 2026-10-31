@@ -140,6 +140,35 @@ describe("the viewer page", () => {
         expect(location.search).toBe("?tab=as_converted&palette=ironred&min=20&max=30.1");
     });
 
+    it("opens on Harmonized when the frames disagree, saying why, unless a link names a tab", async () => {
+        const kinds = {as_converted: {...MOSAICS.kinds!.as_converted,
+                                      report: {frame_offsets: {offset_c: {min: -11.7, max: 15.6, p5_p95_span: 21}}}}};
+        setUserUnit("F");
+        await open(server(routes({[BASE + "/mosaics"]: {...MOSAICS, kinds}})));
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Harmonized");
+        expect(byId("evened").textContent).toContain("Opened on Harmonized: the frames differ by up to 49 °F where");
+        expect(byId("evened").textContent).toContain("Mosaic shows each frame as converted.");
+        expect($("[data-tab=harmonized]")!.getAttribute("title")).toBe("The frames evened out to match each other");
+        expect(location.search).toContain("?tab=harmonized");
+        click($("#evened .close")!);
+        await ticks(2);
+        expect($("#evened")).toBeNull();
+
+        render(null, byId("root"));
+        history.replaceState(null, "", "/conversion/9?tab=as_converted");
+        await open(server(routes({[BASE + "/mosaics"]: {...MOSAICS, kinds}})));
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Mosaic");
+        expect($("#evened")).toBeNull();
+    });
+
+    it("opens on Mosaic, with no notice, when the frames agree", async () => {
+        const kinds = {as_converted: {...MOSAICS.kinds!.as_converted,
+                                      report: {frame_offsets: {offset_c: {min: -1.1, max: 6, p5_p95_span: 1.6}}}}};
+        await open(server(routes({[BASE + "/mosaics"]: {...MOSAICS, kinds}})));
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Mosaic");
+        expect($("#evened")).toBeNull();
+    });
+
     it("shows the visual mosaic's tiles on its tab, the readout and source frames the as converted mosaic's", async () => {
         history.replaceState(null, "", "/conversion/9?tab=visual");
         const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, files: ["mosaics/visual/mosaic_visual.tif"], pairs: 2,

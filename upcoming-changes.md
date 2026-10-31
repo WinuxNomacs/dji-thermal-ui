@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U4, the viewer's first view (see Usability), to be planned with the user.
+**Up next**: U5, measuring in the viewer (see Usability), to be planned with the user.
 
-**Then**: U5–U8, U1's other findings (see Usability), each planned with the user before it is built.
+**Then**: U6–U8, U1's other findings (see Usability), each planned with the user before it is built.
 
 **After that**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
@@ -1911,6 +1911,27 @@ parsed nor dji-thermal-cli changed):
   the rangefinder reads another distance than the embedded one, "Use the embedded distance"; a rangefinder reading
   missing or unusual, "Use one distance (20.9 m)" (the median reading). No button where no setting fixes it.
 
+### U4: the viewer's first view (built 2026-10-31, see Done)
+
+In the mosaics viewer as it is: the tab bar is Mosaic, Harmonized, Source frame, View angle (and Visual); it opens on
+the tab a link names (the URL, a reload, the navigation pane), else always on Mosaic. Each tab's explanation is the
+line at the top of its side panel, seen only once the tab is open. dji-thermal-cli reports each frame's offset
+against its neighbours (the Mosaic's "Frame offsets", `frame_offsets.offset_c` with `p5_p95_span`) but has no
+threshold for "too much". On the user's flights the middle 90% of the offsets span 1.6 and 1.8 °C; on U1's m4t-220
+(the bright strips) about 39 °C.
+Proposed:
+- **The frames disagree** when the as converted mosaic's offsets span more than 3 °C over their middle 90%
+  (`p5_p95_span`): one frame far off doesn't count, and the user's flights stay on Mosaic.
+- **A tab a link names still wins**; the choice below is only for a viewer opened without one.
+- **Each tab gets a tooltip** with a short line saying what it shows.
+
+### U4: decisions (2026-10-31)
+
+- **When the frames disagree:** the viewer opens on Harmonized, with a notice above the tabs saying why ("Opened on
+  Harmonized: the frames differ by up to 71 °F where they overlap, which Harmonized evens out. Mosaic shows each frame
+  as converted."), which can be closed. Otherwise it opens on Mosaic, with no notice.
+- **What each tab shows:** a tooltip on each tab; the longer explanation stays at the top of the side panel.
+
 ## Platforms
 
 Requested 2026-10-31 (new.md): the app supports Linux, Windows and macOS. Windows can be checked from the
@@ -2624,3 +2645,9 @@ as feature changes require going forward."
   without buttons. Code in `frontend/src/dataset/problems.ts`, `tabs.tsx` (`ProblemsTab`), `convert.tsx` and
   `dataset-page.tsx`; tests in `frontend/tests/problems.test.ts`, `dataset.test.tsx` and `report.test.tsx`. Checked
   on the user's flights 1 and 8 on a scratch 8081 instance (reading only), light, dark and 600 px, no errors.
+- **U4: the viewer's first view** (2026-10-31; U1's finding 3). Without a tab in the link, the viewer opens on
+  Harmonized when the as converted mosaic's frame offsets span more than 3 °C over their middle 90% (`disagreement`,
+  `DISAGREE_C`), with a notice saying why that can be closed; each tab has a tooltip (`TAB_TIPS`). Code in
+  `frontend/src/viewer/view.ts` and `viewer-page.tsx`; tests in `frontend/tests/view.test.ts` and `viewer.test.tsx`.
+  Checked on the user's dataset 2 on a scratch 8081 instance (reading only): it stays on Mosaic (span 1.6 °C); with
+  the offsets made larger in the browser, it opens on Harmonized with the notice, light, dark and 600 px, no errors.

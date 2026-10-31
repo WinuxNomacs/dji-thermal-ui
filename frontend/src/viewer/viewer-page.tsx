@@ -18,7 +18,7 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {viewAsked} from "../core/exports";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {partChanged} from "../core/navigation";
-import {convertTemp} from "../core/units";
+import {convertTemp, formatDelta} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {ArrowLeft, Columns, Download, FileText, Grid, Image, Images, Save, Stop} from "../components/icons";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
@@ -39,9 +39,9 @@ import {MosaicExport} from "./export";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         Readout, Report, Section, Whole} from "./panel";
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
-        type Extra, extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
+        disagreement, type Extra, extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
         readView, reportRows, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
-        TAB_HINTS, takenText, toneShares, valueCaption, viewQuery, type VisualMosaic, visualRows} from "./view";
+        TAB_HINTS, TAB_TIPS, takenText, toneShares, valueCaption, viewQuery, type VisualMosaic, visualRows} from "./view";
 
 const POLL_MS = 2000;
 const HOVER_MS = 120;
@@ -134,6 +134,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [v, setV] = useState<Mosaics | null>(null);
     const [notice, setNotice] = useState("");
     const [tab, setTab] = useState<string | null>(null);
+    // Opened on Harmonized for the frames' offsets (°C), which the notice above the tabs gives, until it is closed
+    const [evened, setEvened] = useState<{min: number; max: number} | null>(null);
     // The Visual tab is shown (tab is then the as converted one)
     const [visual, setVisual] = useState(false);
     const [styles, setStyles] = useState<Record<string, Style>>({});
@@ -219,8 +221,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             if (!wasReady && map.current) setStyles({});
             if (!tab || !data.tabs!.some((x) => x.tab === tab)) {
                 const onVisual = wanted.tab === VISUAL && !!data.visual && data.tabs!.some((x) => x.tab === "as_converted");
+                // Without a tab asked for, frames that disagree open on Harmonized, which evens them out
+                const off = !wanted.tab && !tab && data.tabs!.some((x) => x.tab === "harmonized") ? disagreement(data.kinds) : null;
                 const first = onVisual ? "as_converted" : wanted.tab && data.tabs!.some((x) => x.tab === wanted.tab) ?
-                    wanted.tab : data.tabs![0].tab;
+                    wanted.tab : off ? "harmonized" : data.tabs![0].tab;
+                setEvened(off);
                 setTab(first);
                 setVisual(onVisual);
                 if (!map.current && !onVisual) applyWanted(data, first);
@@ -955,11 +960,16 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
             {/* Keyed: a notice appearing above it is never taken for it, which would make its map again */}
             <div class="viewer-main" key="main" hidden={!ready}>
+                {ready && evened && <div class="notice dismissible" role="status" id="evened">
+                    <span>Opened on Harmonized: the frames differ by up to {formatDelta(evened.max - evened.min, "C", 0)} where
+                        they overlap, which Harmonized evens out. Mosaic shows each frame as converted.</span>
+                    <button type="button" class="close" title="Close" aria-label="Close" onClick={() => setEvened(null)}>×</button>
+                </div>}
                 {ready && <div class="tabs" role="tablist">
                     {v.tabs!.map((x) => x.tab).concat(v.visual ? [VISUAL] : []).map((x) => {
                         const on = visual ? x === VISUAL : tab === x;
                         return (<a key={x} href={"#" + x} role="tab" aria-selected={on} class={on ? "active" : ""}
-                                   data-tab={x} onClick={(e) => { e.preventDefault(); chooseTab(x); }}>{tabLabel(x)}</a>);
+                                   data-tab={x} title={TAB_TIPS[x]} onClick={(e) => { e.preventDefault(); chooseTab(x); }}>{tabLabel(x)}</a>);
                     })}
                 </div>}
                 <div class="viewer-body">
