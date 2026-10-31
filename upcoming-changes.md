@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U4, the viewer's first view (see Usability), to be planned with the user.
+**Up next**: U4, the viewer's first view (see Usability), planned 2026-10-31 and being built.
 
 **Then**: U5–U8, U1's other findings (see Usability), each planned with the user before it is built.
 
@@ -1910,6 +1910,27 @@ parsed nor dji-thermal-cli changed):
 - **The other buttons:** emissivity or humidity differs, "Use one emissivity (0.95)" (the value most files have);
   the rangefinder reads another distance than the embedded one, "Use the embedded distance"; a rangefinder reading
   missing or unusual, "Use one distance (20.9 m)" (the median reading). No button where no setting fixes it.
+
+### U4: the viewer's first view
+
+In the mosaics viewer as it is: the tab bar is Mosaic, Harmonized, Source frame, View angle (and Visual); it opens on
+the tab a link names (the URL, a reload, the navigation pane), else always on Mosaic. Each tab's explanation is the
+line at the top of its side panel, seen only once the tab is open. dji-thermal-cli reports each frame's offset
+against its neighbours (the Mosaic's "Frame offsets", `frame_offsets.offset_c` with `p5_p95_span`) but has no
+threshold for "too much". On the user's flights the middle 90% of the offsets span 1.6 and 1.8 °C; on U1's m4t-220
+(the bright strips) about 39 °C.
+Proposed:
+- **The frames disagree** when the as converted mosaic's offsets span more than 3 °C over their middle 90%
+  (`p5_p95_span`): one frame far off doesn't count, and the user's flights stay on Mosaic.
+- **A tab a link names still wins**; the choice below is only for a viewer opened without one.
+- **Each tab gets a tooltip** with a short line saying what it shows.
+
+### U4: decisions (2026-10-31)
+
+- **When the frames disagree:** the viewer opens on Harmonized, with a notice above the tabs saying why ("Opened on
+  Harmonized: the frames differ by up to 71 °F where they overlap, which Harmonized evens out. Mosaic shows each frame
+  as converted."), which can be closed. Otherwise it opens on Mosaic, with no notice.
+- **What each tab shows:** a tooltip on each tab; the longer explanation stays at the top of the side panel.
 
 ## Platforms
 
