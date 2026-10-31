@@ -1794,10 +1794,15 @@ Requested 2026-10-31 (new.md): "Using your expert ux designer skills, how would 
     the user to read.
   - Nothing is built in U1: the user picks the findings that become phases (U2 onwards).
 
-### Open decisions
+### Decisions (2026-10-31)
 
-- Whether the write-up is a page to read (a published artifact) or a section here.
-- Whether a few short tasks done by someone who has not used the app (the user's own observation) should feed it.
+- **Write-up:** a private artifact page (claude.ai), the findings ranked with their screenshots; the findings' titles
+  are listed here too, so later phases can point to them. Screenshots follow the docs' rule: no GPS coordinate,
+  address or basemap shows.
+- **Observation:** Claude's walk-through only; the user may add findings of their own later.
+- **Data:** the user's own instance on 8080. What the walk-through creates (a project, a flight added in place from
+  `ignored/`, its datasets, measurements, findings, report text) is deleted at the end, and what it changes on
+  existing records is put back.
 
 ## Platforms
 
