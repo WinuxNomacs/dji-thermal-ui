@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: V3, a video's frames kept (see "Video").
+**Up next**: nothing planned.
 
 **Then**: nothing planned.
 
@@ -1681,8 +1681,8 @@ stills, but the plan does not count on them.
    tone curve, sharpening, a relative isotherm), always called relative, never temperatures. Step ±1 frame and
    ±1 s, speeds ⅛× to 2×, a loop between an in and an out point at any speed, keyboard keys for all of it; the
    readout gives the level and the frame's position, height and gimbal.
-3. **V3: frames kept:** the shown frame saved with its time and position, as levels and as the picture, so that
-   it can be kept for findings (C3) and reports (D1) as stills are.
+3. **V3: frames kept** (built 2026-10-30, see Done): the shown frame saved with its time and position, as the
+   picture shown and the original (whose levels come again exactly), kept for findings (C3) and reports (D1).
 4. **Later, maybe:** a path of hot spots on the map; matching video moments to the mission's stills; an SRT for
    drones that write one; a mosaic or path strip from video frames.
 
@@ -2250,3 +2250,15 @@ stills, but the plan does not count on them.
   0.25 s in 2 s, a 10–11 s loop at 2× staying inside it, recoloured as filmed a mean 4.8 RGB units from the video,
   the level under the pointer, Gray with Auto, sharpening, an isotherm, playing recoloured, light and dark, no
   console or HTTP errors.
+- **V3: frames kept** (2026-10-30): `VideoFrame` (migration `0010_video_frames`; its two PNGs in
+  `datasets/<id>/video-frames/<key>.png` and `<key>-original.png`, removed with it), the API's `video-frames`
+  views in `api.py` (the track's point found at the frame's time, the PNGs checked with Pillow), export and import
+  (`backup.py`, `restore.py`; format version 2, a finding's link remapped). The Videos tab saves from the button
+  or S, lists them under the video (`video-tab.tsx`, helpers in `dataset/video-frames.ts`); the flight report's
+  Video frames section and map markers, and a finding's attached frames in both reports (`report/findings.tsx`).
+  Tests: `tests/test_video_frames.py`, `frontend/tests/videos.test.tsx`, `frontend/tests/report.test.tsx`.
+  Checked live on 8081 (6 frames of m4t-220 and the M4T's video, a finding added in the database): one frame
+  saved as filmed (its picture the original byte for byte), one recoloured in Gray with Auto (a different
+  picture), renamed, described, attached, opened again as it was shown, the report's section and map, the print
+  at A4's width, deleted from the list (their folder gone), light and dark, no console or HTTP errors. The check
+  found the notes wiped while typed when a rename's answer drew the list again: fixed, and tested.
