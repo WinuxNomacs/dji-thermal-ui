@@ -8,11 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: CLI3, pin dji-thermal-cli 1.11.0 (P1's visual photos need it; the app pins 1.9.1), as soon as it is on
-PyPI (the user pushes and tags it).
-
-**Then**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
+**Up next**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
 phases; X1, Linux, Windows and macOS checked (see Platforms). Both to be planned with the user.
+
+**Then**: nothing planned.
 
 ## Standalone (option A)
 
@@ -2393,3 +2392,7 @@ those that are truly necessary, not there for coverage.
   `frontend/tests/dataset.test.tsx`. Checked live on 8081 (8 pairs of `ignored/m4t-tv`, scratch data and config):
   hovering names and thumbnails (a preview in about 80 ms), closing, selecting, Escape, the box off and remembered,
   700 px wide; light and dark, no console or HTTP errors.
+- **CLI3: dji-thermal-cli 1.11.0** (2026-10-31). Pinned in `pyproject.toml` and `uv.lock` (was 1.9.1; 1.11.0 published
+  by the user's request the same day). The full suite with the flight tests (`ignored/m4t-tv`) passed in a scratch
+  environment, leaving `.venv` to the user's running instance; checked live on 8081: a flight's visual rows and
+  the detail pane show their time, height, pitch and rangefinder distance.

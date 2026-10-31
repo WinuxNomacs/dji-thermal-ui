@@ -53,6 +53,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- dji-thermal-cli 1.11.0 (was 1.9.1): it describes a drone's visual photos, which the Files tab, its detail pane and
+  the maps' visual layers show; 1.10.0's fix for a crash in DJI's library on Windows comes with it.
 - CI runs only on a `v*` tag or by hand (Actions › CI › Run workflow), no longer on every push or pull request.
 - The map pages colour a frame drawn without a map (the source frames, the palette previews) several times faster.
 - The `.env` values (the Mapbox token, WebODM's login) are read and written by one module; the setting

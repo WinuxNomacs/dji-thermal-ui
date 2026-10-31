@@ -31,7 +31,7 @@ dependencies = [
     "affine==3.0.1",
     "django==6.1.2",
     "djangorestframework==3.18.3",
-    "dji-thermal-cli==1.9.1",
+    "dji-thermal-cli==1.11.0",
     "numpy==2.5.4",
     "pillow==13.0.0",
     "platformdirs==4.13.5",
