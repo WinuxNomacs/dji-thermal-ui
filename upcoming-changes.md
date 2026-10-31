@@ -1878,12 +1878,12 @@ as feature changes require going forward."
   address and the serial numbers replaced in the shots.
 - **Order:** U1 first, then W1–W3 (W1 may start before U1's changes are built, as it has no screenshots), then X1.
 
-### Still open (settled when W1 and W2 are planned)
-
-- The site generator: Zensical, or Material for MkDocs pinned (in maintenance mode, its fixes promised to November
-  2026).
-- How much the README keeps once the guide exists (proposed: what the app is, install, run, and a link).
-- Which flight the screenshots use.
+- **Generator:** Zensical (decided 2026-10-31).
+- **README:** keeps what the app is, how to install it and how to run it; everything else points to the
+  documentation (decided 2026-10-31).
+- **Screenshot data:** the user's "Test Thermal Project" and its test flight. No GPS coordinate or address may show
+  anywhere in a screenshot (maps without a basemap, coordinates, the project's location and the frames' positions
+  replaced or hidden); the images themselves can be shown as they are (decided 2026-10-31).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
