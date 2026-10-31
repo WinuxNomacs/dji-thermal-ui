@@ -17,7 +17,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   use gets a free one ("Roof (2)"), which you can change. Its folder flights come back as uploaded ones.
 - **Flights:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
   drone takes with them (DJI's `_V` or `_W`, as on the Matrice 4T or the H20T/H30T) can be added too: the Files tab
-  calls them visual. So can the drone's MP4 videos. Other files, such as TIFFs (a converted dataset's temperatures
+  calls them visual and shows what their metadata records (time, position, height, gimbal pitch and yaw, the
+  rangefinder's distance), with no temperatures or measurement settings. So can the drone's MP4 videos. Other files, such as TIFFs (a converted dataset's temperatures
   among them), cannot make a flight and are left out.
 - **Videos tab:** a flight's videos with their covers, length, start time and drone. The one chosen plays beside a
   map of its track, with a marker on the frame shown, and a click on the track goes to that moment. Under it, the
@@ -92,7 +93,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Flight report:** a page laid out to print, or save as PDF from the browser's print dialog, on A4 or Letter.
   It holds the flight's figures, a map of where its frames were taken with its findings numbered, the coverage,
   the problems found, the frames' settings and temperatures summed up, the datasets, the findings with
-  thumbnails of their kept frames, and the video frames saved (on the map too). A table of every frame can be appended. Open it with the flight page's Report
+  thumbnails of their kept frames, and the video frames saved (on the map too). A table of every frame can be appended,
+  and the visual photos put on the map. Open it with the flight page's Report
   button or from the navigation pane. The title, author, date and notes are typed on the page and saved with the
   flight; the last author typed fills in new reports. It always prints light, without the app's header and controls.
 - **Mosaic report:** a dataset's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer
@@ -119,7 +121,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   shown, in the order they were taken, as a list (name, time, and whether a frame is in the mosaic, oblique at its
   angle, left out as unusable or not converted) or as thumbnails, a switch the browser remembers. The first is shown
   on opening; a click or ← → shows another, with the frame page's palette, range, Pointer info, measuring and
-  Thermal/Visual/Both.
+  Thermal/Visual/Both. Its small map of where the frames are can show the flight's visual photos too (in orange),
+  a switch the browser remembers.
 - **User Preferences:** temperatures in °F, °C or K, light or dark pages (or the computer's own), both also in the
   header, the palette the map pages start with (each flight's images' own, or one chosen: the viewer, the frame
   explorer, the compare page and the mosaic report open with it, and can still switch; a small made-up roof beside

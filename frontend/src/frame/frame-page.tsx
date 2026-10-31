@@ -11,6 +11,7 @@ import type ImageStatic from "ol/source/ImageStatic";
 import type VectorSource from "ol/source/Vector";
 import CircleStyle from "ol/style/Circle";
 import Fill from "ol/style/Fill";
+import RegularShape from "ol/style/RegularShape";
 import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
 import {useEffect, useRef, useState} from "preact/hooks";
@@ -42,6 +43,9 @@ const HOVER_MS = 120;       // the readout asks for the point the cursor rests o
 const FOLDED_KEY = "thermal-analyzer.frame.folded";
 const LOCATOR_SPOT = new OlStyle({image: new CircleStyle({radius: 4, stroke: new Stroke({color: "#333", width: 1}),
                                                          fill: new Fill({color: "rgba(153, 170, 187, 0.9)"})})});
+const LOCATOR_VISUAL = new OlStyle({image: new RegularShape({points: 4, radius: 4, angle: Math.PI / 4,
+                                                          stroke: new Stroke({color: "#fff", width: 1}), fill: new Fill({color: "#ff9100"})})});
+const LOCATOR_VISUAL_KEY = "thermal-analyzer.frame.locator-visual";     // the visual photos on it, "1" (off unless kept)
 const LOCATOR_CURRENT = new OlStyle({zIndex: 1, image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2}),
                                                                         fill: new Fill({color: "#e8562a"})})});
 
@@ -57,6 +61,7 @@ export interface Frames {
     default_palette?: string;
     palettes?: Palette[];
     frames?: FrameEntry[];
+    visual_photos?: {path: string; lat: number; lon: number}[];
     flight_zone?: FlightZone | null;
 }
 
@@ -169,7 +174,10 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const following = useRef(false);
     const follow = useRef<() => void>(() => undefined);
     const drawings = useRef<Drawing[]>([]);
-    const locator = useRef<{map: OlMap; spots: VectorSource; fitted: boolean} | null>(null);
+    const locator = useRef<{map: OlMap; spots: VectorSource; photos: VectorSource; fitted: boolean} | null>(null);
+    const [locatorVisual, setLocatorVisualState] = useState(() => {
+        try { return localStorage.getItem(LOCATOR_VISUAL_KEY) === "1"; } catch { return false; }
+    });
     // The panes fit the frame when the next image is drawn (a new frame, or one of another size)
     const fit = useRef(true);
     // Counters: only the answer to the latest question is shown
@@ -189,8 +197,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     sidePair.current = beside ? pair : null;
 
     // What the maps' handlers (set up once) read: this render's values
-    const now = useRef({frame, changes, meta, current});
-    now.current = {frame, changes, meta, current};
+    const now = useRef({frame, changes, meta, current, locatorVisual});
+    now.current = {frame, changes, meta, current, locatorVisual};
 
     useEffect(() => {
         load();
@@ -427,8 +435,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // Where the frames were taken, on a small map: the frame shown highlighted, a click on another opens it
     function drawLocator() {
         if (locator.current || !locatorEl.current || !placed.length) return;
-        const m = pointsMap(locatorEl.current), spots = vectorLayer(m);
-        locator.current = {map: m, spots, fitted: false};
+        const m = pointsMap(locatorEl.current), photos = vectorLayer(m, 9), spots = vectorLayer(m);
+        locator.current = {map: m, spots, photos, fitted: false};
         placed.forEach((f) => spots.addFeature(pointFeature(lonLatToMap([f.lon!, f.lat!]), {path: f.path, tip: f.path})));
         hoverTips(m);
         m.on("click", (e) => {
@@ -437,7 +445,26 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         });
         fitLocator();
         markLocator();
+        drawPhotos();
     }
+
+    // The visual photos under the frames, when switched on: shown, not opened
+    function drawPhotos() {
+        const l = locator.current;
+        if (!l) return;
+        l.photos.clear();
+        if (!now.current.locatorVisual) return;
+        (now.current.meta?.visual_photos || []).forEach((p) => {
+            const f = pointFeature(lonLatToMap([p.lon, p.lat]), {tip: p.path});
+            f.setStyle(LOCATOR_VISUAL);
+            l.photos.addFeature(f);
+        });
+    }
+    function setLocatorVisual(on: boolean) {
+        try { localStorage.setItem(LOCATOR_VISUAL_KEY, on ? "1" : "0"); } catch { /* kept for this visit only */ }
+        setLocatorVisualState(on);
+    }
+    useEffect(drawPhotos, [locatorVisual]);
 
     // Fitted to the frames once it has a size (it may start folded)
     function fitLocator() {
@@ -830,6 +857,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                         {placed.length > 0 && <Section name="locator" title="Where the frames are" store={FOLDED_KEY}
                                                         onToggle={(open) => { if (open) { locator.current?.map.updateSize(); fitLocator(); } }}>
                             <div class="frame-locator" id="locator" ref={locatorEl}/>
+                            {(meta.visual_photos || []).length > 0 && <label class="locator-visual">
+                                <input type="checkbox" id="locator-visual" checked={locatorVisual}
+                                       onChange={(e) => setLocatorVisual(e.currentTarget.checked)}/> Visual photos (orange)</label>}
                         </Section>}
                         <Section name="saved" title={<span class="measurements-head"><span>Saved on this frame</span>
                             {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}

@@ -1702,7 +1702,7 @@ Two requests from `new.md` (2026-10-31).
 ### Decisions (2026-10-31)
 
 - P1: read by dji-thermal-cli (its check), released and pinned here; the visual photos get their own layer on the
-  frames map.
+  flight report's map and on the frame page's map (not the Videos tab's).
 - P2: the pane docked at the side; the Files tab only; selecting a row pins it in the pane, with or without Hover
   for detail (the user's addition, details under P2).
 
@@ -1723,7 +1723,8 @@ Two requests from `new.md` (2026-10-31).
   no thermal or temperature sections; the kind stays `not_thermal`. A release (1.11.0), then pinned here.
 - `file_row` fills the same columns for these rows; filters, sorting and the report's appendix pick them up.
   Existing flights get them on their next Analyze.
-- The flight's frames map gains a layer of the visual photos, off by default, switched on and off as the other layers.
+- The visual photos as a layer, off by default, on the flight report's map (a switch saved with the report, as the
+  appendix's) and on the frame page's map of where the frames are (a switch the browser remembers).
 
 ### P2: Hover for detail
 

@@ -369,6 +369,20 @@ def thermal_report(path, **over):
     return SimpleNamespace(path=path, info=info, status=SimpleNamespace(kind='thermal', reason=''))
 
 
+def visual_info():
+    """What dji-thermal-cli 1.11's check gives a visual photo (FileReport.visual): no thermal or temperature group"""
+    return {
+        'file': {'size_bytes': 4743168, 'warnings': []},
+        'camera': {'model': 'M4T', 'camera_serial': 'SN2', 'width': 4032, 'height': 3024,
+                   'capture_time': '2026:10:12 18:29:50', 'utc_at_exposure': '2026-10-12T23:30:09.6'},
+        'thermal': None, 'temperature': None,
+        'geospatial': {'latitude': 42.10001, 'longitude': -88.07, 'relative_altitude_m': 21.15,
+                       'absolute_altitude_m': 223.8, 'gps_status': 'RTK', 'rangefinder': {'distance_m': 21.5}},
+        'attitude': {'gimbal_pitch': -90.0, 'gimbal_yaw': 5.6},
+        'exif': None,
+    }
+
+
 # --- datasets and conversions, made through the API ---
 
 def dataset(**over):

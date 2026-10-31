@@ -10,7 +10,7 @@ from unittest import mock
 from dji_thermal_ui.analyzer import api as analyzer_api
 from dji_thermal_ui.analyzer import thermal_analysis
 from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset, ThermalMeasurement
-from tests.fakes import DATASETS, JPEG, dataset, image, server_folder, thermal_report
+from tests.fakes import DATASETS, JPEG, dataset, image, server_folder, thermal_report, visual_info
 
 
 def test_datasets_are_listed_newest_first(api):
@@ -181,7 +181,9 @@ def test_the_analysis_keeps_a_compact_row_per_file_with_paths_inside_the_dataset
     root = "/data/flight"
     result = SimpleNamespace(
         reports=[thermal_report(root + "/thermal/DJI_0002_T.JPG"),
-                 SimpleNamespace(path=root + "/rgb/DJI_0002_V.JPG", info=None,
+                 SimpleNamespace(path=root + "/rgb/DJI_0002_V.JPG", info=None, visual=visual_info(),
+                                 status=SimpleNamespace(kind='not_thermal', reason='not an R-JPEG')),
+                 SimpleNamespace(path=root + "/rgb/photo.jpg", info=None,      # before dji-thermal-cli 1.11
                                  status=SimpleNamespace(kind='not_thermal', reason='not an R-JPEG'))],
         scan=SimpleNamespace(others=[root + "/flight.srt"]),
         findings=[SimpleNamespace(severity='warning', code='temperature_max_outlier', message="hot",
@@ -191,7 +193,7 @@ def test_the_analysis_keeps_a_compact_row_per_file_with_paths_inside_the_dataset
 
     a = thermal_analysis.compact(result, root)
     rows = {r['path']: r for r in a['files']}
-    assert sorted(rows) == ['flight.srt', 'rgb/DJI_0002_V.JPG', 'thermal/DJI_0002_T.JPG']
+    assert sorted(rows) == ['flight.srt', 'rgb/DJI_0002_V.JPG', 'rgb/photo.jpg', 'thermal/DJI_0002_T.JPG']
     t = rows['thermal/DJI_0002_T.JPG']
     assert (t['model'], t['tmin'], t['alt'], t['pitch'], t['distance'], t['lrf'], t['gps']) == \
         ('M4T', 17.25, 21.14, -90.0, 5.0, 21.4, 'RTK')
@@ -200,6 +202,12 @@ def test_the_analysis_keeps_a_compact_row_per_file_with_paths_inside_the_dataset
     assert (t['time'], t['utc']) == ('2026:10:12 18:29:50', '2026-10-12T23:30:09.6')
     assert thermal_analysis.flight_zone(a) == {'offset': -300}
     assert rows['flight.srt']['kind'] == 'not_jpeg'
+    # A visual photo: what its EXIF and DJI XMP say, no temperatures, and not one of the thermal cameras
+    v = rows['rgb/DJI_0002_V.JPG']
+    assert (v['kind'], v['model'], v['width'], v['time'], v['lat'], v['alt'], v['pitch'], v['yaw'], v['lrf']) == \
+        ('not_thermal', 'M4T', 4032, '2026:10:12 18:29:50', 42.10001, 21.15, -90.0, 5.6, 21.5)
+    assert (v['tmin'], v['emissivity'], v['distance'], v['palette']) == (None, None, None, "")
+    assert set(rows['rgb/photo.jpg']) == {'path', 'kind', 'reason', 'size'}
     assert a['cameras'] == [{'model': 'M4T', 'serial': 'SN1', 'width': 640, 'height': 512, 'frames': 1}]
     assert a['findings'][0]['files'] == ['thermal/DJI_0002_T.JPG']
     assert root not in str(a)
@@ -269,21 +277,23 @@ def test_a_reports_text_is_saved_on_the_dataset_a_field_at_a_time(api):
     assert api.get(url).data['report'] == {}
     res = api.patch(url, {'report': {'title': "Roof survey", 'date': "2026-10-28", 'appendix': True}}, format='json')
     assert res.status_code == 200
-    res = api.patch(url, {'report': {'notes': "Wet insulation\nnear the north edge", 'date': ""}}, format='json')
-    assert res.data['report'] == {'title': "Roof survey", 'date': "", 'appendix': True,
+    res = api.patch(url, {'report': {'notes': "Wet insulation\nnear the north edge", 'date': "", 'visual': True}},
+                    format='json')
+    assert res.data['report'] == {'title': "Roof survey", 'date': "", 'appendix': True, 'visual': True,
                                   'notes': "Wet insulation\nnear the north edge"}
     assert res.data['name'] == "Roof"        # the name is left as it was
     d.refresh_from_db()
     assert d.report['title'] == "Roof survey" and d.name == "Roof"
     # Forgotten, a field is filled in again by the page
-    res = api.patch(url, {'report': {'title': None, 'date': None, 'notes': None, 'appendix': None}}, format='json')
+    res = api.patch(url, {'report': {'title': None, 'date': None, 'notes': None, 'appendix': None,
+                                     'visual': None}}, format='json')
     assert res.data['report'] == {}
 
 
 def test_a_reports_text_is_refused_when_it_is_not_what_the_report_holds(api):
     url = "{}/{}".format(DATASETS, dataset().id)
     for report in [{'title': "x" * 256}, {'notes': "x" * 10001}, {'author': 5}, {'date': "28.10.2026"},
-                   {'date': "2026-02-30"}, {'appendix': "yes"}, {'colour': "red"}, ["title"]]:
+                   {'date': "2026-02-30"}, {'appendix': "yes"}, {'visual': 1}, {'colour': "red"}, ["title"]]:
         res = api.patch(url, {'report': report}, format='json')
         assert res.status_code == 400, report
         assert 'report' in res.data

@@ -1,5 +1,5 @@
 // A dataset's report, laid out to be printed to PDF (A4 or Letter): its title block, the dataset's figures, where the
-// frames were taken, the coverage, the problems, the frames' settings and temperatures, the conversions, the findings,
+// frames were taken (and the visual photos, when switched on), the coverage, the problems, the frames' settings and temperatures, the conversions, the findings,
 // the video frames saved, notes, and the frames' table as an appendix when it is switched on. The text is typed on the page and saved on the
 // dataset; the print styles leave out the controls and print it light.
 import Feature from "ol/Feature";
@@ -8,6 +8,7 @@ import Polygon from "ol/geom/Polygon";
 import type VectorSource from "ol/source/Vector";
 import {boundingExtent} from "ol/extent";
 import CircleStyle from "ol/style/Circle";
+import RegularShape from "ol/style/RegularShape";
 import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
@@ -26,7 +27,7 @@ import {type Finding, findingsUrl, SEVERITY_COLORS} from "../findings/findings";
 import {centreOf} from "../findings/layer";
 import {type Basemap, fitBounds, lonLatToMap, mosaicMap, pointFeature, vectorLayer} from "../map/map";
 import {framePositions, numbered, type ReportText, reportText, settingsSummary, temperatureSummary,
-        thermalFrames, todayText} from "./report";
+        thermalFrames, todayText, visualPositions} from "./report";
 import {FindingsSection} from "./findings";
 import {ReportBar, ReportField, TitleBlock, useReportText} from "./text";
 
@@ -38,6 +39,8 @@ interface ReportDataset extends Dataset {report?: ReportText; flight_area?: [num
 
 const FRAME = new Style({image: new CircleStyle({radius: 3, fill: new Fill({color: "#00b8d4"}),
                                                  stroke: new Stroke({color: "#fff", width: 1})})});
+const VISUAL = new Style({image: new RegularShape({points: 4, radius: 4, angle: Math.PI / 4, fill: new Fill({color: "#ff9100"}),
+                                                    stroke: new Stroke({color: "#fff", width: 1})})});
 const AREA = new Style({stroke: new Stroke({color: "#00b8d4", width: 2}), fill: new Fill({color: "rgba(0, 184, 212, 0.1)"})});
 
 function findingStyle(f: Finding & {number: number}): Style {
@@ -62,10 +65,12 @@ const listed = (parts: string[]) => parts.filter(Boolean).map((p, i, all) => i &
 const placeOf = (v: SavedFrame) => typeof v.point?.lon === "number" && typeof v.point?.lat === "number" ?
     [v.point.lon, v.point.lat] as [number, number] : null;
 
-interface MapProps {basemaps: Basemap[]; d: ReportDataset; findings: (Finding & {number: number})[]; videoFrames: Numbered[]}
+interface MapProps {basemaps: Basemap[]; d: ReportDataset; findings: (Finding & {number: number})[]; videoFrames: Numbered[];
+                  visual: [number, number][]}
 
-// Where the frames were taken, the flight's area, the findings and the saved video frames by their numbers
-function FramesMap({basemaps, d, findings, videoFrames}: MapProps) {
+// Where the frames were taken, the flight's area, the findings, the saved video frames by their numbers and the visual
+// photos given (none unless switched on)
+function FramesMap({basemaps, d, findings, videoFrames, visual}: MapProps) {
     const el = useRef<HTMLDivElement>(null);
     const map = useRef<OlMap | null>(null);
     const drawn = useRef<VectorSource | null>(null);
@@ -78,7 +83,7 @@ function FramesMap({basemaps, d, findings, videoFrames}: MapProps) {
     }, []);
 
     const drawing = JSON.stringify([d.flight_area, framePositions(d.analysis?.files), findings.map((f) => [f.id, f.geometry]),
-                                   videoFrames.map((v) => [v.number, placeOf(v)])]);
+                                   videoFrames.map((v) => [v.number, placeOf(v)]), visual]);
     useEffect(() => {
         const m = map.current!, source = drawn.current!;
         source.clear();
@@ -89,6 +94,13 @@ function FramesMap({basemaps, d, findings, videoFrames}: MapProps) {
             area.setStyle(AREA);
             source.addFeature(area);
         }
+        visual.forEach((c) => {
+            const at = lonLatToMap(c);
+            points.push(at);
+            const f = pointFeature(at);
+            f.setStyle(VISUAL);
+            source.addFeature(f);
+        });
         framePositions(d.analysis?.files).forEach((c) => {
             const at = lonLatToMap(c);
             points.push(at);
@@ -187,12 +199,16 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
     const thumbs = url + "/thumbnail?file=";
     const shots = numberedFrames(videoFrames);
     const placed = shots.filter((v) => placeOf(v));
+    const visual = visualPositions(files);
+    const shownVisual = text.visual ? visual : [];
 
     return (
         <div class="page report">
             <ReportBar back={publicUrl + "dataset/" + id} backLabel={d.name} saved={saved} print={print}>
                 <label><input type="checkbox" id="report-appendix" checked={text.appendix}
                               onChange={(e) => change("appendix", e.currentTarget.checked, 0)}/> Append the frames' table</label>
+                {visual.length > 0 && <label><input type="checkbox" id="report-visual" checked={text.visual}
+                    onChange={(e) => change("visual", e.currentTarget.checked, 0)}/> Visual photos on the map</label>}
             </ReportBar>
             {notice && <div class="notice error no-print" role="alert">{notice}</div>}
 
@@ -206,9 +222,10 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
 
             <section class="report-section report-keep" id="report-where">
                 <h2>Where the frames were taken</h2>
-                {framePositions(files).length || placed.length ? <>
-                    <FramesMap basemaps={basemaps} d={d} findings={items} videoFrames={shots}/>
+                {framePositions(files).length || placed.length || shownVisual.length ? <>
+                    <FramesMap basemaps={basemaps} d={d} findings={items} videoFrames={shots} visual={shownVisual}/>
                     <p class="report-caption">{listed([framePositions(files).length ? count(framePositions(files).length, "frame", "frames") + " with a position" : "",
+                        shownVisual.length ? count(shownVisual.length, "visual photo", "visual photos") + " (orange)" : "",
                         items.length ? "the findings by their numbers" : "",
                         placed.length ? "the saved video frames (V1, V2…)" : ""])}.</p>
                 </> : <p class="text-muted">None of the frames records where it was taken.</p>}
