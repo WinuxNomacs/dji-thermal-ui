@@ -112,6 +112,16 @@ function page(fetchFn: ReturnType<typeof server>, nav = vi.fn(), palette = "") {
 const routes = (dataset: unknown = DETAIL, more: Record<string, unknown> = {}) =>
     server({[API + "preferences"]: PREFERENCES, [URL]: dataset, [API + "file-filters"]: {filters: []}, ...more});
 
+// The page opens on the Datasets tab once there are datasets: the Files tab's tests open on it by link
+function filesFirst() {
+    history.replaceState(null, "", "/dataset/5#files");
+}
+
+async function openSettings() {
+    click(byId("edit-settings"));
+    await ticks();
+}
+
 async function openMenu() {
     click(card().querySelector("button[aria-label=More]")!);
     await ticks();
@@ -275,7 +285,7 @@ describe("the dataset's files and conversions", () => {
 });
 
 describe("the dataset page", () => {
-    it("shows the dataset, its figures and its tabs, the files first", async () => {
+    it("shows the dataset, its figures and its tabs, the datasets first once it has some", async () => {
         page(routes());
         expect($(".message")!.textContent).toBe("Loading…");
         await ticks();
@@ -283,11 +293,13 @@ describe("the dataset page", () => {
         expect(document.title).toBe("Roof · Thermal Analyzer");
         expect($(".figures")!.textContent).toContain("M4T · 640×512 · SN1 · 2 frame(s)");
         expect($(".figures")!.textContent).toContain("Thermal frames2 (and 1 visual)");
-        expect($$("[role=tab]").map((t) => t.getAttribute("data-tab"))).toEqual(["files", "problems", "webodm", "convert"]);
-        expect(selected()).toBe("files");
+        expect($$("[role=tab]").map((t) => t.getAttribute("data-tab"))).toEqual(["files", "problems", "webodm", "datasets"]);
+        expect(selected()).toBe("datasets");
         expect(tab("files").querySelector(".badge")!.textContent).toBe("3");
         expect(tab("problems").querySelector(".badge")!.textContent).toBe("1");
-        expect(tab("convert").querySelector(".badge")!.textContent).toBe("1");
+        expect(tab("datasets").querySelector(".badge")!.textContent).toBe("1");
+        expect(tab("datasets").textContent).toContain("Datasets");
+        expect(byId("next-step")).toBeNull();
         expect(byId("analyze").textContent).toContain("Analyze again");
         expect(byId("add-images")).not.toBeNull();
         expect(byId("report").getAttribute("href")).toBe("/dataset/5/report");
@@ -299,21 +311,42 @@ describe("the dataset page", () => {
         expect($(".notice.error[role=alert]")!.textContent).toBe("Could not load the flight.");
     });
 
-    it("shows only the Convert tab before the analysis", async () => {
-        page(routes({...DATASET, status: "new", analyzed: false, analysis: null, conversions: []}));
+    it("opens on the files with the next step shown once analyzed, the step opening the Datasets tab", async () => {
+        page(routes({...DETAIL, conversions: []}));
         await ticks();
-        expect(byId("status").textContent).toBe("3 file(s), not analyzed yet.");
-        expect($$("[role=tab]").map((t) => t.getAttribute("data-tab"))).toEqual(["convert"]);
-        expect(selected()).toBe("convert");
-        expect(byId("analyze").textContent).toContain("Analyze");
-        expect($(".convert-tab")!.textContent).toContain("No datasets yet.");
+        expect(selected()).toBe("files");
+        expect(byId("next-step").textContent).toContain("Next: make a dataset.");
+        expect(byId("next-step").textContent).toContain("2 thermal frames");
+        click(byId("next-convert"));
+        await ticks();
+        expect(selected()).toBe("datasets");
+        expect(byId("convert-start")).not.toBeNull();
+        expect($(".settings-form")).toBeNull();
     });
 
-    it("opens the tab a link names", async () => {
+    it("shows only the Datasets tab before the analysis, and no tabs while the first analysis runs", async () => {
+        page(routes([{...DATASET, status: "new", analyzed: false, analysis: null, conversions: []},
+                     {...DATASET, status: "analyzing", progress: 0.2, analyzed: false, analysis: null, conversions: []}],
+                    {["POST " + URL + "/analyze"]: {...DATASET, status: "analyzing", progress: 0.2, analyzed: false,
+                                                    analysis: null, conversions: []}}));
+        await ticks();
+        expect(byId("status").textContent).toBe("3 file(s), not analyzed yet.");
+        expect($$("[role=tab]").map((t) => t.getAttribute("data-tab"))).toEqual(["datasets"]);
+        expect(selected()).toBe("datasets");
+        expect(byId("analyze").textContent).toContain("Analyze");
+        expect($(".convert-tab")!.textContent).toContain("No datasets yet");
+        expect(byId("next-step")).toBeNull();
+        click(byId("analyze"));
+        await ticks();
+        expect($$("[role=tab]")).toHaveLength(0);
+        expect($(".convert-tab")).toBeNull();
+    });
+
+    it("opens the tab a link names, the Datasets tab by its old name too", async () => {
         history.replaceState(null, "", "/dataset/5#convert");
         page(routes());
         await ticks();
-        expect(selected()).toBe("convert");
+        expect(selected()).toBe("datasets");
         click(tab("problems"));
         await ticks();
         expect(selected()).toBe("problems");
@@ -326,7 +359,8 @@ describe("the dataset page", () => {
                                {["POST " + URL + "/cancel"]: {...DETAIL, status: "canceled"}});
         page(fetchFn);
         await ticks();
-        expect(byId("status").textContent).toContain("Analyzing 3 file(s)…");
+        expect(byId("status").textContent).toContain("Reading the images: 50% of 3 files read…");
+        expect(byId("cancel").textContent).toContain("Cancel the analysis");
         expect(byId("status").textContent).toContain("50%");
         expect(byId("analyze")).toBeNull();
         expect(byId("add-images")).toBeNull();
@@ -352,7 +386,7 @@ describe("the dataset page", () => {
         click(byId("analyze"));
         await ticks();
         expect($(".notice.error")).toBeNull();
-        expect(byId("status").textContent).toContain("Analyzing");
+        expect(byId("status").textContent).toContain("Reading the images");
     });
 
     it("renames the dataset, and deletes it to go back to the list", async () => {
@@ -450,6 +484,7 @@ describe("the dataset page", () => {
     });
 
     it("lists the files, linked to their frames once a conversion is ready, and keeps the filter through the polls", async () => {
+        filesFirst();
         vi.useFakeTimers();
         const busy = {...CONVERSION, id: 10, status: "converting", progress: 0.2, finished_at: null};
         page(routes({...DETAIL, conversions: [busy]}));
@@ -476,6 +511,7 @@ describe("the dataset page", () => {
     });
 
     it("shows a file's picture and details beside the list as the pointer passes over its name or thumbnail", async () => {
+        filesFirst();
         localStorage.setItem("thermalAnalyzer.thumbnails", "1");
         page(routes());
         await ticks();
@@ -517,6 +553,7 @@ describe("the dataset page", () => {
     });
 
     it("keeps a selected file in the pane until it is deselected, whatever is hovered", async () => {
+        filesFirst();
         localStorage.setItem("thermalAnalyzer.thumbnails", "1");
         page(routes());
         await ticks();
@@ -562,6 +599,7 @@ describe("the dataset page", () => {
     });
 
     it("colours the thermal pictures with the preferred palette, the visual photos as they are", async () => {
+        filesFirst();
         localStorage.setItem("thermalAnalyzer.thumbnails", "1");
         page(routes(), vi.fn(), "dji_ironred");
         await ticks();
@@ -576,6 +614,7 @@ describe("the dataset page", () => {
     });
 
     it("shows the pane's file at its own size over the page, fitting the window, zoomed and panned", async () => {
+        filesFirst();
         page(routes(), vi.fn(), "magma");
         await ticks();
         const row = (path: string) => $$("table.files tbody tr").find((tr) => tr.textContent!.includes(path))!;
@@ -626,6 +665,7 @@ describe("the dataset page", () => {
     });
 
     it("sorts the files by a column, both ways", async () => {
+        filesFirst();
         page(routes());
         await ticks();
         const sort = () => $("th[data-sort=alt] button")!;
@@ -653,6 +693,7 @@ describe("the dataset page", () => {
     });
 
     it("starts the filter from a button, shown as its condition to change from there", async () => {
+        filesFirst();
         page(routes());
         await ticks();
         expect(showChosen()).toBe("all");
@@ -677,6 +718,7 @@ describe("the dataset page", () => {
     });
 
     it("adds conditions on any column, with the comparisons that column has, and clears them", async () => {
+        filesFirst();
         page(routes());
         await ticks();
         click(byId("add-filter"));
@@ -711,6 +753,7 @@ describe("the dataset page", () => {
     });
 
     it("filters by kind from the Kind column's checkboxes, All checking or unchecking every kind", async () => {
+        filesFirst();
         page(routes());
         await ticks();
         click($("th[data-sort=kind] .kind-button")!);
@@ -756,6 +799,7 @@ describe("the dataset page", () => {
     });
 
     it("chooses a favourite filter in place of the filter shown, and marks it while the filter is its own", async () => {
+        filesFirst();
         const saved = [{name: "Low", filters: ["alt.le.20"]}, {name: "Visual", filters: ["kind.in.visual", "gone.eq.1"]}];
         page(routes(DETAIL, {[API + "file-filters"]: {filters: saved}}));
         await ticks();
@@ -786,6 +830,7 @@ describe("the dataset page", () => {
     });
 
     it("saves the filter under a new name, never over a favourite of that name", async () => {
+        filesFirst();
         const fetchFn = routes(DETAIL, {
             [API + "file-filters"]: {filters: [{name: "Low", filters: ["alt.le.20"]}]},
             ["POST " + API + "file-filters"]: [
@@ -897,20 +942,23 @@ describe("the dataset page", () => {
 
         click(byId("plan-convert"));
         await ticks();
-        expect(selected()).toBe("convert");
+        expect(selected()).toBe("datasets");
         expect($(".convert-message")!.textContent).toBe("The form has the WebODM plan's settings: -o temp_c:tiff --normalize");
         expect(field("normalize").checked).toBe(true);
         expect(field("output-pseudo").checked).toBe(false);
     });
 });
 
-describe("the Convert tab", () => {
-    it("folds the settings into chips once there are conversions, unfolds them to edit, and folds them again", async () => {
+describe("the Datasets tab", () => {
+    it("lists the datasets above the new one's settings, folded into chips, unfolds them to edit, and folds them again", async () => {
         page(routes());
         await ticks();
         expect($(".settings-form")).toBeNull();
         expect($(".convert-summary .chips")!.textContent).toBe("dji-thermal-cli's defaults");
         expect(card().querySelector(".chips")!.textContent).toContain("emissivity 0.95");
+        expect(card().compareDocumentPosition(byId("convert-start")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(byId("edit-settings").textContent).toBe("Change settings");
+        expect(byId("convert-save")).toBeNull();
         click(byId("edit-settings"));
         await ticks();
         expect($(".settings-form")).not.toBeNull();
@@ -922,23 +970,37 @@ describe("the Convert tab", () => {
         click(byId("edit-settings"));
         await ticks();
         expect($(".settings-form")).toBeNull();
-        expect(byId("edit-settings").textContent).toBe("Edit settings");
+        expect(byId("edit-settings").textContent).toBe("Change settings");
         click(byId("edit-settings"));
         await ticks();
         expect(field("normalize").checked).toBe(true);
     });
 
-    it("shows the form at once when there are no conversions", async () => {
+    it("keeps the form folded with no datasets too, the Convert button above it, its outputs named for what they are", async () => {
         page(routes({...DETAIL, conversions: []}));
         await ticks();
-        expect($(".settings-form")).not.toBeNull();
+        expect($(".settings-form")).toBeNull();
+        await openSettings();
+        expect(byId("convert-start").compareDocumentPosition($(".settings-form")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(field("output-temp_c").checked).toBe(true);
+        const output = field("output-temp_c").closest("label")!;
+        expect(output.textContent).toContain("Temperatures (°C), for measuring");
+        expect(output.querySelector("code.output-cli")!.textContent).toBe("temp_c");
+        expect(output.getAttribute("title")).toContain("float32");
         expect($(".field[data-field=emissivity] .help")!.textContent).toBe("recorded 0.91");
+    });
+
+    it("leaves out of the object distance's help the distances not known", async () => {
+        page(routes({...DATASET, status: "new", analyzed: false, analysis: null, conversions: []}));
+        await ticks();
+        await openSettings();
+        expect($(".field[data-field=distance_mode] .help")).toBeNull();
     });
 
     it("marks a changed setting and puts it back at its default", async () => {
         page(routes({...DETAIL, conversions: []}));
         await ticks();
+        await openSettings();
         type(field("emissivity"), "0.95");
         await ticks();
         expect($(".field[data-field=emissivity]")!.classList.contains("changed")).toBe(true);
@@ -958,6 +1020,7 @@ describe("the Convert tab", () => {
                                {["POST " + URL + "/conversions"]: started});
         page(fetchFn);
         await ticks();
+        await openSettings();
         type(field("emissivity"), "0.95");
         type(byId<HTMLInputElement>("convert-name"), " Warm ");
         await ticks();
@@ -983,6 +1046,7 @@ describe("the Convert tab", () => {
         const fetchFn = routes({...DETAIL, conversions: []}, {["POST " + URL + "/conversions"]: {...CONVERSION, id: 12}});
         page(fetchFn);
         await ticks();
+        await openSettings();
         const visual = $<HTMLInputElement>("input[name=visual]")!;
         expect(visual.checked).toBe(true);
         expect($(".field[data-field=visual]")!.textContent).toContain("1 visual image");
@@ -1004,6 +1068,7 @@ describe("the Convert tab", () => {
         const fetchFn = routes({...DETAIL, conversions: []}, {["POST " + URL + "/conversions"]: {...CONVERSION, id: 12}});
         page(fetchFn);
         await ticks();
+        await openSettings();
         expect($("select[name=rjpeg_picture]")).toBeNull();
         click($<HTMLInputElement>("input[name=output-rjpeg]")!);
         await ticks();
@@ -1031,6 +1096,7 @@ describe("the Convert tab", () => {
                                {["POST " + URL + "/conversions"]: () => jsonResponse({detail: "No images."}, false)});
         page(fetchFn);
         await ticks();
+        await openSettings();
         type(field("range_min"), "10");
         await ticks();
         click(byId("convert-start"));
@@ -1051,6 +1117,7 @@ describe("the Convert tab", () => {
                                                               ["DELETE " + API + "preferences"]: {settings: DEFAULTS, saved: false}});
         page(fetchFn);
         await ticks();
+        await openSettings();
         type(field("emissivity"), "0.95");
         await ticks();
         click(byId("convert-save"));

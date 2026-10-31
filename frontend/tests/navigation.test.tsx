@@ -79,11 +79,11 @@ describe("the navigation pane", () => {
         await ticks(2);
         expect(links().slice(4, 8)).toEqual(["Report", "Built", "Converted", "Converting"]);
         expect($('a[title=Report]')!.getAttribute("href")).toBe("/dataset/5/report");
-        // A conversion opens its mosaics, else its frames, else its dataset's Convert tab; one still converting has
+        // A conversion opens its mosaics, else its frames, else its flight's Datasets tab; one still converting has
         // nothing under it yet
         expect($("a[title=Built]")!.getAttribute("href")).toBe("/conversion/9");
         expect($("a[title=Converted]")!.getAttribute("href")).toBe("/conversion/8/frame");
-        expect($("a[title=Converting]")!.getAttribute("href")).toBe("/dataset/5#convert");
+        expect($("a[title=Converting]")!.getAttribute("href")).toBe("/dataset/5#datasets");
         expect(fold("c7")).toBeNull();
         // Its tools first, then its two ways of looking at the images: the mosaics and the frames
         click(fold("c9"));

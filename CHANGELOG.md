@@ -58,6 +58,12 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The flight page leads from the analysis to a dataset (U2): the Convert tab is now **Datasets**, listing the
+  flight's datasets first and then a New dataset bar with the settings summary and the Convert button, the settings
+  folded under Change settings. The page opens on it once the flight has a dataset. After the analysis, a flight
+  without one shows "Next: make a dataset". The outputs are named for what they are for, with dji-thermal-cli's name
+  beside them. While the analysis runs, the page shows how far it has got, with no tabs, and the button says
+  "Cancel the analysis". Links to `#convert` still open the tab.
 - dji-thermal-cli 1.11.0 (was 1.9.1): it describes a drone's visual photos, which the Files tab, its detail pane and
   the maps' visual layers show; 1.10.0's fix for a crash in DJI's library on Windows comes with it.
 - CI runs only on a `v*` tag or by hand (Actions › CI › Run workflow), no longer on every push or pull request.

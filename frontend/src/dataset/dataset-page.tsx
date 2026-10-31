@@ -1,5 +1,5 @@
 // A thermal dataset's page: what dji-thermal-cli found in it (an overview, then tabs: the files, the problems, the
-// WebODM plan and its conversions), with adding images and analyzing again; kept up to date while it is analyzed or
+// WebODM plan and its conversions, the datasets), with adding images and analyzing again; kept up to date while it is analyzed or
 // converted
 import {useEffect, useRef, useState} from "preact/hooks";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
@@ -21,7 +21,7 @@ import type {Basemap} from "../map/map";
 const POLL_MS = 2000;
 
 const TABS = [["files", "Files"], ["videos", "Videos"], ["problems", "Problems"], ["webodm", "WebODM plan"],
-              ["convert", "Convert"]] as const;
+              ["datasets", "Datasets"]] as const;
 type Tab = typeof TABS[number][0];
 
 export interface Dataset {
@@ -46,9 +46,9 @@ export interface Dataset {
     created_at?: string;
 }
 
-// A link to a tab (#convert, as the mosaic viewer's way back) opens it
+// A link to a tab (#datasets, as the mosaic viewer's way back) opens it; #convert is the Datasets tab's old name
 function linkedTab(): Tab | null {
-    const t = location.hash.replace(/[^a-z]/g, "");
+    const t = location.hash.replace(/[^a-z]/g, "").replace(/^convert$/, "datasets");
     return TABS.some(([key]) => key === t) ? t as Tab : null;
 }
 
@@ -57,7 +57,7 @@ function Status({d}: {d: Dataset}) {
         const pct = Math.round((d.progress || 0) * 100);
         return (<div class="status" id="status">
             <div class="progress"><div class="progress-bar active" style={{width: pct + "%"}}>{pct}%</div></div>
-            {" "}Analyzing {d.file_count} file(s)…</div>);
+            {" "}Reading the images: {pct}% of {count(d.file_count || 0, "file", "files")} read…</div>);
     }
     if (d.status === "failed") return <div class="status text-danger" id="status"><Warning/> The analysis failed: {d.error}</div>;
     if (d.status === "canceled") return <div class="status text-muted" id="status">The analysis was canceled.</div>;
@@ -218,17 +218,20 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
     const a = d.analysis || null;
     const videos = videosOf(a?.files);
     const analyzing = d.status === "analyzing", uploading = progress !== null;
-    // Converting needs no analysis: the tabs show as soon as there are images (or conversions); before the analysis
-    // only the Convert tab has something to show, after it the files unless a tab was chosen
-    const hasTabs = !!a?.files || !!d.file_count || !!(d.conversions || []).length;
-    const tab: Tab = !a?.files ? "convert" : chosen === "videos" && !videos.length ? "files" : chosen || "files";
+    // Converting needs no analysis: the tabs show as soon as there are images (or conversions), though not while the
+    // first analysis runs; before the analysis only the Datasets tab has something to show, after it the datasets once
+    // there are some, else the files, unless a tab was chosen
+    const convertCount = (d.conversions || []).length;
+    const hasTabs = !!a?.files || !!convertCount || !!d.file_count && !analyzing;
+    const tab: Tab = !a?.files ? "datasets" : chosen === "videos" && !videos.length ? "files" :
+        chosen || (convertCount ? "datasets" : "files");
+    const thermal = (a?.files || []).filter((f) => f.kind === "thermal").length;
     const ready = newestReady(d.conversions);
     const frames = ready ? publicUrl + "conversion/" + ready.id + "/frame" : null;
     const mosaics = (d.conversions || []).find((c) => c.status === "ready" && c.mosaic_status === "ready");
     const serious = (a?.findings || []).filter((f) => f.severity !== "info").length;
-    const convertCount = (d.conversions || []).length;
     const badges: Record<Tab, number | string> = {files: a?.files?.length || "", videos: videos.length || "",
-                                                   problems: serious || "", webodm: "", convert: convertCount || ""};
+                                                   problems: serious || "", webodm: "", datasets: convertCount || ""};
     const pct = progress && progress.bytesTotal ? Math.round(progress.bytesSent / progress.bytesTotal * 100) : 0;
 
     function showFile(path: string) {
@@ -238,8 +241,13 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
 
     function convertWithPlan() {
         setPlanRequest((n) => n + 1);
-        setChosen("convert");
-        setTimeout(() => convertRef.current?.scrollIntoView?.());
+        setChosen("datasets");
+        setTimeout(() => convertRef.current?.querySelector(".convert-settings")?.scrollIntoView?.());
+    }
+
+    function makeDataset() {
+        setChosen("datasets");
+        setTimeout(() => convertRef.current?.querySelector(".convert-settings")?.scrollIntoView?.());
     }
 
     return (
@@ -263,7 +271,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
                                 onClick={() => action("/analyze", "Could not start the analysis.")}>
                             {d.analyzed ? <><Refresh/> Analyze again</> : <><Play/> Analyze</>}</button>)}
                     {analyzing && <button type="button" class="button default" id="cancel"
-                                          onClick={() => action("/cancel", "Could not cancel the analysis.")}><Stop/> Cancel</button>}
+                                          onClick={() => action("/cancel", "Could not cancel the analysis.")}><Stop/> Cancel the analysis</button>}
                     <a class="button default" id="report" href={publicUrl + "dataset/" + id + "/report"}
                        title="A report of this flight, to print or save as PDF"><FileText/> Report</a>
                     <button type="button" class="button default" id="copy-link" title="Copy a link to this flight"
@@ -292,9 +300,16 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
 
             <Overview d={d}/>
 
+            {a?.files && !convertCount && !analyzing && !uploading && thermal > 0 && (
+                <div class="next-step" id="next-step">
+                    <div><strong>Next: make a dataset.</strong> Converting turns the {count(thermal, "thermal frame", "thermal frames")} into
+                        temperatures to measure, and stitches them into mosaics to view on a map.</div>
+                    <button type="button" class="button primary" id="next-convert" onClick={makeDataset}>Make a dataset</button>
+                </div>)}
+
             {hasTabs && (<>
                 <div class="tabs" role="tablist">
-                    {TABS.filter(([key]) => key === "convert" || a?.files && (key !== "videos" || videos.length)).map(([key, label]) => (
+                    {TABS.filter(([key]) => key === "datasets" || a?.files && (key !== "videos" || videos.length)).map(([key, label]) => (
                         <a key={key} href={"#" + key} role="tab" aria-selected={tab === key} class={tab === key ? "active" : ""}
                            data-tab={key} onClick={(e) => { e.preventDefault(); setChosen(key); }}>
                             {label}{badges[key] !== "" && <> <span class="badge">{badges[key]}</span></>}</a>))}
@@ -309,7 +324,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
                 {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}
                 {/* Kept mounted, hidden: its form keeps what was typed while another tab is open */}
-                <div ref={convertRef} hidden={tab !== "convert"}>
+                <div ref={convertRef} hidden={tab !== "datasets"}>
                     <ConvertTab api={api} publicUrl={publicUrl} dataset={d} onChange={load} planRequest={planRequest}
                                 prefill={prefill}/>
                 </div>

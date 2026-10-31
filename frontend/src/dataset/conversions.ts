@@ -1,4 +1,4 @@
-// A dataset's conversions as the Convert tab lists them: their status, figures, results and the links that start one
+// A dataset's conversions as the Datasets tab lists them: their status, figures, results and the links that start one
 import {count, formatBytes, formatDate, type Maybe, type Stage} from "../core/format";
 import {MEASUREMENTS, type Settings} from "./settings";
 import {type Dsm, type Orthophoto, type WebODMTask} from "./webodm";

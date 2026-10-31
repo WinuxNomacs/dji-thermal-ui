@@ -1,5 +1,5 @@
-// The Convert tab: the settings (folded into chips once the dataset has conversions), saved as the defaults new
-// conversions start from, and the conversions, each a card with its actions and, unfolded, what it wrote per image
+// The Datasets tab: the conversions, each a card with its actions and, unfolded, what it wrote per image, then a new
+// one's settings (folded into chips until asked for), saved as the defaults new conversions start from
 import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
@@ -15,6 +15,14 @@ import {DISTANCE_MODES, type Diff, differences, formProblem, formValues, type Fo
         UNIT_LABELS} from "./settings";
 import {CELL_RANGE} from "./webodm";
 import {WebODMPanel, WebODMTasks} from "./webodm-panel";
+
+// What each of dji-thermal-cli's outputs is for, its own name and description beside it
+const OUTPUT_NAMES: Record<string, string> = {
+    temp_c: "Temperatures (°C), for measuring", temp_f: "Temperatures (°F), for measuring",
+    temp_k: "Temperatures (K), for measuring", temp_ck: "Temperatures in 16-bit integers (centi-kelvin)",
+    temp_dc: "Temperatures as the DJI SDK gives them", raw: "Raw sensor values", gray16: "16-bit greyscale picture",
+    pseudo: "Coloured picture (the palette)", rjpeg: "DJI R-JPEG",
+};
 
 export interface ConvertDataset {id: number; analysis?: Analysis | null; conversions?: Conversion[]}
 
@@ -41,7 +49,7 @@ function Field({ctx, name, label, help, children}: FieldProps) {
         <label>{label} {children}</label>
         {help && <div class="help text-muted">{help}</div>}
         {m && <div class="mark-note">{m.offPlan && m.plan !== null && <>⚠ plan: {m.plan} · </>}
-            <a href="#convert" onClick={(e) => { e.preventDefault(); ctx.reset(m.key); }}>default</a></div>}
+            <a href="#datasets" onClick={(e) => { e.preventDefault(); ctx.reset(m.key); }}>default</a></div>}
     </div>);
 }
 
@@ -55,6 +63,13 @@ interface FormProps {
 }
 
 // The settings form, its fields marked where they differ from the defaults (or the plan), each with a link back
+// The flight's median distances, those it recorded (none before the analysis)
+function distances(rec: {distance: Maybe<number>; lrf: Maybe<number>}): string | undefined {
+    const known = ([["embedded", rec.distance], ["rangefinder", rec.lrf]] as const).filter(([, v]) => v !== null && v !== undefined)
+        .map(([what, v]) => what + " " + formatNumber(v, 1, " m"));
+    return known.length ? known.join(", ").replace(/^e/, "E") + " (medians)" : undefined;
+}
+
 function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) {
     const u = unitSymbol(userUnit());
     const rec = recorded(analysis);
@@ -90,12 +105,12 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) 
                 const o = form.outputs[p.product] || {on: false, format: p.formats[0]};
                 const set = (next: Partial<typeof o>) => setForm({...form, outputs: {...form.outputs, [p.product]: {...o, ...next}}});
                 return (<div class="output" key={p.product}>
-                    <label class="check"><input type="checkbox" name={"output-" + p.product} checked={o.on}
-                                                onChange={(e) => set({on: e.currentTarget.checked})}/> {p.product}</label>
+                    <label class="check" title={p.description}><input type="checkbox" name={"output-" + p.product} checked={o.on}
+                                                onChange={(e) => set({on: e.currentTarget.checked})}/> {OUTPUT_NAMES[p.product] || p.product}
+                        {OUTPUT_NAMES[p.product] && <code class="output-cli">{p.product}</code>}</label>
                     {p.formats.length > 1 && <select aria-label={p.product + " format"} value={o.format}
                                                      onChange={(e) => set({format: e.currentTarget.value})}>
                         {p.formats.map((f) => <option key={f} value={f}>{f}</option>)}</select>}
-                    <span class="text-muted"> {p.description}</span>
                     {p.product === "rjpeg" && o.on && <Field ctx={ctx} name="rjpeg_picture" label="Its picture"
                             help="What photo viewers show. DJI's tools colour the temperatures themselves.">
                         <select name="rjpeg_picture" value={value("rjpeg_picture")}
@@ -115,8 +130,7 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) 
         </fieldset>
         <details open><summary>Measurement</summary>
             <p class="text-muted">Empty keeps each image's own value.</p>
-            <Field ctx={ctx} name="distance_mode" label="Object distance" help={"Embedded " + formatNumber(rec.distance, 1, " m") +
-                ", rangefinder " + formatNumber(rec.lrf, 1, " m") + " (medians)"}>
+            <Field ctx={ctx} name="distance_mode" label="Object distance" help={distances(rec)}>
                 <select name="distance_mode" value={value("distance_mode")}
                         onChange={(e) => setValue("distance_mode", e.currentTarget.value)}>
                     {DISTANCE_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
@@ -357,7 +371,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
     const [meta, setMeta] = useState<Meta | null>(null);
     const [form, setForm] = useState<FormValues | null>(null);
     const [plan, setPlan] = useState<Settings | null>(null);
-    const [open, setOpen] = useState(!conversions.length);
+    const [open, setOpen] = useState(false);
     const [name, setName] = useState("");
     const [message, setMessage] = useState<{text: ComponentChildren; cls: string} | null>(null);
     const [fresh, setFresh] = useState<number | null>(null);
@@ -398,8 +412,8 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         say(<>The form has the WebODM plan's settings: <code>{args.join(" ")}</code></>);
     }, [planRequest, meta]);
 
-    if (!meta || !form) return (<div class="convert-tab">{message ? <p class={message.cls}>{message.text}</p> : <p class="text-muted">Loading…</p>}
-        {conversionsBlock()}</div>);
+    if (!meta || !form) return (<div class="convert-tab">{conversionsBlock()}
+        {message ? <p class={message.cls}>{message.text}</p> : <p class="text-muted">Loading…</p>}</div>);
 
     const settings = readValues(form);
     const diffs = differences(settings, meta.defaults, plan, userUnit());
@@ -434,18 +448,18 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         say("Back to dji-thermal-cli's defaults.");
     }
 
-    return (<div class="convert-tab">{settingsBlock()}{conversionsBlock()}</div>);
+    return (<div class="convert-tab">{conversionsBlock()}{settingsBlock()}</div>);
 
+    // The Convert button above the settings, which stay folded until asked for
     function settingsBlock() {
         return (<div class="convert-settings">
-            <p class="text-muted">Convert the images with dji-thermal-cli into a dataset: each dataset is kept beside the others, to
+            <h2>New dataset</h2>
+            <p class="text-muted">Converts the images with dji-thermal-cli into a new dataset, kept beside the others to
                 compare settings. {meta!.saved ? "Starting from your saved defaults." : "Starting from dji-thermal-cli's defaults."}</p>
             <div class="convert-summary"><span>Settings:</span> <Chips diffs={diffs}/>
                 <button type="button" class="button default small" id="edit-settings" aria-expanded={open}
                         aria-controls="settings-form" onClick={() => setOpen(!open)}>
-                    {open ? "Hide settings" : "Edit settings"}</button></div>
-            {open && <SettingsForm meta={meta!} form={form!} setForm={setForm} diffs={diffs} analysis={dataset.analysis}
-                                   reset={(key) => fill(resetSetting(settings, meta!.defaults, key))}/>}
+                    {open ? "Hide settings" : "Change settings"}</button></div>
             <div class="convert-actions">
                 <input type="text" id="convert-name" maxLength={255} placeholder="Name (optional)" aria-label="Name"
                        value={name} onInput={(e) => setName(e.currentTarget.value)}/>
@@ -455,18 +469,22 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
                                  onClick={() => { setPlan(planSettings(args, meta!.defaults)); fill(planSettings(args, meta!.defaults));
                                      setOpen(true); say(<>The form has the WebODM plan's settings: <code>{args.join(" ")}</code></>); }}>
                     <Wand/> Use the WebODM plan's settings</button>}
+            </div>
+            {message && <div class={"convert-message " + message.cls} role="status">{message.text}</div>}
+            {open && <SettingsForm meta={meta!} form={form!} setForm={setForm} diffs={diffs} analysis={dataset.analysis}
+                                   reset={(key) => fill(resetSetting(settings, meta!.defaults, key))}/>}
+            {open && <div class="convert-actions">
                 <button type="button" class="button default" id="convert-save" title="New datasets start from these settings"
                         onClick={save}><Save/> Save as defaults</button>
                 <button type="button" class="button default" id="convert-reset" onClick={resetDefaults}><Undo/> Reset to defaults</button>
-            </div>
-            {message && <div class={"convert-message " + message.cls} role="status">{message.text}</div>}
+            </div>}
         </div>);
     }
 
     function conversionsBlock() {
         return (<>
             <h2>Datasets</h2>
-            {!conversions.length && <p class="text-muted">No datasets yet.</p>}
+            {!conversions.length && <p class="text-muted">No datasets yet: make one below.</p>}
             {conversions.map((c) => <Card key={c.id} c={c} defaults={meta?.defaults} api={api} publicUrl={publicUrl}
                                           base={base} viewer={viewer} fresh={c.id === fresh} act={act}
                                           onChange={onChange}/>)}

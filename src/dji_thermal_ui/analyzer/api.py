@@ -250,7 +250,7 @@ def detail(dataset):
 
 
 def conversion_summary(c):
-    """A conversion as the dataset's Convert tab lists it"""
+    """A conversion as the flight page's Datasets tab lists it"""
     r = c.results or {}
     return {
         'id': c.id,
