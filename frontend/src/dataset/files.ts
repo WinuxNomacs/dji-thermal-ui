@@ -1,6 +1,6 @@
 // A dataset's analysis as the pages use it: the figures above the tabs, the Files tab's rows and columns, and the
 // conversion a frame opens in
-import {fileKind, formatCapture, median} from "../core/format";
+import {FILE_KINDS, fileKind, formatCapture, median} from "../core/format";
 import {searchWords} from "../core/search";
 import {convertTemp} from "../core/units";
 
@@ -133,10 +133,9 @@ export type Op = "eq" | "ne" | "lt" | "le" | "gt" | "ge" | "has" | "not" | "in" 
 export interface Condition {key: string; op: Op; value: string | string[] | boolean}
 export type ColumnType = "number" | "text" | "kind" | "flag";
 
-// The columns only the Files tab has, after Kind: worked out from the kind and the problems
+// The column only the Files tab has, after Kind: worked out from the problems (filtered as yes or no, shown as their names)
 export const FLAG_COLUMNS: FileColumn[] = [
-    {key: "thermal_frame", label: "Thermal frame", title: "A thermal R-JPEG the conversions read"},
-    {key: "problems", label: "With problems", title: "Named by a problem, not readable as a frame, or with a warning"},
+    {key: "problems", label: "Problems", title: "Named by a problem, not readable as a frame, or with a warning"},
 ];
 export const FILES_TAB_COLUMNS: FileColumn[] = [...FILE_COLUMNS.slice(0, 2), ...FLAG_COLUMNS, ...FILE_COLUMNS.slice(2)];
 
@@ -164,7 +163,7 @@ export function newCondition(key: string): Condition {
 export type Show = "all" | "thermal" | "flagged";
 export const SHOWS: [Show, string, Condition[]][] = [
     ["all", "All files", []],
-    ["thermal", "Thermal frames", [{key: "thermal_frame", op: "is", value: true}]],
+    ["thermal", "Thermal frames", [{key: "kind", op: "in", value: ["thermal"]}]],
     ["flagged", "With problems", [{key: "problems", op: "is", value: true}]],
 ];
 
@@ -176,7 +175,7 @@ export function shownAs(filters: Condition[]): Show | null {
 
 export interface FilesView {filters: Condition[]; sort: string; desc: boolean}
 
-// A file's row with what the Files tab works out: whether it is a thermal frame, and whether it has problems
+// Whether a file has problems, which the Files tab works out
 export function flagged(f: FileRow, flags: Record<string, Problem[]>): boolean {
     return !!flags[f.path] || !["thermal", "not_thermal", "video"].includes(f.kind) || !!f.reason && f.kind === "video" ||
         !!(f.warnings || []).length;
@@ -215,7 +214,7 @@ export function matches(row: FileRow, c: Condition): boolean {
 // The Files tab's rows, with their worked-out columns: those matching every condition, sorted
 export function fileRows(a: Analysis, view: FilesView): FileRow[] {
     const flags = flagsByFile(a.findings);
-    const rows = (a.files || []).map((f) => ({...f, thermal_frame: f.kind === "thermal", problems: flagged(f, flags)}))
+    const rows = (a.files || []).map((f) => ({...f, problems: flagged(f, flags)}))
         .filter((f) => view.filters.every((c) => matches(f, c)));
     return sortRows(rows, view.sort || "path", !!view.desc);
 }
@@ -237,6 +236,9 @@ export function parseFilters(search: string): Condition[] {
 export function filtersFrom(list: string[]): Condition[] {
     return list.flatMap((f) => {
         const [key, op, ...rest] = f.split(".");
+        // The "Thermal frame" column's, before Kind said it alone
+        if (key === "thermal_frame" && op === "is")
+            return [{key: "kind", op: "in" as Op, value: rest.join(".") === "no" ? FILE_KINDS.filter((k) => k !== "thermal") : ["thermal"]}];
         const value = rest.join("."), type = columnType(key);
         const known = FILES_TAB_COLUMNS.some((c) => c.key === key) && OPS[type].some(([o]) => o === op);
         if (!known) return [];

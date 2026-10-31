@@ -8,6 +8,7 @@ const KIND_LABELS: Record<string, string> = {
     thermal: "Thermal", not_thermal: "Not thermal", not_jpeg: "Not a JPEG", corrupt: "Damaged",
     unreadable: "Unreadable", unsupported: "Unsupported image type", visual: "Visual", video: "Video",
 };
+export const FILE_KINDS = Object.keys(KIND_LABELS);
 // DJI's name for a visual camera's image of a capture (wide: _W), beside the thermal one's _T (the server's VISUAL_NAME)
 const VISUAL_NAME = /_[VW]\.jpe?g$/i;
 

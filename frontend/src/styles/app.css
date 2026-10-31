@@ -468,11 +468,9 @@ th .kind-button .icon.on { color: var(--accent); }
 #favourites .icon.on { color: var(--accent); }
 .menu-items button:disabled { color: var(--muted); cursor: default; background: none; }
 .menu-items .menu-note { padding: 4px 16px; white-space: normal; }
-.table.files td.flag { text-align: center; }
 .files-shown { margin-left: auto; font-size: 12px; }
 .files-hint { font-size: 12px; margin: 0 0 6px; }
 .table.files td { white-space: nowrap; font-size: 12px; }
-.table.files td:last-child { white-space: normal; }
 .table.files .badge { margin-right: 3px; }
 .table.files td.thumb { padding: 1px 4px; width: 52px; }
 .thumb img { display: block; max-width: 48px; max-height: 40px; }
@@ -500,7 +498,6 @@ th .kind-button .icon.on { color: var(--accent); }
 .files-detail-columns { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; }
 .files-detail-columns dt { color: var(--muted); }
 .files-detail-columns dd { margin: 0; }
-.files-detail-notes { margin: 8px 0 0; }
 @media (max-width: 900px) {
     .files-detail {
         position: fixed; top: 0; right: 0; bottom: 0; z-index: 1020; width: min(380px, calc(100vw - 32px));
