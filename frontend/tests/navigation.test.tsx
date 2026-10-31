@@ -2,7 +2,7 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {sendJson} from "../src/core/api";
 import {formatCapture, formatCaptureRange, formatDate, setUserLocale, userLocale, zoneLabel, zoneText} from "../src/core/format";
-import {type Current, navigationChanged, type NavProject, onNavigationChanged, partChanged, pathTo} from "../src/core/navigation";
+import {type Current, navigationChanged, type NavProject, onNavigationChanged, pathTo} from "../src/core/navigation";
 import {mountPage} from "../src/core/page";
 import {applyTheme} from "../src/core/theme";
 import {NavPane} from "../src/components/nav-pane";
@@ -16,8 +16,7 @@ const PROJECTS: NavProject[] = [
     {id: 1, name: "Default Project", datasets: []},
     {id: 2, name: "Silos", datasets: [
         {id: 5, name: "Roof", conversions: [
-            {id: 9, name: "Built", frames: true, mosaics: true, tabs: ["as_converted", "harmonized", "view_angle"],
-             in_mosaic: 3, oblique: 5},
+            {id: 9, name: "Built", frames: true, mosaics: true},
             {id: 8, name: "Converted", frames: true, mosaics: false},
             {id: 7, name: "Converting", frames: false, mosaics: false},
         ]},
@@ -65,61 +64,40 @@ async function pane(current: Current = {page: "projects", id: NaN}, fetchFn = se
 }
 
 describe("the navigation pane", () => {
-    it("lists the projects folded, and unfolds each level to what is under it", async () => {
+    it("lists the projects folded, unfolds them to their flights and those to their datasets, and stops there", async () => {
         await pane();
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings", "Storage"]);
         expect(currentLink()).toBe("Projects");
-        // A project without datasets has nothing to unfold
+        // A project without flights has nothing to unfold
         expect(fold("p1")).toBeNull();
         click(fold("p2"));
         await ticks(2);
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "Roof", "Field", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "Roof", "Field", "User Preferences", "System Settings",
+                                 "Storage"]);
         expect(($('a[href="/dataset/5"]'))).not.toBeNull();
+        // A flight without datasets has nothing to unfold either
+        expect(fold("d4")).toBeNull();
         click(fold("d5"));
         await ticks(2);
-        expect(links().slice(4, 8)).toEqual(["Flight report", "Built", "Converted", "Converting"]);
-        expect($('a[title="Flight report"]')!.getAttribute("href")).toBe("/dataset/5/report");
-        // A conversion opens its mosaics, else its frames, else its flight's Datasets tab; one still converting has
-        // nothing under it yet
+        expect(links().slice(3, 8)).toEqual(["Roof", "Built", "Converted", "Converting", "Field"]);
+        // No report row: the flight page's header opens it
+        expect($('a[href="/dataset/5/report"]')).toBeNull();
+        // A dataset opens its mosaics, else its frames, else its flight's Datasets tab, and has nothing under it
         expect($("a[title=Built]")!.getAttribute("href")).toBe("/conversion/9");
         expect($("a[title=Converted]")!.getAttribute("href")).toBe("/conversion/8/frame");
         expect($("a[title=Converting]")!.getAttribute("href")).toBe("/dataset/5#datasets");
-        expect(fold("c7")).toBeNull();
-        // Its tools first, then its two ways of looking at the images: the mosaics and the frames
-        click(fold("c9"));
-        await ticks(2);
-        expect(links().slice(5, 9)).toEqual(["Built", "Tools", "Mosaics", "Frames"]);
-        click(fold("c9.tools"));
-        click(fold("c9.mosaics"));
-        click(fold("c9.frames"));
-        await ticks(2);
-        expect(links().slice(5, 16)).toEqual(["Built", "Tools", "Compare", "Mosaic report", "Mosaics", "Mosaic", "Harmonized",
-                                              "View angle", "Frames", "Mosaic3", "Oblique5"]);
-        expect($('a[title=Compare]')!.getAttribute("href")).toBe("/conversion/9/compare");
-        expect($('a[href="/conversion/9/report"]')).not.toBeNull();
-        expect($('a[title=Mosaics]')!.getAttribute("href")).toBe("/conversion/9");
-        expect($('a[title=Harmonized]')!.getAttribute("href")).toBe("/conversion/9?tab=harmonized");
-        expect($('a[href="/conversion/9/frame?list=mosaic"]')!.textContent).toBe("Mosaic3");
-        expect($('a[title=Oblique] .nav-count')!.textContent).toBe("5");
-        expect($('a[title=Oblique]')!.getAttribute("href")).toBe("/conversion/9/frame?list=oblique");
-        // Without mosaics, its frames only, all in one list
-        click(fold("c8"));
-        await ticks(2);
-        expect(links().slice(16, 18)).toEqual(["Converted", "Frames"]);
-        expect(fold("c8.frames")).toBeNull();
-        expect($('a[href="/conversion/8/frame"][title=Frames]')).not.toBeNull();
+        expect(fold("c9")).toBeNull();
+        expect(root().querySelectorAll(".app-nav .level-4")).toHaveLength(0);
         // Folded again, with what is under it
         click(fold("p2"));
         await ticks(2);
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings", "Storage"]);
     });
 
-    it("unfolds a dataset's report to it and marks it, even for a dataset without conversions", async () => {
+    it("marks a flight on its report", async () => {
         await pane({page: "dataset_report", id: 4});
         expect(fold("p2").getAttribute("aria-expanded")).toBe("true");
-        expect(fold("d4").getAttribute("aria-expanded")).toBe("true");
-        expect(currentLink()).toBe("Flight report");
-        expect($('a[aria-current=page]')!.getAttribute("href")).toBe("/dataset/4/report");
+        expect(currentLink()).toBe("Field");
     });
 
     it("lists only the projects whose name has every word typed, kept for the next page", async () => {
@@ -128,27 +106,29 @@ describe("the navigation pane", () => {
         expect(box.getAttribute("aria-label")).toBe("Filter projects");
         type(box, "SIL");
         await ticks();
-        expect(links()).toEqual(["Projects", "Silos", "Roof", "Field", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "Silos", "Roof", "Field", "User Preferences", "System Settings", "Storage"]);
         // The page shown stays marked
         expect(currentLink()).toBe("Roof");
         type(box, "project default");
         await ticks();
-        expect(links()).toEqual(["Projects", "Default Project", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "Default Project", "User Preferences", "System Settings", "Storage"]);
         type(box, "yard");
         await ticks();
-        expect(links()).toEqual(["Projects", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "User Preferences", "System Settings", "Storage"]);
         expect($(".nav-none")!.textContent).toBe("No projects match the filter.");
         // Kept from page to page, as the folds are
         expect(localStorage.getItem("thermal-analyzer.nav.search")).toBe("yard");
         render(null, root());
         await pane();
         expect(($("#nav-search") as HTMLInputElement).value).toBe("yard");
-        expect(links()).toEqual(["Projects", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "User Preferences", "System Settings", "Storage"]);
         // Escape empties it, and it is forgotten
         key($("#nav-search")!, "Escape");
         await ticks();
         expect(($("#nav-search") as HTMLInputElement).value).toBe("");
-        expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings"]);
+        // Silos still unfolded, as it was to show the first page
+        expect(links()).toEqual(["Projects", "Default Project", "Silos", "Roof", "Field", "User Preferences", "System Settings",
+                                 "Storage"]);
         expect(localStorage.getItem("thermal-analyzer.nav.search")).toBeNull();
     });
 
@@ -172,114 +152,60 @@ describe("the navigation pane", () => {
         await pane({page: "compare", id: 9});
         expect(fold("p2").getAttribute("aria-expanded")).toBe("true");
         expect(fold("d5").getAttribute("aria-expanded")).toBe("true");
-        expect(fold("c9.tools").getAttribute("aria-expanded")).toBe("true");
-        expect(currentLink()).toBe("Compare");
-        // Folded: the deepest item seen is marked instead
-        click(fold("c9.tools"));
-        await ticks(2);
-        expect(currentLink()).toBe("Tools");
-        click(fold("c9"));
-        await ticks(2);
         expect(currentLink()).toBe("Built");
+        // Folded: the deepest item seen is marked instead
+        click(fold("d5"));
+        await ticks(2);
+        expect(currentLink()).toBe("Roof");
         render(null, root());
         await pane({page: "dataset", id: 4});
         expect(currentLink()).toBe("Field");
         render(null, root());
         await pane({page: "preferences", id: NaN});
         expect(currentLink()).toBe("User Preferences");
-        // System Settings › Storage, unfolded to and marked when shown
-        render(null, root());
-        await pane({page: "storage", id: NaN});
-        expect(currentLink()).toBe("Storage");
-        expect($(".nav-settings-toggle")!.getAttribute("aria-expanded")).toBe("true");
-        // System Settings' own page, marked
         render(null, root());
         await pane({page: "settings", id: NaN});
         expect(currentLink()).toBe("System Settings");
-    });
-
-    it("links System Settings to its page, folds it by its chevron, and remembers it", async () => {
-        localStorage.clear();
-        await pane();
-        expect($('.nav-settings a[href="/settings"]')!.textContent).toBe("System Settings");
-        const toggle = () => $(".nav-settings-toggle") as HTMLButtonElement;
-        expect(toggle().getAttribute("aria-label")).toBe("Unfold System Settings");
-        expect(toggle().getAttribute("aria-expanded")).toBe("false");
-        expect(links()).not.toContain("Storage");
-        click(toggle());
-        await ticks();
-        expect(toggle().getAttribute("aria-expanded")).toBe("true");
-        expect($('.nav-settings a[href="/settings/storage"]')!.textContent).toBe("Storage");
-        // Folded again by a second click, and kept so for the next page
-        click(toggle());
-        await ticks();
-        expect(links()).not.toContain("Storage");
-        click(toggle());
-        await ticks();
         render(null, root());
-        await pane();
-        expect(links()).toContain("Storage");
+        await pane({page: "storage", id: NaN});
+        expect(currentLink()).toBe("Storage");
     });
 
-    it("unfolds and folds System Settings as its name is clicked to open its page, but not one opened elsewhere", async () => {
-        localStorage.clear();
-        await pane();
-        root().addEventListener("click", (e) => e.preventDefault());   // jsdom does not navigate
-        const name = () => $('.nav-settings a[href="/settings"]') as HTMLAnchorElement;
-        const follow = (init: MouseEventInit = {}) => name().dispatchEvent(
-            new MouseEvent("click", {bubbles: true, cancelable: true, button: 0, ...init}));
-        follow();
-        await ticks();
-        expect(links()).toContain("Storage");
-        expect(name().getAttribute("aria-expanded")).toBe("true");
-        // Kept for the page it opens
-        render(null, root());
-        await pane({page: "settings", id: NaN});
-        expect(links()).toContain("Storage");
-        follow();
-        await ticks();
-        expect(links()).not.toContain("Storage");
-        expect($(".nav-settings-toggle")!.getAttribute("aria-expanded")).toBe("false");
-        // Opened in another tab: left as it is
-        follow({ctrlKey: true});
-        follow({button: 1});
-        await ticks();
-        expect(links()).not.toContain("Storage");
-    });
-
-    it("marks the viewer's tab shown, and follows it to another", async () => {
-        history.replaceState(null, "", "/conversion/9?tab=harmonized&palette=iron");
-        await pane({page: "viewer", id: 9});
-        expect(fold("c9.mosaics").getAttribute("aria-expanded")).toBe("true");
-        expect(currentLink()).toBe("Harmonized");
-        history.replaceState(null, "", "/conversion/9?tab=view_angle");
-        partChanged();
-        await ticks(2);
-        expect(currentLink()).toBe("View angle");
-        // A tab it does not list: the mosaics are marked
-        history.replaceState(null, "", "/conversion/9?tab=other");
-        partChanged();
-        await ticks(2);
-        expect(currentLink()).toBe("Mosaics");
-        history.replaceState(null, "", "/");
-    });
-
-    it("marks the frame page's list", async () => {
-        await pane({page: "frame", id: 9, part: "oblique"});
-        expect(fold("c9.frames").getAttribute("aria-expanded")).toBe("true");
-        expect(currentLink()).toBe("Oblique5");
+    it("marks a dataset on each of its pages", async () => {
+        for (const page of ["viewer", "compare", "conversion_report", "frame"]) {
+            localStorage.clear();
+            render(null, root());
+            await pane({page, id: 9});
+            expect(currentLink()).toBe("Built");
+        }
         render(null, root());
         await pane({page: "frame", id: 8});
-        expect(currentLink()).toBe("Frames");
+        expect(currentLink()).toBe("Converted");
+    });
+
+    it("keeps unfolded what it unfolded to the page shown, so that it folds only when clicked", async () => {
+        localStorage.setItem("thermal-analyzer.nav.expanded", JSON.stringify(["p1", "c9", "c9.tools", "settings"]));
+        await pane({page: "viewer", id: 9});
+        // What an older pane folded (a dataset's groups, System Settings) is forgotten
+        expect(JSON.parse(localStorage.getItem("thermal-analyzer.nav.expanded")!)).toEqual(["p1", "p2", "d5"]);
+        render(null, root());
+        await pane({page: "projects", id: NaN});
+        expect(links()).toContain("Built");
+    });
+
+    it("lists the settings pages at its foot, each always shown and linked to its page", async () => {
+        await pane();
+        const settings = [...root().querySelectorAll(".nav-setting a")].map((a) => [a.textContent, a.getAttribute("href")]);
+        expect(settings).toEqual([["User Preferences", "/preferences"], ["System Settings", "/settings"],
+                                  ["Storage", "/settings/storage"]]);
+        expect(root().querySelectorAll(".nav-setting .nav-fold")).toHaveLength(0);
     });
 
     it("finds what is above the page shown", () => {
-        expect(pathTo(PROJECTS, {page: "viewer", id: 9})).toEqual(["p2", "d5", "c9"]);
-        expect(pathTo(PROJECTS, {page: "viewer", id: 9, part: "harmonized"})).toEqual(["p2", "d5", "c9", "c9.mosaics"]);
-        expect(pathTo(PROJECTS, {page: "conversion_report", id: 9})).toEqual(["p2", "d5", "c9", "c9.tools"]);
-        expect(pathTo(PROJECTS, {page: "frame", id: 8})).toEqual(["p2", "d5", "c8"]);
-        // Not converted yet: the conversion itself
+        expect(pathTo(PROJECTS, {page: "viewer", id: 9})).toEqual(["p2", "d5"]);
+        expect(pathTo(PROJECTS, {page: "conversion_report", id: 9})).toEqual(["p2", "d5"]);
         expect(pathTo(PROJECTS, {page: "frame", id: 7})).toEqual(["p2", "d5"]);
+        expect(pathTo(PROJECTS, {page: "dataset_report", id: 5})).toEqual(["p2"]);
         expect(pathTo(PROJECTS, {page: "dataset", id: 5})).toEqual(["p2"]);
         expect(pathTo(PROJECTS, {page: "project", id: 2})).toEqual([]);
         expect(pathTo(PROJECTS, {page: "viewer", id: 99})).toEqual([]);
@@ -291,7 +217,7 @@ describe("the navigation pane", () => {
                                                                           () => jsonResponse({}, false)]}));
         navigationChanged();
         await ticks();
-        expect(links()).toEqual(["Projects", "Home", "User Preferences", "System Settings"]);
+        expect(links()).toEqual(["Projects", "Home", "User Preferences", "System Settings", "Storage"]);
         navigationChanged();
         await ticks();
         expect(calls(fetchFn)).toEqual(["GET /api/navigation", "GET /api/navigation", "GET /api/navigation"]);

@@ -57,7 +57,7 @@ export function changesIn(changes: Maybe<Changes>, unit: unknown): Changes {
     return out;
 }
 
-const inMosaics = (f: FrameEntry) => f.mosaic !== null && f.mosaic !== undefined;
+export const inMosaics = (f: FrameEntry) => f.mosaic !== null && f.mosaic !== undefined;
 
 // What the explorer says of a frame beside its name, besides what its list already says: in the mosaic, or why the
 // mosaics left it out (oblique above their pitch limit, else unusable), and not converted (a conversion with a pitch
@@ -78,7 +78,11 @@ export function captureOrder(frames: FrameEntry[]): FrameEntry[] {
     return [...frames].sort((a, b) => at(a) < at(b) ? -1 : at(a) > at(b) ? 1 : a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 }
 
-// The frames of one of the pane's lists (FRAME_LISTS): those the mosaics placed, or those they left out (for their
+// The explorer's lists, once the mosaics placed frames (kept in the URL as list=): all of them, those in the mosaic and
+// those left out
+export const FRAME_LISTS: [string | null, string][] = [[null, "All"], ["mosaic", "In the mosaic"], ["oblique", "Oblique"]];
+
+// The frames of one of the explorer's lists (FRAME_LISTS): those the mosaics placed, or those they left out (for their
 // angle, or as unusable, converted or skipped by the conversion's pitch limit); all of them for no list, or while the
 // mosaics placed none (not built yet)
 export function listFrames(frames: FrameEntry[], list: Maybe<string>): FrameEntry[] {

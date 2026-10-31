@@ -1,8 +1,9 @@
-// The explorer's frames: those of the pane's list in the order they were taken, as a list or as thumbnails (a switch,
+// The explorer's frames: those of its list (all of them, in the mosaic, oblique: a switch once the mosaics placed
+// frames, a list without frames not offered) in the order they were taken, as a list or as thumbnails (a switch,
 // remembered per browser), the frame shown marked and kept in sight; choosing one shows it
 import {useEffect, useRef, useState} from "preact/hooks";
 import {count, formatCapture, type Maybe} from "../core/format";
-import {type FrameEntry, frameTag} from "./frame";
+import {FRAME_LISTS, type FrameEntry, frameTag} from "./frame";
 
 const THUMBS_KEY = "thermal-analyzer.frame.thumbnails";
 
@@ -21,13 +22,15 @@ interface Props {
     frames: FrameEntry[];
     frame: string | null;           // the frame shown
     choose: (path: string) => void;
-    list: Maybe<string>;            // the pane's list (FRAME_LISTS), whose frames these are
+    list: Maybe<string>;            // the list (FRAME_LISTS) whose frames these are
+    sizes?: number[];               // how many frames each list has, once the mosaics placed frames
+    chooseList?: (list: string | null) => void;
     maxPitch: Maybe<number>;
     built: boolean;                 // whether the mosaics are built: what they left out, and why
     thumbs: string;                 // the thumbnail URL, the frame's path appended
 }
 
-export function FrameList({frames, frame, choose, list, maxPitch, built, thumbs}: Props) {
+export function FrameList({frames, frame, choose, list, sizes, chooseList, maxPitch, built, thumbs}: Props) {
     const [asThumbs, setAsThumbs] = useState(thumbsStored);
     const items = useRef<HTMLOListElement>(null);
 
@@ -42,6 +45,14 @@ export function FrameList({frames, frame, choose, list, maxPitch, built, thumbs}
     }, [frame, asThumbs]);
 
     return (<aside class="frame-list" aria-label="Frames">
+        {sizes && chooseList && <div class="frame-lists">
+            <div class="segmented" role="group" aria-label="Which frames">
+                {FRAME_LISTS.map(([key, label], i) => (
+                    <button key={label} type="button" name={key || "all"} aria-pressed={(list || null) === key}
+                            disabled={!sizes[i]} onClick={() => chooseList(key)}>
+                        {label} <span class="count">{sizes[i]}</span></button>))}
+            </div>
+        </div>}
         <div class="frame-list-head">
             <span class="message" id="frame-count">{count(frames.length, "frame", "frames")}</span>
             <div class="segmented" role="group" aria-label="Show the frames as">

@@ -285,13 +285,50 @@ describe("the frame page", () => {
         expect((byId("range-min") as HTMLInputElement).value).toBe("18");
     });
 
-    it("shows only the frames of the pane's list it was opened with, keeping the list in the URL", async () => {
+    it("shows only the frames of the list it was opened with, keeping the list in the URL", async () => {
         history.replaceState(null, "", "/conversion/9/frame?list=mosaic");
         await open(server(routes()));
         expect(byId("name").textContent).toBe("Nadir: frames in the mosaic");
         expect(listed()).toEqual([A]);
         expect((byId("next") as HTMLButtonElement).disabled).toBe(true);
         expect(location.search).toMatch(/^\?palette=.*&frame=thermal%2Fa_T.JPG&list=mosaic$/);
+    });
+
+    it("switches between all the frames, those in the mosaic and the oblique ones, each with its count", async () => {
+        history.replaceState(null, "", "/conversion/9/frame");
+        await open(server(routes({[BASE + "/frame?frame=" + enc(B)]: {...INFO, frame: B},
+                                  [BASE + "/measurements?frame=" + enc(B)]: {measurements: []},
+                                  [BASE + "/frame/data?frame=" + enc(B)]: valuesResponse(4, 3)})));
+        const lists = () => [...document.querySelectorAll(".frame-lists button")].map((b) =>
+            [b.textContent, b.getAttribute("aria-pressed")]);
+        expect(lists()).toEqual([["All 2", "true"], ["In the mosaic 1", "false"], ["Oblique 1", "false"]]);
+        expect(listed()).toEqual([A, B]);
+        // The frame shown kept when it is in the list chosen, else its first shown
+        click($(".frame-lists button[name=mosaic]")!);
+        await ticks(40);
+        expect(byId("name").textContent).toBe("Nadir: frames in the mosaic");
+        expect(listed()).toEqual([A]);
+        expect(shownFrame()).toBe(A);
+        expect(location.search).toMatch(/&list=mosaic$/);
+        click($(".frame-lists button[name=oblique]")!);
+        await ticks(40);
+        expect(listed()).toEqual([B]);
+        expect(shownFrame()).toBe(B);
+        click($(".frame-lists button[name=all]")!);
+        await ticks(40);
+        expect(listed()).toEqual([A, B]);
+        expect(shownFrame()).toBe(B);
+        expect(location.search).not.toContain("list=");
+    });
+
+    it("shows all the frames for a list that has none, and no switch before the mosaics placed frames", async () => {
+        const frames = {...FRAMES, frames: FRAMES.frames!.map((f) => ({...f, mosaic: null}))};
+        history.replaceState(null, "", "/conversion/9/frame?list=oblique");
+        await open(server(routes({[BASE + "/frames"]: frames})));
+        expect(byId("name").textContent).toBe("Nadir: frames");
+        expect(listed()).toEqual([A, B]);
+        expect($(".frame-lists")).toBeNull();
+        expect(location.search).not.toContain("list=");
     });
 
     it("lists as oblique the frames the conversion skipped for their angle, not those in the mosaic", async () => {

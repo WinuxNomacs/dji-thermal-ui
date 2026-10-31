@@ -1,7 +1,7 @@
 // A conversion's frames, one at a time: the frame as converted (and beside it, measured again with other parameters),
 // its visual pair in its place or beside it (the shapes, the cursor and the readout on it the thermal frame's), its palette, range and image adjustments, the values under the cursor, the drawing tools on the frame and a shape's
 // temperatures in a card there (with the isotherm), the frame's figures, where the frames were taken, the measurements saved on it, and the frame as a PNG. The frames of the
-// pane's list (in the mosaic, oblique; all of them for none) are listed beside it, the frame shown chosen there or
+// list chosen beside them (all of them, in the mosaic, oblique) are listed beside it, the frame shown chosen there or
 // stepped to with ← and →. The view (frame, palette, range, adjustments) and the list are kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
@@ -33,8 +33,8 @@ import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, PanelGroup, Section} from "../viewer/panel";
 import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
         sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
-import {captureOrder, type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, listFrames,
-        listTitle, newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
+import {captureOrder, type Changes, changeStarts, changesIn, changesQuery, FRAME_LISTS, type FrameEntry, type FrameInfo,
+        inMosaics, listFrames, listTitle, newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
 import {FrameExport} from "./export";
 import {FrameList} from "./frame-list";
 import {FrameReadout, type FramePoint, Info, Params} from "./panel";
@@ -116,8 +116,10 @@ interface Props {
 export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const base = api + "conversions/" + id;
     const [wanted] = useState(() => readView(location.search));
-    // The pane's list of frames shown (in the mosaic, oblique), from the URL
-    const [list] = useState(() => new URLSearchParams(location.search).get("list"));
+    // The list of frames shown (in the mosaic, oblique; all of them for none), from the URL; the flight's frames, in
+    // the order they were taken, and those of the list in meta
+    const [list, setList] = useState(() => new URLSearchParams(location.search).get("list"));
+    const [all, setAll] = useState<FrameEntry[]>([]);
     const [meta, setMeta] = useState<Frames | null>(null);
     const [notice, setNotice] = useState("");
     const [status, setStatus] = useState<{text: string; error?: boolean}>({text: ""});
@@ -227,11 +229,16 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         try {
             const r = await readJson<Frames>(await fetch(base + "/frames", {credentials: "same-origin"}));
             if (!r.ok) return setNotice("Could not load the frames.");
-            const listed = r.data.frames && captureOrder(listFrames(r.data.frames, list));
+            // All of them for a list without frames, or before the mosaics placed any (a link from before they were
+            // built again)
+            const ordered = captureOrder(r.data.frames || []);
+            const shown = ordered.some(inMosaics) && listFrames(ordered, list).length ? list : null;
+            const listed = r.data.frames && listFrames(ordered, shown);
+            setList(shown);
+            setAll(ordered);
             setMeta({...r.data, frames: listed});
             const paths = (listed || []).map((f) => f.path);
-            if (!paths.length) return setStatus({text: list === "oblique" ? "The mosaics left no frames out."
-                : "The flight has no thermal frames to show."});
+            if (!paths.length) return setStatus({text: "The flight has no thermal frames to show."});
             chooseFrame(wanted.frame && paths.includes(wanted.frame) ? wanted.frame : paths[0]);
         } catch {
             setNotice("Could not load the frames.");
@@ -257,6 +264,14 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         setChangeError({});
         setMeasureError("");
         setEditing(null);
+    }
+
+    // Another list: the frame shown stays if it is in it, else its first is shown
+    function chooseList(next: string | null) {
+        const listed = listFrames(all, next);
+        setList(next);
+        setMeta((m) => m && {...m, frames: listed});
+        if (listed.length && !listed.some((f) => f.path === frame)) chooseFrame(listed[0].path);
     }
 
     function step(by: number) {
@@ -526,7 +541,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         if (!frame) return;
         const q = viewQuery({frame, palette: style?.palette, range: style?.range, adjust: style?.adjust});
         history.replaceState(null, "", location.pathname + q + (list ? (q ? "&" : "?") + "list=" + encodeURIComponent(list) : ""));
-    }, [frame, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
+    }, [frame, list, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
 
     // The values at a pixel of the frame (where the cursor is, on the frame or on its visual pair)
     function readout(at: Coords) {
@@ -740,7 +755,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     }
 
     const frames = meta.frames || [];
-    const inMosaics = entry && entry.mosaic !== null && entry.mosaic !== undefined;
+    const inMosaic = !!entry && inMosaics(entry);
     const res = current;
     const auto_ = shown && info ? sliderPositions(autoRange(), shown.range) : {brightness: 0, contrast: 0};
     const at = frames.findIndex((f) => f.path === frame);
@@ -751,7 +766,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                 <a href={publicUrl + "dataset/" + datasetId + "#datasets"}><ArrowLeft/> {datasetName}</a>
                 {" · "}
                 {/* Back to the mosaics with this frame's footprint outlined, when it is in them */}
-                <a id="mosaics" href={publicUrl + "conversion/" + id + (inMosaics ? viewQuery({frame}) : "")}>The mosaics</a>
+                <a id="mosaics" href={publicUrl + "conversion/" + id + (inMosaic ? viewQuery({frame}) : "")}>The mosaics</a>
             </div>
             <div class="page-header">
                 <div>
@@ -790,10 +805,12 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                             {label}</button>)}
                     </div>}
                     <span class="message" id="about">{[entry?.time ? formatCapture(entry.time) + " (" + zoneText(meta.flight_zone) + ")" : "",
-                        inMosaics ? "frame " + (entry!.mosaic! + 1) + " of the mosaics" : ""].filter(Boolean).join(" · ")}</span>
+                        inMosaic ? "frame " + (entry!.mosaic! + 1) + " of the mosaics" : ""].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div class="viewer-body">
                     <FrameList frames={frames} frame={frame} choose={chooseFrame} list={list} maxPitch={meta.max_pitch}
+                               sizes={all.some(inMosaics)
+                                   ? FRAME_LISTS.map(([l]) => listFrames(all, l).length) : undefined} chooseList={chooseList}
                                built={meta.mosaic_status === "ready"} thumbs={api + "datasets/" + datasetId + "/thumbnail?file="}/>
                     <div class="frame-panes">
                         <div class="frame-pane">

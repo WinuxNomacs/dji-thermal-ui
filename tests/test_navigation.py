@@ -29,19 +29,10 @@ def test_the_pane_lists_the_projects_their_datasets_and_what_each_conversion_has
     # Newest first, as the pages list them
     assert [(d['id'], d['name']) for d in listed[1]['datasets']] == [(field.id, "Field"), (roof.id, "Roof")]
     assert listed[1]['datasets'][1]['conversions'] == [
-        {'id': built.id, 'name': "Built", 'frames': True, 'mosaics': True,
-         'tabs': ['as_converted', 'harmonized', 'source_frame', 'view_angle', 'visual'], 'in_mosaic': 3, 'oblique': 5},
+        {'id': built.id, 'name': "Built", 'frames': True, 'mosaics': True},
         {'id': framed.id, 'name': "Framed", 'frames': True, 'mosaics': False},
         {'id': new.id, 'name': "New", 'frames': False, 'mosaics': False},
     ]
-
-
-def test_the_pane_lists_only_the_mosaics_built(api):
-    c = ThermalConversion.objects.create(dataset=dataset(), name="Old", options={}, status='ready',
-                                         mosaic_status='ready', mosaics={'frames': [], 'kinds': {'harmonized': {'oblique': 2}}})
-    listed = api.get(NAVIGATION).data['projects'][0]['datasets'][0]['conversions']
-    assert listed == [{'id': c.id, 'name': "Old", 'frames': True, 'mosaics': True, 'tabs': ['harmonized'],
-                       'in_mosaic': 0, 'oblique': 0}]
 
 
 def test_the_pane_makes_the_default_project_when_there_is_none(api):

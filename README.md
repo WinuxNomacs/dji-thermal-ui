@@ -119,7 +119,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   the problems found, the frames' settings and temperatures summed up, the datasets, the findings with
   thumbnails of their kept frames, and the video frames saved (on the map too). A table of every frame can be appended,
   and the visual photos put on the map. Open it with the flight page's Flight report
-  button or from the navigation pane. The title, author, date and notes are typed on the page and saved with the
+  button. The title, author, date and notes are typed on the page and saved with the
   flight; the last author typed fills in new reports. It always prints light, without the app's header and controls.
 - **Mosaic report:** a dataset's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer
   showed it when its Mosaic report button was pressed (that view is saved with the report), with the saved measurements
@@ -131,19 +131,23 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   project's listed first. A pane can show a dataset's visual mosaic. "Overlay (A over B)" draws pane A's mosaic
   over pane B's in one pane, faded with an opacity slider and cut at a swipe line dragged across it: visual over
   thermal, or two thermal mosaics.
-- **Navigation:** a pane on the left of every page lists the projects and their flights, each with its report.
-  Under each dataset come its Tools (Compare and Mosaic report), its Mosaics (each of the viewer's tabs) and its Frames:
-  "Mosaic" (the frames the mosaic placed) and "Oblique" (those it left out for their angle, whose angles show what a
-  view straight down misses, including those a conversion with a pitch limit did not convert), each with its count, opening the frame explorer on those frames. The
-  page shown is marked, down to the viewer's tab. Each level folds, and the whole pane hides, by the header's menu button or the small tab
+- **Navigation:** a pane on the left of every page lists the projects, under each its flights, under each its
+  datasets, then User Preferences, System Settings and Storage; the pages' own tabs and buttons go further (the
+  viewer's tabs, Compare, the reports, the frames explorer). A dataset opens its mosaics (else its frames, else its
+  flight's Datasets tab), and is marked on any of its pages; a flight is marked on its Flight report. Projects and
+  flights fold; what the pane unfolds to show the page shown stays unfolded until folded, and the whole pane hides,
+  by the header's menu button or the small tab
   on its edge; over a narrow screen it opens on top of the page. The box under Projects filters the projects by
   name, and stays as typed from page to page until it is emptied (Escape empties it). Every search in the app
   matches the same way, as you type: each word typed, in any order and any case ("roof north" finds "North roof").
   User Preferences and System Settings have a filter at the top too, showing the sections whose title, labels, help
   or choices have the words typed ("dark" finds Theme).
-- **Frames explorer:** the frame page lists its frames (those of the pane's list, or all of them) beside the frame
-  shown, in the order they were taken, as a list (name, time, and whether a frame is in the mosaic, oblique at its
-  angle, left out as unusable or not converted) or as thumbnails, a switch the browser remembers. The first is shown
+- **Frames explorer:** the frame page lists its frames beside the frame shown: once the mosaics are built, all of
+  them, those **In the mosaic** (the frames the mosaic placed) or the **Oblique** ones (those it left out for their
+  angle, whose angles show what a view straight down misses, including those a conversion with a pitch limit did not
+  convert), a switch with their counts kept in the page's address. They are listed in the order they were taken,
+  as a list (name, time, and whether a frame is in the mosaic, oblique at its angle, left out as unusable or not
+  converted) or as thumbnails, a switch the browser remembers. The first is shown
   on opening; a click or ← → shows another, with the frame page's palette, range, Pointer info, measuring and
   Thermal/Visual/Both. Its small map of where the frames are can show the flight's visual photos too (orange squares),
   a switch the browser remembers.
@@ -158,7 +162,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   clocks (a flight analyzed by an earlier version of the app is analyzed again for it).
 - **System Settings:** the Mapbox token (see [The maps under the mosaics](#the-maps-under-the-mosaics)), WebODM's
   address and login, with a short list of what connecting it brings (see [WebODM](#webodm)), and a link to Storage.
-- **System Settings › Storage** (System Settings in the pane opens its page and folds or unfolds it; its chevron only folds): where the data
+- **Storage** (in the pane beside the other settings pages): where the data
   folder is, its size on disk as measured when the page opens (and again on asking) and the free space on its
   drive, with each project and its flights, the database and the rest. A flight read in place from a folder says
   how much its images take there, outside the data folder's total. The data folder can be moved from there to
@@ -348,7 +352,7 @@ The database (SQLite), the secret key and each flight's files (`datasets/<id>/`)
 - Linux: `~/.local/share/dji-thermal-ui`
 - Windows: `%LOCALAPPDATA%\dji-thermal-ui`
 
-`--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. System Settings › Storage
+`--data-dir` or the `DJI_THERMAL_UI_DATA_DIR` environment variable uses another folder. The Storage page
 shows which folder is used and what takes room in it, and moves it to another:
 
 - **Type the new folder's full path and check it.** It may be a new folder, an empty one, or another data folder of

@@ -440,7 +440,7 @@ def test_a_completed_tasks_orthophoto_is_brought_back_as_temperatures_and_shown_
     assert 'raster' not in viewer['kinds']['webodm']
     assert api.get("%s/%d/comparable" % (CONVERSIONS, c.id)).data[0]['tabs'] == ['webodm']
     nav = api.get("/api/navigation").data['projects'][0]['datasets'][0]['conversions'][0]
-    assert nav['mosaics'] and nav['tabs'] == ['webodm']
+    assert nav['mosaics']
     lon, lat = mosaic_lonlat(31.5, 10.5)
     point = api.get("%s/%d/mosaics/webodm/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data
     assert point['temperature'] == pytest.approx((10 + 20 * 31 / 63) * 1.8 + 32, abs=0.01)
