@@ -892,7 +892,7 @@ class DatasetThumbnailView(DatasetView):
                     out.write(video_cover(path))
                 else:
                     with Image.open(path) as im:
-                        if im.format != 'JPEG':
+                        if im.format not in ('JPEG', 'MPO'):      # DJI's visual photos are MPO: JPEG to a browser
                             raise ValueError
                     with open(path, 'rb') as f:
                         out.write(f.read())

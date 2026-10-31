@@ -106,12 +106,18 @@ def test_the_files_tabs_detail_pane_gets_a_larger_preview_and_never_one_larger_t
 
 
 def test_the_full_size_image_is_the_file_as_it_is(api, tmp_path):
-    folder = server_folder(tmp_path, files=('DJI_0001_V.JPG', 'notes.txt'))
+    from PIL import Image
+    folder = server_folder(tmp_path, files=('DJI_0001_V.JPG', 'DJI_0002_V.JPG', 'notes.txt'))
+    # DJI's visual photos are MPO (a JPEG with a second picture after it)
+    Image.new('RGB', (40, 30), (40, 90, 160)).save(os.path.join(folder, 'DJI_0002_V.JPG'), 'MPO', save_all=True,
+                                                   append_images=[Image.new('RGB', (20, 15))])
     d = dataset(source='folder', folder=folder, analysis={'files': [
-        {'path': 'DJI_0001_V.JPG', 'kind': 'not_thermal'}, {'path': 'notes.txt', 'kind': 'not_jpeg'}]})
+        {'path': 'DJI_0001_V.JPG', 'kind': 'not_thermal'}, {'path': 'DJI_0002_V.JPG', 'kind': 'not_thermal'},
+        {'path': 'notes.txt', 'kind': 'not_jpeg'}]})
     url = "{}/{}/thumbnail".format(DATASETS, d.id)
-    with open(os.path.join(folder, 'DJI_0001_V.JPG'), 'rb') as f:
-        assert api.get(url, {'file': 'DJI_0001_V.JPG', 'size': 'full'}).content == f.read()
+    for name in ('DJI_0001_V.JPG', 'DJI_0002_V.JPG'):
+        with open(os.path.join(folder, name), 'rb') as f:
+            assert api.get(url, {'file': name, 'size': 'full'}).content == f.read()
     assert api.get(url, {'file': 'notes.txt', 'size': 'full'}).status_code == 404
 
 
