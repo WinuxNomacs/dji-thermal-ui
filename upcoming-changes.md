@@ -8,7 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
+**Up next**: P3, the Files tab pane's full size image and the preferred palette on its thermal images (see
+Photos on the Files tab), planned 2026-10-31. Then U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
 phases; X1, Linux, Windows and macOS checked (see Platforms). Both to be planned with the user.
 
 **Then**: nothing planned.
@@ -1740,6 +1741,37 @@ Two requests from `new.md` (2026-10-31).
   hides the pane until another row is hovered.
 - **Hover for detail off:** the pane opens only for a selected row and closes when it is deselected. Unchecking
   the box closes a pane shown by hovering; a selected row keeps it.
+
+### P3: the pane's full size image and the preferred palette (requested 2026-10-31)
+
+**The requests** (in chat): the pane can show the full size source image; a thermal image is coloured with the
+preferred thermal palette (User Preferences) instead of the camera's.
+
+**What it builds on:**
+- The pane's picture is `datasets/<id>/thumbnail?file=&size=preview` (`DatasetThumbnailView`): the R-JPEG's own
+  JPEG, scaled to 1280 px at most, so a thermal frame shows in the palette the camera recorded it with. No view
+  serves a photo at full size yet.
+- **The preferred palette:** `app_palette()` ("" for "As each flight's images"). `palette_colors()` and `coloured()`
+  in `exports.py` colour a frame's values with it (DJI's palettes read from the frame itself, or the app's colour
+  maps), and `auto_range()` gives a range from the values' percentiles.
+- **Measuring a frame without a conversion:** `api.measure(path, api.Settings(), unit)` with the frame's own
+  parameters takes 20–50 ms for an M4T frame (640×512).
+
+**Proposed design:**
+- **Server:** the thumbnail view colours a thermal row with the preferred palette, over the frame's own 2–98 %
+  range. "As each flight's images", a DJI palette the frame doesn't hold, or a frame that can't be measured all
+  keep the camera's JPEG. `?size=full` serves the image at its own size: a visual photo as the file is, a thermal
+  frame recoloured. The palette is part of the URL (`&palette=`), so changing the preference isn't hidden by the
+  browser's cache.
+- **Pane:** a "Full size" button under the picture.
+
+**Decisions (2026-10-31):**
+- **Full size opens as an overlay** over the Files tab. It fits the window at first. The wheel zooms, a 1:1 button
+  shows it pixel for pixel, and dragging pans. Escape or × closes it, leaving the tab as it was.
+- **Every thermal picture on the tab** follows the preferred palette: the table's thumbnails, the pane and the full
+  size.
+- **Tests:** pytest on the views (the colours follow the preference, the fallbacks, the full size); Vitest on the
+  button; a live check on m4t-220 with a DJI palette and an app palette.
 
 ## Usability
 
