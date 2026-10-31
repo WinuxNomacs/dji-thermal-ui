@@ -1966,6 +1966,32 @@ Proposed:
   visit. Keeping a shape as a finding closes its card (the finding is drawn instead). The Findings list's empty text
   points to drawing a shape and keeping it.
 
+### U6: names (planned 2026-10-31)
+
+As they are: the flight page's header has a "Report" button (the flight report) and the mosaics viewer's header a
+"Report" button (the mosaic report); the navigation pane lists "Report" under a flight and under a dataset's Tools;
+both report pages are titled "<name> report". A dataset converted with no name typed is called "Dataset <n>" by the
+server. The New thermal flight dialog offers "Upload images" (Choose images, Choose a folder: both copy the images)
+or "A folder on this computer" (a typed path, read in place); the name comes from a chosen folder only.
+Proposed:
+- **The reports named by what they cover:** "Flight report" (flight page, navigation pane) and "Mosaic report"
+  (viewer, navigation pane); their pages titled "<name> · Flight report" and "<name> · Mosaic report".
+- **A dataset's default name from its settings,** shown as the Datasets tab's name placeholder before converting.
+
+### U6: decisions (2026-10-31)
+
+- **A dataset's default name:** the settings that differ from dji-thermal-cli's defaults and change its temperatures
+  or mosaics (mosaics, distance, the measurement parameters, normalizing, the pitch limit, the gimbal, replacing
+  above or below), e.g. "Normalized · pitch ≤ -60°"; "Default settings" when none does. Outputs, compression,
+  palette, range, unit and the visual mosaic are left out. A name the flight already has gets " (2)", " (3)". The
+  Datasets tab shows it as the name field's placeholder and sends it; the server's "Dataset <n>" stays only for an
+  API call with no name.
+- **Existing datasets** keep their names.
+- **The New thermal flight dialog loses "A folder on this computer"** (the user: an edge case; images and a folder
+  chosen from the computer are enough): Choose images and Choose a folder only, both copying. Flights already read in
+  place keep working (their pages, the Storage page, a backup restored with its folders kept), and the API still
+  takes `source: folder`.
+
 ## Platforms
 
 Requested 2026-10-31 (new.md): the app supports Linux, Windows and macOS. Windows can be checked from the
