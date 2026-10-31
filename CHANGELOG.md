@@ -58,6 +58,12 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- Measuring (U5): the mosaics viewer's two sets of drawing tools (Source frames, Measure) are one, on the map's top
+  edge; a shape drawn on a temperature mosaic is measured in a card on the map, with Keep as finding (the form at
+  once, the frames that saw it beside it), Save measurement and Source frames, closed with × or Esc. The Source frame
+  and Visual tabs still open the frames that saw a shape. The side panel is grouped under View, Values, Kept and
+  About, with Image, Parameters, This mosaic and The mosaic folded on a first visit. The frames explorer gets the same
+  tools, card and headings; the compare page's Spot and Area move onto each pane's map.
 - The mosaics viewer (U4) opens on Harmonized when the frames disagree (their offsets against their neighbours
   spanning more than 3 °C over the middle 90% of them), with a notice saying why that can be closed; otherwise on
   Mosaic, as before. A link that names a tab still opens that one. Each tab has a tooltip saying what it shows.

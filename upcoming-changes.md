@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U5, measuring in the viewer (see Usability), planned 2026-10-31: being built.
+**Up next**: U6, names (see Usability), to be planned with the user.
 
-**Then**: U6–U8, U1's other findings (see Usability), each planned with the user before it is built.
+**Then**: U7–U8, U1's other findings (see Usability), each planned with the user before it is built.
 
 **After that**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
@@ -1932,7 +1932,7 @@ Proposed:
   as converted."), which can be closed. Otherwise it opens on Mosaic, with no notice.
 - **What each tab shows:** a tooltip on each tab; the longer explanation stays at the top of the side panel.
 
-### U5: measuring in the viewer
+### U5: measuring in the viewer (built 2026-10-31, see Done)
 
 In the mosaics viewer as it is, on a temperature tab (Mosaic, Harmonized), the side panel holds the palette and range
 and ten sections: Image, Pointer info, Source frames, Measure, Isotherm, Parameters, This mosaic, Saved measurements,
@@ -1960,6 +1960,11 @@ Proposed:
   measurement"), its panel under the same headings. The compare page's Spot and Area move onto each pane's map, in the
   same toolbar; drawing still opens the source frames window. Compare gains no measuring (that would be a phase of
   its own).
+- **Settled while building:** The mosaic sits under its own heading, About; on the frames explorer the headings are
+  View (palette and range, Image, Isotherm), Values (Pointer info, Measurement parameters), Kept (Saved on this frame)
+  and About (This frame, Where the frames are), with Image, Measurement parameters and This frame folded on a first
+  visit. Keeping a shape as a finding closes its card (the finding is drawn instead). The Findings list's empty text
+  points to drawing a shape and keeping it.
 
 ## Platforms
 
@@ -2680,3 +2685,13 @@ as feature changes require going forward."
   `frontend/src/viewer/view.ts` and `viewer-page.tsx`; tests in `frontend/tests/view.test.ts` and `viewer.test.tsx`.
   Checked on the user's dataset 2 on a scratch 8081 instance (reading only): it stays on Mosaic (span 1.6 °C); with
   the offsets made larger in the browser, it opens on Harmonized with the notice, light, dark and 600 px, no errors.
+- **U5: measuring in the viewer** (2026-10-31; U1's findings 5 and 6). One set of drawing tools on the map's top
+  edge (`Toolbar` in `frontend/src/measure/result.tsx`), a shape's temperatures in a card on the map
+  (`MeasureCard`: Keep as finding, Save measurement, Source frames), the side panel under headings (`PanelGroup`, and
+  `Section`'s `folded`, its state now kept as open or folded per section in `frontend/src/viewer/panel.tsx`). The
+  viewer (`viewer-page.tsx`), the frames explorer (`frame/frame-page.tsx`) and the compare page's panes
+  (`compare/compare-page.tsx`); styles in `app.css` (`.map-stage`, `.map-tools`, `.measure-card`, `.panel-group`).
+  Tests in `frontend/tests/viewer.test.tsx`, `frame.test.tsx`, `compare.test.tsx` and `panel.test.tsx`. Checked on
+  the user's dataset 2 on a scratch 8081 instance (only GETs and the read-only measure and sources POSTs let through):
+  a box and a line measured in the card, Keep as finding's form with the frames beside it (cancelled), Esc, the
+  Source frame tab's four tools, the frames explorer's card and compare's tools, light, dark and 600 px, no errors.
