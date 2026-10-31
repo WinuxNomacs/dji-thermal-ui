@@ -8,9 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: P1, the visual photos' properties on the Files tab (to plan).
+**Up next**: CLI3, pin dji-thermal-cli 1.11.0 once it is on PyPI (P1's visual photos need it; the app pins 1.9.1), then
+P2, Hover for detail on the Files tab (decided, see Photos on the Files tab).
 
-**Then**: P2, Hover for detail on the Files tab (to plan).
+**Then**: nothing planned.
 
 ## Standalone (option A)
 
@@ -1716,7 +1717,7 @@ Two requests from `new.md` (2026-10-31).
 - What a visual photo cannot have: temperatures and the measurement settings (emissivity, distance to the object,
   humidity, reflection, ambient), which belong to the thermal camera. Its "distance" is the rangefinder's (`lrf`).
 
-### P1: the visual photos' properties
+### P1: the visual photos' properties (built 2026-10-31, see Done)
 
 - dji-thermal-cli's check returns `info` for a not-thermal JPEG with DJI XMP: camera (model, serial, size,
   capture time, UTC), geospatial (position, altitudes, GPS status, rangefinder) and attitude (gimbal pitch and yaw),
@@ -2316,3 +2317,15 @@ Two requests from `new.md` (2026-10-31).
   picture), renamed, described, attached, opened again as it was shown, the report's section and map, the print
   at A4's width, deleted from the list (their folder gone), light and dark, no console or HTTP errors. The check
   found the notes wiped while typed when a rename's answer drew the list again: fixed, and tested.
+- **P1: the visual photos' properties** (2026-10-31): dji-thermal-cli 1.11.0's `check()` describes a drone's visual
+  photo in `FileReport.visual` (`listing.describe_visual`, `checks.inspect`; tests in its `tests/test_checks.py`),
+  merged there and awaiting the user's push and `v1.11.0` tag; `thermal_analysis.file_row` fills the Files row from
+  it (the Distance cell then the rangefinder's alone). The flight report's `visual` switch (`DATASET_REPORT` in
+  `api.py`, `report/dataset-report-page.tsx`, `visualPositions` in `report/report.ts`) and the frame page's
+  locator switch (`visual_photos` in `FramesView`, `frame/frame-page.tsx`) draw them as hollow orange squares over
+  the frames. Tests: `tests/test_api_datasets.py`, `tests/test_api_measurements.py`, `frontend/tests/report.test.tsx`,
+  `frontend/tests/frame.test.tsx`, `frontend/tests/dataset.test.tsx`. Checked live on 8081 (a scratch venv with the
+  local 1.11.0; 8 pairs of `ignored/m4t-tv` uploaded, analyzed and converted): the visual rows' time, height, pitch
+  and rangefinder, the report's layer on, saved, printed light without its switch, then off; the locator's layer on,
+  kept over a reload, then off; light and dark, no console or HTTP errors. The check found the filled markers hidden
+  under their thermal frames' points and the Distance cell starting with "/": both fixed.
