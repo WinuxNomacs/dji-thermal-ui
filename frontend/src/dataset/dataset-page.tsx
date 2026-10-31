@@ -280,7 +280,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
                     {analyzing && <button type="button" class="button default" id="cancel"
                                           onClick={() => action("/cancel", "Could not cancel the analysis.")}><Stop/> Cancel the analysis</button>}
                     <a class="button default" id="report" href={publicUrl + "dataset/" + id + "/report"}
-                       title="A report of this flight, to print or save as PDF"><FileText/> Report</a>
+                       title="A report of this flight, to print or save as PDF"><FileText/> Flight report</a>
                     <button type="button" class="button default" id="copy-link" title="Copy a link to this flight"
                             onClick={copyLink}>{copied ? <><Check/> Copied</> : <><Link/> Copy link</>}</button>
                     <button type="button" class="icon-button" id="rename" title="Rename" aria-label="Rename"

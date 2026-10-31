@@ -961,7 +961,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         <Download/> Export…</button>}
                     {ready && <button type="button" class="button default" id="report" onClick={openReport}
                                       title="A report of this mosaic as shown, its measurements and findings, to print or save as PDF">
-                        <FileText/> Report</button>}
+                        <FileText/> Mosaic report</button>}
                     {v.status === "ready" && v.mosaic_status !== "building" &&
                         <button type="button" class="button default" id="build"
                                 onClick={() => action("/mosaics", "Could not build the mosaics.")}>

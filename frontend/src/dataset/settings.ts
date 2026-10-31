@@ -291,6 +291,21 @@ export function differences(s: Settings, defaults: Maybe<Settings>, plan: Maybe<
     return out;
 }
 
+// The settings a dataset's default name tells apart: those that change its temperatures or mosaics, not its outputs,
+// their format or their colours
+const NAMED = ["mosaics", "distance", ...MEASUREMENTS.map((m) => m.key), "normalize", "max_pitch", "gimbal", "replace_above",
+               "replace_below"];
+
+// What a dataset is called when it isn't named: those of its settings that differ from dji-thermal-cli's defaults, else
+// "Default settings", with " (2)" and on after a name the flight already has
+export function defaultName(s: Settings, defaults: Maybe<Settings>, taken: string[]): string {
+    const text = differences(s, defaults, null, userUnit()).filter((d) => NAMED.includes(d.key)).map((d) => d.text).join(" · ");
+    const base = text ? (text[0].toUpperCase() + text.slice(1)).slice(0, 245) : "Default settings";
+    let name = base;
+    for (let i = 2; taken.includes(name); i++) name = base + " (" + i + ")";
+    return name;
+}
+
 // The form field a difference is marked on
 export function markedField(key: string): string | undefined {
     return DIFFERENCES.find((d) => d.key === key)?.fields[0];

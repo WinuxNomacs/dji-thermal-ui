@@ -177,7 +177,7 @@ describe("the datasets list", () => {
         expect(byId("message")).toBeNull();
     });
 
-    it("says there are no datasets yet, and offers uploading images or a folder on this computer", async () => {
+    it("says there are no datasets yet, and offers uploading images", async () => {
         page(server({[LIST_URL]: {datasets: []}}));
         expect(byId("message").textContent).toBe("Loading…");
         await ticks();
@@ -186,7 +186,6 @@ describe("the datasets list", () => {
         await ticks();
         expect(byId("new-dataset-title").textContent).toBe("New thermal flight");
         expect(byId("new-upload").hidden).toBe(false);
-        expect(byId("new-folder").hidden).toBe(true);
         click(byId("new-cancel"));
         await ticks();
         expect(byId("new-dataset")).toBeNull();
@@ -230,32 +229,15 @@ describe("the datasets list", () => {
         expect(nested.map(uploadName)).toEqual(["a_T.JPG", "sub/b_T.JPG", "notes.txt"]);
     });
 
-    it("creates a folder dataset and opens it", async () => {
-        const fetchFn = server({[LIST_URL]: {datasets: []},
-                                ["POST " + API + "datasets"]: {...DATASET, id: 8, source: "folder"}});
-        const nav = page(fetchFn);
+    it("offers no folder read in place: images and folders chosen are uploaded", async () => {
+        page(server({[LIST_URL]: {datasets: []}}));
         await ticks();
         click(byId("new-dataset-button"));
         await ticks();
-        type(byId("new-name"), "Flight 3");
-        const folder = $<HTMLInputElement>("input[name=new-source][value=folder]")!;
-        folder.checked = true;
-        folder.dispatchEvent(new Event("change", {bubbles: true}));
-        await ticks();
-        expect(byId("new-folder").hidden).toBe(false);
-        click(byId("new-create"));
-        await ticks();
-        expect(byId("new-error").textContent).toMatch(/folder.s path/);
-
-        type(byId("new-folder-path"), "/data/flight3");
-        await ticks();
-        click(byId("new-create"));
-        await ticks();
-        const [url, opts] = fetchFn.mock.calls[1];
-        expect(url).toBe(API + "datasets");
-        expect(JSON.parse(opts!.body as string)).toEqual({name: "Flight 3", source: "folder", folder: "/data/flight3", project: 3});
-        expect((opts!.headers as Record<string, string>)["X-CSRFToken"]).toBe("tok");
-        expect(nav).toHaveBeenCalledWith("/dataset/8");
+        expect($("input[name=new-source]")).toBeNull();
+        expect(byId("new-folder-path")).toBeNull();
+        expect(byId("new-files")).not.toBeNull();
+        expect(byId("new-dir")).not.toBeNull();
     });
 
     it("picks a folder with Choose a folder", async () => {

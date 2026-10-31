@@ -77,8 +77,8 @@ describe("the navigation pane", () => {
         expect(($('a[href="/dataset/5"]'))).not.toBeNull();
         click(fold("d5"));
         await ticks(2);
-        expect(links().slice(4, 8)).toEqual(["Report", "Built", "Converted", "Converting"]);
-        expect($('a[title=Report]')!.getAttribute("href")).toBe("/dataset/5/report");
+        expect(links().slice(4, 8)).toEqual(["Flight report", "Built", "Converted", "Converting"]);
+        expect($('a[title="Flight report"]')!.getAttribute("href")).toBe("/dataset/5/report");
         // A conversion opens its mosaics, else its frames, else its flight's Datasets tab; one still converting has
         // nothing under it yet
         expect($("a[title=Built]")!.getAttribute("href")).toBe("/conversion/9");
@@ -93,7 +93,7 @@ describe("the navigation pane", () => {
         click(fold("c9.mosaics"));
         click(fold("c9.frames"));
         await ticks(2);
-        expect(links().slice(5, 16)).toEqual(["Built", "Tools", "Compare", "Report", "Mosaics", "Mosaic", "Harmonized",
+        expect(links().slice(5, 16)).toEqual(["Built", "Tools", "Compare", "Mosaic report", "Mosaics", "Mosaic", "Harmonized",
                                               "View angle", "Frames", "Mosaic3", "Oblique5"]);
         expect($('a[title=Compare]')!.getAttribute("href")).toBe("/conversion/9/compare");
         expect($('a[href="/conversion/9/report"]')).not.toBeNull();
@@ -118,7 +118,7 @@ describe("the navigation pane", () => {
         await pane({page: "dataset_report", id: 4});
         expect(fold("p2").getAttribute("aria-expanded")).toBe("true");
         expect(fold("d4").getAttribute("aria-expanded")).toBe("true");
-        expect(currentLink()).toBe("Report");
+        expect(currentLink()).toBe("Flight report");
         expect($('a[aria-current=page]')!.getAttribute("href")).toBe("/dataset/4/report");
     });
 

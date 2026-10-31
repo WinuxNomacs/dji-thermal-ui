@@ -10,7 +10,7 @@ import {Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/ico
 import {type Analysis} from "./files";
 import {badgeClass, type Conversion, conversionLabel, type Detail, figures, isBusy, type Prefill, RESULTS_SHOWN,
         skipReasons} from "./conversions";
-import {DISTANCE_MODES, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
+import {DISTANCE_MODES, defaultName, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
         UNIT_LABELS} from "./settings";
 import type {Fix} from "./problems";
@@ -431,12 +431,13 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
 
     const settings = readValues(form);
     const diffs = differences(settings, meta.defaults, plan, userUnit());
+    const unnamed = defaultName(settings, meta.defaults, (dataset.conversions || []).map((c) => c.name));
 
     async function start() {
         const problem = formProblem(settings);
         if (problem) return say(problem, "text-danger");
         const r = await readJson<Conversion>(await sendJson(api + "datasets/" + dataset.id + "/conversions", "POST",
-                                                             {name: name.trim(), settings}));
+                                                             {name: name.trim() || unnamed, settings}));
         if (!r.ok) return say(errorText(r.data, "Could not start the conversion to a dataset."), "text-danger");
         setName("");
         setMessage(null);
@@ -475,7 +476,8 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
                         aria-controls="settings-form" onClick={() => setOpen(!open)}>
                     {open ? "Hide settings" : "Change settings"}</button></div>
             <div class="convert-actions">
-                <input type="text" id="convert-name" maxLength={255} placeholder="Name (optional)" aria-label="Name"
+                <input type="text" id="convert-name" maxLength={255} placeholder={unnamed} aria-label="Name"
+                       title="The new dataset's name: left empty, it is named after its settings"
                        value={name} onInput={(e) => setName(e.currentTarget.value)}/>
                 <button type="button" class="button primary" id="convert-start" onClick={start}><Play/> Convert</button>
                 {args && <button type="button" class="button default" id="convert-plan"
