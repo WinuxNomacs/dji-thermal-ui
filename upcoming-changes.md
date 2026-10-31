@@ -8,8 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
-phases. To be planned with the user.
+**Up next**: the user picks which of U1's findings (see Usability) become phases, U2 onwards, each planned with
+the user.
 
 **Then**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
@@ -1804,6 +1804,32 @@ Requested 2026-10-31 (new.md): "Using your expert ux designer skills, how would 
   `ignored/`, its datasets, measurements, findings, report text) is deleted at the end, and what it changes on
   existing records is put back.
 
+### U1's findings (2026-10-31)
+
+The write-up, with what happens, the proposed change and screenshots for each: the private artifact
+https://claude.ai/artifact/Ee3uCoiQKCYA1rjYG7ZmA5. Ranked; the user picks those that become phases (U2 onwards).
+- **Blocks:**
+  1. After the analysis, nothing shows that converting comes next (the flight page's tabs; the Convert tab's form
+     open, its outputs named as in dji-thermal-cli, the button at the bottom).
+  2. The Problems tab gives command-line advice, with nothing to apply it (in °C whatever the unit; files listed
+     twice; internal codes shown).
+  3. The viewer opens on the banded Mosaic, and nothing points to Harmonized.
+  4. A flight's datasets are listed at the bottom of the Convert tab.
+- **Slows:**
+  5. Two sets of drawing tools in the viewer's side panel (Source frames, Measure), and a finding takes three steps.
+  6. A measurement's result appears far from the map, in a side panel of eleven open sections.
+  7. Two different reports (the flight's, the dataset's) are both called "Report".
+  8. Datasets are named "Dataset 1", "Dataset 2" by default.
+  9. The New flight dialog has two different "folder" options; the in-place path is typed; no name from the folder.
+  10. The navigation pane repeats every tab, four levels deep ("Tools").
+- **Polish:**
+  11. While the analysis runs, the page shows the full conversion form; "Cancel" doesn't say what it cancels.
+  12. The Files table: "Thermal frame" duplicates Kind, "With problems" is a bare tick, uneven row heights.
+  13. A dataset card's menu styles three items as links; the flight rows' icons are named only in tooltips;
+      Compare's toggles look like buttons; the basemap list stays light in the dark theme.
+  14. Settings are in three places; Storage is hidden under System Settings.
+  15. The report pages don't say their text is saved.
+
 ## Platforms
 
 Requested 2026-10-31 (new.md): the app supports Linux, Windows and macOS. Windows can be checked from the
@@ -1892,6 +1918,10 @@ as feature changes require going forward."
   replaced or hidden); the images themselves can be shown as they are (decided 2026-10-31).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
+
+- **U1: the usability review** (2026-10-31). A first-time user's tasks walked through on the user's 8080 instance
+  (light, dark, 600 px), with what it created deleted and the database checked against a copy taken before. Fifteen
+  ranked findings, listed under Usability, written up in a private artifact. Nothing built.
 
 - **A1: the skeleton** (2026-10-25). The tooling (above), then the package in `src/dji_thermal_ui/`: the data
   folder and secret key (`datadir.py`), settings with SQLite in WAL mode, the three models and `Preferences`
