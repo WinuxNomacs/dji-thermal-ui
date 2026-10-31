@@ -146,7 +146,7 @@ describe("the frame helpers", () => {
     });
 
     it("make the values' URL and a new conversion's with the changes", () => {
-        expect(newConversionUrl("/p/", 5, 9, {emissivity: 0.98})).toBe("/p/dataset/5?from=9&emissivity=0.98#convert");
+        expect(newConversionUrl("/p/", 5, 9, {emissivity: 0.98})).toBe("/p/dataset/5?from=9&emissivity=0.98#datasets");
         expect(valuesUrl("/api/", 9, A, {distance: 30})).toBe("/api/conversions/9/frame/data?frame=thermal%2Fa_T.JPG&distance=30");
         expect(valuesUrl("/api/", 9, A, {})).toBe("/api/conversions/9/frame/data?frame=thermal%2Fa_T.JPG");
     });
@@ -355,7 +355,7 @@ describe("the frame page", () => {
         expect(byId("changed-pane").hidden).toBe(false);
         expect(valuesOf("map")).not.toContain("emissivity");
         expect(valuesOf("map-changed")).toContain("&emissivity=0.98");
-        expect(byId("new-conversion").getAttribute("href")).toBe("/dataset/5?from=9&emissivity=0.98#convert");
+        expect(byId("new-conversion").getAttribute("href")).toBe("/dataset/5?from=9&emissivity=0.98#datasets");
         click(byId("change-clear"));
         await ticks(40);
         expect(byId("changed-pane").hidden).toBe(true);

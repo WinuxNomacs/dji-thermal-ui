@@ -366,7 +366,7 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
                 set={(n) => setFilters(filters.map((f, j) => j === i ? n : f))}
                 remove={() => setFilters(filters.filter((_, j) => j !== i))}/>)}
         </div>}
-        {!frames && <p class="text-muted files-hint"><Info/> Convert the images (on the Convert tab) to open each frame from
+        {!frames && <p class="text-muted files-hint"><Info/> Convert the images (on the Datasets tab) to open each frame from
             here.</p>}
         <div class="files-body">
         <div class="table-scroll">
@@ -469,7 +469,7 @@ function OptionsTable({options}: {options?: Record<string, PlanOption>}) {
 }
 
 // The WebODM plan tab: how well the frames cover the ground, the task options to use and how to prepare the images
-// (Convert with these opens the Convert tab with the plan's settings)
+// (Convert with these opens the Datasets tab with the plan's settings)
 export function PlanTab({analysis, convert}: {analysis: Analysis; convert: () => void}) {
     const p = analysis.webodm;
     if (!p) return <p class="text-muted">No plan: the flight has no thermal frames to plan with.</p>;
@@ -494,7 +494,7 @@ export function PlanTab({analysis, convert}: {analysis: Analysis; convert: () =>
         <h2>Preparing the images</h2>
         <p>Convert the frames with these settings before processing them.
             {p.process_args && <> <button type="button" class="button primary small" id="plan-convert"
-                title="Open the Convert tab with these settings" onClick={convert}><Wand/> Convert with these</button></>}</p>
+                title="Open the Datasets tab's form with these settings" onClick={convert}><Wand/> Convert with these</button></>}</p>
         <div class="command-row"><pre class="command">{p.process_command || ""}</pre>
             {p.process_command && <CopyButton what="the command" text={p.process_command}/>}</div>
         {(p.notes || []).length > 0 && <><h2>Notes</h2><ul>{p.notes!.map((n) => <li>{n}</li>)}</ul></>}

@@ -739,7 +739,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     return (
         <div class="page frame">
             <div class="breadcrumb">
-                <a href={publicUrl + "dataset/" + datasetId + "#convert"}><ArrowLeft/> {datasetName}</a>
+                <a href={publicUrl + "dataset/" + datasetId + "#datasets"}><ArrowLeft/> {datasetName}</a>
                 {" · "}
                 {/* Back to the mosaics with this frame's footprint outlined, when it is in them */}
                 <a id="mosaics" href={publicUrl + "conversion/" + id + (inMosaics ? viewQuery({frame}) : "")}>The mosaics</a>

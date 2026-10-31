@@ -208,7 +208,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             <TitleBlock text={text} change={change}>{projectName}{place && <> · {place}</>} · flight {datasetName} ·
                 dataset {c.name}{taken && <> · flown {taken}</>}</TitleBlock>
 
-            {!ready ? <p class="text-muted">The mosaics are not built: build them on the flight page's Convert tab.</p> : <>
+            {!ready ? <p class="text-muted">The mosaics are not built: build them on the flight page's Datasets tab.</p> : <>
                 <section class="report-section report-keep" id="report-mosaic">
                     <h2>The mosaic</h2>
                     <p class="report-caption no-print">{viewText(v, tab, style!)}. <a href={viewer}>Change the view in the

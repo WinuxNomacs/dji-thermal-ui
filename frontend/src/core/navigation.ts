@@ -81,10 +81,10 @@ export function conversionItems(c: NavConversion, publicUrl: string): NavItem[] 
     return out;
 }
 
-// Where a conversion's own item goes: its mosaics, else its frames, else its dataset's Convert tab
+// Where a conversion's own item goes: its mosaics, else its frames, else its flight's Datasets tab
 export function conversionHref(c: NavConversion, datasetId: number, publicUrl: string): string {
     const base = publicUrl + "conversion/" + c.id;
-    return c.mosaics ? base : c.frames ? base + "/frame" : publicUrl + "dataset/" + datasetId + "#convert";
+    return c.mosaics ? base : c.frames ? base + "/frame" : publicUrl + "dataset/" + datasetId + "#datasets";
 }
 
 // The page of a conversion's that each pane group holds, and the part of it a page of the group shows

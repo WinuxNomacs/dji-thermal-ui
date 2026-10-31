@@ -124,7 +124,7 @@ describe("the viewer page", () => {
         await open(fetchFn);
         expect(byId("name").textContent).toBe("Nadir");
         expect($(".subtitle")!.textContent).toBe("temp_c tiff · location stripped from the downloads");
-        expect($(".breadcrumb a")!.getAttribute("href")).toBe("/dataset/5#convert");
+        expect($(".breadcrumb a")!.getAttribute("href")).toBe("/dataset/5#datasets");
         expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Mosaic");
         expect((byId("range-min") as HTMLInputElement).value).toBe("20");
         expect((byId("range-max") as HTMLInputElement).value).toBe("30.1");

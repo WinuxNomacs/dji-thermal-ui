@@ -53,7 +53,10 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   thermal pictures (thumbnails, pane and full size) are coloured with the palette chosen under User Preferences,
   over each frame's own range; with "As each flight's images" they are the camera's own pictures.
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
-  mosaics. You can keep several side by side, cancel one, or download it. The R-JPEG output (`rjpeg`) writes each
+  mosaics, on the flight page's Datasets tab (where the page opens once there is one). The datasets are listed first,
+  then a New dataset bar: the settings summed up and the Convert button, the full settings under Change settings,
+  each output named for what it is for with dji-thermal-cli's name beside it. After the analysis, a flight with no
+  dataset yet says so above its tabs. You can keep several side by side, cancel one, or download it. The R-JPEG output (`rjpeg`) writes each
   frame again as an R-JPEG with the dataset's measurement parameters in DJI's header, so DJI's own tools measure it
   as this app does; its picture, what photo viewers show, is coloured with the dataset's palette or kept as DJI's.
 - **Exports:** a frame, the frames chosen or a whole flight as Original (the files as they are), TIFF

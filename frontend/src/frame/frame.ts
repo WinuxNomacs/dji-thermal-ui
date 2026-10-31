@@ -103,9 +103,9 @@ export function valuesUrl(api: string, id: number, frame: string, changes: Maybe
     return api + "conversions/" + id + "/frame/data?frame=" + encodeURIComponent(frame) + changesQuery(changes);
 }
 
-// Convert with the conversion's settings and these changes: the dataset's Convert tab, filled in
+// Convert with the conversion's settings and these changes: the flight's Datasets tab, its form filled in
 export function newConversionUrl(publicUrl: string, datasetId: number, conversionId: number, changes: Maybe<Changes>): string {
-    return publicUrl + "dataset/" + datasetId + "?from=" + conversionId + changesQuery(changes) + "#convert";
+    return publicUrl + "dataset/" + datasetId + "?from=" + conversionId + changesQuery(changes) + "#datasets";
 }
 
 // Each change's limits, those the server checks (the temperatures: above absolute zero, in the user's unit), and the

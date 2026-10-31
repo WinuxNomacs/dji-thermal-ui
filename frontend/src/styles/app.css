@@ -115,6 +115,11 @@ ul { padding-left: 20px; }
 }
 .notice.error { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
 .notice.warning { border-color: var(--warning); background: var(--warning-soft); color: var(--warning); }
+.next-step {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 10px 12px; margin: 12px 0; border-radius: var(--radius);
+    border: 1px solid var(--accent); background: var(--accent-soft);
+}
 .error:empty { display: none; }
 #new-error, #import-error, #export-project .error { color: var(--danger); margin-top: 8px; }
 
@@ -549,8 +554,8 @@ th .kind-button .icon.on { color: var(--accent); }
 .mark-note { font-size: 12px; }
 .off-plan .mark-note { color: var(--off-plan); }
 .output { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; font-size: 13px; }
-.output .check { min-width: 110px; }
-.output .text-muted { font-size: 12px; }
+.output .check { min-width: min(26rem, 100%); }
+.output .output-cli { margin-left: 6px; font-size: 11px; color: var(--muted); }
 .convert-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
 .convert-message { margin-top: 6px; font-size: 13px; }
 

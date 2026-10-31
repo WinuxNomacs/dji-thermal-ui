@@ -918,7 +918,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     return (
         <div class="page viewer">
-            <div class="breadcrumb"><a href={publicUrl + "dataset/" + datasetId + "#convert"}><ArrowLeft/> {datasetName}</a></div>
+            <div class="breadcrumb"><a href={publicUrl + "dataset/" + datasetId + "#datasets"}><ArrowLeft/> {datasetName}</a></div>
             <div class="page-header">
                 <div>
                     <h1 id="name">{v.name}</h1>
