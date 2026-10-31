@@ -289,7 +289,7 @@ describe("a flight's videos", () => {
                                 [URL + "/video-track?file=" + encodeURIComponent(VIDEO)]: TRACK,
                                 [URL + "/video-frames"]: {frames: [elsewhere]}, [URL + "/findings"]: {findings: [{id: 7, name: "Roof leak"}]},
                                 ["POST " + URL + "/video-frames"]: saved({}),
-                                ["PATCH " + URL + "/video-frames/3"]: [saved({name: "Warm window"}),
+                                ["PATCH " + URL + "/video-frames/3"]: [saved({name: "Warm window"}), saved({name: "Warm window", notes: "Brighter than the wall"}),
                                     saved({name: "Warm window", finding: 7, finding_name: "Roof leak",
                                            look: {recoloured: true, palette: "gray", range: [10, 90]}})],
                                 ["DELETE " + URL + "/video-frames/3"]: () => jsonResponse({})});
@@ -329,9 +329,18 @@ describe("a flight's videos", () => {
         expect($("#video-saved")!.textContent).toContain("0:00.05 · frame 2 · 42.100010, -88.070000 · 15.3 m up · gimbal -45°");
         expect($(`.video-item[data-path="${VIDEO}"]`)!.textContent).toContain("1 frame saved");
 
-        const nameField = $<HTMLInputElement>('#video-saved [aria-label="Name"]')!;
-        nameField.value = "Warm window";
-        nameField.dispatchEvent(new Event("change", {bubbles: true}));
+        const typeIn = (el: HTMLInputElement | HTMLTextAreaElement, value: string, done = true) => {
+            el.value = value;
+            el.dispatchEvent(new Event("input", {bubbles: true}));
+            if (done) el.dispatchEvent(new Event("change", {bubbles: true}));
+        };
+        // The notes typed while the new name's answer draws the list again are kept, then saved
+        typeIn($<HTMLInputElement>('#video-saved [aria-label="Name"]')!, "Warm window");
+        const notes = $<HTMLTextAreaElement>('#video-saved [aria-label="Notes"]')!;
+        typeIn(notes, "Brighter than the wall", false);
+        await ticks();
+        expect(notes.value).toBe("Brighter than the wall");
+        notes.dispatchEvent(new Event("change", {bubbles: true}));
         await ticks();
         const finding = $<HTMLSelectElement>('#video-saved [aria-label="Finding"]')!;
         expect([...finding.options].map((o) => o.textContent)).toEqual(["No finding", "Roof leak"]);
@@ -339,7 +348,7 @@ describe("a flight's videos", () => {
         finding.dispatchEvent(new Event("change", {bubbles: true}));
         await ticks();
         const patches = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH").map((c) => JSON.parse(c[1]!.body as string));
-        expect(patches).toEqual([{name: "Warm window"}, {finding: 7}]);
+        expect(patches).toEqual([{name: "Warm window"}, {notes: "Brighter than the wall"}, {finding: 7}]);
 
         // Shown again: the video at its time, as it was shown
         video.currentTime = 5;

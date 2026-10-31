@@ -507,16 +507,13 @@ function SavedFrames({url, frames, findings, open, change, remove}: SavedProps) 
                 <img alt={f.name} src={pictureUrl(url, f.id)}/>
             </button>
             <div class="video-saved-fields">
-                <input type="text" aria-label="Name" maxLength={255} value={f.name}
-                       onChange={(e) => {
-                           const name = e.currentTarget.value.trim();
-                           if (name && name !== f.name) change(f, {name});
-                           else e.currentTarget.value = f.name;
-                       }}/>
+                <Draft value={f.name} label="Name" commit={(name) => {
+                    if (name.trim()) change(f, {name: name.trim()});
+                    return !!name.trim();
+                }}/>
                 <span class="text-muted">{[formatDuration(f.time, 2) + " · frame " + f.frame, framePlace(f.point)]
                     .filter(Boolean).join(" · ")}</span>
-                <textarea aria-label="Notes" rows={2} placeholder="Notes" value={f.notes}
-                          onChange={(e) => { if (e.currentTarget.value !== f.notes) change(f, {notes: e.currentTarget.value}); }}/>
+                <Draft value={f.notes} label="Notes" multiline commit={(notes) => { change(f, {notes}); return true; }}/>
                 <div class="toolbar">
                     <select aria-label="Finding" title="The finding it is shown with in reports"
                             value={f.finding === null ? "" : String(f.finding)}
@@ -530,4 +527,20 @@ function SavedFrames({url, frames, findings, open, change, remove}: SavedProps) 
             </div>
         </li>))}</ul> : <p class="text-muted">None yet: Save frame (S) keeps the frame shown, as it is shown.</p>}
     </section>);
+}
+
+// A field typed into and saved when it changes (on leaving it): what is typed is kept while the list draws again,
+// and put back to what is saved when commit refuses it
+function Draft({value, label, multiline, commit}: {value: string; label: string; multiline?: boolean;
+                                                  commit: (v: string) => boolean}) {
+    const [draft, setDraft] = useState(value);
+    useEffect(() => setDraft(value), [value]);
+    const props = {"aria-label": label, value: draft,
+                   onInput: (e: Event) => setDraft((e.currentTarget as HTMLInputElement).value),
+                   onChange: (e: Event) => {
+                       const typed = (e.currentTarget as HTMLInputElement).value;
+                       if (typed !== value && !commit(typed)) setDraft(value);
+                   }};
+    return multiline ? <textarea {...props} rows={2} placeholder={label} maxLength={10000}/>
+        : <input type="text" {...props} maxLength={255}/>;
 }
