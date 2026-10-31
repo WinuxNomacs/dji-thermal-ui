@@ -1,5 +1,5 @@
-// New Dataset: a name, and the images to upload or a folder on this computer to read them from in place. Uploading
-// makes the dataset first, then sends its images; when some could not be sent it stops, to send them again, analyze
+// New Dataset: a name, and the images to upload, chosen one by one or as a folder. Uploading makes the dataset
+// first, then sends its images; when some could not be sent it stops, to send them again, analyze
 // without them, or cancel (which deletes the dataset with the images sent so far).
 import {useEffect, useRef, useState} from "preact/hooks";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
@@ -42,8 +42,6 @@ export function noImagesText(files: File[]): string {
 
 export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onClose, onError, load}: Props) {
     const [name, setName] = useState("");
-    const [source, setSource] = useState<"upload" | "folder">("upload");
-    const [folder, setFolder] = useState("");
     const [chosen, setChosen] = useState<File[]>([]);
     const [error, setError] = useState("");
     const [progress, setProgress] = useState<Progress | null>(null);
@@ -75,7 +73,6 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
 
     useEffect(() => {
         if (!dropped) return;
-        setSource("upload");
         choose(dropped.files);
     }, [dropped]);
 
@@ -148,23 +145,16 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
     }
 
     async function create() {
-        const n = name.trim(), path = folder.trim();
+        const n = name.trim();
         if (!n) return setError("Give the flight a name.");
-        if (source === "upload" && !chosen.some(isFlightFile)) {
-            return setError(chosen.length ? noImagesText(chosen) : "Choose the images to upload.");
-        }
-        if (source === "folder" && !path) return setError("Enter the folder's path.");
+        if (!chosen.some(isFlightFile)) return setError(chosen.length ? noImagesText(chosen) : "Choose the images to upload.");
         setError("");
         setStage("working");
         try {
             const r = await readJson<{id: number}>(await sendJson(api + "datasets", "POST",
-                                                                  {name: n, source, folder: path, project}));
+                                                                  {name: n, source: "upload", project}));
             if (!r.ok) throw new Error(errorText(r.data, "Could not create the flight."));
             made.current = {dataset: r.data, saved: 0, failed: []};
-            if (source === "folder") {
-                stageRef.current = "idle";
-                return nav(publicUrl + "dataset/" + r.data.id);
-            }
             await sendImages(chosen);
         } catch (e) {
             setStage("idle");
@@ -187,14 +177,7 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
                     <input type="text" id="new-name" maxLength={255} value={name} disabled={locked}
                            onInput={(e) => setName(e.currentTarget.value)}/>
                 </div>
-                <div class="field radios" role="radiogroup" aria-label="Source">
-                    <label><input type="radio" name="new-source" value="upload" checked={source === "upload"}
-                                  disabled={locked} onChange={() => setSource("upload")}/> Upload images</label>
-                    <label><input type="radio" name="new-source" value="folder" checked={source === "folder"}
-                                  disabled={locked} onChange={() => setSource("folder")}/> A folder on this
-                        computer</label>
-                </div>
-                <div class="field" id="new-upload" hidden={source !== "upload"}>
+                <div class="field" id="new-upload">
                     <div class="pickers">
                         <label class={"button default" + (locked ? " disabled" : "")}><Images/> Choose images
                             <input type="file" id="new-files" multiple accept={FLIGHT_FILES_ACCEPT} hidden
@@ -210,11 +193,6 @@ export function NewDataset({api, publicUrl, project, nav, dropped, onStage, onCl
                             (chosen.length > images.length ?
                                 " (" + (chosen.length - images.length) + " other file(s) left out)" : "") : HINT}
                     </p>
-                </div>
-                <div class="field" id="new-folder" hidden={source !== "folder"}>
-                    <input type="text" id="new-folder-path" placeholder="/path/to/flight/images" aria-label="Folder"
-                           value={folder} disabled={locked} onInput={(e) => setFolder(e.currentTarget.value)}/>
-                    <p class="help">The images are read in place, not copied.</p>
                 </div>
                 {progress && (
                     <div class="upload-progress" id="new-progress">

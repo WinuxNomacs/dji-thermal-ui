@@ -15,7 +15,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   saved video frames.
   Import on the projects page makes such an archive a new project, here or on another computer: a name already in
   use gets a free one ("Roof (2)"), which you can change. Its folder flights come back as uploaded ones.
-- **Flights:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
+- **Flights:** DJI R-JPEGs, uploaded (chosen one by one or as a folder) with their thumbnails; a flight made in place
+  from a folder by an earlier version still reads its images there. The visual images a
   drone takes with them (DJI's `_V` or `_W`, as on the Matrice 4T or the H20T/H30T) can be added too: the Files tab
   calls them visual and shows what their metadata records (time, position, height, gimbal pitch and yaw, the
   rangefinder's distance), with no temperatures or measurement settings. So can the drone's MP4 videos. Other files, such as TIFFs (a converted dataset's temperatures
@@ -60,7 +61,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
   mosaics, on the flight page's Datasets tab (where the page opens once there is one). The datasets are listed first,
   then a New dataset bar: the settings summed up and the Convert button, the full settings under Change settings,
-  each output named for what it is for with dji-thermal-cli's name beside it. After the analysis, a flight with no
+  each output named for what it is for with dji-thermal-cli's name beside it. A dataset left unnamed is named after
+  the settings that change its temperatures or mosaics ("Emissivity 0.9 · normalized", else "Default settings"), as
+  the name field shows before converting. After the analysis, a flight with no
   dataset yet says so above its tabs. You can keep several side by side, cancel one, or download it. The R-JPEG output (`rjpeg`) writes each
   frame again as an R-JPEG with the dataset's measurement parameters in DJI's header, so DJI's own tools measure it
   as this app does; its picture, what photo viewers show, is coloured with the dataset's palette or kept as DJI's.
@@ -115,11 +118,11 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   It holds the flight's figures, a map of where its frames were taken with its findings numbered, the coverage,
   the problems found, the frames' settings and temperatures summed up, the datasets, the findings with
   thumbnails of their kept frames, and the video frames saved (on the map too). A table of every frame can be appended,
-  and the visual photos put on the map. Open it with the flight page's Report
+  and the visual photos put on the map. Open it with the flight page's Flight report
   button or from the navigation pane. The title, author, date and notes are typed on the page and saved with the
   flight; the last author typed fills in new reports. It always prints light, without the app's header and controls.
 - **Mosaic report:** a dataset's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer
-  showed it when its Report button was pressed (that view is saved with the report), with the saved measurements
+  showed it when its Mosaic report button was pressed (that view is saved with the report), with the saved measurements
   and the flight's findings drawn and numbered, the colour scale, a scale bar and north. Each measurement follows
   with a close-up on its mosaic or frame, its figures, profile and histogram, and a comment; one can be left out.
   Then come the findings on the mosaic with their kept frames, and the dataset's settings and how the mosaic was
@@ -129,7 +132,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   over pane B's in one pane, faded with an opacity slider and cut at a swipe line dragged across it: visual over
   thermal, or two thermal mosaics.
 - **Navigation:** a pane on the left of every page lists the projects and their flights, each with its report.
-  Under each dataset come its Tools (Compare and Report), its Mosaics (each of the viewer's tabs) and its Frames:
+  Under each dataset come its Tools (Compare and Mosaic report), its Mosaics (each of the viewer's tabs) and its Frames:
   "Mosaic" (the frames the mosaic placed) and "Oblique" (those it left out for their angle, whose angles show what a
   view straight down misses, including those a conversion with a pitch limit did not convert), each with its count, opening the frame explorer on those frames. The
   page shown is marked, down to the viewer's tab. Each level folds, and the whole pane hides, by the header's menu button or the small tab
@@ -364,7 +367,7 @@ shows which folder is used and what takes room in it, and moves it to another:
   connected), the app says so and stops rather than starting with an empty one.
 
 A flight used in place
-from a folder reads its images there and never changes them. Deleting a flight deletes only what the app made.
+from a folder (made by an earlier version) reads its images there and never changes them. Deleting a flight deletes only what the app made.
 Deleting a project deletes its flights the same way, after saying how many there are and how much space is freed.
 A project's export is written straight to the browser's download, so it needs no room in the data folder; it holds
 `manifest.json` (the project's rows) and each flight's files under `datasets/<id>/`. An import is unpacked as it is

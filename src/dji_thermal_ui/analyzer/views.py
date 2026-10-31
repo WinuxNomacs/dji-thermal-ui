@@ -61,7 +61,7 @@ def dataset_page(request, dataset_id):
 def dataset_report(request, dataset_id):
     """A dataset's report, laid out to be printed to PDF"""
     dataset = get_object_or_404(ThermalDataset.objects.select_related('project'), pk=dataset_id)
-    return page(request, "dataset_report.html", title=dataset.name + " report", dataset=dataset, project=dataset.project,
+    return page(request, "dataset_report.html", title=dataset.name + " · Flight report", dataset=dataset, project=dataset.project,
                 entry="dataset_report", author=report_author(), basemaps=page_basemaps())
 
 
@@ -76,7 +76,7 @@ def viewer_page(request, conversion_id):
 def conversion_report(request, conversion_id):
     """A conversion's mosaic report, laid out to be printed to PDF"""
     conversion = conversion_or_404(conversion_id)
-    return page(request, "conversion_report.html", title=conversion.name + " report", entry="conversion_report",
+    return page(request, "conversion_report.html", title=conversion.name + " · Mosaic report", entry="conversion_report",
                 conversion=conversion, dataset=conversion.dataset, project=conversion.dataset.project,
                 author=report_author())
 

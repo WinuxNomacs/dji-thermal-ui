@@ -68,7 +68,7 @@ export function conversionItems(c: NavConversion, publicUrl: string): NavItem[] 
     if (c.mosaics) {
         out.push({key: key + ".tools", label: "Tools", href: base + "/compare", items: [
             {key: key + ".tools.compare", label: "Compare", href: base + "/compare"},
-            {key: key + ".tools.report", label: "Report", href: base + "/report"},
+            {key: key + ".tools.report", label: "Mosaic report", href: base + "/report"},
         ]});
         out.push({key: key + ".mosaics", label: "Mosaics", href: base, items: (c.tabs || []).map((tab) => (
             {key: key + ".mosaics." + tab, label: tabLabel(tab), href: base + "?tab=" + encodeURIComponent(tab)}))});

@@ -8,7 +8,7 @@ import {FILE_COLUMNS} from "../src/dataset/files";
 import {cell} from "../src/dataset/tabs";
 import {active, type Analysis, columnType, type Condition, fileRows, filterQuery, filtersFrom, newCondition, newestReady,
         parseFilters, shownAs, SHOWS, sortRows} from "../src/dataset/files";
-import {differences, formProblem, planSettings, resetSetting, type Settings} from "../src/dataset/settings";
+import {defaultName, differences, formProblem, planSettings, resetSetting, type Settings} from "../src/dataset/settings";
 import {calls, click, file, jsonResponse, key, server, ticks} from "./helpers";
 
 const API = "/api/";
@@ -167,6 +167,15 @@ describe("the conversion settings", () => {
         ]);
         expect(differences(DEFAULTS, DEFAULTS, null, "C")).toEqual([]);
         expect(differences({...DEFAULTS, unit: "K"}, DEFAULTS, null, "C").map((d) => d.key)).toEqual(["unit"]);
+    });
+
+    it("names a dataset after the settings that change its temperatures or mosaics, after a name taken", () => {
+        const s = {...DEFAULTS, normalize: true, max_pitch: -60, emissivity: 0.9, palette: "ironred", outputs: ["gray16:png"],
+                   compression: "none", visual: false};
+        expect(defaultName(s, DEFAULTS, [])).toBe("Emissivity 0.9 · normalized · pitch ≤ -60°");
+        expect(defaultName({...DEFAULTS, mosaics: false}, DEFAULTS, [])).toBe("No mosaics");
+        expect(defaultName({...DEFAULTS, palette: "ironred"}, DEFAULTS, [])).toBe("Default settings");
+        expect(defaultName(DEFAULTS, DEFAULTS, ["Default settings", "Default settings (2)"])).toBe("Default settings (3)");
     });
 
     it("puts one setting back at its default, the unit converting the temperatures back", () => {
@@ -1042,6 +1051,8 @@ describe("the Datasets tab", () => {
         await ticks();
         await openSettings();
         type(field("emissivity"), "0.95");
+        await ticks();
+        expect(byId<HTMLInputElement>("convert-name").placeholder).toBe("Emissivity 0.95");
         type(byId<HTMLInputElement>("convert-name"), " Warm ");
         await ticks();
         click(byId("convert-start"));
@@ -1081,7 +1092,7 @@ describe("the Datasets tab", () => {
         click(byId("convert-start"));
         await ticks();
         const post = fetchFn.mock.calls.find((c) => c[0] === URL + "/conversions")!;
-        expect(body(post[1])).toEqual({name: "", settings: {...DEFAULTS, visual: false}});
+        expect(body(post[1])).toEqual({name: "Default settings", settings: {...DEFAULTS, visual: false}});
     });
 
     it("offers an R-JPEG output's picture once it is chosen, and sends it", async () => {
@@ -1100,7 +1111,7 @@ describe("the Datasets tab", () => {
         click(byId("convert-start"));
         await ticks();
         const post = fetchFn.mock.calls.find((c) => c[0] === URL + "/conversions")!;
-        expect(body(post[1])).toEqual({name: "", settings: {...DEFAULTS, rjpeg_picture: "original",
+        expect(body(post[1])).toEqual({name: "Default settings", settings: {...DEFAULTS, rjpeg_picture: "original",
                                                             outputs: ["temp_c:tiff", "pseudo:png", "rjpeg:jpg"]}});
     });
 

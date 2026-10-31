@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U6, names (see Usability), to be planned with the user.
+**Up next**: U7, the navigation pane and the settings pages (see Usability), to be planned with the user.
 
-**Then**: U7–U8, U1's other findings (see Usability), each planned with the user before it is built.
+**Then**: U8, polish (see Usability), planned with the user before it is built.
 
 **After that**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
@@ -1966,6 +1966,32 @@ Proposed:
   visit. Keeping a shape as a finding closes its card (the finding is drawn instead). The Findings list's empty text
   points to drawing a shape and keeping it.
 
+### U6: names (built 2026-10-31, see Done)
+
+As they are: the flight page's header has a "Report" button (the flight report) and the mosaics viewer's header a
+"Report" button (the mosaic report); the navigation pane lists "Report" under a flight and under a dataset's Tools;
+both report pages are titled "<name> report". A dataset converted with no name typed is called "Dataset <n>" by the
+server. The New thermal flight dialog offers "Upload images" (Choose images, Choose a folder: both copy the images)
+or "A folder on this computer" (a typed path, read in place); the name comes from a chosen folder only.
+Proposed:
+- **The reports named by what they cover:** "Flight report" (flight page, navigation pane) and "Mosaic report"
+  (viewer, navigation pane); their pages titled "<name> · Flight report" and "<name> · Mosaic report".
+- **A dataset's default name from its settings,** shown as the Datasets tab's name placeholder before converting.
+
+### U6: decisions (2026-10-31)
+
+- **A dataset's default name:** the settings that differ from dji-thermal-cli's defaults and change its temperatures
+  or mosaics (mosaics, distance, the measurement parameters, normalizing, the pitch limit, the gimbal, replacing
+  above or below), e.g. "Normalized · pitch ≤ -60°"; "Default settings" when none does. Outputs, compression,
+  palette, range, unit and the visual mosaic are left out. A name the flight already has gets " (2)", " (3)". The
+  Datasets tab shows it as the name field's placeholder and sends it; the server's "Dataset <n>" stays only for an
+  API call with no name.
+- **Existing datasets** keep their names.
+- **The New thermal flight dialog loses "A folder on this computer"** (the user: an edge case; images and a folder
+  chosen from the computer are enough): Choose images and Choose a folder only, both copying. Flights already read in
+  place keep working (their pages, the Storage page, a backup restored with its folders kept), and the API still
+  takes `source: folder`.
+
 ## Platforms
 
 Requested 2026-10-31 (new.md): the app supports Linux, Windows and macOS. Windows can be checked from the
@@ -2695,3 +2721,10 @@ as feature changes require going forward."
   the user's dataset 2 on a scratch 8081 instance (only GETs and the read-only measure and sources POSTs let through):
   a box and a line measured in the card, Keep as finding's form with the frames beside it (cancelled), Esc, the
   Source frame tab's four tools, the frames explorer's card and compare's tools, light, dark and 600 px, no errors.
+- **U6: names** (2026-10-31; U1's findings 7, 8 and 9). The reports labelled Flight report and Mosaic report
+  (`dataset/dataset-page.tsx`, `viewer/viewer-page.tsx`, `core/navigation.ts`, `components/nav-pane.tsx`, the report
+  pages' titles and `analyzer/views.py`); a dataset's default name from its settings (`defaultName` in
+  `frontend/src/dataset/settings.ts`, the placeholder and the name sent in `dataset/convert.tsx`); the New thermal
+  flight dialog without the in-place folder (`datasets/new-dataset.tsx`). Tests in `frontend/tests/dataset.test.tsx`,
+  `datasets.test.tsx`, `navigation.test.tsx` and `tests/test_pages.py`. Checked on the user's data on a scratch 8081
+  instance (GETs only): both buttons and titles, the placeholder following the settings, the dialog, light and dark.

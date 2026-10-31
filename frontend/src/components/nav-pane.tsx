@@ -167,7 +167,7 @@ export function NavPane({api, publicUrl, current: page, onNavigate, onClose}: Na
                                   href={publicUrl + "dataset/" + d.id} label={d.name || "(untitled)"}
                                   current={marked === datasetKey(d.id)}>
                                 <ul><Item key="report" {...item} level={3} href={publicUrl + "dataset/" + d.id + "/report"}
-                                          label="Report" current={marked === datasetKey(d.id) + ".report"}/>
+                                          label="Flight report" current={marked === datasetKey(d.id) + ".report"}/>
                                     {d.conversions.map((c) => {
                                         const items = conversionItems(c, publicUrl);
                                         return (<Item key={c.id} itemKey={items.length ? conversionKey(c.id) : undefined} {...item}
