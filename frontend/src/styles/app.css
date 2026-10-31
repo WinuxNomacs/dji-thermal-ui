@@ -477,7 +477,7 @@ th .kind-button .icon.on { color: var(--accent); }
 .files-shown { margin-left: auto; font-size: 12px; }
 .files-hint { font-size: 12px; margin: 0 0 6px; }
 .table.files td { white-space: nowrap; font-size: 12px; }
-.table.files .badge { margin-right: 3px; }
+.table.files .badge { margin-right: 3px; line-height: 14px; }    /* no taller than the row's text, so every row has one height */
 .table.files td.thumb { padding: 1px 4px; width: 52px; }
 .thumb img { display: block; max-width: 48px; max-height: 40px; }
 .files-tab .table.files tbody tr { cursor: pointer; }
