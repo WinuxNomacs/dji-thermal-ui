@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned.
+**Up next**: P1, the visual photos' properties on the Files tab (to plan).
 
-**Then**: nothing planned.
+**Then**: P2, Hover for detail on the Files tab (to plan).
 
 ## Standalone (option A)
 
@@ -1685,6 +1685,51 @@ stills, but the plan does not count on them.
    picture shown and the original (whose levels come again exactly), kept for findings (C3) and reports (D1).
 4. **Later, maybe:** a path of hot spots on the map; matching video moments to the mission's stills; an SRT for
    drones that write one; a mosaic or path strip from video frames.
+
+## Photos on the Files tab
+
+Two requests from `new.md` (2026-10-31).
+
+### The requests
+
+1. On the Files tab, the RGB (visible light) photos show no time, height, pitch or distance, although they are from
+   the same drone and flight as the thermal frames.
+2. A **Hover for detail** checkbox beside Thumbnails, on by default. While it is on, hovering an image's link or
+   thumbnail opens a pane with the full source image and its details under it, following the pointer from row to
+   row. The pane's close button closes it until another image is hovered; unchecking the box closes it and keeps it
+   closed.
+
+### Why the visual photos are empty (found 2026-10-31)
+
+- The Files rows come from dji-thermal-cli's check (`thermal_analysis.file_row`). For a JPEG that is not an R-JPEG
+  the check gives no `info`, so the row keeps only its path, kind and size.
+- The information is there: a `_V` image has the same DJI XMP as its `_T` frame (GPS, relative and absolute
+  altitude, gimbal and flight yaw, pitch and roll, the rangefinder's distance, `UTCAtExposure`) and an EXIF capture
+  time, size and model. dji-thermal-cli already reads it for the visual mosaic (`mosaic.read_pose`, `djixmp`).
+- What a visual photo cannot have: temperatures and the measurement settings (emissivity, distance to the object,
+  humidity, reflection, ambient), which belong to the thermal camera. Its "distance" is the rangefinder's (`lrf`).
+
+### P1: the visual photos' properties (proposed)
+
+- dji-thermal-cli's check returns `info` for a not-thermal JPEG with DJI XMP: camera (model, serial, size,
+  capture time, UTC), geospatial (position, altitudes, GPS status, rangefinder) and attitude (gimbal pitch and yaw),
+  no thermal or temperature sections; the kind stays `not_thermal`. A release (1.11.0), then pinned here.
+- `file_row` fills the same columns for these rows; filters, sorting, the report's appendix and the frames map pick
+  them up. Existing flights get them on their next Analyze.
+- Open: whether this goes into dji-thermal-cli (its check, and its own `check` command, gain it; the repo's rule) or
+  is read by the app alone from the XMP; whether visual photos then appear on the flight's frames map beside the
+  thermal ones.
+
+### P2: Hover for detail (proposed)
+
+- On the Files tab: the checkbox beside Thumbnails, on by default, remembered per browser as Thumbnails is.
+- Hovering a row's thumbnail or its name (every image and video row, not only the thermal links) shows the pane:
+  the image at a size that fits it (a preview from the server, about 1280 px on its long side, cached; the
+  M4T's visual photos are 4032×3024 and about 4.7 MB) and the row's columns under it. A video shows its cover.
+- The pane follows the hovered row without a delay between rows; its close button hides it until a different row
+  is hovered; unchecking the box closes it.
+- Open: where the pane sits (docked at the side of the window, or floating beside the pointer); whether the frames
+  page's list gets it too.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
