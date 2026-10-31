@@ -1,6 +1,6 @@
 // A dataset's report, laid out to be printed to PDF (A4 or Letter): its title block, the dataset's figures, where the
 // frames were taken, the coverage, the problems, the frames' settings and temperatures, the conversions, the findings,
-// notes, and the frames' table as an appendix when it is switched on. The text is typed on the page and saved on the
+// the video frames saved, notes, and the frames' table as an appendix when it is switched on. The text is typed on the page and saved on the
 // dataset; the print styles leave out the controls and print it light.
 import Feature from "ol/Feature";
 import type OlMap from "ol/Map";
@@ -19,6 +19,8 @@ import {formatTemp} from "../core/units";
 import {conversionLabel} from "../dataset/conversions";
 import {type Dataset} from "../dataset/dataset-page";
 import {FILE_COLUMNS} from "../dataset/files";
+import {framePlace, framesUrl, numberedFrames, pictureUrl, type SavedFrame} from "../dataset/video-frames";
+import {formatDuration} from "../dataset/videos";
 import {cell, Figures, Overview, ProblemsTab} from "../dataset/tabs";
 import {type Finding, findingsUrl, SEVERITY_COLORS} from "../findings/findings";
 import {centreOf} from "../findings/layer";
@@ -47,10 +49,23 @@ function findingStyle(f: Finding & {number: number}): Style {
     });
 }
 
-interface MapProps {basemaps: Basemap[]; d: ReportDataset; findings: (Finding & {number: number})[]}
+const VIDEO_FRAME = (number: string) => new Style({
+    image: new CircleStyle({radius: 11, fill: new Fill({color: "#1d2329"}), stroke: new Stroke({color: "#ffd600", width: 2})}),
+    text: new Text({text: number, font: "700 10px system-ui, sans-serif", fill: new Fill({color: "#ffd600"})}),
+});
 
-// Where the frames were taken, the flight's area and the findings by their numbers
-function FramesMap({basemaps, d, findings}: MapProps) {
+type Numbered = SavedFrame & {number: string};
+// "a, b, and c"
+const listed = (parts: string[]) => parts.filter(Boolean).map((p, i, all) => i && i === all.length - 1 ? "and " + p : p)
+    .join(", ").replace(/^./, (c) => c.toUpperCase());
+// Where a saved video frame was taken, if its track says so
+const placeOf = (v: SavedFrame) => typeof v.point?.lon === "number" && typeof v.point?.lat === "number" ?
+    [v.point.lon, v.point.lat] as [number, number] : null;
+
+interface MapProps {basemaps: Basemap[]; d: ReportDataset; findings: (Finding & {number: number})[]; videoFrames: Numbered[]}
+
+// Where the frames were taken, the flight's area, the findings and the saved video frames by their numbers
+function FramesMap({basemaps, d, findings, videoFrames}: MapProps) {
     const el = useRef<HTMLDivElement>(null);
     const map = useRef<OlMap | null>(null);
     const drawn = useRef<VectorSource | null>(null);
@@ -62,7 +77,8 @@ function FramesMap({basemaps, d, findings}: MapProps) {
         return () => m.setTarget(undefined);
     }, []);
 
-    const drawing = JSON.stringify([d.flight_area, framePositions(d.analysis?.files), findings.map((f) => [f.id, f.geometry])]);
+    const drawing = JSON.stringify([d.flight_area, framePositions(d.analysis?.files), findings.map((f) => [f.id, f.geometry]),
+                                   videoFrames.map((v) => [v.number, placeOf(v)])]);
     useEffect(() => {
         const m = map.current!, source = drawn.current!;
         source.clear();
@@ -91,6 +107,15 @@ function FramesMap({basemaps, d, findings}: MapProps) {
             }
             const tag = pointFeature(at, {finding: f.number});
             tag.setStyle(findingStyle(f));
+            source.addFeature(tag);
+        });
+        videoFrames.forEach((v) => {
+            const lonLat = placeOf(v);
+            if (!lonLat) return;
+            const at = lonLatToMap(lonLat);
+            points.push(at);
+            const tag = pointFeature(at, {videoFrame: v.number});
+            tag.setStyle(VIDEO_FRAME(v.number));
             source.addFeature(tag);
         });
         if (!points.length) return;
@@ -122,6 +147,7 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
     const url = api + "datasets/" + id;
     const [d, setD] = useState<ReportDataset | null>(null);
     const [findings, setFindings] = useState<Finding[]>([]);
+    const [videoFrames, setVideoFrames] = useState<SavedFrame[]>([]);
     const [notice, setNotice] = useState("");
     const {text, setText, saved, change} = useReportText<Required<ReportText>>(url);
 
@@ -133,8 +159,12 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                 setD(r.data);
                 setText(reportText(r.data.report, r.data.name, author, today));
                 document.title = r.data.name + " report · Thermal Analyzer";
-                const f = await readJson<{findings: Finding[]}>(await fetch(findingsUrl(api, id), {credentials: "same-origin"}));
+                const [f, v] = await Promise.all([
+                    fetch(findingsUrl(api, id), {credentials: "same-origin"}).then((res) => readJson<{findings: Finding[]}>(res)),
+                    fetch(framesUrl(url), {credentials: "same-origin"}).then((res) => readJson<{frames: SavedFrame[]}>(res))
+                        .catch(() => ({ok: false, data: {frames: []}}))]);
                 if (f.ok) setFindings(f.data.findings || []);
+                if (v.ok) setVideoFrames(v.data.frames || []);
             } catch {
                 setNotice("Could not load the flight.");
             }
@@ -155,6 +185,8 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
     const temperatures = temperatureSummary(files);
     const conversions = d.conversions || [];
     const thumbs = url + "/thumbnail?file=";
+    const shots = numberedFrames(videoFrames);
+    const placed = shots.filter((v) => placeOf(v));
 
     return (
         <div class="page report">
@@ -174,10 +206,11 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
 
             <section class="report-section report-keep" id="report-where">
                 <h2>Where the frames were taken</h2>
-                {framePositions(files).length ? <>
-                    <FramesMap basemaps={basemaps} d={d} findings={items}/>
-                    <p class="report-caption">{count(framePositions(files).length, "frame", "frames")} with a position
-                        {items.length > 0 && <>, and the findings by their numbers</>}.</p>
+                {framePositions(files).length || placed.length ? <>
+                    <FramesMap basemaps={basemaps} d={d} findings={items} videoFrames={shots}/>
+                    <p class="report-caption">{listed([framePositions(files).length ? count(framePositions(files).length, "frame", "frames") + " with a position" : "",
+                        items.length ? "the findings by their numbers" : "",
+                        placed.length ? "the saved video frames (V1, V2…)" : ""])}.</p>
                 </> : <p class="text-muted">None of the frames records where it was taken.</p>}
             </section>
 
@@ -232,7 +265,26 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                 </table> : <p class="text-muted">None made.</p>}
             </section>
 
-            <FindingsSection items={items} files={files} thumbs={thumbs} none="None saved."/>
+            <FindingsSection items={items} files={files} thumbs={thumbs} none="None saved." videoFrames={shots}
+                             picture={(vid) => pictureUrl(url, vid)}/>
+
+            {shots.length > 0 && (<section class="report-section" id="report-video-frames">
+                <h2>Video frames</h2>
+                <p class="report-caption">As shown when saved. A recoloured frame's levels are relative: the camera
+                    re-ranges each frame, so they are not temperatures.</p>
+                {shots.map((v) => (<figure class="report-video-frame report-keep" key={v.id} data-video-frame={v.number}>
+                    <img alt={v.name} src={pictureUrl(url, v.id)}/>
+                    <figcaption>
+                        <strong>{v.number}. {v.name}</strong>
+                        <div class="text-muted">{v.video.split("/").pop()} · {formatDuration(v.time, 2)} · frame {v.frame}
+                            {v.look?.recoloured ? " · recoloured" : ""}</div>
+                        {framePlace(v.point) && <div class="text-muted">{framePlace(v.point)}</div>}
+                        {v.finding_name && <div>With finding {items.find((f) => f.id === v.finding)?.number ?? ""}
+                            {" "}{v.finding_name}</div>}
+                        {v.notes && <div class="report-notes-text">{v.notes}</div>}
+                    </figcaption>
+                </figure>))}
+            </section>)}
 
             <section class={"report-section" + (text.notes ? "" : " empty")} id="report-notes-section">
                 <h2>Notes</h2>

@@ -9,6 +9,7 @@ import {userUnit} from "../core/units";
 import {type Conversion} from "../dataset/conversions";
 import {type Analysis} from "../dataset/files";
 import {differences, type Settings} from "../dataset/settings";
+import {framesUrl, numberedFrames, pictureUrl, type SavedFrame} from "../dataset/video-frames";
 import {type Finding, findingsUrl} from "../findings/findings";
 import {readValues, SEAMS} from "../map/colour";
 import {DATA_GUTTER, rasterPixel, type Values} from "../map/map";
@@ -56,6 +57,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     const [d, setD] = useState<DatasetInfo>({});
     const [items, setItems] = useState<Measurement[]>([]);
     const [findings, setFindings] = useState<Finding[]>([]);
+    const [videoFrames, setVideoFrames] = useState<SavedFrame[]>([]);
     const [curve, setCurve] = useState<number[] | null | undefined>(undefined);
     const [images, setImages] = useState<Record<string, string | null>>({});
     const [drawing, setDrawing] = useState(0);              // the figures being drawn
@@ -79,10 +81,13 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                 setText({title: s.title ?? datasetName + " · " + rc.data.name, author: s.author ?? author,
                          date: s.date ?? today, notes: s.notes ?? "", left_out: s.left_out || []});
                 document.title = rc.data.name + " report · Thermal Analyzer";
-                const [rd, rf] = await Promise.all([get<DatasetInfo>(api + "datasets/" + datasetId),
-                                                    get<{findings: Finding[]}>(findingsUrl(api, datasetId))]);
+                const [rd, rf, rs] = await Promise.all([get<DatasetInfo>(api + "datasets/" + datasetId),
+                                                        get<{findings: Finding[]}>(findingsUrl(api, datasetId)),
+                                                        get<{frames: SavedFrame[]}>(framesUrl(api + "datasets/" + datasetId))
+                                                            .catch(() => ({ok: false, data: {frames: []}}))]);
                 if (rd.ok) setD(rd.data);
                 if (rf.ok) setFindings(rf.data.findings || []);
+                if (rs.ok) setVideoFrames(rs.data.frames || []);
                 setLoaded(true);
             } catch {
                 setNotice("Could not load the dataset.");
@@ -247,7 +252,8 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             </>}
 
             <FindingsSection items={found} files={d.analysis?.files} thumbs={api + "datasets/" + datasetId + "/thumbnail?file="}
-                             none="None on this mosaic."/>
+                             none="None on this mosaic." videoFrames={numberedFrames(videoFrames)}
+                             picture={(vid) => pictureUrl(api + "datasets/" + datasetId, vid)}/>
 
             <section class="report-section report-keep" id="report-method">
                 <h2>Settings and method</h2>
