@@ -63,6 +63,10 @@ describe("the projects page", () => {
         expect(row.textContent).not.toContain("Bins 1 to 4");
         expect(row.textContent).toContain("1 Farm Rd");
         expect(row.textContent).toContain("5.0 MB");
+        // Flights, datasets and findings counted, 0 too
+        const counts = (id: number) => [3, 4, 5].map((n) => $(`tr[data-id="${id}"] td:nth-child(${n})`)!.textContent);
+        expect(counts(3)).toEqual(["2", "3", "0"]);
+        expect(counts(1)).toEqual(["0", "0", "0"]);
 
         type(byId<HTMLInputElement>("search"), "silo");
         await ticks();

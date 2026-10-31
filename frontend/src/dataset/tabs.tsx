@@ -7,6 +7,7 @@ import {formatTemp, unitSymbol, userUnit} from "../core/units";
 import {isImage, isVideo} from "../core/upload";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask, dialog} from "../components/dialog";
+import {useMenu} from "../components/menu";
 import {FullSize} from "./full-size";
 import {describeProblem, type Fix, shortName} from "./problems";
 import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
@@ -127,21 +128,6 @@ interface FilesProps {
 
 // The kinds to choose from, as checkboxes under All: checking All checks every kind and unchecking it unchecks them,
 // unchecking a kind unchecks All
-// A menu's open state, closed by a click outside it or by Escape
-function useMenu() {
-    const [open, setOpen] = useState(false);
-    const ref = useRef<HTMLSpanElement>(null);
-    useEffect(() => {
-        if (!open) return;
-        const outside = (e: Event) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-        const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-        document.addEventListener("click", outside);
-        document.addEventListener("keydown", escape);
-        return () => { document.removeEventListener("click", outside); document.removeEventListener("keydown", escape); };
-    }, [open]);
-    return {open, setOpen, ref};
-}
-
 function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: string[]; choose: (k: string[]) => void;
                                                      label: ComponentChildren}) {
     const {open, setOpen, ref} = useMenu();

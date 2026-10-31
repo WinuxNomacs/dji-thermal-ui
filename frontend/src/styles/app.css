@@ -366,11 +366,12 @@ details > summary h5 { display: inline; }
     list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     box-shadow: var(--shadow);
 }
-.menu-items button {
-    display: block; width: 100%; padding: 4px 16px; border: 0; background: none; color: inherit;
-    font: inherit; text-align: left; white-space: nowrap; cursor: pointer;
+/* a link in a menu (Frames, Download all) looks like the buttons beside it */
+.menu-items button, .menu-items a {
+    display: block; box-sizing: border-box; width: 100%; padding: 4px 16px; border: 0; background: none; color: inherit;
+    font: inherit; text-align: left; text-decoration: none; white-space: nowrap; cursor: pointer;
 }
-.menu-items button:hover, .menu-items button:focus { background: var(--hover); }
+.menu-items button:hover, .menu-items button:focus, .menu-items a:hover, .menu-items a:focus { background: var(--hover); }
 .menu-items button.text-danger { color: var(--danger); }
 .menu-items .divider { height: 1px; margin: 4px 0; background: var(--border); }
 
@@ -433,7 +434,6 @@ details > summary h5 { display: inline; }
 
 .datasets #search { width: 220px; }
 #datasets td { white-space: nowrap; }
-#datasets td:first-child { white-space: normal; }
 .actions { white-space: nowrap; text-align: right; }
 
 /* A dataset: its figures, files, problems, plan and conversions */

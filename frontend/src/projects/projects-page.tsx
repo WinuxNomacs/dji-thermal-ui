@@ -92,8 +92,8 @@ export function ProjectsPage({api, publicUrl, basemaps, nav = (url) => { locatio
                                         <MapPin class="icon text-muted"/> {p.location.label || "A point on the map"}
                                     </span>}</td>
                                     <td>{p.dataset_count}</td>
-                                    <td>{p.conversion_count || ""}</td>
-                                    <td>{p.finding_count || ""}</td>
+                                    <td>{p.conversion_count || 0}</td>
+                                    <td>{p.finding_count || 0}</td>
                                     <td>{p.size ? formatBytes(p.size) : ""}</td>
                                     <td>{formatDate(p.created_at)}</td>
                                     <td class="actions">
