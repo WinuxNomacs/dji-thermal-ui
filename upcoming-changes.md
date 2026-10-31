@@ -1881,7 +1881,8 @@ as feature changes require going forward."
 - **Generator:** Zensical (decided 2026-10-31).
 - **README:** keeps what the app is, how to install it and how to run it; everything else points to the
   documentation (decided 2026-10-31).
-- **Screenshot data:** the user's "Test Thermal Project" and its test flight. No GPS coordinate or address may show
+- **Screenshot data:** the flight "m4t-test-flights" (in "Default Project") on the user's own instance. No GPS
+  coordinate or address may show
   anywhere in a screenshot (maps without a basemap, coordinates, the project's location and the frames' positions
   replaced or hidden); the images themselves can be shown as they are (decided 2026-10-31).
 
