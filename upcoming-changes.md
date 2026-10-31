@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U3, the Problems tab (see Usability), to be planned with the user.
+**Up next**: U3, the Problems tab (see Usability), planned 2026-10-31, being built.
 
 **Then**: U4–U8, U1's other findings (see Usability), each planned with the user before it is built.
 
@@ -1882,6 +1882,34 @@ Proposed:
 - **The "Next: make a dataset" band's button** opens the Datasets tab with the New dataset bar in view; it does not
   start a conversion.
 - **Outputs:** the plain names above, dji-thermal-cli's name in small type beside each, its description the tooltip.
+
+### U3: the Problems tab (2026-10-31)
+
+On the flight page as it is, the Problems tab shows dji-thermal-cli's own sentences: the message, then its advice in
+flags (`--mosaic-normalize`), temperatures in the analysis's °C whatever the preferred unit, the files named in the
+message and again as chips, and the code (`ambient_temp_varies`) under each. The report shows the same.
+Proposed (each file's row in the analysis has the values the text needs, so neither dji-thermal-cli's sentences are
+parsed nor dji-thermal-cli changed):
+- **The app's own text for each code** dji-thermal-cli reports, its numbers taken from the files' rows; a code the
+  app doesn't know shows dji-thermal-cli's text, as now.
+- **Temperatures in the preferred unit** (a spread converted as a difference).
+- **The files listed once**, as the chips, each with its value where the problem has one.
+- **The code in a tooltip** on the severity badge.
+- **A button on a problem a setting fixes:** it opens the Datasets tab with the New dataset form unfolded and that
+  setting changed on top of the form's values, with a note saying what changed; nothing is converted (as the WebODM
+  plan's "Convert with these"). The report shows the text, without buttons.
+
+### U3: decisions (2026-10-31)
+
+- **Ambient (or reflected) temperature varies:** one button, "Normalize the frames to each other"; no "one ambient
+  temperature" button.
+- **Unusual maximum or minimum temperature:** no button, the advice in the form's words only (Replace above/below,
+  the colour range). An unusual mean: "Normalize".
+- **Oblique frames left out of a mosaic:** "Include them" (raises "Only frames with a gimbal pitch at or below")
+  only when the flight has too few nadir frames for a mosaic; text only otherwise.
+- **The other buttons:** emissivity or humidity differs, "Use one emissivity (0.95)" (the value most files have);
+  the rangefinder reads another distance than the embedded one, "Use the embedded distance"; a rangefinder reading
+  missing or unusual, "Use one distance (20.9 m)" (the median reading). No button where no setting fixes it.
 
 ## Platforms
 
