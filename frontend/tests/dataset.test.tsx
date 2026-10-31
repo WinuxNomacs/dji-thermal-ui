@@ -232,17 +232,16 @@ describe("the dataset's files and conversions", () => {
         expect(active({key: "alt", op: "lt", value: "-"})).toBe(false);
     });
 
-    it("filters by kind, thermal frame and problems", () => {
+    it("filters by kind and problems", () => {
         expect(names([{key: "kind", op: "in", value: ["visual"]}])).toEqual(["rgb/a_V.JPG"]);
         expect(names([{key: "kind", op: "in", value: []}])).toEqual([]);
-        expect(names([{key: "thermal_frame", op: "is", value: false}])).toEqual(["rgb/a_V.JPG"]);
         expect(names([{key: "problems", op: "is", value: true}])).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
     });
 
     it("tells which button's filter is set, if any", () => {
         expect(shownAs([])).toBe("all");
-        expect(shownAs([{key: "thermal_frame", op: "is", value: true}])).toBe("thermal");
-        expect(shownAs([{key: "thermal_frame", op: "is", value: false}])).toBeNull();
+        expect(shownAs([{key: "kind", op: "in", value: ["thermal"]}])).toBe("thermal");
+        expect(shownAs([{key: "kind", op: "in", value: ["visual"]}])).toBeNull();
         expect(shownAs([{key: "problems", op: "is", value: true}, {key: "path", op: "has", value: ""}])).toBe("flagged");
         expect(SHOWS.map(([s]) => s)).toEqual(["all", "thermal", "flagged"]);
     });
@@ -257,6 +256,14 @@ describe("the dataset's files and conversions", () => {
         expect(filtersFrom([...query, "size.gt.1"])).toEqual(filters);
         expect(newCondition("kind")).toEqual({key: "kind", op: "in", value: []});
         expect(columnType("tmin")).toBe("number");
+    });
+
+    it("reads the Thermal frame column's filter, from before Kind said it alone, as Kind", () => {
+        expect(filtersFrom(["thermal_frame.is.yes"])).toEqual([{key: "kind", op: "in", value: ["thermal"]}]);
+        const others = filtersFrom(["thermal_frame.is.no"])[0].value as string[];
+        expect(others).toContain("visual");
+        expect(others).not.toContain("thermal");
+        expect(names(filtersFrom(["thermal_frame.is.no"]))).toEqual(["rgb/a_V.JPG"]);
     });
 
     it("calls a JPEG that is not thermal and named as DJI names a visual image visual", () => {
@@ -729,13 +736,9 @@ describe("the dataset page", () => {
         expect(filterRows()).toHaveLength(0);
         click($("[name=files-show][value=thermal]")!);
         await ticks();
-        expect(filterRows().map((r) => r.dataset.key)).toEqual(["thermal_frame"]);
-        expect($<HTMLSelectElement>(".filter-row [name=value]")!.value).toBe("yes");
+        expect(filterRows().map((r) => r.dataset.key)).toEqual(["kind"]);
+        expect($(".filter-row")!.textContent).toContain("Thermal");
         expect(shownCount()).toBe("2 shown");
-        change($<HTMLSelectElement>(".filter-row [name=value]")!, "no");
-        await ticks();
-        expect(shownCount()).toBe("1 shown");
-        expect(showChosen()).toBeNull();
         click($("[name=files-show][value=flagged]")!);
         await ticks();
         expect(filterRows().map((r) => r.dataset.key)).toEqual(["problems"]);
@@ -813,7 +816,7 @@ describe("the dataset page", () => {
         expect($("th .kind-items")).toBeNull();
     });
 
-    it("shows whether each file is a thermal frame and has problems, and reads the filter from a link", async () => {
+    it("names each file's problems in one column, their sentences as tooltips, and reads the filter from a link", async () => {
         history.replaceState(null, "", "/dataset/5?filter=problems.is.yes#files");
         page(routes());
         await ticks();
@@ -821,8 +824,14 @@ describe("the dataset page", () => {
         expect(fileNames()).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);
         click($("[name=files-show][value=all]")!);
         await ticks();
-        const flags = $$("table.files tbody tr").map((tr) => [...tr.querySelectorAll("td.flag")].map((td) => !!td.querySelector("svg")));
-        expect(flags).toEqual([[false, false], [true, true], [true, true]]);
+        expect($$("table.files thead th").map((th) => th.textContent)).not.toContain("Thermal frame");
+        expect($$("table.files thead th").some((th) => th.textContent === "Notes")).toBe(false);
+        const problems = $$("table.files tbody td.problems");
+        expect(problems.map((td) => td.textContent!.trim())).toEqual(["", "Oblique", "Unusual max"]);
+        const badge = problems[2].querySelector(".badge")!;
+        expect(badge.className).toContain("warning");
+        expect(badge.getAttribute("title")).toContain("unusual maximum");
+        expect(badge.getAttribute("title")).not.toContain("<maximum>");
         expect(location.search).toBe("");
         expect(location.hash).toBe("#files");
     });

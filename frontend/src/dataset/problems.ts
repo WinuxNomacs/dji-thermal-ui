@@ -42,6 +42,17 @@ const fixedDistance = (d: number): Fix => ({label: "Use one distance (" + metres
     values: {distance_mode: "fixed", distance: plain(Number(d.toFixed(1)))},
     done: "Object distance is fixed at " + metres(d) + "."});
 
+// A problem's name where there is room for a word or two (the Files tab's Problems column); a code the app doesn't
+// know shows as it is
+const SHORT_NAMES: Record<string, string> = {
+    ambient_temp_varies: "Ambient varies", reflection_varies: "Reflected varies", emissivity_differs: "Emissivity differs",
+    humidity_differs: "Humidity differs", distance_differs: "Distance differs", rangefinder_distance: "Rangefinder distance",
+    rangefinder_invalid: "No rangefinder reading", rangefinder_outlier: "Unusual rangefinder reading",
+    temperature_max_outlier: "Unusual max", temperature_min_outlier: "Unusual min", temperature_mean_outlier: "Unusual mean",
+    oblique: "Oblique", pitch_outlier: "Unusual pitch", altitude_outlier: "Unusual height", no_pose: "No position",
+};
+export const shortName = (code: string): string => SHORT_NAMES[code] || code;
+
 export function describeProblem(p: Problem, rows: FileRow[]): ProblemText {
     const thermal = rows.filter((r) => r.kind === "thermal");
     const byPath = new Map(rows.map((r) => [r.path, r]));

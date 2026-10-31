@@ -7,7 +7,8 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {count, deleteText, formatBytes, formatDate, statusLabel} from "../core/format";
 import {matchesSearch} from "../core/search";
 import {ask, askName, dialog} from "../components/dialog";
-import {CaretDown, CaretUp, Check, Cog, Folder, Images, MoveTo, Pencil, Plus, Refresh, Trash} from "../components/icons";
+import {CaretDown, CaretUp, Check, Cog, Ellipsis, Folder, Images, Plus} from "../components/icons";
+import {useMenu} from "../components/menu";
 import {SearchBox} from "../components/search-box";
 import {type Dataset, droppedFiles, filesCell, sortDatasets} from "./list";
 import {NewDataset, type Stage} from "./new-dataset";
@@ -61,6 +62,24 @@ interface RowProps {
     d: Dataset; publicUrl: string; rename: () => void; analyze: () => void; move: () => void; remove: () => void;
 }
 
+// A flight's actions, named in its "…" menu
+function RowMenu({d, rename, analyze, move, remove}: Omit<RowProps, "publicUrl">) {
+    const {open, setOpen, ref} = useMenu();
+    const item = (what: string, label: string, act: () => void, cls?: string) => (
+        <li><button type="button" class={cls} data-action={what} onClick={() => { setOpen(false); act(); }}>{label}</button></li>);
+    return (<span class={"menu" + (open ? " open" : "")} ref={ref}>
+        <button type="button" class="icon-button" title="More" aria-label={"More for " + (d.name || "(untitled)")}
+                aria-expanded={open} onClick={() => setOpen(!open)}><Ellipsis/></button>
+        {open && <ul class="menu-items">
+            {item("rename", "Rename", rename)}
+            {d.status !== "analyzing" && item("analyze", "Analyze again", analyze)}
+            {item("move", "Move to another project", move)}
+            <li class="divider" role="separator"></li>
+            {item("delete", "Delete", remove, "text-danger")}
+        </ul>}
+    </span>);
+}
+
 function Row({d, publicUrl, rename, analyze, move, remove}: RowProps) {
     return (
         <tr data-id={d.id}>
@@ -71,21 +90,11 @@ function Row({d, publicUrl, rename, analyze, move, remove}: RowProps) {
             <td>{filesCell(d)}</td>
             <td><ProblemsCell d={d}/></td>
             <td><ConversionsCell d={d}/></td>
-            <td>{d.finding_count || ""}</td>
+            <td>{d.finding_count || 0}</td>
             <td>{formatBytes(d.size)}</td>
             <td>{formatDate(d.last_activity)}</td>
             <td>{formatDate(d.created_at)}</td>
-            <td class="actions">
-                <button type="button" class="icon-button rename" title="Rename" aria-label="Rename"
-                        onClick={rename}><Pencil/></button>
-                {d.status !== "analyzing" && (
-                    <button type="button" class="icon-button analyze" title="Analyze again" aria-label="Analyze again"
-                            onClick={analyze}><Refresh/></button>)}
-                <button type="button" class="icon-button move" title="Move to another project"
-                        aria-label="Move to another project" onClick={move}><MoveTo/></button>
-                <button type="button" class="icon-button delete" title="Delete" aria-label="Delete"
-                        onClick={remove}><Trash/></button>
-            </td>
+            <td class="actions"><RowMenu d={d} rename={rename} analyze={analyze} move={move} remove={remove}/></td>
         </tr>
     );
 }

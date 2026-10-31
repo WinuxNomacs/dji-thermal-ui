@@ -6,6 +6,7 @@ import {errorText, readJson, sendJson} from "../core/api";
 import {fileKind, formatNumber, type Maybe, mosaicLabel, stageText} from "../core/format";
 import {convertDelta, formatDelta, formatTemp, unitOf, unitSymbol, userUnit} from "../core/units";
 import {ask, askName} from "../components/dialog";
+import {useMenu} from "../components/menu";
 import {Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/icons";
 import {type Analysis} from "./files";
 import {badgeClass, type Conversion, conversionLabel, type Detail, figures, isBusy, type Prefill, RESULTS_SHOWN,
@@ -266,23 +267,13 @@ function DsmLine({c, base, onChange, build}: DsmProps) {
 }
 
 function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}: CardProps) {
-    const [menu, setMenu] = useState(false);
+    const {open: menu, setOpen: setMenu, ref} = useMenu();
     const [detail, setDetail] = useState<Detail | null>(null);
     const [shown, setShown] = useState(false);
     const [webodm, setWebodm] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
     const ready = c.status === "ready", busy = isBusy(c);
     // The viewer shows the mosaics, or WebODM's orthophoto brought back without them
     const mosaics = ready && (c.mosaic_status === "ready" || !!c.orthophoto);
-
-    useEffect(() => {
-        if (!menu) return;
-        const outside = (e: Event) => { if (!ref.current?.contains(e.target as Node)) setMenu(false); };
-        const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setMenu(false); };
-        document.addEventListener("click", outside);
-        document.addEventListener("keydown", escape);
-        return () => { document.removeEventListener("click", outside); document.removeEventListener("keydown", escape); };
-    }, [menu]);
 
     // Unfolded results follow the conversion while it runs
     useEffect(() => { if (shown) loadDetail(); }, [shown, c.status, c.converted, c.skipped, c.mosaic_status]);

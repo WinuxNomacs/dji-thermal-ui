@@ -107,12 +107,21 @@ describe("the datasets list", () => {
         expect(row(5).textContent).toContain("2 thermal · 1 other");
         expect(row(5).querySelector(".badge.warning")!.textContent).toBe("1");
         expect(row(5).querySelector("[title='2 datasets ready of 3']")!.textContent).toBe("2/3");
-        expect(row(5).querySelector(".rename")!.getAttribute("aria-label")).toBe("Rename");
-        expect(row(5).querySelector(".delete")!.getAttribute("aria-label")).toBe("Delete");
+        // The actions named in the row's menu, Delete last
+        expect(row(5).querySelector(".menu-items")).toBeNull();
+        click(row(5).querySelector("[aria-label='More for <i>x</i>']")!);
+        await ticks();
+        expect([...row(5).querySelectorAll(".menu-items button")].map((b) => b.textContent))
+            .toEqual(["Rename", "Analyze again", "Move to another project", "Delete"]);
+        expect(row(5).querySelector("[data-action=delete]")!.className).toBe("text-danger");
+        expect(row(5).querySelector("td:nth-child(6)")!.textContent).toBe("0");
         expect(row(6).querySelector(".text-success[title='1 dataset ready of 1']")).not.toBeNull();
         expect(row(6).querySelector("svg[role=img] title")!.textContent).toBe("Read in place from /data/flight3");
         expect(row(7).querySelector<HTMLElement>(".progress-bar")!.style.width).toBe("30%");
-        expect(row(7).querySelector(".analyze")).toBeNull();
+        click(row(7).querySelector("[aria-expanded]")!);
+        await ticks();
+        expect(row(5).querySelector(".menu-items")).toBeNull();
+        expect(row(7).querySelector("[data-action=analyze]")).toBeNull();
     });
 
     it("lists the datasets and polls while one is analyzed", async () => {
@@ -283,13 +292,20 @@ describe("the datasets list", () => {
     });
 });
 
+// Chooses an action in the first row's "…" menu
+async function act(what: string) {
+    click($("tr[data-id] [aria-expanded]")!);
+    await ticks();
+    click($(`[data-action=${what}]`)!);
+    await ticks();
+}
+
 describe("the datasets list's actions, and an upload that does not all arrive", () => {
     it("renames a dataset in the page's dialog", async () => {
         const fetchFn = server({[LIST_URL]: LIST, ["PATCH " + API + "datasets/5"]: DATASET});
         page(fetchFn);
         await ticks();
-        click($(".rename")!);
-        await ticks();
+        await act("rename");
         const field = dialog()!.querySelector("input")!;
         expect(field.value).toBe("Roof");
         type(field, " Roof east ");
@@ -306,8 +322,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
                                 ["PATCH " + API + "datasets/5"]: DATASET});
         page(fetchFn);
         await ticks();
-        click($(".move")!);
-        await ticks();
+        await act("move");
         // The others only, the first chosen
         const select = byId<HTMLSelectElement>("move-to");
         expect([...select.options].map((o) => o.textContent)).toEqual(["Barns", "Yard"]);
@@ -319,8 +334,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
         expect(JSON.parse(patch[1]!.body as string)).toEqual({project: 9});
         expect(calls(fetchFn).filter((c) => c === "GET " + LIST_URL)).toHaveLength(2);
 
-        click($(".move")!);
-        await ticks();
+        await act("move");
         expect(dialog()!.textContent).toContain("There is no other project");
         press("OK");
         await ticks();
@@ -332,8 +346,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
                                 ["POST " + API + "datasets/5/analyze"]: () => jsonResponse({detail: "Busy"}, false)});
         page(fetchFn);
         await ticks();
-        click($(".analyze")!);
-        await ticks();
+        await act("analyze");
         expect(calls(fetchFn)).toContain("POST " + API + "datasets/5/analyze");
         expect($("[role=alert]")!.textContent).toBe("Busy");
     });
@@ -343,8 +356,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
         const fetchFn = server({[LIST_URL]: {datasets: [d]}, ["DELETE " + API + "datasets/5"]: {}});
         page(fetchFn);
         await ticks();
-        click($(".delete")!);
-        await ticks();
+        await act("delete");
         const text = dialog()!.textContent;
         expect(text).toContain("“Roof” and its 3 images are deleted.");
         expect(text).toContain("With it: 2 datasets, 1 mosaic and 14 measurements.");
@@ -353,8 +365,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
         await ticks();
         expect(calls(fetchFn)).not.toContain("DELETE " + API + "datasets/5");
 
-        click($(".delete")!);
-        await ticks();
+        await act("delete");
         press("Delete");
         await ticks();
         expect(calls(fetchFn)).toContain("DELETE " + API + "datasets/5");

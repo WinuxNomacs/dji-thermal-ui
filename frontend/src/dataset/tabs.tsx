@@ -1,14 +1,15 @@
 // The dataset page's figures and its Files, Problems and WebODM plan tabs, drawn from the analysis
 import type {ComponentChildren} from "preact";
-import {useCallback, useEffect, useRef, useState} from "preact/hooks";
+import {useCallback, useEffect, useMemo, useRef, useState} from "preact/hooks";
 import {count, type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, fileKind, formatNumber, kindLabel, severityLabel,
         zoneText} from "../core/format";
 import {formatTemp, unitSymbol, userUnit} from "../core/units";
 import {isImage, isVideo} from "../core/upload";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask, dialog} from "../components/dialog";
+import {useMenu} from "../components/menu";
 import {FullSize} from "./full-size";
-import {describeProblem, type Fix} from "./problems";
+import {describeProblem, type Fix, shortName} from "./problems";
 import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
 import {active, type Analysis, columnType, type Condition, type Favourite, type FileColumn, FILES_TAB_COLUMNS, type FileRow,
         fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption, type Problem,
@@ -77,11 +78,12 @@ function storedDetail(): boolean {
 
 const pictured = (path: string) => isImage({name: path} as File) || isVideo({name: path} as File);
 
-// What the analysis says of a file beside its columns: its findings' codes, why it is not used, its warnings
-function Notes({row, flags}: {row: FileRow; flags: Problem[]}) {
+// A file's problems: each one's short name (its sentence the tooltip), why it is not used, its warnings
+function Notes({row, flags, texts}: {row: FileRow; flags: Problem[]; texts: Map<Problem, string>}) {
     const kind = fileKind(row);
     return (<>
-        {flags.map((f) => (<><span class={"badge " + (SEVERITY_CLASSES[f.severity] || "")} title={f.message}>{f.code}</span> </>))}
+        {flags.map((f) => (<><span class={"badge " + (SEVERITY_CLASSES[f.severity] || "")} title={texts.get(f) || f.message}>
+            {shortName(f.code)}</span> </>))}
         {kind !== "thermal" && kind !== "visual" && row.reason && <span class="text-muted">{row.reason} </span>}
         {(row.warnings || []).map((w) => <span class="text-warning">{w} </span>)}
     </>);
@@ -89,8 +91,8 @@ function Notes({row, flags}: {row: FileRow; flags: Problem[]}) {
 
 // The detail pane: the file's picture at the pane's width (a video's cover), a button showing it at its own size, and
 // its columns
-function DetailPane({row, flags, picture, thumb, frame, zone, selected, onClose, onFullSize}: {
-    row: FileRow; flags: Problem[]; picture: string; thumb: string; frame: string | null;
+function DetailPane({row, flags, texts, picture, thumb, frame, zone, selected, onClose, onFullSize}: {
+    row: FileRow; flags: Problem[]; texts: Map<Problem, string>; picture: string; thumb: string; frame: string | null;
     zone?: FlightZone | null; selected: boolean; onClose: () => void; onFullSize: () => void;
 }) {
     return (<aside class={"files-detail" + (selected ? " selected" : "")} aria-label="File details">
@@ -106,10 +108,9 @@ function DetailPane({row, flags, picture, thumb, frame, zone, selected, onClose,
             {frame && <a href={frame}>Open the frame</a>}</p>}
         <dl class="files-detail-columns">
             {FILES_TAB_COLUMNS.map((c) => (<><dt key={c.key}>{c.key === "time" ? c.label + " (" + zoneText(zone) + ")" : c.label}</dt>
-                <dd>{columnType(c.key) === "flag" ? (row[c.key] ? "Yes" : "No") : cell(row, c) || "–"}</dd></>))}
+                <dd>{c.key === "problems" ? (row.problems ? <Notes row={row} flags={flags} texts={texts}/> : "None") :
+                    cell(row, c) || "–"}</dd></>))}
         </dl>
-        {(flags.length > 0 || row.reason || (row.warnings || []).length > 0) &&
-            <p class="files-detail-notes"><Notes row={row} flags={flags}/></p>}
     </aside>);
 }
 
@@ -127,21 +128,6 @@ interface FilesProps {
 
 // The kinds to choose from, as checkboxes under All: checking All checks every kind and unchecking it unchecks them,
 // unchecking a kind unchecks All
-// A menu's open state, closed by a click outside it or by Escape
-function useMenu() {
-    const [open, setOpen] = useState(false);
-    const ref = useRef<HTMLSpanElement>(null);
-    useEffect(() => {
-        if (!open) return;
-        const outside = (e: Event) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-        const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-        document.addEventListener("click", outside);
-        document.addEventListener("keydown", escape);
-        return () => { document.removeEventListener("click", outside); document.removeEventListener("keydown", escape); };
-    }, [open]);
-    return {open, setOpen, ref};
-}
-
 function KindPicker({kinds, chosen, choose, label}: {kinds: string[]; chosen: string[]; choose: (k: string[]) => void;
                                                      label: ComponentChildren}) {
     const {open, setOpen, ref} = useMenu();
@@ -274,6 +260,9 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
     const [closedOn, setClosedOn] = useState<string | null>(null);     // closed on this row: shut until another is hovered
     const [fullSize, setFullSize] = useState<string | null>(null);     // the row shown at its own size, over the page
     const flags = flagsByFile(analysis.findings);
+    // Each problem's sentence in the app's words, the tooltip on its name
+    const texts = useMemo(() => new Map((analysis.findings || []).map((f) => [f, describeProblem(f, analysis.files || []).message])),
+                          [analysis]);
     const rows = fileRows(analysis, view);
     const filters = view.filters;
     const shown = shownAs(filters);
@@ -388,7 +377,6 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
                                                                     title={kindFilter ? "Filtered by kind" : "Filter by kind"}/>}/>}
                         </th>);
                     })}
-                    <th>Notes</th>
                 </tr></thead>
                 <tbody>
                     {rows.map((r) => {
@@ -400,17 +388,16 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
                                 <button type="button" class="thumb-button" aria-pressed={selected === r.path}
                                         aria-label={"Show the details of " + r.path}>
                                     <img loading="lazy" alt="" src={pictureOf(r)}/></button>}</td>}
-                            {FILES_TAB_COLUMNS.map((c) => (<td key={c.key} class={columnType(c.key) === "flag" ? "flag" : undefined}
+                            {FILES_TAB_COLUMNS.map((c) => (<td key={c.key} class={c.key === "problems" ? "problems" : undefined}
                                                                onMouseEnter={c.key === "path" ? () => hover(r.path) : undefined}>
-                                {columnType(c.key) === "flag" ? (r[c.key] ? <Check title="Yes"/> : "") :
+                                {c.key === "problems" ? <Notes row={r} flags={flags[r.path] || []} texts={texts}/> :
                                     href && c.key === "path" ? <a href={href} title="Open the frame">{cell(r, c)}</a> : cell(r, c)}</td>))}
-                            <td><Notes row={r} flags={flags[r.path] || []}/></td>
                         </tr>);
                     })}
                 </tbody>
             </table>
         </div>
-        {detailRow && <DetailPane row={detailRow} flags={flags[detailRow.path] || []} frame={frameOf(detailRow)} zone={zone}
+        {detailRow && <DetailPane row={detailRow} flags={flags[detailRow.path] || []} texts={texts} frame={frameOf(detailRow)} zone={zone}
             picture={pictureOf(detailRow, "preview")} thumb={pictureOf(detailRow)}
             selected={selected === detailRow.path} onClose={close} onFullSize={() => setFullSize(detailRow.path)}/>}
         </div>

@@ -58,6 +58,16 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The flight page's Files tab: the Thermal frame column goes (Kind says it; a link or saved filter on it is read
+  as Kind), and With problems and Notes become one Problems column naming each problem (Unusual max, Oblique…),
+  its sentence the tooltip, every row one height.
+- A project's Flights table: a flight's Rename, Analyze again, Move to another project and Delete are named in its
+  row's "…" menu, and its name stays on one line; the Projects table counts 0 datasets and findings. A dataset
+  card's menu shows its links (Frames, Compare with…, Download all) as its other items.
+- Compare's Link the panes, Shared palette and Findings keep one label each, pressed in with a check while on; the
+  maps' basemap list follows the dark theme.
+- The reports say their text saves as it is typed (Saving…, Saved), and say why they can't be printed yet beside
+  that rather than in its place.
 - The navigation pane (U7) lists projects, flights and datasets, and stops there: the Tools, Mosaics and Frames under
   a dataset, the viewer's tabs and the Flight report's row are gone, the pages' own tabs and buttons reaching them. A
   dataset is marked on any of its pages, a flight on its Flight report, and what the pane unfolds to show the page

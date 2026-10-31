@@ -17,11 +17,11 @@ import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import {getDistance} from "ol/sphere";
-import {render} from "preact";
+import {type ComponentChildren, render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {type Maybe} from "../core/format";
-import {ArrowLeft, Flag, Link, Lock, Unlink, Unlock} from "../components/icons";
+import {ArrowLeft, Check, Flag, Link, Lock} from "../components/icons";
 import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, findingSources,
         findingsUrl} from "../findings/findings";
 import {centreOf, drawFindings, findingAt} from "../findings/layer";
@@ -102,6 +102,13 @@ interface Props {
     name: string;
     datasetName: string;
     basemaps: Basemap[];
+}
+
+// A header button that stays on or off: one label either way, pressed in with a check when on
+function Toggle({id, on, title, onClick, children}: {id: string; on: boolean; title: string; onClick: () => void;
+                                                     children: ComponentChildren}) {
+    return (<button type="button" id={id} class="button default toggle" aria-pressed={on} title={title} onClick={onClick}>
+        {children}{on && <Check class="icon toggle-check"/>}</button>);
 }
 
 export function ComparePage({api, publicUrl, id, otherId, name, datasetName, basemaps}: Props) {
@@ -811,15 +818,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     <div class="subtitle">Two mosaics side by side, one over the other, or their difference.</div>
                 </div>
                 <div class="page-actions">
-                    <button type="button" id="link" class={"button default" + (linked ? " active" : "")} aria-pressed={linked}
-                            title="Pan and zoom both panes together" onClick={toggleLinked}>
-                        {linked ? <><Link/> Linked</> : <><Unlink/> Unlinked</>}</button>
-                    <button type="button" id="lock" class={"button default" + (locked ? " active" : "")} aria-pressed={locked}
-                            title="Both panes share one palette and range" onClick={toggleLocked}>
-                        {locked ? <><Lock/> Shared palette</> : <><Unlock/> Each pane its own</>}</button>
-                    <button type="button" id="findings" class={"button default" + (showFindings ? " active" : "")}
-                            aria-pressed={showFindings} title="Show the flights' findings in both panes"
-                            onClick={() => setShowFindings(!showFindings)}><Flag/> Findings</button>
+                    <Toggle id="link" on={linked} title="Pan and zoom both panes together" onClick={toggleLinked}>
+                        <Link/> Link the panes</Toggle>
+                    <Toggle id="lock" on={locked} title="Both panes share one palette and range; off, each pane has its own"
+                            onClick={toggleLocked}><Lock/> Shared palette</Toggle>
+                    <Toggle id="findings" on={showFindings} title="Show the flights' findings in both panes"
+                            onClick={() => setShowFindings(!showFindings)}><Flag/> Findings</Toggle>
                 </div>
             </div>
             {status && <div class={status.error ? "notice error" : "message"} id="status" role={status.error ? "alert" : undefined}>

@@ -219,9 +219,12 @@ describe("the mosaic report", () => {
         vi.mocked(drawFigures).mockImplementationOnce(() => new Promise((r) => { finish = r; }));
         const {print} = await page({[BASE + "/measurements"]: {measurements: []}});
         expect($("#print")!.hasAttribute("disabled")).toBe(true);
-        expect(text(".report-saved")).toBe("Drawing the figures…");
+        // Beside whether the text was saved, not in its place
+        expect(text(".report-waiting")).toBe("Drawing the figures…");
+        expect(text(".report-saved")).toBe("Typed text is saved as you type");
         finish({main: "data:image/png;base64,main"});
         await ticks();
+        expect($(".report-waiting")).toBeNull();
         expect($("#print")!.hasAttribute("disabled")).toBe(false);
         click($("#print")!);
         expect(print).toHaveBeenCalledOnce();
