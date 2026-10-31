@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U3, the Problems tab (see Usability), planned 2026-10-31, being built.
+**Up next**: U4, the viewer's first view (see Usability), to be planned with the user.
 
-**Then**: U4–U8, U1's other findings (see Usability), each planned with the user before it is built.
+**Then**: U5–U8, U1's other findings (see Usability), each planned with the user before it is built.
 
 **After that**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
@@ -1883,7 +1883,7 @@ Proposed:
   start a conversion.
 - **Outputs:** the plain names above, dji-thermal-cli's name in small type beside each, its description the tooltip.
 
-### U3: the Problems tab (2026-10-31)
+### U3: the Problems tab (built 2026-10-31, see Done)
 
 On the flight page as it is, the Problems tab shows dji-thermal-cli's own sentences: the message, then its advice in
 flags (`--mosaic-normalize`), temperatures in the analysis's °C whatever the preferred unit, the files named in the
@@ -2616,3 +2616,11 @@ as feature changes require going forward."
   `frontend/src/dataset/dataset-page.tsx` and `convert.tsx`; tests in `frontend/tests/dataset.test.tsx`. Checked on
   the user's data on a scratch 8081 instance (reading only; no datasets and analysing stubbed in the browser), light,
   dark and 600 px, no errors.
+- **U3: the Problems tab** (2026-10-31; U1's finding 2). Each of dji-thermal-cli's codes in the app's words, its
+  numbers from the files' rows in the preferred unit (`describeProblem`), the files listed once with their values,
+  the code in the badge's tooltip; a button for a problem a setting fixes (normalize, one emissivity or humidity,
+  the embedded or one fixed distance, the oblique frames when too few nadir frames are left) opens the New dataset
+  form with it set (`FixRequest`), converting nothing; unknown codes keep the cli's text; the report the same,
+  without buttons. Code in `frontend/src/dataset/problems.ts`, `tabs.tsx` (`ProblemsTab`), `convert.tsx` and
+  `dataset-page.tsx`; tests in `frontend/tests/problems.test.ts`, `dataset.test.tsx` and `report.test.tsx`. Checked
+  on the user's flights 1 and 8 on a scratch 8081 instance (reading only), light, dark and 600 px, no errors.
