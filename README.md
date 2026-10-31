@@ -40,6 +40,11 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
     can be deleted. The flight report shows them, numbered V1, V2… on its map, and a finding's reports show those
     attached to it. A project's export carries them.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a flight.
+- **Problems tab:** each problem dji-thermal-cli finds, in the New dataset form's words, its temperatures in the
+  unit chosen under User Preferences and its files listed with their values (each opening the Files tab on it); the
+  problem's code is the badge's tooltip. A problem a setting fixes has a button that opens the Datasets tab with
+  that setting changed in the New dataset form, converting nothing: normalizing the frames, one emissivity or
+  humidity, the embedded or one fixed distance, the oblique frames included when too few nadir frames are left.
 - **Files tab:** a flight's files, sorted by any column and filtered by conditions on any of them (Height ≤ 21,
   Min > 32 °F, Kind is one of Thermal…), every one of which a file shown matches: numbers in the unit shown,
   text by its words. The Kind column's checkboxes and the Thermal frame and With problems columns filter too. All

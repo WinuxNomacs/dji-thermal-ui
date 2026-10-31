@@ -534,8 +534,9 @@ th .kind-button .icon.on { color: var(--accent); }
 .finding.info { border-left-color: var(--info); }
 .suggestion { margin-top: 4px; }
 .finding-files { margin-top: 6px; font-size: 12px; }
-.finding-files code { margin-right: 4px; display: inline-block; }
-.finding-code { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.finding-file { margin-right: 8px; display: inline-block; }
+.finding-value { color: var(--muted); }
+.finding-fix { margin-top: 6px; }
 
 .plan-tab h2:first-child { margin-top: 0; }
 .command-row { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 10px; }

@@ -13,6 +13,7 @@ import {badgeClass, type Conversion, conversionLabel, type Detail, figures, isBu
 import {DISTANCE_MODES, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
         UNIT_LABELS} from "./settings";
+import type {Fix} from "./problems";
 import {CELL_RANGE} from "./webodm";
 import {WebODMPanel, WebODMTasks} from "./webodm-panel";
 
@@ -356,16 +357,20 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
     </div>);
 }
 
+// A Problems tab button's change to the form, counted so the same one asked twice applies twice
+export interface FixRequest {n: number; fix: Fix}
+
 interface Props {
     api: string;
     publicUrl: string;
     dataset: ConvertDataset;
     onChange: () => void;
     planRequest: number;            // counts the plan's "Convert with these": each fills the form with its settings
+    fixRequest?: FixRequest | null; // a Problems tab button's: each changes its settings in the form
     prefill: Prefill | null;
 }
 
-export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, prefill}: Props) {
+export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixRequest, prefill}: Props) {
     const base = api + "conversions/", viewer = publicUrl + "conversion/";
     const conversions = dataset.conversions || [];
     const [meta, setMeta] = useState<Meta | null>(null);
@@ -411,6 +416,15 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, pref
         setOpen(true);
         say(<>The form has the WebODM plan's settings: <code>{args.join(" ")}</code></>);
     }, [planRequest, meta]);
+
+    // A problem's fix: its fields changed on top of what the form holds
+    useEffect(() => {
+        if (!fixRequest || !meta || !form) return;
+        const {values = {}, checks = {}, done} = fixRequest.fix;
+        setForm({...form, values: {...form.values, ...values}, checks: {...form.checks, ...checks}});
+        setOpen(true);
+        say(done + " Convert when the rest is as you want it.");
+    }, [fixRequest?.n, meta]);
 
     if (!meta || !form) return (<div class="convert-tab">{conversionsBlock()}
         {message ? <p class={message.cls}>{message.text}</p> : <p class="text-muted">Loading…</p>}</div>);

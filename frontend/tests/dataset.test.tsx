@@ -684,12 +684,32 @@ describe("the dataset page", () => {
         await ticks();
         click(tab("problems"));
         await ticks();
-        expect($(".finding .suggestion")!.textContent).toContain("--replace-above");
+        expect($(".finding .suggestion")!.textContent).toContain("“Replace above” under Adjustments");
+        expect($(".finding .badge")!.getAttribute("title")).toBe("dji-thermal-cli's code: temperature_max_outlier");
+        expect($(".finding-files a")!.textContent).toBe("thermal/b_T.JPG 50.6 °C");
         click($(".finding-files a")!);
         await ticks();
         expect(selected()).toBe("files");
         expect($<HTMLInputElement>(".filter-value")!.value).toBe("thermal/b_T.JPG");
         expect(fileNames()).toEqual(["thermal/b_T.JPG"]);
+    });
+
+    it("opens the New dataset form with a problem's fix set, converting nothing", async () => {
+        filesFirst();
+        const fetchFn = routes();
+        page(fetchFn);
+        await ticks();
+        click(tab("problems"));
+        await ticks();
+        const fixes = [...document.querySelectorAll<HTMLButtonElement>(".finding-fix button")];
+        expect(fixes.map((b) => b.textContent!.trim())).toEqual(["Include them"]);
+        click(fixes[0]);
+        await ticks();
+        expect(selected()).toBe("datasets");
+        expect($<HTMLInputElement>("input[name=max_pitch]")!.value).toBe("-45");
+        expect($(".convert-settings")!.textContent).toContain(
+            "Only frames with a gimbal pitch at or below -45° are used. Convert when the rest is as you want it.");
+        expect(fetchFn.mock.calls.filter(([, init]) => init?.method && init.method !== "GET")).toHaveLength(0);
     });
 
     it("starts the filter from a button, shown as its condition to change from there", async () => {

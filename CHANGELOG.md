@@ -58,6 +58,11 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The Problems tab (U3) says each problem in the New dataset form's words rather than dji-thermal-cli's flags,
+  with its temperatures in the preferred unit, its files listed once with their values and the code in a tooltip.
+  A problem a setting fixes has a button that opens the New dataset form with it set: "Normalize the frames to
+  each other", "Use one emissivity", "Use the embedded distance", "Use one distance", and "Include them" for
+  oblique frames when too few nadir frames are left. The flight report shows the same text, without the buttons.
 - The flight page leads from the analysis to a dataset (U2): the Convert tab is now **Datasets**, listing the
   flight's datasets first and then a New dataset bar with the settings summary and the Convert button, the settings
   folded under Change settings. The page opens on it once the flight has a dataset. After the analysis, a flight

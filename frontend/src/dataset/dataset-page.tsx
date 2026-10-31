@@ -9,7 +9,8 @@ import {ask, askName, dialog} from "../components/dialog";
 import {ArrowLeft, Check, FileText, Link, Pencil, Play, Plus, Refresh, Stop, Trash, Warning} from "../components/icons";
 import {navigationChanged} from "../core/navigation";
 import {type Conversion, isBusy, parsePrefill} from "./conversions";
-import {ConvertTab} from "./convert";
+import {ConvertTab, type FixRequest} from "./convert";
+import type {Fix} from "./problems";
 import {type Analysis, filterQuery, type FilesView, newestReady, parseFilters} from "./files";
 import {FilesExport} from "./export";
 import {copyText, FilesTab, Overview, PlanTab, ProblemsTab} from "./tabs";
@@ -89,6 +90,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
     const [chosen, setChosen] = useState<Tab | null>(linkedTab);
     const [view, setView] = useState<FilesView>(() => ({filters: parseFilters(location.search), sort: "path", desc: false}));
     const [planRequest, setPlanRequest] = useState(0);
+    const [fixRequest, setFixRequest] = useState<FixRequest | null>(null);
     const [copied, setCopied] = useState(false);
     const [progress, setProgress] = useState<Progress | null>(null);
     const [unsent, setUnsent] = useState<{files: File[]; text: string} | null>(null);
@@ -245,6 +247,11 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
         setTimeout(() => convertRef.current?.querySelector(".convert-settings")?.scrollIntoView?.());
     }
 
+    function fixProblem(fix: Fix) {
+        setFixRequest((r) => ({n: (r?.n || 0) + 1, fix}));
+        makeDataset();
+    }
+
     function makeDataset() {
         setChosen("datasets");
         setTimeout(() => convertRef.current?.querySelector(".convert-settings")?.scrollIntoView?.());
@@ -321,12 +328,12 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
                     hasVisual={a.files.some((f) => fileKind(f) === "visual")} onClose={() => setExporting(null)}/>}
                 {a?.files && tab === "videos" && <VideosTab api={api} url={url} files={a.files} videos={videos} zone={d.flight_zone}
                                                             basemaps={basemaps}/>}
-                {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile}/>}
+                {a?.files && tab === "problems" && <ProblemsTab analysis={a} showFile={showFile} fix={fixProblem}/>}
                 {a?.files && tab === "webodm" && <PlanTab analysis={a} convert={convertWithPlan}/>}
                 {/* Kept mounted, hidden: its form keeps what was typed while another tab is open */}
                 <div ref={convertRef} hidden={tab !== "datasets"}>
                     <ConvertTab api={api} publicUrl={publicUrl} dataset={d} onChange={load} planRequest={planRequest}
-                                prefill={prefill}/>
+                                fixRequest={fixRequest} prefill={prefill}/>
                 </div>
             </>)}
         </div>

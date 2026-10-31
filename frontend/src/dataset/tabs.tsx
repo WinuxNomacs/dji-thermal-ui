@@ -8,6 +8,7 @@ import {isImage, isVideo} from "../core/upload";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask, dialog} from "../components/dialog";
 import {FullSize} from "./full-size";
+import {describeProblem, type Fix} from "./problems";
 import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
 import {active, type Analysis, columnType, type Condition, type Favourite, type FileColumn, FILES_TAB_COLUMNS, type FileRow,
         fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption, type Problem,
@@ -417,9 +418,11 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
     </div>);
 }
 
-// The Problems tab: the findings, most severe first, each with what addresses it and the files it names (each opening
-// the Files tab filtered to it, when showFile is given: the report lists them only)
-export function ProblemsTab({analysis, showFile}: {analysis: Analysis; showFile?: (path: string) => void}) {
+// The Problems tab: the findings, most severe first, each in the app's words with the files it names (each opening the
+// Files tab filtered to it, when showFile is given: the report lists them only) and, when fix is given, a button that
+// sets what fixes it in the New dataset form
+export function ProblemsTab({analysis, showFile, fix}: {analysis: Analysis; showFile?: (path: string) => void;
+                                                       fix?: (f: Fix) => void}) {
     const findings = analysis.findings || [];
     if (!findings.length) {
         return <p class="text-success none"><Check/> dji-thermal-cli found no problems in this flight.</p>;
@@ -428,15 +431,20 @@ export function ProblemsTab({analysis, showFile}: {analysis: Analysis; showFile?
         {findings.map((f) => {
             const cls = SEVERITY_CLASSES[f.severity] || "";
             const files = f.files || [];
+            const t = describeProblem(f, analysis.files || []);
+            const name = (p: string) => (<><code>{p}</code>{t.values[p] && <span class="finding-value"> {t.values[p]}</span>}</>);
             return (<div class={"finding " + cls}>
-                <div><span class={"badge " + cls}>{severityLabel(f.severity)}</span> {f.message}</div>
-                {f.suggestion && <div class="suggestion"><Lightbulb/> {f.suggestion}</div>}
+                <div><span class={"badge " + cls} title={"dji-thermal-cli's code: " + f.code}>{severityLabel(f.severity)}</span>
+                    {" "}{t.message}</div>
+                {t.advice && <div class="suggestion"><Lightbulb/> {t.advice}</div>}
+                {fix && t.fix && <div class="finding-fix"><button type="button" class="button default small"
+                    title="Opens the New dataset form with this set" onClick={() => fix(t.fix!)}><Wand/> {t.fix.label}</button></div>}
                 {files.length > 0 && <div class="finding-files">
-                    {files.slice(0, FILES_SHOWN).map((p) => (<>{showFile ? <a href="#files" title="Show it on the Files tab"
-                        onClick={(e) => { e.preventDefault(); showFile(p); }}><code>{p}</code></a> : <code>{p}</code>} </>))}
+                    {files.slice(0, FILES_SHOWN).map((p) => (<span class="finding-file">{showFile ? <a href="#files"
+                        title="Show it on the Files tab" onClick={(e) => { e.preventDefault(); showFile(p); }}>{name(p)}</a> :
+                        name(p)}</span>))}
                     {files.length > FILES_SHOWN && <span class="text-muted">and {files.length - FILES_SHOWN} more</span>}
                 </div>}
-                <div class="finding-code">{f.code}</div>
             </div>);
         })}
     </div>);
