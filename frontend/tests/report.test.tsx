@@ -188,10 +188,12 @@ describe("the dataset report", () => {
     it("saves what is typed once typing pauses, the fields typed together", async () => {
         vi.useFakeTimers();
         const {fetchFn} = await page(DATASET, [], {["PATCH " + URL]: DATASET});
+        expect(text(".report-saved")).toBe("Typed text is saved as you type");
         type($("#report-title")!, "Roof survey");
         type($("#report-notes")!, "Wet");
         await vi.advanceTimersByTimeAsync(300);
         expect(calls(fetchFn)).not.toContain("PATCH " + URL);
+        expect(text(".report-saved")).toBe("Saving…");
         await vi.advanceTimersByTimeAsync(400);
         await ticks();
         const patches = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH");

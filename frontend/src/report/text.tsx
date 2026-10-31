@@ -30,7 +30,7 @@ export function useReportText<T extends Typed>(url: string) {
     function change<K extends keyof T>(field: K, value: T[K], wait = SAVE_MS) {
         setText((t) => t && {...t, [field]: value});
         pending.current = {...pending.current, [field]: value};
-        setSaved("");
+        setSaved("Saving…");
         clearTimeout(timer.current);
         timer.current = setTimeout(save, wait);
     }
@@ -67,17 +67,19 @@ export function TitleBlock({text, change, children}: {text: Typed; change: Field
 interface BarProps {
     back: string;               // the page it was opened from
     backLabel: string;
-    saved: string;              // whether the text was saved
+    saved: string;              // whether the text is being saved, was saved or could not be ("" before anything is typed)
     print: () => void;
     waiting?: string;           // why it cannot be printed yet (its figures are being drawn)
     children?: ComponentChildren;
 }
 
-// Above the report, not printed: the way back, whether the text was saved, the report's own switches, and printing
+// Above the report, not printed: the way back, whether the text was saved (that it will be, before anything is typed),
+// why it cannot be printed yet, the report's own switches, and printing
 export function ReportBar({back, backLabel, saved, print, waiting, children}: BarProps) {
     return (<div class="report-bar no-print">
         <a href={back}><ArrowLeft/> {backLabel}</a>
-        <span class="text-muted report-saved" role="status">{waiting || saved}</span>
+        <span class="text-muted report-saved" role="status">{saved || "Typed text is saved as you type"}</span>
+        {waiting && <span class="text-muted report-waiting">{waiting}</span>}
         {children}
         <button type="button" class="button primary" id="print" title="Print, or choose Save as PDF as the printer"
                 disabled={!!waiting} onClick={print}><Printer/> Print / Save as PDF</button>

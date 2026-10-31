@@ -272,7 +272,10 @@ describe("the compare page", () => {
         expect($("#shared input[name=min]")!.value).toBe("15.5");
         click(byId("lock"));
         await ticks();
-        expect(byId("lock").textContent).toBe(" Each pane its own");
+        // One label either way: off, it is no longer pressed and has no check
+        expect(byId("lock").textContent).toBe(" Shared palette");
+        expect(byId("lock").getAttribute("aria-pressed")).toBe("false");
+        expect(byId("lock").querySelector(".toggle-check")).toBeNull();
         expect($("#shared")).toBeNull();
         const min = $("#pane-a input[name=min]")!;
         expect(min.value).toBe("15.5");
@@ -294,9 +297,10 @@ describe("the compare page", () => {
 
     it("unlinks the panes and moves the split with the keys, within its limits", async () => {
         await open(server(routes()));
+        expect(byId("link").querySelector(".toggle-check")).not.toBeNull();
         click(byId("link"));
         await ticks();
-        expect(byId("link").textContent).toBe(" Unlinked");
+        expect(byId("link").textContent).toBe(" Link the panes");
         expect(byId("link").getAttribute("aria-pressed")).toBe("false");
         key(byId("split"), "ArrowRight");
         await ticks();
