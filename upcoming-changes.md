@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U8, polish (see Usability), to be planned with the user.
+**Up next**: U8, polish (see Usability), planned 2026-10-31.
 
 **Then**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built).
@@ -2014,6 +2014,42 @@ Proposed:
 - **What the pane unfolds stays unfolded** (remembered as a fold the user made), so it only folds when clicked.
 - **The settings pages are three rows** at the pane's foot, each with its icon: User Preferences, System Settings,
   Storage; System Settings no longer folds.
+
+### U8: polish
+
+As they are:
+- **The flight page's Files tab:** "Thermal frame" (a tick) repeats Kind. "With problems" is a tick. The Notes column
+  shows dji-thermal-cli's codes (`ambient_temp_varies`) as badges, which wrap and make those rows taller.
+- **A dataset card's "…" menu** (the flight page's Datasets tab): Frames, Compare with… and Download all are links
+  with no padding; the items below them are buttons.
+- **A project's Flights table:** each row ends in four icons (Rename, Analyze again, Move to another project as a
+  folder, Delete), named only in tooltips; a long name wraps onto three lines. The Projects table leaves Findings
+  empty for 0.
+- **Compare's header:** Linked, Shared palette and Findings are buttons tinted when on, and the first two change
+  their label (Unlinked, Each pane its own).
+- **The maps' basemap list** is drawn light (`#fff`) in the dark theme.
+- **Both report pages already say "Saved"** beside the Print button after each save (U1's finding 15 missed it), but
+  nothing shows before the first save, and while the figures are drawn the "waiting" text takes its place.
+
+Proposed:
+- **Files tab:** "Thermal frame" goes (the "Thermal frames" button filters on Kind; a link or saved filter with
+  `thermal_frame` is read as Kind). "With problems" and Notes become one **Problems** column: each problem a short
+  name on its severity's colour, the full sentence its tooltip, then a file's reason or warnings; one line per cell,
+  so every row has the same height. The "With problems" button and filter stay.
+- **Menus:** every item of a "…" menu styled alike, links as buttons.
+- **Flights table:** one "…" menu per row with Rename, Analyze again, Move to another project and, under a divider,
+  Delete in red; the name stays on one line. The Projects table shows 0 findings.
+- **Compare:** the three toggles keep one label each ("Link the panes", "Shared palette", "Findings"), pressed in
+  with a check mark when on.
+- **The basemap list** in the theme's colours.
+- **Reports:** "Saving…" while typing waits to be saved, then "Saved"; before anything is typed, "Typed text is
+  saved as you type"; the waiting text beside it, not in its place.
+
+### U8: decisions (2026-10-31)
+
+- **Files tab:** one Problems column in place of "With problems" and Notes, as above.
+- **Flight rows:** all four actions in the "…" menu.
+- **Compare's toggles:** pressed, with a check, one fixed label each (not switches).
 
 ## Platforms
 
