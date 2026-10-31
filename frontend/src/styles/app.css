@@ -795,8 +795,11 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .frame-list-head .segmented button { padding: 2px 6px; }
 .frame-lists { padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
 .frame-lists .segmented { display: flex; width: 100%; }
-.frame-lists .segmented button { flex: 1 1 auto; padding: 2px 6px; }
-.frame-lists .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Each list's count under its name, so that the three fit the list's width */
+.frame-lists .segmented button {
+    flex: 1 1 auto; flex-direction: column; padding: 2px 4px; line-height: 1.25; white-space: nowrap;
+}
+.frame-lists .count { font-size: 11px; opacity: 0.8; font-variant-numeric: tabular-nums; }
 .frame-items { list-style: none; margin: 0; padding: 4px; overflow-y: auto; flex: 1 1 auto; }
 .frame-items button {
     display: flex; flex-direction: column; width: 100%; padding: 4px 6px; border: 0; border-radius: var(--radius);
