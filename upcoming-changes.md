@@ -1919,9 +1919,6 @@ as feature changes require going forward."
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
-- **U1: the usability review** (2026-10-31). A first-time user's tasks walked through on the user's 8080 instance
-  (light, dark, 600 px), with what it created deleted and the database checked against a copy taken before. Fifteen
-  ranked findings, listed under Usability, written up in a private artifact. Nothing built.
 
 - **A1: the skeleton** (2026-10-25). The tooling (above), then the package in `src/dji_thermal_ui/`: the data
   folder and secret key (`datadir.py`), settings with SQLite in WAL mode, the three models and `Preferences`
@@ -2527,3 +2524,6 @@ as feature changes require going forward."
   frames of `ignored/m4t-220` and 3 visual photos of `ignored/m4t-rgb`, scratch data and config): DJI ironred in
   light and magma in dark on the thumbnails, pane and full size; fit, 1:1, wheel, drag and Escape; a visual photo at
   4032 × 3024; 600 px wide; thumbnails at most 420 ms; no console or HTTP errors.
+- **U1: the usability review** (2026-10-31). A first-time user's tasks walked through on the user's 8080 instance
+  (light, dark, 600 px), with what it created deleted and the database checked against a copy taken before. Fifteen
+  ranked findings, listed under Usability, written up in a private artifact. Nothing built.
