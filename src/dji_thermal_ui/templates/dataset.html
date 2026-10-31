@@ -1,3 +1,4 @@
 {% extends "page.html" %}
-{% block data %} data-id="{{ dataset.id }}" data-project="{{ project.id }}" data-project-name="{{ project.name }}"{% endblock %}
+{% block data %} data-id="{{ dataset.id }}" data-project="{{ project.id }}" data-project-name="{{ project.name }}"
+    data-palette="{{ palette }}"{% endblock %}
 {% block json %}{{ basemaps|json_script:"ta-basemaps" }}{% endblock %}

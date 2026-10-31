@@ -75,11 +75,12 @@ interface Props {
     id: number;
     projectId: number;                          // the project it is in
     projectName: string;
+    palette?: string;                           // the preferred palette ("": each flight's images' own)
     basemaps?: Basemap[];
     nav?: (url: string) => void;
 }
 
-export function DatasetPage({api, publicUrl, id, projectId, projectName, basemaps = [],
+export function DatasetPage({api, publicUrl, id, projectId, projectName, palette = "", basemaps = [],
                              nav = (url) => { location.href = url; }}: Props) {
     const projectUrl = publicUrl + "project/" + projectId;
     const url = api + "datasets/" + id;
@@ -299,7 +300,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, basemap
                             {label}{badges[key] !== "" && <> <span class="badge">{badges[key]}</span></>}</a>))}
                 </div>
                 {a?.files && tab === "files" && <FilesTab api={api} onExport={setExporting} analysis={a} view={view} setView={setView} frames={frames}
-                                                          thumbs={url + "/thumbnail?file="} zone={d.flight_zone}/>}
+                                                          thumbs={url + "/thumbnail?file="} palette={palette} zone={d.flight_zone}/>}
                 {exporting && a?.files && <FilesExport api={api} datasetId={d.id} shown={exporting}
                     all={a.files.filter((f) => f.kind === "thermal").map((f) => f.path)} conversions={d.conversions || []}
                     hasVisual={a.files.some((f) => fileKind(f) === "visual")} onClose={() => setExporting(null)}/>}

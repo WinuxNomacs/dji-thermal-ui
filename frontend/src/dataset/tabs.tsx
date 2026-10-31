@@ -1,12 +1,13 @@
 // The dataset page's figures and its Files, Problems and WebODM plan tabs, drawn from the analysis
 import type {ComponentChildren} from "preact";
-import {useEffect, useRef, useState} from "preact/hooks";
+import {useCallback, useEffect, useRef, useState} from "preact/hooks";
 import {count, type FlightZone, formatBytes, formatCapture, formatCaptureRange, formatDate, fileKind, formatNumber, kindLabel, severityLabel,
         zoneText} from "../core/format";
 import {formatTemp, unitSymbol, userUnit} from "../core/units";
 import {isImage, isVideo} from "../core/upload";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask, dialog} from "../components/dialog";
+import {FullSize} from "./full-size";
 import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
 import {active, type Analysis, columnType, type Condition, type Favourite, type FileColumn, FILES_TAB_COLUMNS, type FileRow,
         fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption, type Problem,
@@ -85,10 +86,11 @@ function Notes({row, flags}: {row: FileRow; flags: Problem[]}) {
     </>);
 }
 
-// The detail pane: the file's picture at the pane's width (a video's cover) and its columns
-function DetailPane({row, flags, picture, thumb, frame, zone, selected, onClose}: {
+// The detail pane: the file's picture at the pane's width (a video's cover), a button showing it at its own size, and
+// its columns
+function DetailPane({row, flags, picture, thumb, frame, zone, selected, onClose, onFullSize}: {
     row: FileRow; flags: Problem[]; picture: string; thumb: string; frame: string | null;
-    zone?: FlightZone | null; selected: boolean; onClose: () => void;
+    zone?: FlightZone | null; selected: boolean; onClose: () => void; onFullSize: () => void;
 }) {
     return (<aside class={"files-detail" + (selected ? " selected" : "")} aria-label="File details">
         <div class="files-detail-head">
@@ -97,7 +99,10 @@ function DetailPane({row, flags, picture, thumb, frame, zone, selected, onClose}
         </div>
         {pictured(row.path) && <div class="files-detail-picture" style={{backgroundImage: `url("${thumb}")`}}>
             <img key={row.path} alt={row.path} src={picture}/></div>}
-        {frame && <p class="files-detail-open"><a href={frame}>Open the frame</a></p>}
+        {(pictured(row.path) || frame) && <p class="files-detail-open">
+            {pictured(row.path) && <button type="button" class="button default small files-full-size" onClick={onFullSize}>
+                Full size</button>}
+            {frame && <a href={frame}>Open the frame</a>}</p>}
         <dl class="files-detail-columns">
             {FILES_TAB_COLUMNS.map((c) => (<><dt key={c.key}>{c.key === "time" ? c.label + " (" + zoneText(zone) + ")" : c.label}</dt>
                 <dd>{columnType(c.key) === "flag" ? (row[c.key] ? "Yes" : "No") : cell(row, c) || "–"}</dd></>))}
@@ -115,6 +120,7 @@ interface FilesProps {
     setView: (v: FilesView) => void;
     frames: string | null;      // the frame page of the newest ready conversion, which the thermal rows open
     thumbs: string;             // the thumbnail URL, the file's name appended
+    palette?: string;           // the preferred palette the thermal pictures are coloured with ("": the camera's own)
     zone?: FlightZone | null;   // the time zone the capture times are in
 }
 
@@ -259,12 +265,13 @@ function ConditionRow({c, kinds, set, remove}: {c: Condition; kinds: string[]; s
 
 // The Files tab: the files matching every condition of the filter (none at first: all of them), sorted by any column.
 // The buttons start the filter from all files, the thermal frames or those with problems
-export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs, zone}: FilesProps) {
+export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs, palette = "", zone}: FilesProps) {
     const [showThumbs, setShowThumbs] = useState(storedThumbs);
     const [hoverDetail, setHoverDetail] = useState(storedDetail);
     const [selected, setSelected] = useState<string | null>(null);     // the row the pane shows whatever is hovered
     const [hovered, setHovered] = useState<string | null>(null);
     const [closedOn, setClosedOn] = useState<string | null>(null);     // closed on this row: shut until another is hovered
+    const [fullSize, setFullSize] = useState<string | null>(null);     // the row shown at its own size, over the page
     const flags = flagsByFile(analysis.findings);
     const rows = fileRows(analysis, view);
     const filters = view.filters;
@@ -275,6 +282,10 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
     const detail = selected ?? (hoverDetail && hovered !== closedOn ? hovered : null);
     const detailRow = detail ? rows.find((r) => r.path === detail) : undefined;
     const frameOf = (r: FileRow) => frames && r.kind === "thermal" ? frames + "?frame=" + encodeURIComponent(r.path) : null;
+    // A row's picture (a thermal frame's in the preferred palette), at the size asked (the thumbnail's without one)
+    const pictureOf = (r: FileRow, size?: "preview" | "full") => thumbs + encodeURIComponent(r.path) +
+        (palette && r.kind === "thermal" ? "&palette=" + encodeURIComponent(palette) : "") + (size ? "&size=" + size : "");
+    const fullRow = fullSize ? rows.find((r) => r.path === fullSize) : undefined;
 
     function hover(path: string) {
         if (!hoverDetail) return;
@@ -288,6 +299,8 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
         setSelected(null);
         setClosedOn(hovered);
     }
+
+    const closeFullSize = useCallback(() => setFullSize(null), []);
 
     function toggleDetail(on: boolean) {
         setHoverDetail(on);
@@ -385,7 +398,7 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
                             {showThumbs && <td class="thumb" onMouseEnter={() => hover(r.path)}>{pictured(r.path) &&
                                 <button type="button" class="thumb-button" aria-pressed={selected === r.path}
                                         aria-label={"Show the details of " + r.path}>
-                                    <img loading="lazy" alt="" src={thumbs + encodeURIComponent(r.path)}/></button>}</td>}
+                                    <img loading="lazy" alt="" src={pictureOf(r)}/></button>}</td>}
                             {FILES_TAB_COLUMNS.map((c) => (<td key={c.key} class={columnType(c.key) === "flag" ? "flag" : undefined}
                                                                onMouseEnter={c.key === "path" ? () => hover(r.path) : undefined}>
                                 {columnType(c.key) === "flag" ? (r[c.key] ? <Check title="Yes"/> : "") :
@@ -397,9 +410,10 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
             </table>
         </div>
         {detailRow && <DetailPane row={detailRow} flags={flags[detailRow.path] || []} frame={frameOf(detailRow)} zone={zone}
-            picture={thumbs + encodeURIComponent(detailRow.path) + "&size=preview"} thumb={thumbs + encodeURIComponent(detailRow.path)}
-            selected={selected === detailRow.path} onClose={close}/>}
+            picture={pictureOf(detailRow, "preview")} thumb={pictureOf(detailRow)}
+            selected={selected === detailRow.path} onClose={close} onFullSize={() => setFullSize(detailRow.path)}/>}
         </div>
+        {fullRow && <FullSize src={pictureOf(fullRow, "full")} name={fullRow.path} onClose={closeFullSize}/>}
     </div>);
 }
 

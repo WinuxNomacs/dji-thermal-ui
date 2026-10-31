@@ -5,4 +5,5 @@ import {jsonScript, mountPage} from "../core/page";
 
 mountPage((s) => <DatasetPage api={s.api} publicUrl={s.publicUrl} id={Number(s.data.id)}
                               projectId={Number(s.data.project)} projectName={s.data.projectName || ""}
+                              palette={s.data.palette || ""}
                               basemaps={jsonScript("ta-basemaps", [])}/>);
