@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U2, the flight page's path from the analysis to a dataset (see Usability), planned 2026-10-31.
+**Up next**: U3, the Problems tab (see Usability), to be planned with the user.
 
-**Then**: U3–U8, U1's other findings (see Usability), each planned with the user before it is built.
+**Then**: U4–U8, U1's other findings (see Usability), each planned with the user before it is built.
 
 **After that**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
@@ -1852,7 +1852,7 @@ and each planned with them. Grouped by the page they change, the main path first
 - **U8: polish** (12, 13 and 15): the Files table's columns and rows; menus, the flight rows' actions, Compare's
   toggles and the basemap list in the dark theme; "Saved" on the report pages.
 
-### U2: the flight page's path from the analysis to a dataset (planned 2026-10-31)
+### U2: the flight page's path from the analysis to a dataset (built 2026-10-31, see Done)
 
 On the flight page as it is: the tabs are Files, (Videos,) Problems, WebODM plan and Convert; before the analysis
 only Convert shows. The Convert tab's settings start open while the flight has no dataset, the Convert button is
@@ -2580,3 +2580,11 @@ as feature changes require going forward."
 - **U1: the usability review** (2026-10-31). A first-time user's tasks walked through on the user's 8080 instance
   (light, dark, 600 px), with what it created deleted and the database checked against a copy taken before. Fifteen
   ranked findings, listed under Usability, written up in a private artifact. Nothing built.
+- **U2: the flight page's path from the analysis to a dataset** (2026-10-31; U1's findings 1, 4 and 11). The Convert
+  tab is Datasets: the datasets first, then the New dataset bar (chips, name, Convert), the settings folded under
+  Change settings, the page opening on it once there is a dataset (`#convert` still opens it); "Next: make a
+  dataset" after the analysis; the outputs named for what they are for (`OUTPUT_NAMES`); no tabs while the first
+  analysis runs, "Reading the images: n% of N files read", "Cancel the analysis". Code in
+  `frontend/src/dataset/dataset-page.tsx` and `convert.tsx`; tests in `frontend/tests/dataset.test.tsx`. Checked on
+  the user's data on a scratch 8081 instance (reading only; no datasets and analysing stubbed in the browser), light,
+  dark and 600 px, no errors.
