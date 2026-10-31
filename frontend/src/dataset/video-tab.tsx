@@ -1,7 +1,8 @@
 // The Videos tab: a flight's videos with their covers, and the one chosen played beside a map of its track, a marker
 // following the frame shown and a click on the track seeking to that moment. The frame shown can be recoloured: its
 // colours turned back into the camera's levels and drawn in a palette, range and adjustments of the user's. Stepped by
-// frames or seconds, played slower, and looped between an in and an out point, from the buttons or the keys.
+// frames or seconds, played slower, and looped between an in and an out point, from the buttons or the keys. The frame
+// shown can be saved, as shown, and listed under the video to go back to, name, describe and attach to a finding.
 import Feature from "ol/Feature";
 import type OlMap from "ol/Map";
 import LineString from "ol/geom/LineString";
@@ -13,20 +14,21 @@ import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import {useEffect, useRef, useState} from "preact/hooks";
-import {ChevronLeft, ChevronRight, Pause, Play} from "../components/icons";
-import {readJson} from "../core/api";
-import {type FlightZone, formatBytes, formatNumber} from "../core/format";
+import {ChevronLeft, ChevronRight, Pause, Play, Save, Trash} from "../components/icons";
+import {csrfToken, errorText, readJson, sendJson} from "../core/api";
+import {count, type FlightZone, formatBytes, formatNumber} from "../core/format";
 import {type Colouring, colourValues} from "../map/colour";
 import {type Basemap, fitBounds, lonLatToMap, mosaicMap, pointFeature, vectorLayer} from "../map/map";
-import {type IsothermState, Isotherm} from "../measure/result";
+import {Isotherm} from "../measure/result";
 import {framePositions} from "../report/report";
 import {Controls, ImageControls, type Palette} from "../viewer/panel";
-import {type Adjust, defaultAdjust, parseRange, sliderGamma, sliderPositions, slidRange, toneShares} from "../viewer/view";
+import {defaultAdjust, parseRange, sliderGamma, sliderPositions, slidRange, toneShares} from "../viewer/view";
 import type {FileRow} from "./files";
 import {DJI_IRONRED} from "./ironbow";
+import {frameName, framePlace, framesUrl, type Look, lookOf, pictureUrl, type SavedFrame, START_LOOK} from "./video-frames";
 import {levelCube, levelIsotherm, LEVELS, levelRange, toLevels} from "./video-levels";
-import {formatDuration, keyAction, type KeyAction, type Loop, loopBack, nearestPoint, nextSpeed, pointAt, pointRows,
-        SPEEDS, speedLabel, steppedTime, type Track, type TrackPoint, trackPoints, VIDEO_PALETTE, videoPalettes,
+import {formatDuration, frameNumber, keyAction, type KeyAction, type Loop, loopBack, nearestPoint, nextSpeed, pointAt,
+        pointRows, SPEEDS, speedLabel, steppedTime, type Track, type TrackPoint, trackPoints, videoPalettes,
         type VideoRow, videoTime} from "./videos";
 
 const MAX_FIT_ZOOM = 20;
@@ -45,10 +47,6 @@ function name(path: string): string { return path.split("/").pop() || path; }
 let cube: Uint8Array | null = null;
 const levelsCube = () => cube || (cube = levelCube(DJI_IRONRED));
 
-// How a frame is recoloured: the palette, the range and the one the sliders move it from, the adjustments, the isotherm
-export interface Look {palette: string; range: [number, number]; ref: [number, number]; adjust: Adjust; isotherm: IsothermState}
-export const START_LOOK: Look = {palette: VIDEO_PALETTE, range: LEVELS, ref: LEVELS, adjust: defaultAdjust(), isotherm: {mode: ""}};
-
 interface Props {
     api: string;                // the API's root URL
     url: string;                // the flight's API URL
@@ -64,6 +62,8 @@ export function VideosTab({api, url, files, videos, zone, basemaps}: Props) {
     const [palettes, setPalettes] = useState<Palette[]>(() => videoPalettes([]));
     const [look, setLook] = useState<Look>(START_LOOK);
     const [recoloured, setRecoloured] = useState(false);
+    const [saved, setSaved] = useState<SavedFrame[]>([]);
+    const [findings, setFindings] = useState<{id: number; name: string}[]>([]);
     const video = usable.find((v) => v.path === chosen) || null;
 
     useEffect(() => {
@@ -73,6 +73,16 @@ export function VideosTab({api, url, files, videos, zone, basemaps}: Props) {
                 const r = await readJson<{view_palettes?: Palette[]}>(await fetch(api + "preferences", {credentials: "same-origin"}));
                 if (!gone && r.ok) setPalettes(videoPalettes(r.data.view_palettes));
             } catch { /* the palette it was filmed in only */ }
+        })();
+        (async () => {
+            try {
+                const [frames, found] = await Promise.all([framesUrl(url), url + "/findings"].map(async (u) =>
+                    readJson<{frames?: SavedFrame[]; findings?: {id: number; name: string}[]}>(
+                        await fetch(u, {credentials: "same-origin"}))));
+                if (gone) return;
+                if (frames.ok) setSaved(frames.data.frames || []);
+                if (found.ok) setFindings((found.data.findings || []).map(({id, name}) => ({id, name})));
+            } catch { /* none listed */ }
         })();
         return () => { gone = true; };
     }, []);
@@ -90,22 +100,27 @@ export function VideosTab({api, url, files, videos, zone, basemaps}: Props) {
                                 .filter(Boolean).join(" · ")}</span>
                         {!v.reason && <span class="text-muted">{[videoTime(v.utc, zone), v.model].filter(Boolean).join(" · ")}</span>}
                         {!v.reason && !v.track && <span class="text-muted">No track: the video has no DJI metadata</span>}
+                        {saved.some((f) => f.video === v.path) &&
+                            <span class="text-muted">{count(saved.filter((f) => f.video === v.path).length, "frame", "frames")} saved</span>}
                     </span>
                 </button></li>))}
         </ul>
         {video && <Player key={video.path} url={url} video={video} files={files} basemaps={basemaps} palettes={palettes}
-                          look={look} setLook={setLook} recoloured={recoloured} setRecoloured={setRecoloured}/>}
+                          look={look} setLook={setLook} recoloured={recoloured} setRecoloured={setRecoloured}
+                          saved={saved} setSaved={setSaved} findings={findings}/>}
     </div>);
 }
 
 interface PlayerProps {
     url: string; video: VideoRow; files: FileRow[]; basemaps: Basemap[]; palettes: Palette[];
     look: Look; setLook: (l: Look) => void; recoloured: boolean; setRecoloured: (on: boolean) => void;
+    saved: SavedFrame[]; setSaved: (f: (all: SavedFrame[]) => SavedFrame[]) => void; findings: {id: number; name: string}[];
 }
 
 interface Shown {width: number; height: number; min: number; max: number}
 
-function Player({url, video, files, basemaps, palettes, look, setLook, recoloured, setRecoloured}: PlayerProps) {
+function Player({url, video, files, basemaps, palettes, look, setLook, recoloured, setRecoloured, saved, setSaved,
+                 findings}: PlayerProps) {
     const player = useRef<HTMLVideoElement>(null);
     const canvas = useRef<HTMLCanvasElement>(null);
     const grab = useRef<CanvasRenderingContext2D | null>(null);
@@ -123,6 +138,7 @@ function Player({url, video, files, basemaps, palettes, look, setLook, recoloure
     const [pixel, setPixel] = useState<{x: number; y: number} | null>(null);
     const [rangeText, setRangeText] = useState<[string, string] | null>(null);
     const [notice, setNotice] = useState("");
+    const [saving, setSaving] = useState(false);
     const file = encodeURIComponent(video.path), fps = video.fps || 30, duration = video.duration || 0;
 
     useEffect(() => {
@@ -265,6 +281,60 @@ function Player({url, video, files, basemaps, palettes, look, setLook, recoloure
         };
     }, []);
 
+    // The frame shown saved: as shown (recoloured or not) and as filmed, with the look it was shown with
+    async function saveFrame() {
+        const v = player.current!;
+        v.pause();
+        capture();
+        const filmed = grab.current?.canvas;
+        if (!filmed || saving) return;
+        setSaving(true);
+        setNotice("");
+        try {
+            const png = (c: HTMLCanvasElement) => new Promise<Blob | null>((done) => c.toBlob(done, "image/png"));
+            const original = await png(filmed);
+            const picture = recoloured && canvas.current ? await png(canvas.current) : original;
+            if (!original || !picture) throw new Error();
+            const t = v.currentTime, n = frameNumber(t, fps) + 1;
+            const body = new FormData();
+            body.append("video", video.path);
+            body.append("time", String(t));
+            body.append("frame", String(n));
+            body.append("name", frameName(n, t));
+            body.append("look", JSON.stringify({...look, recoloured}));
+            body.append("picture", picture, "picture.png");
+            body.append("original", original, "original.png");
+            const r = await readJson<SavedFrame>(await fetch(framesUrl(url), {method: "POST", credentials: "same-origin",
+                headers: {"X-CSRFToken": csrfToken()}, body}));
+            if (!r.ok) return setNotice(errorText(r.data, "The frame could not be saved."));
+            setSaved((all) => [...all, r.data]);
+        } catch {
+            setNotice("The frame could not be saved.");
+        } finally {
+            setSaving(false);
+        }
+    }
+    // A saved frame shown again: the video at its time, as it was shown
+    function openFrame(f: SavedFrame) {
+        const {look: l, recoloured: on} = lookOf(f.look);
+        setLook(l);
+        setRangeText(null);
+        setRecoloured(on);
+        player.current!.pause();
+        player.current!.currentTime = f.time;
+    }
+    async function changeFrame(f: SavedFrame, fields: Partial<Pick<SavedFrame, "name" | "notes" | "finding">>) {
+        const r = await readJson<SavedFrame>(await sendJson(framesUrl(url) + "/" + f.id, "PATCH", fields));
+        if (!r.ok) return setNotice(errorText(r.data, "The frame could not be changed."));
+        setNotice("");
+        setSaved((all) => all.map((x) => x.id === f.id ? r.data : x));
+    }
+    async function deleteFrame(f: SavedFrame) {
+        const res = await sendJson(framesUrl(url) + "/" + f.id, "DELETE");
+        if (!res.ok) return setNotice("The frame could not be deleted.");
+        setSaved((all) => all.filter((x) => x.id !== f.id));
+    }
+
     function act(action: KeyAction) {
         const v = player.current!;
         const step = (frames: number) => {
@@ -281,6 +351,7 @@ function Player({url, video, files, basemaps, palettes, look, setLook, recoloure
         else if (action === "in") setLoop((l) => ({...l, start: t, end: l.end !== null && l.end > t ? l.end : null}));
         else if (action === "out") setLoop((l) => ({...l, end: t, start: l.start !== null && l.start < t ? l.start : null}));
         else if (action === "loop") setLoop((l) => ({...l, on: !l.on}));
+        else if (action === "save") saveFrame();
         else {
             v.playbackRate = nextSpeed(v.playbackRate, action === "slower" ? -1 : 1);
             setSpeed(v.playbackRate);
@@ -379,10 +450,15 @@ function Player({url, video, files, basemaps, palettes, look, setLook, recoloure
                                     title={on ? "The camera's levels in a palette, range and adjustments of yours" : "As filmed"}>
                                 {label}</button>))}
                     </div>
+                    <button type="button" class="button default small" id="save-frame" disabled={saving || !shown}
+                            title="Keep the frame shown, as shown, to go back to and use in findings and reports (S)"
+                            onClick={() => saveFrame()}><Save/> Save frame</button>
                 </div>
                 <table class="table readout video-readout" id="video-readout"><tbody>
                     {rows.map(([label, value]) => (<tr key={label}><th>{label}</th><td>{value}</td></tr>))}
                 </tbody></table>
+                <SavedFrames url={url} frames={saved.filter((f) => f.video === video.path)} findings={findings}
+                             open={openFrame} change={changeFrame} remove={deleteFrame}/>
             </div>
             <div class="video-side">
                 <div class="map video-map" id="video-map" ref={el}
@@ -413,4 +489,58 @@ function Player({url, video, files, basemaps, palettes, look, setLook, recoloure
         </div>
         {notice && <div class="notice error" role="alert">{notice}</div>}
     </div>);
+}
+
+interface SavedProps {
+    url: string; frames: SavedFrame[]; findings: {id: number; name: string}[];
+    open: (f: SavedFrame) => void;
+    change: (f: SavedFrame, fields: Partial<Pick<SavedFrame, "name" | "notes" | "finding">>) => void;
+    remove: (f: SavedFrame) => void;
+}
+
+// The video's saved frames: each picture goes back to its frame, as it was shown
+function SavedFrames({url, frames, findings, open, change, remove}: SavedProps) {
+    return (<section class="video-saved" id="video-saved">
+        <h5>Saved frames</h5>
+        {frames.length ? <ul class="video-saved-list">{frames.map((f) => (<li key={f.id} data-frame={f.id}>
+            <button type="button" class="video-saved-picture" title="Go back to this frame, as it was shown" onClick={() => open(f)}>
+                <img alt={f.name} src={pictureUrl(url, f.id)}/>
+            </button>
+            <div class="video-saved-fields">
+                <Draft value={f.name} label="Name" commit={(name) => {
+                    if (name.trim()) change(f, {name: name.trim()});
+                    return !!name.trim();
+                }}/>
+                <span class="text-muted">{[formatDuration(f.time, 2) + " · frame " + f.frame, framePlace(f.point)]
+                    .filter(Boolean).join(" · ")}</span>
+                <Draft value={f.notes} label="Notes" multiline commit={(notes) => { change(f, {notes}); return true; }}/>
+                <div class="toolbar">
+                    <select aria-label="Finding" title="The finding it is shown with in reports"
+                            value={f.finding === null ? "" : String(f.finding)}
+                            onChange={(e) => change(f, {finding: e.currentTarget.value ? parseInt(e.currentTarget.value, 10) : null})}>
+                        <option value="">No finding</option>
+                        {findings.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                    </select>
+                    <button type="button" class="button default small" name="delete" title="Delete this saved frame"
+                            onClick={() => remove(f)}><Trash/> Delete</button>
+                </div>
+            </div>
+        </li>))}</ul> : <p class="text-muted">None yet: Save frame (S) keeps the frame shown, as it is shown.</p>}
+    </section>);
+}
+
+// A field typed into and saved when it changes (on leaving it): what is typed is kept while the list draws again,
+// and put back to what is saved when commit refuses it
+function Draft({value, label, multiline, commit}: {value: string; label: string; multiline?: boolean;
+                                                  commit: (v: string) => boolean}) {
+    const [draft, setDraft] = useState(value);
+    useEffect(() => setDraft(value), [value]);
+    const props = {"aria-label": label, value: draft,
+                   onInput: (e: Event) => setDraft((e.currentTarget as HTMLInputElement).value),
+                   onChange: (e: Event) => {
+                       const typed = (e.currentTarget as HTMLInputElement).value;
+                       if (typed !== value && !commit(typed)) setDraft(value);
+                   }};
+    return multiline ? <textarea {...props} rows={2} placeholder={label} maxLength={10000}/>
+        : <input type="text" {...props} maxLength={255}/>;
 }

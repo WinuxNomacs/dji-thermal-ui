@@ -38,6 +38,11 @@ All notable changes are recorded here. The format follows
   and an out point, from buttons or keys; and recoloured: the frame shown turned back into the camera's levels
   through DJI's Ironbow (the Matrice 4T's) and drawn with the viewer's palette, range and Auto, brightness, contrast,
   gamma, sharpening and an isotherm in levels, with the level under the pointer. Relative, never temperatures.
+- A video's frame saved from the Videos tab (Save frame, or S): as shown and as filmed, with its time, the track's
+  point (position, height, gimbal) and its look; listed under the video to go back to as it was shown, named,
+  described, attached to a finding and deleted. The flight report has a Video frames section, numbered V1, V2… on
+  its map; a finding shows the frames attached to it in the flight's and the mosaic's reports. A project's export
+  carries them (its format is now version 2: an older app refuses it; it still imports version 1).
 
 ### Changed
 

@@ -140,13 +140,13 @@ export function loopBack(t: number, loop: Loop): number | null {
 
 // What a key does on the Videos tab, or null (a key with Ctrl, Alt or Meta does nothing)
 export type KeyAction = "play" | "back" | "forward" | "back-second" | "forward-second" | "in" | "out" | "loop" |
-    "slower" | "faster";
+    "slower" | "faster" | "save";
 export function keyAction(e: {key: string; shiftKey?: boolean; ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean}): KeyAction | null {
     if (e.ctrlKey || e.altKey || e.metaKey) return null;
     const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (key === "ArrowLeft") return e.shiftKey ? "back-second" : "back";
     if (key === "ArrowRight") return e.shiftKey ? "forward-second" : "forward";
-    return ({" ": "play", i: "in", o: "out", l: "loop", "-": "slower", "_": "slower", "+": "faster", "=": "faster"} as
+    return ({" ": "play", i: "in", o: "out", l: "loop", s: "save", "-": "slower", "_": "slower", "+": "faster", "=": "faster"} as
         Record<string, KeyAction>)[key] || null;
 }
 

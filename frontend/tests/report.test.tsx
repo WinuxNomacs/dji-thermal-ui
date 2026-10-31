@@ -152,6 +152,28 @@ describe("the dataset report", () => {
         expect($("#report-appendix-table")).toBeNull();
     });
 
+    it("shows the video frames saved, numbered on the map, and those attached to a finding with it", async () => {
+        const frame = (id: number, video: string, time: number, over: object = {}) => ({id, dataset: 5, video, time,
+            frame: Math.floor(time * 30) + 1, point: {lat: 42.1001, lon: -88.1, alt: 15.3, pitch: -45}, name: "Frame " + id,
+            notes: "", look: {recoloured: true}, finding: null, finding_name: "", created_at: "", ...over});
+        await page(DATASET, [finding(3, "Wet patch", ["thermal/b_T.tif"])], {[URL + "/video-frames"]: {frames: [
+            frame(8, "DCIM/b_T.MP4", 2, {point: null, notes: "Warm eave"}),
+            frame(6, "DCIM/a_T.MP4", 12.5, {finding: 3, finding_name: "Wet patch", look: {recoloured: false}})]}});
+        expect(text("#report-where")).toContain("3 frames with a position, the findings by their numbers, and the saved video frames (V1, V2…)");
+        const shown = $$(".report-video-frame");
+        expect(shown.map((x) => x.dataset.videoFrame)).toEqual(["V1", "V2"]);
+        expect(shown[0].querySelector("img")!.getAttribute("src")).toBe(URL + "/video-frames/6/picture");
+        expect(shown[0].textContent).toContain("V1. Frame 6a_T.MP4 · 0:12.50 · frame 376");
+        expect(shown[0].textContent).toContain("42.100100, -88.100000 · 15.3 m up · gimbal -45°");
+        expect(shown[0].textContent).toContain("With finding 1 Wet patch");
+        expect(shown[1].textContent).toContain("b_T.MP4 · 0:02.00 · frame 61 · recoloured");
+        expect(shown[1].textContent).toContain("Warm eave");
+        expect(text("#report-video-frames")).toContain("not temperatures");
+        // The finding shows the one attached to it beside its kept frames
+        expect(text(".report-thumbs figcaption")).toBe("1. Wet patch: 1 frame kept, 1 video frame");
+        expect($(".report-video-thumb img")!.getAttribute("src")).toBe(URL + "/video-frames/6/picture");
+    });
+
     it("shows the text saved on the dataset rather than what fills it in", async () => {
         await page({...DATASET, report: {title: "Roof survey", author: "", notes: "Seen from the north", appendix: true}});
         expect(($("#report-title") as HTMLInputElement).value).toBe("Roof survey");

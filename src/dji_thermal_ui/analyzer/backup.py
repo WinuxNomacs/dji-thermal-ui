@@ -17,7 +17,7 @@ from . import video
 from .models import ThermalDataset
 
 FORMAT = 'dji-thermal-ui project'
-VERSION = 1
+VERSION = 2                     # 2: flights carry their saved video frames
 MANIFEST = 'manifest.json'
 BLOCK = tarfile.BLOCKSIZE
 CHUNK = 1024 * 1024
@@ -64,6 +64,9 @@ def flight_files(dataset):
     files = [(p, base + 'images/' + rel) for p, rel in image_files(dataset)]
     for c in dataset.conversions.all():
         files += [(p, base + 'conversions/{}/'.format(c.id) + rel) for p, rel in output_files(c)]
+    for v in dataset.video_frames.all():
+        files += [(p, base + 'video-frames/' + os.path.basename(p)) for p in (v.picture_path(), v.picture_path(True))
+                  if os.path.isfile(p)]
     return files
 
 
@@ -73,7 +76,8 @@ def manifest(project, datasets):
         'project': row(project),
         'flights': [dict(row(d), conversions=[dict(row(c), measurements=[row(m) for m in c.measurements.all()])
                                               for c in d.conversions.all()],
-                         findings=[row(f) for f in d.findings.all()]) for d in datasets],
+                         findings=[row(f) for f in d.findings.all()],
+                         video_frames=[row(v) for v in d.video_frames.all()]) for d in datasets],
     }
 
 

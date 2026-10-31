@@ -7,10 +7,11 @@ import {flightFilesText, isFlightFile} from "../src/core/upload";
 import {DatasetPage} from "../src/dataset/dataset-page";
 import {flagged, overview} from "../src/dataset/files";
 import {DJI_IRONRED} from "../src/dataset/ironbow";
+import {frameName, framePlace, lookOf, numberedFrames, type SavedFrame, START_LOOK} from "../src/dataset/video-frames";
 import {levelCube, levelIsotherm, levelRange, toLevels} from "../src/dataset/video-levels";
 import {formatDuration, frameNumber, keyAction, loopBack, nearestPoint, nextSpeed, pointAt, pointRows, speedLabel,
         steppedTime, trackPoints, VIDEO_PALETTE, videoPalettes, videosOf, videoTime} from "../src/dataset/videos";
-import {click, server, ticks} from "./helpers";
+import {calls, click, jsonResponse, server, ticks} from "./helpers";
 
 const API = "/api/";
 const URL = API + "datasets/5";
@@ -276,6 +277,112 @@ describe("a flight's videos", () => {
         await ticks();
         expect($("#video-look")).toBeNull();
         expect(video.hasAttribute("controls")).toBe(true);
+    });
+
+    it("save a frame's picture as shown and as filmed, name it, attach it to a finding, show it again and delete it", async () => {
+        const saved = (over: Partial<SavedFrame>): SavedFrame => ({id: 3, dataset: 5, video: VIDEO, time: 1.5 / 30, frame: 2,
+            point: {lat: 42.10001, lon: -88.07, alt: 15.3, pitch: -45}, name: "Frame 2 (0:00.05)", notes: "", finding: null,
+            finding_name: "", created_at: "", look: {recoloured: false}, ...over});
+        const elsewhere = saved({id: 1, video: "other.mp4", name: "Another video's"});
+        const fetchFn = server({[URL]: DETAIL, [API + "preferences"]: {settings: {outputs: []}, defaults: {outputs: []}, products: [], palettes: [],
+                                                         view_palettes: PALETTES},
+                                [URL + "/video-track?file=" + encodeURIComponent(VIDEO)]: TRACK,
+                                [URL + "/video-frames"]: {frames: [elsewhere]}, [URL + "/findings"]: {findings: [{id: 7, name: "Roof leak"}]},
+                                ["POST " + URL + "/video-frames"]: saved({}),
+                                ["PATCH " + URL + "/video-frames/3"]: [saved({name: "Warm window"}), saved({name: "Warm window", notes: "Brighter than the wall"}),
+                                    saved({name: "Warm window", finding: 7, finding_name: "Roof leak",
+                                           look: {recoloured: true, palette: "gray", range: [10, 90]}})],
+                                ["DELETE " + URL + "/video-frames/3"]: () => jsonResponse({})});
+        vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function (this: HTMLCanvasElement) {
+            return {canvas: this, drawImage() {}, putImageData() {}, getImageData: () => ({data: new Uint8ClampedArray(8)})} as never;
+        });
+        vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((done) => done(new Blob(["png"], {type: "image/png"})));
+        vi.stubGlobal("ImageData", class { constructor(public data: unknown, public width: number, public height: number) {} });
+        page(fetchFn);
+        await ticks();
+        click(tab("videos")!);
+        await ticks(10);
+        const video = $<HTMLVideoElement>("#video")!;
+        // A frame of 2 × 1 pixels on screen
+        for (const [k, v] of [["videoWidth", 2], ["videoHeight", 1], ["readyState", 4]] as const) {
+            Object.defineProperty(video, k, {value: v, configurable: true});
+        }
+        expect($("#video-saved")!.textContent).toContain("None yet");
+        click($("#forward")!);
+        video.dispatchEvent(new Event("loadeddata"));
+        await ticks();
+        document.body.dispatchEvent(new KeyboardEvent("keydown", {key: "s", bubbles: true}));
+        await ticks(30);
+        const post = fetchFn.mock.calls.find((c) => c[1]?.method === "POST")!;
+        const body = post[1]!.body as FormData;
+        expect([body.get("video"), body.get("frame"), body.get("name")]).toEqual([VIDEO, "2", "Frame 2 (0:00.05)"]);
+        expect(parseFloat(body.get("time") as string)).toBeCloseTo(1.5 / 30);
+        expect(JSON.parse(body.get("look") as string)).toMatchObject({recoloured: false, palette: VIDEO_PALETTE, range: [0, 255]});
+        expect(body.get("picture")).toBeInstanceOf(Blob);
+        expect(body.get("original")).toBeInstanceOf(Blob);
+        expect((post[1]!.headers as Record<string, string>)["X-CSRFToken"]).toBe("tok");
+
+        // Listed under its video only, and counted on it
+        expect($$("#video-saved li").map((li) => li.dataset.frame)).toEqual(["3"]);
+        expect($("#video-saved img")!.getAttribute("src")).toBe(URL + "/video-frames/3/picture");
+        expect($("#video-saved")!.textContent).toContain("0:00.05 · frame 2 · 42.100010, -88.070000 · 15.3 m up · gimbal -45°");
+        expect($(`.video-item[data-path="${VIDEO}"]`)!.textContent).toContain("1 frame saved");
+
+        const typeIn = (el: HTMLInputElement | HTMLTextAreaElement, value: string, done = true) => {
+            el.value = value;
+            el.dispatchEvent(new Event("input", {bubbles: true}));
+            if (done) el.dispatchEvent(new Event("change", {bubbles: true}));
+        };
+        // The notes typed while the new name's answer draws the list again are kept, then saved
+        typeIn($<HTMLInputElement>('#video-saved [aria-label="Name"]')!, "Warm window");
+        const notes = $<HTMLTextAreaElement>('#video-saved [aria-label="Notes"]')!;
+        typeIn(notes, "Brighter than the wall", false);
+        await ticks();
+        expect(notes.value).toBe("Brighter than the wall");
+        notes.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        const finding = $<HTMLSelectElement>('#video-saved [aria-label="Finding"]')!;
+        expect([...finding.options].map((o) => o.textContent)).toEqual(["No finding", "Roof leak"]);
+        finding.value = "7";
+        finding.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        const patches = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH").map((c) => JSON.parse(c[1]!.body as string));
+        expect(patches).toEqual([{name: "Warm window"}, {notes: "Brighter than the wall"}, {finding: 7}]);
+
+        // Shown again: the video at its time, as it was shown
+        video.currentTime = 5;
+        click($(".video-saved-picture")!);
+        await ticks();
+        expect(video.currentTime).toBeCloseTo(1.5 / 30);
+        expect($('[name="recoloured"]')!.getAttribute("aria-pressed")).toBe("true");
+        expect($<HTMLSelectElement>("#palette")!.value).toBe("gray");
+        expect([$<HTMLInputElement>("#range-min")!.value, $<HTMLInputElement>("#range-max")!.value]).toEqual(["10", "90"]);
+
+        click($('#video-saved [name="delete"]')!);
+        await ticks();
+        expect(calls(fetchFn)).toContain("DELETE " + URL + "/video-frames/3");
+        expect($("#video-saved")!.textContent).toContain("None yet");
+    });
+
+    it("keep how a saved frame was shown, its name, where it was taken, and number it for reports", () => {
+        expect(keyAction({key: "s"})).toBe("save");
+        expect(keyAction({key: "s", ctrlKey: true})).toBeNull();
+        expect(frameName(371, 12.333)).toBe("Frame 371 (0:12.33)");
+        expect(lookOf(undefined)).toEqual({look: START_LOOK, recoloured: false});
+        const kept = lookOf({recoloured: true, palette: "gray", range: [20, 80], adjust: {gamma: 2, equalize: false, sharpen: 1},
+                             isotherm: {mode: "above", a: "180"}});
+        expect(kept.recoloured).toBe(true);
+        expect(kept.look).toEqual({palette: "gray", range: [20, 80], ref: [20, 80], adjust: {gamma: 2, equalize: false, sharpen: 1},
+                                   isotherm: {mode: "above", a: "180"}});
+        // What isn't a look is left as it starts
+        expect(lookOf({range: "wide" as never, isotherm: 3 as never}).look).toEqual(START_LOOK);
+        expect(framePlace({lat: 42.1, lon: -88.07, alt: 15.24, pitch: -45.4})).toBe("42.100000, -88.070000 · 15.2 m up · gimbal -45°");
+        expect(framePlace({lat: null, lon: null, alt: 15})).toBe("15.0 m up");
+        expect(framePlace(null)).toBe("");
+        const f = (id: number, video: string, time: number) => ({id, video, time}) as SavedFrame;
+        expect(numberedFrames([f(1, "b.mp4", 1), f(2, "a.mp4", 9), f(3, "a.mp4", 2)]).map((x) => [x.id, x.number]))
+            .toEqual([[3, "V1"], [2, "V2"], [1, "V3"]]);
     });
 
     it("leave no Videos tab on a flight without any", async () => {

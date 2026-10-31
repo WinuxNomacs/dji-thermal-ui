@@ -19,14 +19,14 @@ from django.core.exceptions import ValidationError as ModelValidationError
 from django.db import IntegrityError, transaction
 
 from . import backup
-from .models import Finding, Project, ThermalConversion, ThermalDataset, ThermalMeasurement
+from .models import Finding, Project, ThermalConversion, ThermalDataset, ThermalMeasurement, VideoFrame
 from .raster.security import path_traversal_check
 
 BLOCK = tarfile.BLOCKSIZE
 MAX_MANIFEST = 256 * 1024 * 1024
 MAX_HEADER = 1024 * 1024
 ABANDONED = 3600                # seconds an import nobody sends to is kept
-FILE = re.compile(r'^datasets/([0-9]+)/(images|conversions/([0-9]+))/(.+)$')
+FILE = re.compile(r'^datasets/([0-9]+)/(images|conversions/([0-9]+)|video-frames)/(.+)$')
 
 
 class RestoreError(Exception):
@@ -74,6 +74,7 @@ def check_manifest(m):
         for c in rows(f.get('conversions', [])):
             rows(c.get('measurements', []))
         rows(f.get('findings', []))
+        rows(f.get('video_frames', []))
     return m
 
 
@@ -393,6 +394,11 @@ def make_project(m, folder, name, keep_folders=False):
                 for x in f.get('findings', []):
                     c = conversions.get(x.get('conversion_id'))
                     findings[x['id']] = made(Finding, x, dataset_id=d.id, conversion_id=c and c.id).id
+                # A saved video frame's pictures are named by its key, so they stay where they came
+                for x in f.get('video_frames', []):
+                    if not re.match(r'^[0-9a-f]{1,32}$', str(x.get('key'))):
+                        raise ValueError(x.get('key'))
+                    made(VideoFrame, x, dataset_id=d.id, finding_id=findings.get(x.get('finding_id')))
                 # A mosaic report names the measurements it leaves out and the findings it hides
                 for conv in conversions.values():
                     report = dict(conv.report or {})

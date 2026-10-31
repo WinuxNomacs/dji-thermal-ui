@@ -11,7 +11,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   Default Project, which you can rename; one is made again whenever none is left. A project's location is found by
   searching an address or a place on OpenStreetMap, or by clicking the site on the map, and keeps the address.
   A project's page lists its flights' findings together. A project is exported (backed up) as a `.tar` with all its
-  flights or those chosen: their images (a folder flight's copied in), datasets, mosaics, measurements and findings.
+  flights or those chosen: their images (a folder flight's copied in), datasets, mosaics, measurements, findings and
+  saved video frames.
   Import on the projects page makes such an archive a new project, here or on another computer: a name already in
   use gets a free one ("Roof (2)"), which you can change. Its folder flights come back as uploaded ones.
 - **Flights:** DJI R-JPEGs, uploaded or used in place from a folder, with their thumbnails. The visual images a
@@ -32,6 +33,11 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
     frame), brightness, contrast, gamma, sharpening and an isotherm in levels. It starts as filmed (DJI ironred, 0 to
     255). The pointer gives the level and pixel under it. Levels are relative: the camera re-ranges each frame, so a
     level is not the same heat from one frame to the next. The Ironbow table is the Matrice 4T's.
+  - **Saved frames:** Save frame (or S) keeps the frame shown, as shown (recoloured or as filmed), with its time,
+    the drone's position, height and gimbal, and how it was coloured. They are listed under the video: a click on
+    one goes back to that frame as it was shown; each has a name, notes and a finding it can be attached to, and
+    can be deleted. The flight report shows them, numbered V1, V2… on its map, and a finding's reports show those
+    attached to it. A project's export carries them.
 - **Analysis:** the files, cameras and problems dji-thermal-cli finds in a flight.
 - **Files tab:** a flight's files, sorted by any column and filtered by conditions on any of them (Height ≤ 21,
   Min > 32 °F, Kind is one of Thermal…), every one of which a file shown matches: numbers in the unit shown,
@@ -85,8 +91,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   window).
 - **Flight report:** a page laid out to print, or save as PDF from the browser's print dialog, on A4 or Letter.
   It holds the flight's figures, a map of where its frames were taken with its findings numbered, the coverage,
-  the problems found, the frames' settings and temperatures summed up, the datasets, and the findings with
-  thumbnails of their kept frames. A table of every frame can be appended. Open it with the flight page's Report
+  the problems found, the frames' settings and temperatures summed up, the datasets, the findings with
+  thumbnails of their kept frames, and the video frames saved (on the map too). A table of every frame can be appended. Open it with the flight page's Report
   button or from the navigation pane. The title, author, date and notes are typed on the page and saved with the
   flight; the last author typed fills in new reports. It always prints light, without the app's header and controls.
 - **Mosaic report:** a dataset's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer

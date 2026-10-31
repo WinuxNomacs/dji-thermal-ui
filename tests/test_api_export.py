@@ -49,7 +49,7 @@ def test_a_project_is_exported_as_a_tar_of_its_manifest_then_its_flights_images_
         assert tar.extractfile(base + 'conversions/{}/mosaics/as_converted/mosaic_temp_c.tif'.format(c.id)).read() == f.read()
 
     m = manifest(tar)
-    assert (m['format'], m['version']) == ('dji-thermal-ui project', 1)
+    assert (m['format'], m['version']) == ('dji-thermal-ui project', 2)
     assert (m['project']['id'], m['project']['name']) == (project.id, project.name)
     [f] = m['flights']
     assert (f['id'], f['name'], f['project_id'], f['source']) == (c.dataset_id, "Roof", project.id, 'upload')
