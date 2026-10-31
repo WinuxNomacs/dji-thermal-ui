@@ -4,7 +4,7 @@ import {afterEach, describe, expect, it} from "vitest";
 import {setUserUnit} from "../src/core/units";
 import {gradientCss, gradientStops, paletteCss} from "../src/viewer/canvas";
 import {
-    defaultRange, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
+    defaultRange, disagreement, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
     shownRange, sliderPositions, SLIDERS, slidRange, styleGroup, takenText, dataUrl, toneShares, valueCaption, valueUnit,
     viewQuery, visualRows,
 } from "../src/viewer/view";
@@ -51,6 +51,21 @@ describe("the tabs' values", () => {
         expect([valueUnit("heights"), valueCaption("heights")]).toEqual([" m", "Height, m"]);
         expect(shownRange("heights", [0, 10], "C")).toEqual([0, 10]);
         expect(styleGroup("heights")).toBe("heights");
+    });
+});
+
+describe("the frames' disagreement", () => {
+    const kinds = (offset_c: object) => ({as_converted: {report: {frame_offsets: {offset_c}}}});
+
+    it("counts only when the middle 90% of the offsets span more than 3 °C", () => {
+        expect(disagreement(kinds({min: -2, max: 30, p5_p95_span: 3}))).toBeNull();
+        expect(disagreement(kinds({min: -2, max: 30, p5_p95_span: 3.1}))).toEqual({min: -2, max: 30});
+    });
+
+    it("is none without the as converted mosaic's offsets", () => {
+        expect(disagreement(undefined)).toBeNull();
+        expect(disagreement({as_converted: {frames: 2}})).toBeNull();
+        expect(disagreement(kinds({p5_p95_span: 5}))).toBeNull();
     });
 });
 
