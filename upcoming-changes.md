@@ -9,9 +9,10 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
-phases; X1, Linux, Windows and macOS checked (see Platforms). Both to be planned with the user.
+phases. To be planned with the user.
 
-**Then**: nothing planned.
+**Then**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
+Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
 
 ## Standalone (option A)
 
@@ -1828,6 +1829,61 @@ those that are truly necessary, not there for coverage.
 
 - Whether a macOS job is added to CI, run by hand only (macOS minutes cost ten times Linux's on a private repo, and
   the minutes ran out in October), or the Mac stays a by-hand check.
+
+## Documentation
+
+Requested 2026-10-31 (new.md): "Plan to setup the github repo to host the documentation." and "Plan out the
+documentation. We'll also want to provide quickstart tutorials with screenshots and then maintain the documentation
+as feature changes require going forward."
+
+### What it builds on
+
+- The README (389 lines): what the app does, page by page, then Install, Run, the maps, WebODM, where the data lives,
+  Development. It is the only user documentation; the CHANGELOG says what changed in each release.
+- The repository is private, on a personal account. GitHub Pages publishes from a private repository only on a paid
+  plan (Pro or above), and the site is public even then; on GitHub Free the repository must be public. The wiki is
+  turned off (a private repository's wiki also needs a paid plan).
+- CI runs only on a `v*` tag or by hand (`.github/workflows/ci.yml`); a private repository's minutes are billed.
+- The live checks' Playwright scripts, which already drive every page on a scratch instance (port 8081).
+- Material for MkDocs, the usual Python choice, went into maintenance mode in November 2025; its successor from the
+  same team, Zensical, reads the same `mkdocs.yml`.
+
+### Proposed phases
+
+- **W1: the docs site.** A `docs/` folder of Markdown pages built into a static site (Zensical, or Material for
+  MkDocs pinned), checked by a strict build in CI (broken links and missing pictures fail it), and published by a
+  workflow on a `v*` tag or by hand, never on a push. The pages are laid out: Getting started (install, first run),
+  Quickstart tutorials, the user guide (a page per part of the app, as the user sees it: Projects, a flight's tabs,
+  datasets and mosaics, measuring, findings, reports, compare, exports, preferences and settings, storage, WebODM),
+  and Reference (the command, where the data lives, the API).
+- **W2: the user guide.** The README's feature list and its sections moved into the guide's pages and written as
+  pages to read; the README keeps what the app is, how to install and run it, and a link to the site.
+- **W3: quickstart tutorials with screenshots.** Short tutorials following a first-time user's tasks (the same as
+  U1's): make a project and a flight, read the analysis, convert and open a mosaic, measure and keep a finding, print
+  the report, export. The screenshots are made by a committed script (Playwright, pinned) against its own instance
+  with a known data set, light theme, fixed window size, so they can be made again in one command when a page
+  changes.
+- **Keeping it current (a rule, not a phase):** a change that adds or changes a feature updates its guide page on
+  the same branch, as the README rule says today, and makes again the screenshots of the pages it changed (a
+  `.claude/skills` procedure, pointed to from CLAUDE.md). The strict build catches broken links and pictures.
+
+### Decisions (2026-10-31)
+
+- **Hosting:** a separate public repository (`dji-thermal-ui-docs`) holds the built site, published with GitHub
+  Pages (free, and its Actions minutes are free). The pages are written here, in `docs/`; the code stays private. The
+  site is copied over at a release (the user pushes it there, as with any push).
+- **In the app too:** the built site ships in the wheel, like the page code, and the app serves it at `/help` from a
+  Help link in the header, so the docs match the version installed and work offline.
+- **Screenshots:** a real flight, with its location hidden: the basemap turned off, and the coordinates, the
+  address and the serial numbers replaced in the shots.
+- **Order:** U1 first, then W1–W3 (W1 may start before U1's changes are built, as it has no screenshots), then X1.
+
+### Still open (settled when W1 and W2 are planned)
+
+- The site generator: Zensical, or Material for MkDocs pinned (in maintenance mode, its fixes promised to November
+  2026).
+- How much the README keeps once the guide exists (proposed: what the app is, install, run, and a link).
+- Which flight the screenshots use.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
