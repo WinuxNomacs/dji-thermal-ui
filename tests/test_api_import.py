@@ -249,7 +249,7 @@ def test_an_archive_that_is_damaged_or_not_a_project_s_is_refused_and_its_folder
         tar_of(('notes.txt', b'hi', tarfile.REGTYPE)): "does not start with its manifest",
         tar_of(('manifest.json', b'{nope', tarfile.REGTYPE)): "manifest is damaged",
         tar_of(manifest(format='zip')): "not a project exported",
-        tar_of(manifest(version=2, app='9.0.0')): "newer dji-thermal-ui (9.0.0)",
+        tar_of(manifest(version=3, app='9.0.0')): "newer dji-thermal-ui (9.0.0)",
         tar_of(manifest(flights=[{'name': "No id"}])): "manifest is damaged",
         tar_of(manifest(), ('datasets/8/images/a.JPG', b'x', tarfile.REGTYPE)): "not its flights'",
         tar_of(manifest(), ('datasets/7/conversions/10/a.tif', b'x', tarfile.REGTYPE)): "not its flights'",

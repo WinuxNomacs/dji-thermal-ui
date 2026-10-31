@@ -318,6 +318,43 @@ class Finding(models.Model):
         return self.name
 
 
+# A video's frame saved: where it was in the video and where the drone was, with the picture as shown and the original
+# frame as PNGs in the flight's folder (video-frames/<key>.png and <key>-original.png). It may join a finding.
+
+class VideoFrame(models.Model):
+    dataset = models.ForeignKey(ThermalDataset, on_delete=models.CASCADE, related_name='video_frames',
+                                help_text=_("The flight the video is in"), verbose_name=_("Flight"))
+    video = models.CharField(max_length=1024, help_text=_("The video's path in the flight"), verbose_name=_("Video"))
+    time = models.FloatField(help_text=_("Seconds from the video's start"), verbose_name=_("Time"))
+    frame = models.IntegerField(help_text=_("The frame's number, from 1"), verbose_name=_("Frame"))
+    point = models.JSONField(null=True, blank=True,
+                             help_text=_("The track's point at that time ({lat, lon, alt, ...}), if it has one"),
+                             verbose_name=_("Point"))
+    name = models.CharField(max_length=255, help_text=_("A label used to describe the frame"), verbose_name=_("Name"))
+    notes = models.TextField(blank=True, default="", help_text=_("What it shows"), verbose_name=_("Notes"))
+    look = models.JSONField(default=dict, blank=True,
+                            help_text=_("How it was shown: recoloured or not, and the palette, range, tone curve and "
+                                        "isotherm"), verbose_name=_("Look"))
+    key = models.CharField(max_length=32, help_text=_("The name of its pictures"), verbose_name=_("Key"))
+    finding = models.ForeignKey(Finding, on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='video_frames', help_text=_("The finding it is attached to, if any"),
+                                verbose_name=_("Finding"))
+    created_at = models.DateTimeField(default=timezone.now, help_text=_("Creation date"), verbose_name=_("Created at"))
+    updated_at = models.DateTimeField(auto_now=True, help_text=_("Last modified date"), verbose_name=_("Updated at"))
+
+    class Meta:
+        verbose_name = _("Video frame")
+        verbose_name_plural = _("Video frames")
+        ordering = ('created_at', 'id')
+
+    def __str__(self):
+        return self.name
+
+    def picture_path(self, original=False):
+        return os.path.join(dataset_dir(self.dataset_id), 'video-frames',
+                            self.key + ('-original' if original else '') + '.png')
+
+
 WEBODM_TASK_STATUSES = (
     ('uploading', _("Uploading")),
     ('queued', _("Queued")),
@@ -438,6 +475,17 @@ def thermal_conversion_post_delete(sender, instance, **kwargs):
     if not ThermalDataset.objects.filter(pk=instance.dataset_id).exists():
         return  # the dataset's own deletion removes its whole folder
     remove_dir(conversion_dir(instance.dataset_id, instance.id))
+
+
+@receiver(signals.post_delete, sender=VideoFrame, dispatch_uid="video_frame_post_delete")
+def video_frame_post_delete(sender, instance, **kwargs):
+    if not ThermalDataset.objects.filter(pk=instance.dataset_id).exists():
+        return  # the dataset's own deletion removes its whole folder
+    for path in (instance.picture_path(), instance.picture_path(original=True), os.path.dirname(instance.picture_path())):
+        try:
+            os.rmdir(path) if os.path.isdir(path) else os.remove(path)     # the folder only once it is empty
+        except OSError:
+            pass
 
 
 @receiver(signals.post_delete, sender=ThermalDataset, dispatch_uid="thermal_dataset_post_delete")

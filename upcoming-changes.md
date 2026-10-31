@@ -1656,6 +1656,20 @@ stills, but the plan does not count on them.
   While playing each painted frame is re-coloured (frames skipped if it falls behind); paused, the frame shown is.
 - **The readout** adds the level and pixel under the pointer.
 
+### V3: decisions (2026-10-30)
+
+- **A frame saved** keeps the video it is from, its time and frame number, the track's point at that time
+  (position, height, gimbal), a name and notes, and the look it was shown with (Original or Recoloured, palette,
+  range, tone curve, isotherm). Two PNGs go with it in the flight's folder (`datasets/<id>/video-frames/`, named by
+  a key of its own, so an import needs no renaming): the picture as shown when saved, and the original frame (from
+  which the levels come again exactly).
+- **Saved frames are listed under the video** (a click goes back to the frame, with its look); a name, notes, a
+  finding it is attached to, and delete. Removing a flight removes them; export and import carry them.
+- **Both ways into reports (the user's choice):** the flight report gets a "Video frames" section, each numbered
+  (V1, V2...) and placed on its map by position; a frame attached to a finding is also shown with that finding,
+  in the flight's and the mosaics' reports. A finding stays a mosaic's (its temperatures); a frame only joins it.
+- **The picture shown is as saved (the user's choice):** recoloured if Recoloured was on, else the original.
+
 ### Phases
 
 1. **V1: videos in a flight** (built 2026-10-30, see Done): MP4s are added to a flight as stills are (uploaded, or

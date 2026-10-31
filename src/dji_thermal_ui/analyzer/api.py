@@ -13,6 +13,7 @@ import hashlib
 import io
 import json
 import os
+import secrets
 import shutil
 import uuid
 from functools import lru_cache
@@ -36,7 +37,7 @@ from . import backup, basemaps, envfile, exports, restore, jobs, places, storage
 from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
-                     ThermalDataset, ThermalMeasurement, WebODMTask)
+                     ThermalDataset, ThermalMeasurement, VideoFrame, WebODMTask)
 from .raster.security import path_traversal_check
 
 PREFERENCES_KEY = 'conversion_settings'
@@ -2450,6 +2451,140 @@ class FindingDetailView(DatasetView):
     def delete(self, request, pk, fid):
         get_finding(pk, fid).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+MAX_PICTURE = 32 * 1024 * 1024        # bytes of a saved video frame's PNG
+MAX_LOOK = 10000                        # characters of the look it was shown with, as JSON
+
+
+def get_video_frame(pk, fid):
+    try:
+        return VideoFrame.objects.select_related('finding').get(pk=fid, dataset_id=get_dataset(pk).id)
+    except VideoFrame.DoesNotExist:
+        raise NotFound() from None
+
+
+def video_frame_json(v):
+    return {'id': v.id, 'dataset': v.dataset_id, 'video': v.video, 'time': v.time, 'frame': v.frame, 'point': v.point,
+            'name': v.name, 'notes': v.notes, 'look': v.look, 'finding': v.finding_id,
+            'finding_name': v.finding.name if v.finding else "", 'created_at': v.created_at, 'updated_at': v.updated_at}
+
+
+def video_frame_fields(dataset, data, partial):
+    """The fields a saved video frame is made or changed with (partial: only those given): name, notes, finding"""
+    out = finding_fields({k: data[k] for k in ('name', 'notes') if k in data}, partial)
+    if 'finding' in data:
+        fid = data.get('finding')
+        if fid in (None, ""):
+            out['finding'] = None
+        else:
+            try:
+                out['finding'] = dataset.findings.get(pk=int(fid))
+            except (TypeError, ValueError, Finding.DoesNotExist):
+                raise ValidationError({'finding': "That finding is not in this flight"}) from None
+    return out
+
+
+def track_point(path, t):
+    """The track's point at t seconds (the last at or before it) as {field: value}, or None"""
+    with video.Reader(path) as r:
+        points = r.track()
+    before = [p for p in points if p[0] <= t + 1e-4]
+    return dict(zip(video.TRACK_FIELDS, before[-1])) if before else None
+
+
+def png_upload(f, what):
+    """An uploaded PNG's bytes, checked to be one"""
+    from PIL import Image
+    if f is None:
+        raise ValidationError({what: "The picture is missing"})
+    if f.size > MAX_PICTURE:
+        raise ValidationError({what: "The picture is larger than {} MB".format(MAX_PICTURE // 1024 // 1024)})
+    data = f.read()
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            if im.format != 'PNG':
+                raise ValueError
+            im.verify()
+    except (OSError, ValueError, SyntaxError):
+        raise ValidationError({what: "The picture is not a PNG"}) from None
+    return data
+
+
+class VideoFramesView(DatasetView):
+    def get(self, request, pk):
+        """The flight's saved video frames, oldest first"""
+        dataset = get_dataset(pk)
+        return Response({'frames': [video_frame_json(v) for v in dataset.video_frames.select_related('finding')]})
+
+    def post(self, request, pk):
+        """
+        Saves a video's frame (multipart): video (its path in the flight), time (s), frame (its number), name, notes,
+        finding (an id, optional), look (JSON: how it was shown), and two PNGs: picture (as shown) and original.
+        The track's point at that time is kept with it.
+        """
+        dataset = get_dataset(pk)
+        rel = str(request.data.get('video') or "")
+        path = flight_file(dataset, rel, 'video')
+        try:
+            t, number = float(request.data.get('time')), int(request.data.get('frame'))
+        except (TypeError, ValueError):
+            raise ValidationError({'error': "Give the frame's time and number"}) from None
+        try:
+            with video.Reader(path) as r:
+                duration = r.info()['duration'] or 0
+            point = track_point(path, t)
+        except video.NotVideo as e:
+            raise ValidationError({'error': str(e)}) from None
+        if not (0 <= t <= duration + 1) or number < 1:
+            raise ValidationError({'error': "That moment is not in the video"})
+        try:
+            look = json.loads(request.data.get('look') or "{}")
+        except ValueError:
+            look = None
+        if not isinstance(look, dict) or len(json.dumps(look)) > MAX_LOOK:
+            raise ValidationError({'look': "The look is a JSON object"})
+        fields = video_frame_fields(dataset, request.data, partial=False)
+        picture = png_upload(request.FILES.get('picture'), 'picture')
+        original = png_upload(request.FILES.get('original'), 'original')
+        v = VideoFrame(dataset=dataset, video=rel, time=t, frame=number, point=point, look=look,
+                       key=secrets.token_hex(8), **fields)
+        os.makedirs(os.path.dirname(v.picture_path()), exist_ok=True)
+        for data, where in ((picture, v.picture_path()), (original, v.picture_path(original=True))):
+            with open(where, 'wb') as out:
+                out.write(data)
+        v.save()
+        return Response(video_frame_json(v), status=status.HTTP_201_CREATED)
+
+
+class VideoFrameDetailView(DatasetView):
+    def patch(self, request, pk, fid):
+        """Changes a saved video frame's name or notes, or the finding it is attached to (finding: an id, or null)"""
+        v = get_video_frame(pk, fid)
+        fields = video_frame_fields(v.dataset, request.data, partial=True)
+        if not fields:
+            raise ValidationError({'error': "Give a name, notes or a finding"})
+        for k, value in fields.items():
+            setattr(v, k, value)
+        v.save(update_fields=list(fields) + ['updated_at'])
+        return Response(video_frame_json(v))
+
+    def delete(self, request, pk, fid):
+        get_video_frame(pk, fid).delete()       # its pictures go too (post_delete)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class VideoFramePictureView(DatasetView):
+    def get(self, request, pk, fid):
+        """A saved video frame's picture as shown (a PNG), or its original frame (?original=1)"""
+        v = get_video_frame(pk, fid)
+        path = v.picture_path(original=request.query_params.get('original') in ('1', 'true'))
+        if not os.path.isfile(path):
+            raise NotFound({'error': "The picture is not there any more"})
+        response = download_file_response(request, path, 'inline')
+        response['Content-Type'] = 'image/png'
+        response['Cache-Control'] = 'private, max-age=86400'
+        return response
 
 
 CSV_COLUMNS = (('name', "Name"), ('target', "Measured on"), ('frame', "Frame"), ('kind', "Shape"),
