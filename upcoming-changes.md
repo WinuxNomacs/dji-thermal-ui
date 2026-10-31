@@ -8,12 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U8, polish (see Usability), planned 2026-10-31.
+**Up next**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
+Documentation), to be planned with the user.
 
-**Then**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
-Documentation; W1 may start before U1's changes are built).
-
-**After that**: X1, Linux, Windows and macOS checked (see Platforms).
+**Then**: X1, Linux, Windows and macOS checked (see Platforms).
 
 ## Standalone (option A)
 
@@ -2015,7 +2013,7 @@ Proposed:
 - **The settings pages are three rows** at the pane's foot, each with its icon: User Preferences, System Settings,
   Storage; System Settings no longer folds.
 
-### U8: polish
+### U8: polish (built 2026-10-31, see Done)
 
 As they are:
 - **The flight page's Files tab:** "Thermal frame" (a tick) repeats Kind. "With problems" is a tick. The Notes column
@@ -2795,3 +2793,12 @@ as feature changes require going forward."
   `frame.test.tsx` and `tests/test_navigation.py`. Checked on the user's data on a scratch 8081 instance (GETs
   only): the pane on the viewer, frames explorer, Flight report and Storage pages, the list switch and its URL,
   light and dark.
+- **U8: polish** (2026-10-31; U1's findings 12, 13 and 15). The Files tab's Problems column, Thermal frame and Notes
+  gone (`FLAG_COLUMNS` and `filtersFrom` in `dataset/files.ts`, `shortName` in `dataset/problems.ts`,
+  `dataset/tabs.tsx`); menus' links styled as their buttons and the shared `useMenu` (`components/menu.ts`); the
+  Flights table's row menu (`datasets/datasets-page.tsx`), 0 counted on the Projects table; Compare's `Toggle`
+  (`compare/compare-page.tsx`); the basemap list's colours (`styles/app.css`); the reports' saving status
+  (`report/text.tsx`). Tests in `frontend/tests/dataset.test.tsx`, `datasets.test.tsx`, `projects.test.tsx`,
+  `compare.test.tsx`, `report.test.tsx` and `mosaic-report.test.tsx`. Checked on the user's data on a scratch 8081
+  instance (GETs only), light and dark: the Problems column (every row 30 px), an old `thermal_frame` link, both
+  menus, the toggles, the basemap list, both reports' bars.

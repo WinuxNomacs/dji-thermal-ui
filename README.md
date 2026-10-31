@@ -48,8 +48,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   humidity, the embedded or one fixed distance, the oblique frames included when too few nadir frames are left.
 - **Files tab:** a flight's files, sorted by any column and filtered by conditions on any of them (Height ≤ 21,
   Min > 32 °F, Kind is one of Thermal…), every one of which a file shown matches: numbers in the unit shown,
-  text by its words. The Kind column's checkboxes and the Thermal frame and With problems columns filter too. All
-  files, Thermal frames and With problems set the filter they stand for, to change from there. The filter is kept in
+  text by its words. The Kind column's checkboxes and the Problems column (yes or no) filter too. The Problems
+  column names each problem a file is in (Unusual max, Oblique…), its sentence the tooltip, and why a file isn't
+  used. All files, Thermal frames and With problems set the filter they stand for, to change from there. The filter is kept in
   the page's link, and can be saved under a name as a favourite, offered on every flight's Files tab (a favourite is
   deleted, never overwritten). With Hover for detail checked (the default, remembered by the browser), a pane at the
   right shows a file's picture, larger (a video's cover), and its columns as the pointer passes over its thumbnail
@@ -120,7 +121,7 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   thumbnails of their kept frames, and the video frames saved (on the map too). A table of every frame can be appended,
   and the visual photos put on the map. Open it with the flight page's Flight report
   button. The title, author, date and notes are typed on the page and saved with the
-  flight; the last author typed fills in new reports. It always prints light, without the app's header and controls.
+  flight as typing pauses (the bar above says so: Saving…, then Saved); the last author typed fills in new reports. It always prints light, without the app's header and controls.
 - **Mosaic report:** a dataset's mosaics as a report to print or save as PDF. It shows the mosaic as the viewer
   showed it when its Mosaic report button was pressed (that view is saved with the report), with the saved measurements
   and the flight's findings drawn and numbered, the colour scale, a scale bar and north. Each measurement follows
@@ -130,7 +131,8 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
 - **Compare:** two datasets side by side, one over the other, or their difference, from any flight, the
   project's listed first. A pane can show a dataset's visual mosaic. "Overlay (A over B)" draws pane A's mosaic
   over pane B's in one pane, faded with an opacity slider and cut at a swipe line dragged across it: visual over
-  thermal, or two thermal mosaics.
+  thermal, or two thermal mosaics. The header's Link the panes, Shared palette and Findings stay pressed in, with a check,
+  while they are on.
 - **Navigation:** a pane on the left of every page lists the projects, under each its flights, under each its
   datasets, then User Preferences, System Settings and Storage; the pages' own tabs and buttons go further (the
   viewer's tabs, Compare, the reports, the frames explorer). A dataset opens its mosaics (else its frames, else its
