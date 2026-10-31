@@ -8,10 +8,11 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: CLI3, pin dji-thermal-cli 1.11.0 once it is on PyPI (P1's visual photos need it; the app pins 1.9.1), then
-P2, Hover for detail on the Files tab (decided, see Photos on the Files tab).
+**Up next**: P2, Hover for detail on the Files tab (decided, see Photos on the Files tab). CLI3, pin dji-thermal-cli
+1.11.0 (P1's visual photos need it; the app pins 1.9.1), as soon as it is on PyPI (the user pushes and tags it).
 
-**Then**: nothing planned.
+**Then**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
+phases; X1, Linux, Windows and macOS checked (see Platforms). Both to be planned with the user.
 
 ## Standalone (option A)
 
@@ -1740,6 +1741,63 @@ Two requests from `new.md` (2026-10-31).
   hides the pane until another row is hovered.
 - **Hover for detail off:** the pane opens only for a selected row and closes when it is deselected. Unchecking
   the box closes a pane shown by hovering; a selected row keeps it.
+
+## Usability
+
+Requested 2026-10-31 (new.md): "Using your expert ux designer skills, how would you make this ui more intuitive?"
+
+### What it builds on
+
+- The pages as they are after P2: Projects, a project, a flight (Files, Problems, Videos and the other tabs), a
+  dataset's mosaics viewer, the frames explorer, compare, the flight and mosaic reports, Preferences, Storage, ODM.
+- The names already settled (Project › Flight › Dataset, I1), the facelift (B) and the navigation pane.
+
+### Proposed phase
+
+- **U1: the review.** Every page walked through on the user's real data in a browser (light and dark, a wide and a
+  narrow window), following the tasks a first-time user has: make a project and a flight, add images, read the
+  analysis, convert, open a mosaic, measure, keep a finding, write the report, export, send to ODM.
+  - For each step: where a user hesitates (what to do next is not shown, a word that needs the manual, a control
+    far from what it acts on, a state that is not visible, an action with no feedback or no undo).
+  - Findings ranked by how much they get in the way, each with a proposed change and a screenshot, written up for
+    the user to read.
+  - Nothing is built in U1: the user picks the findings that become phases (U2 onwards).
+
+### Open decisions
+
+- Whether the write-up is a page to read (a published artifact) or a section here.
+- Whether a few short tasks done by someone who has not used the app (the user's own observation) should feed it.
+
+## Platforms
+
+Requested 2026-10-31 (new.md): the app supports Linux, Windows and macOS. Windows can be checked from the
+development machine (WSL); a Mac needs the user to pull and run the tests there, so tests that need one are kept to
+those that are truly necessary, not there for coverage.
+
+### What it builds on
+
+- CI on Linux and Windows (on a `v*` tag or by hand); "On another machine (macOS too)" in CLAUDE.md.
+- The code that differs by platform: `cli.py` (the restart and the browser on Windows), `datadir.py` and
+  `envfile.py` (file modes), the `os.replace` calls (a file open elsewhere on Windows), `move.py` (links),
+  `dji-thermal-ui.sh` (bash and the BSD tools on macOS), and file names in exports (case and characters that
+  Windows and macOS refuse or fold).
+- The tests guarded by platform: `POSIX` in `test_webodm.py` and `test_basemaps.py` (file modes),
+  `test_script.py` (skipped on Windows).
+
+### Proposed phase
+
+- **X1: platforms checked.**
+  - Read each place above for what really differs on each platform; fix what is wrong on its own branch.
+  - Run the full suite natively on Windows from WSL, and the command and the pages on Windows too.
+  - Keep a platform-guarded test only where it checks behaviour that really differs; drop or merge any that only
+    adds coverage.
+  - Make the Mac's list as short as it can be: only what a Mac alone can show (likely `dji-thermal-ui.sh` under the
+    Mac's bash and tools, and the default data folder), as one command the user runs after pulling.
+
+### Open decisions
+
+- Whether a macOS job is added to CI, run by hand only (macOS minutes cost ten times Linux's on a private repo, and
+  the minutes ran out in October), or the Mac stays a by-hand check.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
