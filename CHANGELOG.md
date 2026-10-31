@@ -58,6 +58,14 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The navigation pane (U7) lists projects, flights and datasets, and stops there: the Tools, Mosaics and Frames under
+  a dataset, the viewer's tabs and the Flight report's row are gone, the pages' own tabs and buttons reaching them. A
+  dataset is marked on any of its pages, a flight on its Flight report, and what the pane unfolds to show the page
+  shown stays unfolded. Storage is a row of its own beside User Preferences and System Settings (which no longer
+  folds), and its page has their width.
+- The frames explorer switches between all the frames, those In the mosaic and the Oblique ones, each with its
+  count, once the mosaics are built (the pane offered those lists before). A link to a list with no frames opens on
+  all of them.
 - Names (U6): the two reports are called Flight report (the flight page, the navigation pane) and Mosaic report (the
   viewer, the navigation pane), their pages titled "<name> · Flight report" and "<name> · Mosaic report". A dataset
   converted with no name typed is named after the settings that change its temperatures or mosaics ("Emissivity

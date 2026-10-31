@@ -8,12 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U7, the navigation pane and the settings pages (see Usability), planned 2026-10-31 and being built.
+**Up next**: U8, polish (see Usability), to be planned with the user.
 
-**Then**: U8, polish (see Usability), planned with the user before it is built.
+**Then**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
+Documentation; W1 may start before U1's changes are built).
 
-**After that**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
-Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
+**After that**: X1, Linux, Windows and macOS checked (see Platforms).
 
 ## Standalone (option A)
 
@@ -1992,7 +1992,7 @@ Proposed:
   place keep working (their pages, the Storage page, a backup restored with its folders kept), and the API still
   takes `source: folder`.
 
-### U7: the navigation pane and the settings pages
+### U7: the navigation pane and the settings pages (built 2026-10-31, see Done)
 
 As they are: the pane lists Projects › flights › under each flight "Flight report" and its datasets › under each
 dataset Tools (Compare, Mosaic report), Mosaics (one row per viewer tab) and Frames (Mosaic, Oblique, with counts),
@@ -2751,3 +2751,11 @@ as feature changes require going forward."
   flight dialog without the in-place folder (`datasets/new-dataset.tsx`). Tests in `frontend/tests/dataset.test.tsx`,
   `datasets.test.tsx`, `navigation.test.tsx` and `tests/test_pages.py`. Checked on the user's data on a scratch 8081
   instance (GETs only): both buttons and titles, the placeholder following the settings, the dialog, light and dark.
+- **U7: the navigation pane and the settings pages** (2026-10-31; U1's findings 10 and 14). The pane down to
+  projects, flights and datasets, what it unfolds kept, Storage a row beside User Preferences and System Settings
+  (`components/nav-pane.tsx`, `core/navigation.ts`, `nav_conversion` in `analyzer/api.py`); the frames explorer's
+  own list switch (`FRAME_LISTS` in `frame/frame.ts`, `frame/frame-list.tsx`, `frame/frame-page.tsx`); the Storage
+  page in the settings pages' column (`styles/app.css`). Tests in `frontend/tests/navigation.test.tsx`,
+  `frame.test.tsx` and `tests/test_navigation.py`. Checked on the user's data on a scratch 8081 instance (GETs
+  only): the pane on the viewer, frames explorer, Flight report and Storage pages, the list switch and its URL,
+  light and dark.
