@@ -1,10 +1,11 @@
 name: CI
 
-# Tests only: nothing here publishes anything.
+# Tests only: nothing here publishes anything. Run on a release tag, or by hand (Actions › CI › Run workflow).
 
 on:
   push:
-  pull_request:
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read

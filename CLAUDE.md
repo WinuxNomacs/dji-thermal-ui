@@ -20,8 +20,9 @@ machine. Keep it short; edit in place.
 
 ## Rules for this repository
 
-- **Never push and never tag.** A push runs CI (`.github/workflows/ci.yml`: lint, tests on Linux and Windows, the
-  build checks and a smoke check of the wheel) and publishes nothing. No workflow publishes yet; when a release
+- **Never push and never tag.** A `v*` tag runs CI (`.github/workflows/ci.yml`: lint, tests on Linux and Windows,
+  the build checks and a smoke check of the wheel), as does running it by hand; a push to a branch runs nothing.
+  Neither publishes anything. No workflow publishes yet; when a release
   workflow is added, this line says what a push or a `v*` tag publishes.
 - **Licence: AGPL-3.0-only.** The code comes from LuxODM/WebODM (AGPL-3.0) and uses dji-thermal-cli (AGPL-3.0). A
   file copied from WebODM keeps its copyright notice, and its header says where it came from.

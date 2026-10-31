@@ -46,6 +46,7 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- CI runs only on a `v*` tag or by hand (Actions › CI › Run workflow), no longer on every push or pull request.
 - The map pages colour a frame drawn without a map (the source frames, the palette previews) several times faster.
 - The `.env` values (the Mapbox token, WebODM's login) are read and written by one module; the setting
   `MAPBOX_ENV_FILES` is now `ENV_FILES`.

@@ -369,7 +369,7 @@ uvx twine@7.0.0 check --strict dist/*
 uv run --no-project python scripts/smoke.py uvx --from dist/dji_thermal_ui-<version>-py3-none-any.whl dji-thermal-ui
 ```
 
-CI (`.github/workflows/ci.yml`) runs these and the tests on Linux and Windows on every push. It publishes nothing.
+CI (`.github/workflows/ci.yml`) runs these and the tests on Linux and Windows when a `v*` tag is pushed, or when it is run by hand from the Actions tab. It publishes nothing.
 
 ## Licence
 
