@@ -8,6 +8,8 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
 import type {Finding} from "../src/findings/findings";
+import {Drawing} from "../src/measure/drawing";
+import type {Geometry} from "../src/measure/measure";
 import {SLIDERS} from "../src/viewer/view";
 import {type Mosaics, ViewerPage} from "../src/viewer/viewer-page";
 import {calls, click, jsonResponse, key, server, ticks, valuesResponse} from "./helpers";
@@ -91,6 +93,13 @@ function pointing(routed: ReturnType<typeof server>) {
     }) as unknown as ReturnType<typeof server>;
 }
 const WEST = [10.0002, 50.0005], EAST = [10.0008, 50.0005];
+const AREA: Geometry = {type: "Polygon", coordinates: [[[10.0002, 50.0002], [10.0008, 50.0002], [10.0008, 50.0008], [10.0002, 50.0002]]]};
+// A shape finished with the tool put on, which then goes off as it does on the map (jsdom draws none to draw it on)
+function drawn(start: ReturnType<typeof vi.spyOn>, geometry: Geometry) {
+    const d = start.mock.contexts.at(-1) as unknown as Drawing;
+    d.stop();
+    (d as unknown as {opts: {onDone: (g: Geometry) => void}}).opts.onDone(geometry);
+}
 const OUTLINES = {[BASE + "/mosaics/footprint?frame=a_T.JPG"]: {type: "FeatureCollection", features: []},
                   [BASE + "/mosaics/footprint?frame=b_T.JPG"]: {type: "FeatureCollection", features: []}};
 
@@ -134,8 +143,13 @@ describe("the viewer page", () => {
         expect($("[data-section=whole]")!.textContent).toContain("25.00 °C");
         expect($(".viewer-panel .scale")!.textContent).toContain("Temperature, °C");
         expect($(".map-legend")!.textContent).toBe("");
-        expect([...document.querySelectorAll(".viewer-panel [data-section]")].map((x) => x.getAttribute("data-section")).slice(0, 3))
-            .toEqual(["image", "cursor", "sources"]);
+        expect([...document.querySelectorAll(".viewer-panel .panel-group, .viewer-panel [data-section]")]
+            .map((x) => x.getAttribute("data-section") || x.textContent))
+            .toEqual(["View", "image", "isotherm", "Values", "cursor", "parameters", "whole", "Kept", "saved", "findings",
+                      "About", "report"]);
+        // Folded on a first visit: what is looked at less often
+        expect([...document.querySelectorAll<HTMLDetailsElement>(".viewer-panel details:not([open])")].map((x) => x.dataset.section))
+            .toEqual(["image", "parameters", "whole", "report"]);
         expect($("[data-section=cursor]")!.textContent).toContain("Pointer info");
         expect(location.search).toBe("?tab=as_converted&palette=ironred&min=20&max=30.1");
     });
@@ -448,7 +462,7 @@ describe("the viewer page", () => {
         click($("[data-measurement='4'] a")!);
         await ticks();
         expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Harmonized");
-        expect(byId("result").textContent).toContain("Saved as Hot spot");
+        expect($(".map-stage #measure-card .measure-card-head")!.textContent).toContain("Hot spot");
         expect(byId("result").textContent).toContain("31.50 °C");
         click($("[data-measurement='4'] button[title=Delete]")!);
         await ticks();
@@ -457,7 +471,85 @@ describe("the viewer page", () => {
         await ticks();
         expect(calls(fetchFn)).toContain("DELETE " + BASE + "/measurements/4");
         expect($("[data-section=saved]")!.textContent).toContain("No measurements saved yet.");
-        expect(byId("result").textContent).not.toContain("Saved as");
+        expect($(".measure-card-head")!.textContent).toContain("Measurement");
+        expect($("#measure-card [name=save]")).not.toBeNull();
+    });
+
+    it("draws with one set of tools on the map, measures the shape in a card there, and closes it with × or Esc", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
+        const fetchFn = server(routes());
+        await open(fetchFn);
+        expect($(".viewer-panel [data-section=measure]")).toBeNull();
+        expect($(".viewer-panel [data-section=sources]")).toBeNull();
+        expect([...document.querySelectorAll(".map-stage .map-tools [data-tool]")].map((b) => b.getAttribute("aria-label")))
+            .toEqual(["Spot", "Line", "Area", "Box", "Circle"]);
+        click($(".map-tools [data-tool=area]")!);
+        await ticks();
+        expect(start).toHaveBeenCalledWith("area");
+        expect($(".map-tools .tool-hint")!.textContent).toContain("Click the area's corners");
+        drawn(start, AREA);
+        await ticks(40);
+        expect(measured(fetchFn).at(-1)).toEqual({target: "as_converted", geometry: AREA, isotherm: "", parameters: {}});
+        expect(byId("result").textContent).toContain("25.00 °C");
+        expect([...document.querySelectorAll("#measure-card button")].map((b) => b.getAttribute("name")))
+            .toEqual(["close", "keep-finding", "sources", "save"]);
+        const clear = vi.spyOn(Drawing.prototype, "clear");
+        click($("#measure-card [name=close]")!);
+        await ticks();
+        expect($("#measure-card")).toBeNull();
+        expect(clear).toHaveBeenCalled();
+
+        drawn(start, AREA);
+        await ticks(40);
+        expect($("#measure-card")).not.toBeNull();
+        key(document.body, "Escape");
+        await ticks();
+        expect($("#measure-card")).toBeNull();
+    });
+
+    it("keeps the shape in the card as a finding in one step, the frames that saw it beside the form", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
+        const made = {...FOUND, id: 8, name: "Warm roof", geometry: AREA};
+        const fetchFn = server(routes({
+            [FINDINGS]: [{findings: []}, {findings: [made]}],
+            ["POST " + BASE + "/mosaics/as_converted/sources"]: {kind: "Polygon", geometry: AREA, models: true, reason: null,
+                                                                 frames: FOUND.frames},
+            ["POST " + FINDINGS]: made,
+        }));
+        await open(fetchFn);
+        click($(".map-tools [data-tool=area]")!);
+        drawn(start, AREA);
+        await ticks(40);
+        click($("#measure-card [name=keep-finding]")!);
+        await ticks(40);
+        expect($(".sources-window")).not.toBeNull();
+        expect(form()).not.toBeNull();
+        (byId("finding-name") as HTMLInputElement).value = "Warm roof";
+        byId("finding-name").dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        submit();
+        await ticks(40);
+        const posted = fetchFn.mock.calls.filter((c) => c[0] === FINDINGS && c[1]?.method === "POST")
+            .map((c) => JSON.parse(String(c[1]!.body)));
+        expect(posted).toMatchObject([{name: "Warm roof", conversion: 9, tab: "as_converted", geometry: AREA}]);
+        expect($("#measure-card")).toBeNull();
+        expect($(".sources-window .finding-about")!.textContent).toContain("Warm roof");
+    });
+
+    it("opens the frames that saw a shape drawn on the Source frame tab, with no Line and no card", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
+        const fetchFn = pointing(server(routes()));
+        await open(fetchFn);
+        click($("[data-tab=source_frame]")!);
+        await ticks(40);
+        expect([...document.querySelectorAll(".map-tools [data-tool]")].map((b) => b.getAttribute("data-tool")))
+            .toEqual(["point", "area", "box", "circle"]);
+        click($(".map-tools [data-tool=box]")!);
+        drawn(start, AREA);
+        await ticks(40);
+        expect(calls(fetchFn)).toContain("POST " + BASE + "/mosaics/source_frame/sources");
+        expect($(".sources-window")).not.toBeNull();
+        expect($("#measure-card")).toBeNull();
     });
 
     it("follows the mosaics being built until they are ready", async () => {

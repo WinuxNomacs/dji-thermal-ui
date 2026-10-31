@@ -1,6 +1,6 @@
 // A conversion's frames, one at a time: the frame as converted (and beside it, measured again with other parameters),
-// its visual pair in its place or beside it (the shapes, the cursor and the readout on it the thermal frame's), its palette, range and image adjustments, the values under the cursor, measuring with the isotherm, the frame's
-// figures, where the frames were taken, the measurements saved on it, and the frame as a PNG. The frames of the
+// its visual pair in its place or beside it (the shapes, the cursor and the readout on it the thermal frame's), its palette, range and image adjustments, the values under the cursor, the drawing tools on the frame and a shape's
+// temperatures in a card there (with the isotherm), the frame's figures, where the frames were taken, the measurements saved on it, and the frame as a PNG. The frames of the
 // pane's list (in the mosaic, oblique; all of them for none) are listed beside it, the frame shown chosen there or
 // stepped to with ← and →. The view (frame, palette, range, adjustments) and the list are kept in the URL.
 import type {Coordinate} from "ol/coordinate";
@@ -20,17 +20,17 @@ import {type Carried, viewAsked} from "../core/exports";
 import {type FlightZone, formatCapture, type Maybe, zoneText} from "../core/format";
 import {convertTemp} from "../core/units";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, ChevronLeft, ChevronRight, Download, Save} from "../components/icons";
+import {ArrowLeft, ChevronLeft, ChevronRight, Download} from "../components/icons";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
-import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
+import {type Coords, type Geometry, isothermParam, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
-import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
+import {type IsothermState, Isotherm, MeasureCard, Measurements, Toolbar} from "../measure/result";
 import {type Colouring, isothermRange, readValues} from "../map/colour";
 import {fitBounds, frameImage, frameImageLayer, frameMap, frameView, hoverTips, lonLatToMap, pointFeature,
         pointsMap, snapshot, ThermalLayer, vectorLayer} from "../map/map";
 import {fromVisual, toVisual, type VisualPair} from "../sources/sources";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
-import {Controls, ImageControls, type Palette, Section} from "../viewer/panel";
+import {Controls, ImageControls, type Palette, PanelGroup, Section} from "../viewer/panel";
 import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
         sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
 import {captureOrder, type Changes, changeStarts, changesIn, changesQuery, type FrameEntry, type FrameInfo, listFrames,
@@ -203,12 +203,13 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
 
     useEffect(() => {
         load();
-        // Enter finishes the shape being drawn and Esc cancels it; otherwise ← and → step through the frames (not
-        // while typing)
+        // Enter finishes the shape being drawn and Esc cancels it; otherwise Esc closes the measurement's card, and ←
+        // and → step through the frames (not while typing)
         const keys = (e: KeyboardEvent) => {
             const d = active();
             if (drawingKey(e, d)) return syncTools();
             if (d || inField(e.target) || e.altKey || e.ctrlKey || e.metaKey || !now.current.frame) return;
+            if (e.key === "Escape" && now.current.current) return closeCard();
             if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
             e.preventDefault();
             step(e.key === "ArrowLeft" ? -1 : 1);
@@ -646,6 +647,14 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         setCurrent(fresh);
     }
 
+    // The measurement's card closed, and its shape taken off the frame
+    function closeCard() {
+        asked.current.measure++;
+        setCurrent(null);
+        setIndex(null);
+        setMeasureError("");
+    }
+
     async function save() {
         const name = saveName.trim();
         if (!name || !current) return setMeasureError("Name the measurement to save it");
@@ -790,7 +799,21 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                         <div class="frame-pane">
                             <div class="frame-pane-title" id="pane-title">{onPair ? "Visual · " + pair!.frame.split("/").pop() +
                                 " (the readout and the shapes are the thermal frame's)" : "As converted"}</div>
-                            <div class="viewer-map frame-map" id="map" ref={paneEls[0]}/>
+                            <div class="map-stage">
+                                <div class="viewer-map frame-map" id="map" ref={paneEls[0]}/>
+                                {info && <Toolbar tool={tools.tool} count={tools.count}
+                                                  label="Drawing tools: measure a spot, a line or an area"
+                                                  onTool={(x) => {
+                                                      drawings.current.forEach((d) => d.stop());
+                                                      if (x) drawings.current[0]?.start(x);
+                                                      syncTools();
+                                                  }}
+                                                  onFinish={() => { active()?.finish(); syncTools(); }}/>}
+                                {res && <MeasureCard m={res} unit={unit} pixels labels={["As converted", "Changed"]} index={index}
+                                                     onIndex={(i) => showIndex(i, res.res?.result?.profile?.points)}
+                                                     name={saveName} error={measureError} onName={setSaveName} onSave={save}
+                                                     onClose={closeCard}/>}
+                            </div>
                         </div>
                         <div class="frame-pane" id="pair-pane" hidden={!beside}>
                             <div class="frame-pane-title">{beside ? "Visual · " + pair!.frame.split("/").pop() : "Visual"}</div>
@@ -802,57 +825,42 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                         </div>
                     </div>
                     {info && shown && <div class="viewer-panel">
+                        <PanelGroup title="View"/>
                         <Controls tab={{tab: "frame", stats: info.stats}} palette={shown.palette} palettes={meta.palettes || []}
                                   scale={scale} unit={unit} range={rangeText || rangeFields(shown.range)} rangeError={rangeError}
                                   onPalette={(palette) => setStyle({palette})} onRange={typedRange} onAuto={() => auto()}/>
-                        <Section name="image" title="Image" store={FOLDED_KEY}>
+                        <Section name="image" title="Image" store={FOLDED_KEY} folded>
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
                                            temperature={true} onSlide={slide} onGamma={gamma}
                                            onSharpen={sharpen}
                                            onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
                                            onReset={() => auto(true)}/>
                         </Section>
-                        <Section name="cursor" title="Pointer info" store={FOLDED_KEY}>
-                            <div class="readout" id="readout"><FrameReadout point={point} unit={unit}/></div>
-                        </Section>
-                        <Section name="measure" title="Measure" store={FOLDED_KEY}>
-                            <Toolbar tool={tools.tool} count={tools.count}
-                                     onTool={(x) => {
-                                         drawings.current.forEach((d) => d.stop());
-                                         if (x) drawings.current[0]?.start(x);
-                                         syncTools();
-                                     }}
-                                     onFinish={() => { active()?.finish(); syncTools(); }}/>
-                            <div id="result">
-                                {!res ? <p class="message">Choose a tool and draw on the frame.</p> :
-                                    res.error ? <p class="text-danger">{res.error}</p> :
-                                    res.res === undefined ? <p class="message">Measuring…</p> : <>
-                                        {res.saved && <div class="message">Saved as <strong>{res.saved.name}</strong>
-                                            {res.saved.values && (res.saved.values as {isotherm?: string}).isotherm &&
-                                                ", isotherm " + isothermText((res.saved.values as {isotherm?: string}).isotherm, unit)}</div>}
-                                        <ResultView res={res.res} unit={unit} shape={res.shape} pixels labels={["As converted", "Changed"]}
-                                                    index={index} onIndex={(i) => showIndex(i, res.res?.result?.profile?.points)}/>
-                                    </>}
-                            </div>
-                            {res && !res.saved && res.res?.result?.valid_pixels ? <div class="measure-save" id="save">
-                                <div class="inline">
-                                    <input type="text" name="name" maxLength={255} placeholder="Name" value={saveName}
-                                           onInput={(e) => setSaveName(e.currentTarget.value)}/>
-                                    <button type="button" class="button primary small" onClick={save}><Save/> Save</button>
-                                </div>
-                            </div> : null}
-                            {measureError && <div class="text-danger" id="measure-error">{measureError}</div>}
-                        </Section>
                         <Section name="isotherm" title="Isotherm" store={FOLDED_KEY}>
                             <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
                         </Section>
-                        <Section name="parameters" title="Measurement parameters" store={FOLDED_KEY}>
+                        <PanelGroup title="Values"/>
+                        <Section name="cursor" title="Pointer info" store={FOLDED_KEY}>
+                            <div class="readout" id="readout"><FrameReadout point={point} unit={unit}/></div>
+                        </Section>
+                        <Section name="parameters" title="Measurement parameters" store={FOLDED_KEY} folded>
                             <Params info={info} recorded={entry?.recorded} starts={starts} values={fieldValues} changes={changes}
                                     newUrl={newConversionUrl(publicUrl, datasetId, id, changes)}
                                     error={changeError.error} field={changeError.field}
                                     onInput={(k, x) => setTyped((t) => ({...t, [k]: x}))} onApply={applyChanges} onClear={clearChanges}/>
                         </Section>
-                        <Section name="info" title="This frame" store={FOLDED_KEY}>
+                        <PanelGroup title="Kept"/>
+                        <Section name="saved" title={<span class="measurements-head"><span>Saved on this frame</span>
+                            {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}
+                                                    onClick={(e) => e.stopPropagation()}><Download/> CSV</a>}</span>} store={FOLDED_KEY}>
+                            {!res && measureError && <div class="text-danger" id="measure-error">{measureError}</div>}
+                            <Measurements items={saved} unit={unit} current={current?.saved?.id ?? null} compared={compared}
+                                          editing={editing} fields={PARAM_FIELDS} onShow={showSaved}
+                                          onCompare={(x, on) => setCompared((c) => toggleCompared(c, x, on))}
+                                          onEdit={setEditing} onRename={rename} onDelete={remove} onRemeasure={remeasure}/>
+                        </Section>
+                        <PanelGroup title="About"/>
+                        <Section name="info" title="This frame" store={FOLDED_KEY} folded>
                             <Info info={info} unit={unit} normalized={meta.normalized}/>
                         </Section>
                         {placed.length > 0 && <Section name="locator" title="Where the frames are" store={FOLDED_KEY}
@@ -862,14 +870,6 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                                 <input type="checkbox" id="locator-visual" checked={locatorVisual}
                                        onChange={(e) => setLocatorVisual(e.currentTarget.checked)}/> Visual photos (orange squares)</label>}
                         </Section>}
-                        <Section name="saved" title={<span class="measurements-head"><span>Saved on this frame</span>
-                            {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}
-                                                    onClick={(e) => e.stopPropagation()}><Download/> CSV</a>}</span>} store={FOLDED_KEY}>
-                            <Measurements items={saved} unit={unit} current={current?.saved?.id ?? null} compared={compared}
-                                          editing={editing} fields={PARAM_FIELDS} onShow={showSaved}
-                                          onCompare={(x, on) => setCompared((c) => toggleCompared(c, x, on))}
-                                          onEdit={setEditing} onRename={rename} onDelete={remove} onRemeasure={remeasure}/>
-                        </Section>
                     </div>}
                 </div>
             </div>

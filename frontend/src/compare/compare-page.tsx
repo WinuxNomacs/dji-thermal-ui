@@ -764,12 +764,6 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     <option value="diff" disabled={anyVisual} title={anyVisual ? "Not with a visual mosaic" : undefined}>Difference (A − B)</option>
                     <option value="overlay">Overlay (A over B)</option>
                 </select>
-                <div class="compare-tools">
-                    <span class="text-muted">Source frames</span>
-                    <Toolbar tool={tools[n].tool} count={tools[n].count} tools={PANE_TOOLS} compact
-                             label={"The source frames of a spot or an area of pane " + n.toUpperCase()}
-                             onTool={(x) => pickTool(n, x)} onFinish={() => { maps.current[n]?.drawing.finish(); syncTools(); }}/>
-                </div>
             </div>}
             {p?.overlay && <div class="compare-overlay">
                 <label class="slider" title="How much of B shows through A">Opacity of A
@@ -787,6 +781,9 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             {/* Keyed: what comes and goes above it is never taken for it, which would lose its map */}
             <div class="compare-stage" key="map">
                 <div class="compare-map" id={"map-" + n} ref={mapEls[n]}/>
+                {p && <Toolbar tool={tools[n].tool} count={tools[n].count} tools={PANE_TOOLS} compact
+                               label={"Drawing tools: the source frames of a spot or an area of pane " + n.toUpperCase()}
+                               onTool={(x) => pickTool(n, x)} onFinish={() => { maps.current[n]?.drawing.finish(); syncTools(); }}/>}
                 {p?.overlay && <div class="compare-swipe" id={"swipe-" + n} role="separator" aria-orientation="vertical"
                                     tabIndex={0} aria-label="Move the line A is shown left of" aria-valuenow={swipe}
                                     aria-valuemin={SWIPE_LIMITS[0]} aria-valuemax={SWIPE_LIMITS[1]} style={{left: swipe + "%"}}

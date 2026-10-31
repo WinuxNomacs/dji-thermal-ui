@@ -419,7 +419,9 @@ describe("the frame page", () => {
         expect(byId("csv").getAttribute("href")).toBe(BASE + "/measurements.csv");
         click($("[data-measurement='4'] a")!);
         await ticks();
-        expect(byId("result").textContent).toContain("Saved as Hot spot");
+        expect($(".map-stage #measure-card .measure-card-head")!.textContent).toContain("Hot spot");
+        expect(byId("result").textContent).toContain("Saved");
+        expect($("#measure-card [name=keep-finding]")).toBeNull();
         click($("[data-measurement='4'] [title='Measure again with other parameters']")!);
         await ticks();
         type($("[data-param-field=emissivity]")!, "0.95");

@@ -1,9 +1,9 @@
-// What measuring shows on the viewer and frame pages: the tools' toolbar, the isotherm, a measure's figures and
-// charts, and the saved measurements (with two of them compared)
+// What measuring shows on the viewer and frame pages: the tools' toolbar on the map, the card of the shape drawn, the
+// isotherm, a measure's figures and charts, and the saved measurements (with two of them compared)
 import {useState} from "preact/hooks";
-import {Circle, Crosshairs, Flag, Info, Minus, Pencil, Polygon, Sliders, Square, Trash} from "../components/icons";
+import {Circle, Crosshairs, Flag, Images, Info, Minus, Pencil, Polygon, Save, Sliders, Square, Trash} from "../components/icons";
 import {Histogram, Profile} from "./charts";
-import {HINTS, ISOTHERM_MODES, type Measured, type Measurement, measurementFigure, type ParamField, paramsText,
+import {HINTS, ISOTHERM_MODES, isothermText, type Measured, type Measurement, measurementFigure, type ParamField, paramsText,
         type Result, resultRows, shapeLabel, shownTemp, symbol, targetLabel, type Tool, TOOLS} from "./measure";
 
 const TOOL_ICONS: Record<Tool, typeof Crosshairs> = {point: Crosshairs, line: Minus, area: Polygon, box: Square, circle: Circle};
@@ -20,24 +20,79 @@ interface ToolbarProps {
     compact?: boolean;                  // the hint only as a tooltip, where there is no room to write it
 }
 
-// The tools, with the one on marked and its hint, and Finish for a line or an area
-export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "Measuring tools", compact = false}: ToolbarProps) {
-    return (<div class="measure-toolbar">
+// The tools, on the map along its top edge: an icon each, named in its tooltip; while one is on, its hint, Finish
+// for a line or an area, and Cancel
+export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "Drawing tools", compact = false}: ToolbarProps) {
+    return (<div class="measure-toolbar map-tools">
         <div class="button-group tools" role="group" aria-label={label}>
-            {tools.map(([t, label]) => {
+            {tools.map(([t, name]) => {
                 const ToolIcon = TOOL_ICONS[t];
                 return (<button key={t} type="button" class={"button default small" + (tool === t ? " active" : "")}
-                                data-tool={t} aria-pressed={tool === t} title={label}
-                                onClick={() => onTool(tool === t ? null : t)}><ToolIcon/> {label}</button>);
+                                data-tool={t} aria-pressed={tool === t} title={name} aria-label={name}
+                                onClick={() => onTool(tool === t ? null : t)}><ToolIcon/></button>);
             })}
         </div>
-        {tool && <div class="tool-hint" title={compact ? HINTS[tool] : undefined}>{!compact && HINTS[tool]}{" "}
+        {tool && <div class="tool-hint" title={compact ? HINTS[tool] : undefined}>
+            {!compact && <span>{HINTS[tool]}</span>}
             {(tool === "line" || tool === "area") &&
                 <button type="button" class="button primary small" disabled={count < (tool === "line" ? 2 : 3)}
-                        onClick={onFinish}>Finish</button>}{" "}
+                        onClick={onFinish}>Finish</button>}
             <button type="button" class="button default small" onClick={() => onTool(null)}>Cancel</button>
         </div>}
     </div>);
+}
+
+// What was drawn (or the saved measurement shown), measured
+export interface Measuring {res?: Measured | null; error?: string; saved?: Measurement | null; shape?: Measured["shape"]}
+
+interface CardProps {
+    m: Measuring;
+    unit: unknown;
+    labels?: [string, string];          // the two results' names, with parameters changed
+    pixels?: boolean;                   // a frame: sizes in pixels
+    index?: number | null;
+    onIndex?: (i: number | null) => void;
+    name: string;                       // the name typed to save it
+    error?: string;
+    onName: (name: string) => void;
+    onSave: () => void;
+    onKeep?: () => void;                // kept as a finding (a spot or an area of a mosaic)
+    onSources?: () => void;             // the frames that saw it, in a window
+    onClose: () => void;
+}
+
+// The card on the map for the shape drawn: its temperatures and chart, and what can be done with it
+export function MeasureCard(p: CardProps) {
+    const m = p.m, valid = !!m.res?.result?.valid_pixels;
+    const isotherm = (m.saved?.values as {isotherm?: string} | undefined)?.isotherm;
+    return (<section class="measure-card" id="measure-card" aria-label="Measurement">
+        <div class="measure-card-head">
+            <strong>{m.saved ? m.saved.name : "Measurement"}</strong>
+            <button type="button" class="close" name="close" title="Close (Esc)" aria-label="Close" onClick={p.onClose}>×</button>
+        </div>
+        <div class="measure-card-body" id="result">
+            {m.error ? <p class="text-danger">{m.error}</p> :
+                m.res === undefined ? <p class="message">Measuring…</p> : <>
+                    {m.saved && <div class="message">Saved{isotherm ? ", isotherm " + isothermText(isotherm, p.unit) : ""}</div>}
+                    <ResultView res={m.res} unit={p.unit} shape={m.shape} labels={p.labels} pixels={p.pixels} index={p.index}
+                                onIndex={p.onIndex}/>
+                </>}
+            {valid && (p.onKeep || p.onSources) && <div class="inline measure-card-actions">
+                {p.onKeep && <button type="button" class="button primary small" name="keep-finding" onClick={p.onKeep}
+                                     title="Keep this spot or area, its temperatures and frames, as a finding of the flight">
+                    <Flag/> Keep as finding</button>}
+                {p.onSources && <button type="button" class="button default small" name="sources" onClick={p.onSources}
+                                        title="The frames that saw it, in a window"><Images/> Source frames</button>}
+            </div>}
+            {valid && !m.saved && <div class="inline measure-save" id="save">
+                <input type="text" name="name" maxLength={255} placeholder="Name" aria-label="Measurement name" value={p.name}
+                       onInput={(e) => p.onName(e.currentTarget.value)}
+                       onKeyDown={(e) => { if (e.key === "Enter") p.onSave(); }}/>
+                <button type="button" class="button default small" name="save" onClick={p.onSave}><Save/> Save measurement</button>
+            </div>}
+            {p.error && <div class="text-danger" id="measure-error">{p.error}</div>}
+        </div>
+    </section>);
 }
 
 export interface IsothermState {mode: string; a?: string; b?: string}

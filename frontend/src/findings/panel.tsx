@@ -115,8 +115,8 @@ export function Findings({items, shown, hidden, opened, onShown, onHide, onOpen,
             <input type="checkbox" name="findings" checked={shown} onChange={(e) => onShown(e.currentTarget.checked)}/>
             {" "}Show the findings on the map
         </label>
-        {!items.length ? <p class="message">No findings yet: open the source frames of a spot or an area, or a saved
-            measurement, and save it as a finding.</p> :
+        {!items.length ? <p class="message">No findings yet: draw a spot or an area on the mosaic and keep it as a
+            finding, or keep a saved measurement as one.</p> :
         <ul class="findings">{items.map((f) => {
             const off = hidden.includes(f.id);
             return (<li key={f.id} class={(f.id === opened ? "active" : "") + (off || !shown ? " off" : "")} data-finding={f.id}>

@@ -361,7 +361,11 @@ describe("visual mosaics on the compare page", () => {
         // The shared palette is B's, and A has no colour scale
         expect($("#shared input[name=min]")!.value).toBe("15.5");
         expect((byId("pane-a").querySelector(".map-legend") as HTMLElement).hidden).toBe(true);
-        // Its source frames are the as converted mosaic's, the window offering their visual pairs
+        // Its source frames are the as converted mosaic's, the window offering their visual pairs; the tools are on the
+        // pane's map, Spot and Area only
+        expect([...byId("pane-a").querySelectorAll(".compare-stage .map-tools [data-tool]")].map((x) => x.getAttribute("data-tool")))
+            .toEqual(["point", "area"]);
+        expect(byId("pane-a").querySelector(".compare-head [data-tool]")).toBeNull();
         click($("#pane-a [data-tool=point]")!);
         await ticks();
         clickMap(maps[0], [10.005, 50.005]);

@@ -81,7 +81,9 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   over the middle 90% of them), with a notice saying so; a link that names a tab opens that one. The viewer has palettes, a temperature range, brightness and contrast, gamma,
   equalization and sharpening, redrawn as their sliders are dragged; the colour scale, in the panel, is labelled with
   its range's ends. Pointer info gives the values under the cursor; a click keeps them and outlines the frame there,
-  and Esc or a second click on that frame lets go of it.
+  and Esc or a second click on that frame lets go of it. The side panel is grouped under View (palette, range, Image,
+  Isotherm), Values (Pointer info, Parameters, This mosaic), Kept (saved measurements, findings) and About; on a first
+  visit Image, Parameters, This mosaic and The mosaic start folded, and each section then stays as it was left.
 - **Visual mosaic:** when a flight has visual images, a dataset builds their mosaic with the thermal ones (the
   convert form's "And the visual mosaic", on by default), at the visual camera's own resolution. dji-thermal-cli
   places each visual image where its thermal frame is in the thermal mosaic, after measuring and correcting the
@@ -89,18 +91,21 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   gives the Mosaic tab's temperatures, and a click opens the frames that saw the spot. It is in the downloads
   beside the thermal mosaics. Zoom camera images are left out.
 - **Measurements:** spots, lines, areas, boxes and circles, ΔT, profiles, histograms and isotherms, on mosaics
-  and on single frames. A frame page's Thermal/Visual/Both switch shows the frame's visual image in its place or
+  and on single frames. The drawing tools are on the map's top edge, beside the zoom buttons; a shape drawn is measured
+  in a card on the map, with Save measurement (and, for a spot or an area of a mosaic, Keep as finding and Source
+  frames), closed with × or Esc. A frame page's Thermal/Visual/Both switch shows the frame's visual image in its place or
   beside it, with the same shapes and the cursor on it, and measures the thermal frame under them. They can be saved, compared, measured again with other settings, and exported as CSV and
   GeoJSON.
 - **Source frames:** a spot or an area of a mosaic opens a window with every frame that saw it, the one the mosaic
   used first, each with its time and view angle and the spot marked or the area outlined in it, in the thermal frame
-  or, with the Thermal/Visual switch, its visual image. Draw one with the
-  Source frames tool, click the Source frame tab, or open a measurement's; on the compare page, draw a spot or an area
-  in a pane. Mosaics
+  or, with the Thermal/Visual switch, its visual image. Press Source frames on a measurement's card, draw a spot or an
+  area (or click) on the Source frame or Visual tab, or open a saved measurement's; on the compare page, draw a spot
+  or an area with the tools on a pane's map. Mosaics
   built before 0.5.0 list only the frames they used: build them again to list every frame.
 - **Findings:** a spot or an area of a mosaic kept on its flight, with a name, notes, a severity and a status, the
-  temperatures measured when it was saved and the frames that saw it (all of them, or those you pick). Save one from
-  the source frames window or from a saved spot or area measurement. The viewer draws them on the map, outlined and
+  temperatures measured when it was saved and the frames that saw it (all of them, or those you pick). Draw a spot or
+  an area and press Keep as finding on its card (the form opens with the frames beside it), or save one from the source
+  frames window or from a saved spot or area measurement. The viewer draws them on the map, outlined and
   tagged in their severity's colour; click one, or its line in the Findings list, to open it with its frames. They
   can all be hidden with one switch, or one by one, and a link keeps which are shown and which is open. On the
   compare page each pane draws its flights' findings, opened with a click or a link and changed there, and a spot

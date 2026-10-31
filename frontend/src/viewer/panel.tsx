@@ -1,4 +1,4 @@
-// The viewer's panel: its folding sections, the colour scale, the image's sliders, the values under the cursor, the
+// The viewer's panel: its folding sections under their headings, the colour scale, the image's sliders, the values under the cursor, the
 // correction, the whole mosaic's figures and dji-thermal-cli's report
 import type {ComponentChildren} from "preact";
 import {useState} from "preact/hooks";
@@ -13,8 +13,15 @@ import {type Adjust, EMISSIVITY_RANGE, gammaSlider, inTemperatures, type MosaicT
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
 
-function folded(key: string): string[] {
-    try { return JSON.parse(localStorage.getItem(key) || "[]") as string[]; } catch { return []; }
+// The sections left folded (false) or open (true); a list of the folded ones as kept before
+function leftAs(key: string): Record<string, boolean> {
+    try {
+        const v = JSON.parse(localStorage.getItem(key) || "{}") as unknown;
+        if (Array.isArray(v)) return Object.fromEntries(v.map((n) => [String(n), false]));
+        return v && typeof v === "object" ? v as Record<string, boolean> : {};
+    } catch {
+        return {};
+    }
 }
 
 interface SectionProps {
@@ -22,23 +29,26 @@ interface SectionProps {
     title: ComponentChildren;
     children: ComponentChildren;
     store?: string;                         // where the folded sections are kept (each page its own)
+    folded?: boolean;                       // folded until it is first opened
     onToggle?: (open: boolean) => void;
 }
 
 // A section of the panel, folded or not as it was left
-export function Section({name, title, children, store = FOLDED_KEY, onToggle}: SectionProps) {
-    const [open] = useState(() => !folded(store).includes(name));
+export function Section({name, title, children, store = FOLDED_KEY, folded = false, onToggle}: SectionProps) {
+    const [open] = useState(() => leftAs(store)[name] ?? !folded);
     const toggle = (e: Event) => {
-        const shut = !(e.currentTarget as HTMLDetailsElement).open;
-        const kept = folded(store).filter((n) => n !== name).concat(shut ? [name] : []);
-        try { localStorage.setItem(store, JSON.stringify(kept)); } catch { /* not kept: it opens again next time */ }
-        onToggle?.(!shut);
+        const opened = (e.currentTarget as HTMLDetailsElement).open;
+        try { localStorage.setItem(store, JSON.stringify({...leftAs(store), [name]: opened})); } catch { /* not kept: it opens as it starts next time */ }
+        onToggle?.(opened);
     };
     return (<details class="section" open={open} data-section={name} onToggle={toggle}>
         <summary><h5>{title}</h5></summary>
         {children}
     </details>);
 }
+
+// A heading over sections of the panel that go together
+export const PanelGroup = ({title}: {title: string}) => <h4 class="panel-group">{title}</h4>;
 
 // The colour scale: its caption, the palette as drawn and the values along it
 export function ScaleView({scale}: {scale: Maybe<Scale>}) {
