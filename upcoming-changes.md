@@ -8,10 +8,11 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: the user picks which of U1's findings (see Usability) become phases, U2 onwards, each planned with
-the user.
+**Up next**: U2, the flight page's path from the analysis to a dataset (see Usability), planned 2026-10-31.
 
-**Then**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
+**Then**: U3–U8, U1's other findings (see Usability), each planned with the user before it is built.
+
+**After that**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
 Documentation; W1 may start before U1's changes are built); X1, Linux, Windows and macOS checked (see Platforms).
 
 ## Standalone (option A)
@@ -1829,6 +1830,58 @@ https://claude.ai/artifact/Ee3uCoiQKCYA1rjYG7ZmA5. Ranked; the user picks those 
       Compare's toggles look like buttons; the basemap list stays light in the dark theme.
   14. Settings are in three places; Storage is hidden under System Settings.
   15. The report pages don't say their text is saved.
+
+### Phases from U1's findings (2026-10-31)
+
+The user took all fifteen findings (2026-10-31: "I agree with everything you called out"), to be made into phases
+and each planned with them. Grouped by the page they change, the main path first:
+- **U2: the flight page's path from the analysis to a dataset** (findings 1, 4 and 11): what comes next shown once
+  the analysis is done, the datasets in front of the form, the form folded with its outputs named for what they are,
+  the Convert button above it, and the analysis's own progress while it runs.
+- **U3: the Problems tab** (2): its advice in the Convert form's words, each with a button that opens the form with
+  that setting set; temperatures in the preferred unit; the files listed once; the codes in a tooltip.
+- **U4: the viewer's first view** (3): open on Harmonized, or say why to look at it, when the frames disagree; a
+  line saying what each of its tabs shows.
+- **U5: measuring in the viewer** (5 and 6): one set of drawing tools, a shape's temperatures in a card on the map
+  with "Keep as finding", "Save measurement" and "Source frames"; the side panel grouped.
+- **U6: names** (7, 8 and 9): the two reports named by what they cover; a dataset named after its settings by
+  default; the New flight dialog's two folder options named by what they do with the files, the name taken from
+  the folder.
+- **U7: the navigation pane and the settings pages** (10 and 14): the pane stops at project, flight and dataset;
+  Storage listed beside the other settings pages, all three in the same column.
+- **U8: polish** (12, 13 and 15): the Files table's columns and rows; menus, the flight rows' actions, Compare's
+  toggles and the basemap list in the dark theme; "Saved" on the report pages.
+
+### U2: the flight page's path from the analysis to a dataset (planned 2026-10-31)
+
+On the flight page as it is: the tabs are Files, (Videos,) Problems, WebODM plan and Convert; before the analysis
+only Convert shows. The Convert tab's settings start open while the flight has no dataset, the Convert button is
+below them, and the flight's datasets are listed under the form, with a running conversion's progress there too.
+Proposed:
+- **The Convert tab becomes "Datasets"**, with its count: the flight's datasets first, then the way to make one.
+  The way back from the viewer and the frames explorer (`#convert`) opens it; the frames explorer's "convert again
+  with these" link still opens the form filled in.
+- **Making a dataset:** a "New dataset" bar with the settings summary (the chips), the name and the Convert button;
+  the settings fold under "Change settings", folded by default (opened by "Use settings", the WebODM plan's button
+  and a filled-in link, as today).
+- **The outputs named for what they are for**, the dji-thermal-cli name in small type beside each, its own
+  description as the tooltip: temp_c, temp_f, temp_k "Temperatures (°C / °F / K), for measuring"; temp_ck
+  "Temperatures in 16-bit integers (centi-kelvin)"; temp_dc "Temperatures as the DJI SDK gives them"; raw "Raw
+  sensor values"; gray16 "16-bit greyscale picture"; pseudo "Coloured picture (the palette)"; rjpeg "DJI R-JPEG".
+- **Next step shown:** once the analysis is done and the flight has no dataset, a band above the tabs: "Next: make
+  a dataset", with how many thermal frames it will convert.
+- **While the analysis runs:** "Reading 120 of 220 files" with the bar, the form not shown; the header's button says
+  "Cancel the analysis".
+- Object distance's help leaves out what isn't known yet.
+
+### U2: decisions (2026-10-31)
+
+- **Tabs:** one "Datasets (n)" tab in place of Convert: the datasets first, then the New dataset bar (chips, name,
+  Convert), the settings folded under "Change settings".
+- **First tab:** Datasets once the flight has a dataset; Files before that (Convert before the analysis, as now).
+- **The "Next: make a dataset" band's button** opens the Datasets tab with the New dataset bar in view; it does not
+  start a conversion.
+- **Outputs:** the plain names above, dji-thermal-cli's name in small type beside each, its description the tooltip.
 
 ## Platforms
 
