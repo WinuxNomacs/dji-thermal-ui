@@ -83,6 +83,27 @@ def test_the_files_tab_gets_small_thumbnails_of_the_files_the_analysis_lists_onl
     assert api.get(url, {'file': '../outside.JPG'}).status_code == 404
 
 
+def test_the_files_tabs_detail_pane_gets_a_larger_preview_and_never_one_larger_than_the_photo(api, tmp_path):
+    from PIL import Image
+    folder = server_folder(tmp_path, files=('DJI_0001_V.JPG', 'DJI_0001_T.JPG'))
+    Image.new('RGB', (4032, 3024), (40, 90, 160)).save(os.path.join(folder, 'DJI_0001_V.JPG'))
+    Image.new('RGB', (640, 512), (200, 40, 40)).save(os.path.join(folder, 'DJI_0001_T.JPG'))
+    d = dataset(source='folder', folder=folder, analysis={'files': [
+        {'path': 'DJI_0001_V.JPG', 'kind': 'not_thermal'}, {'path': 'DJI_0001_T.JPG', 'kind': 'thermal'}]})
+    url = "{}/{}/thumbnail".format(DATASETS, d.id)
+
+    def size(file, **params):
+        res = api.get(url, {'file': file, **params})
+        assert res.status_code == 200 and 'max-age' in res['Cache-Control']
+        with Image.open(io.BytesIO(res.content)) as im:
+            return im.size
+
+    assert size('DJI_0001_V.JPG', size='preview') == (1280, 960)
+    assert size('DJI_0001_T.JPG', size='preview') == (640, 512)
+    assert max(size('DJI_0001_V.JPG')) == 96
+    assert max(size('DJI_0001_V.JPG', size='huge')) == 96
+
+
 def test_a_dataset_is_created_with_a_name(api):
     res = api.post(DATASETS, {'name': "Roof"}, format='json')
     assert res.status_code == 201

@@ -46,6 +46,10 @@ All notable changes are recorded here. The format follows
 - The Files tab shows a visual photo's time, position, heights, gimbal pitch and yaw and rangefinder distance, read
   from its metadata by dji-thermal-cli 1.11 (a flight gets them on its next Analyze). The flight report can put the
   visual photos on its map (saved with the report), and so can the frame page's map of where the frames are.
+- Hover for detail on the Files tab (on by default, remembered by the browser): a pane at the right with a file's
+  picture, up to 1280 px (a video's cover), and its columns, following the thumbnail or name the pointer is over.
+  A clicked row stays in the pane until it is clicked again, closed or Escape is pressed; with the box unchecked,
+  only a clicked row opens it.
 
 ### Changed
 

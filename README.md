@@ -45,7 +45,10 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   text by its words. The Kind column's checkboxes and the Thermal frame and With problems columns filter too. All
   files, Thermal frames and With problems set the filter they stand for, to change from there. The filter is kept in
   the page's link, and can be saved under a name as a favourite, offered on every flight's Files tab (a favourite is
-  deleted, never overwritten).
+  deleted, never overwritten). With Hover for detail checked (the default, remembered by the browser), a pane at the
+  right shows a file's picture, larger (a video's cover), and its columns as the pointer passes over its thumbnail
+  or name. Clicking a row keeps it there until it is clicked again or closed (×, or Escape); unchecked, only a
+  clicked row opens the pane.
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
   mosaics. You can keep several side by side, cancel one, or download it. The R-JPEG output (`rjpeg`) writes each
   frame again as an R-JPEG with the dataset's measurement parameters in DJI's header, so DJI's own tools measure it

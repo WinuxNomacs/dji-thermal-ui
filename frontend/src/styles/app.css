@@ -472,7 +472,37 @@ th .kind-button .icon.on { color: var(--accent); }
 .table.files .badge { margin-right: 3px; }
 .table.files td.thumb { padding: 1px 4px; width: 52px; }
 .thumb img { display: block; max-width: 48px; max-height: 40px; }
-.table.files.linked tbody tr { cursor: pointer; }
+.files-tab .table.files tbody tr { cursor: pointer; }
+.files-tab .table.files tbody tr:hover td { background: var(--hover); }
+.files-tab .table.files tbody tr.selected td { background: var(--accent-soft); }
+.thumb-button { display: block; padding: 0; border: 0; background: none; cursor: pointer; }
+.thumb-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* The detail pane, docked at the right of the Files tab, staying in view as the list scrolls; over the list when narrow */
+.files-body { display: flex; align-items: flex-start; gap: 12px; }
+.files-body > .table-scroll { flex: 1; min-width: 0; }
+.files-detail {
+    flex: 0 0 380px; position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow: auto; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); font-size: 13px;
+}
+.files-detail.selected { border-color: var(--accent); }
+.files-detail-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.files-detail-name { flex: 1; word-break: break-all; }
+.files-detail-picture {
+    background: var(--hover) center / contain no-repeat; border-radius: var(--radius); margin-bottom: 8px;
+}
+.files-detail-picture img { display: block; width: 100%; height: auto; border-radius: var(--radius); }
+.files-detail-open { margin: 0 0 8px; }
+.files-detail-columns { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; }
+.files-detail-columns dt { color: var(--muted); }
+.files-detail-columns dd { margin: 0; }
+.files-detail-notes { margin: 8px 0 0; }
+@media (max-width: 900px) {
+    .files-detail {
+        position: fixed; top: 0; right: 0; bottom: 0; z-index: 1020; width: min(380px, calc(100vw - 32px));
+        max-height: none; border-radius: 0; box-shadow: var(--shadow);
+    }
+}
 .table.files tr.kind-not_thermal td, .table.files tr.kind-not_jpeg td { opacity: .6; }
 
 .finding {

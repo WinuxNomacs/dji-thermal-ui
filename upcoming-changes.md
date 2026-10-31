@@ -8,8 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: P2, Hover for detail on the Files tab (decided, see Photos on the Files tab). CLI3, pin dji-thermal-cli
-1.11.0 (P1's visual photos need it; the app pins 1.9.1), as soon as it is on PyPI (the user pushes and tags it).
+**Up next**: CLI3, pin dji-thermal-cli 1.11.0 (P1's visual photos need it; the app pins 1.9.1), as soon as it is on
+PyPI (the user pushes and tags it).
 
 **Then**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
 phases; X1, Linux, Windows and macOS checked (see Platforms). Both to be planned with the user.
@@ -1728,7 +1728,7 @@ Two requests from `new.md` (2026-10-31).
 - The visual photos as a layer, off by default, on the flight report's map (a switch saved with the report, as the
   appendix's) and on the frame page's map of where the frames are (a switch the browser remembers).
 
-### P2: Hover for detail
+### P2: Hover for detail (built 2026-10-31, see Done)
 
 - On the Files tab only: the checkbox beside Thumbnails, on by default, remembered per browser as Thumbnails is.
 - **The pane** is docked at the right of the window: the image at a size that fits it (a preview from the server,
@@ -2387,3 +2387,9 @@ those that are truly necessary, not there for coverage.
   and rangefinder, the report's layer on, saved, printed light without its switch, then off; the locator's layer on,
   kept over a reload, then off; light and dark, no console or HTTP errors. The check found the filled markers hidden
   under their thermal frames' points and the Distance cell starting with "/": both fixed.
+- **P2: Hover for detail** (2026-10-31): the Files tab's pane (`DetailPane`, `Notes` and the hover, selection and
+  close state in `FilesTab`, `dataset/tabs.tsx`; `.files-detail` in `app.css`, over the list under 900 px) and the
+  thumbnail view's `?size=preview` (1280 px, `PREVIEW_SIZE` in `api.py`). Tests: `tests/test_api_datasets.py`,
+  `frontend/tests/dataset.test.tsx`. Checked live on 8081 (8 pairs of `ignored/m4t-tv`, scratch data and config):
+  hovering names and thumbnails (a preview in about 80 ms), closing, selecting, Escape, the box off and remembered,
+  700 px wide; light and dark, no console or HTTP errors.
