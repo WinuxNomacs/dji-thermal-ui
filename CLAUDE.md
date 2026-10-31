@@ -28,6 +28,9 @@ machine. Keep it short; edit in place.
   file copied from WebODM keeps its copyright notice, and its header says where it came from.
 - Work is planned in `upcoming-changes.md`. New requests arrive in `new.md` (untracked).
 - Dependencies are pinned exactly, in `pyproject.toml` and `uv.lock`, and in `package.json` and `package-lock.json`.
+- **Linux, Windows and macOS are all supported.** Code that differs by platform is checked on Windows before the
+  merge that touches it. A test only a Mac can run is added only where behaviour really differs there, never for
+  coverage: the user has to pull and run those by hand.
 - dji-thermal-cli is the user's own package (`~/gitrepos/python/dji-thermal-cli` on their machine). A change it
   needs is made and released there first, then pinned here.
 
@@ -53,6 +56,9 @@ machine. Keep it short; edit in place.
   in `api.py`); the browser colours them in WebGL (`frontend/src/map/colour.ts`: palette, range, tone curve,
   isotherm, sharpening), and on a canvas where it draws without a map (`colourValues`). The visual mosaic is the
   exception: PNG tiles from a JPEG copy with overviews (`thermal_mosaics.map_copy`).
+- **Visual photos** (`_V`, `_W`) are `kind: not_thermal` rows in dji-thermal-cli's analysis, their metadata in
+  `FileReport.visual` (`info` is thermal only). The pages call them visual through `fileKind` (front end) and
+  `is_visual` (server); never test `kind === "visual"`.
 - **Tests:** pytest with pytest-django (`tests/`, settings `tests.settings`, which use a temporary data folder and a
   stub manifest, so they need no build), Vitest with jsdom (`frontend/tests/`), ruff, and ESLint with `tsc`. All of
   them run on the host.
@@ -82,6 +88,11 @@ machine. Keep it short; edit in place.
 - **CI runs on Linux and Windows only.** On a Mac, run the full set by hand:
   `uv run pytest`, `uv run ruff check`, `npm test`, `npm run -s lint`, `npm run build`, and the release checks.
 - **Live checks:** Playwright with Chromium, from `npx playwright install chromium`. macOS needs no host override.
+  - Run them on their own instance (`--port 8081 --no-browser`, with `DJI_THERMAL_UI_DATA_DIR` and
+    `DJI_THERMAL_UI_CONFIG_DIR` on scratch folders), so an instance the user runs on 8080 keeps running.
+  - A check that needs an unreleased dji-thermal-cli uses a scratch venv (`uv venv`, `uv pip install -e .`, then
+    the local cli), never `.venv` or `uv.lock`.
+  - A report's PATCH merges keys: put one back with `null`, not `{}`.
 - **dji-thermal-cli:** its own `CONTRIBUTING.md` explains its test setup.
   - The DJI SDK's sample images run on macOS.
   - The native-SDK comparisons skip there, because the SDK's libraries are Linux x64.
