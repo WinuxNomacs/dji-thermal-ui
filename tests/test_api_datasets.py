@@ -102,6 +102,54 @@ def test_the_files_tabs_detail_pane_gets_a_larger_preview_and_never_one_larger_t
     assert size('DJI_0001_T.JPG', size='preview') == (640, 512)
     assert max(size('DJI_0001_V.JPG')) == 96
     assert max(size('DJI_0001_V.JPG', size='huge')) == 96
+    assert size('DJI_0001_V.JPG', size='full') == (4032, 3024)
+
+
+def test_the_full_size_image_is_the_file_as_it_is(api, tmp_path):
+    folder = server_folder(tmp_path, files=('DJI_0001_V.JPG', 'notes.txt'))
+    d = dataset(source='folder', folder=folder, analysis={'files': [
+        {'path': 'DJI_0001_V.JPG', 'kind': 'not_thermal'}, {'path': 'notes.txt', 'kind': 'not_jpeg'}]})
+    url = "{}/{}/thumbnail".format(DATASETS, d.id)
+    with open(os.path.join(folder, 'DJI_0001_V.JPG'), 'rb') as f:
+        assert api.get(url, {'file': 'DJI_0001_V.JPG', 'size': 'full'}).content == f.read()
+    assert api.get(url, {'file': 'notes.txt', 'size': 'full'}).status_code == 404
+
+
+def test_a_thermal_frame_is_coloured_with_the_palette_asked_and_the_rest_keep_the_camera_s(api, tmp_path):
+    from PIL import Image
+    from tests.fakes import fake_measure
+    folder = server_folder(tmp_path, files=('DJI_0001_V.JPG', 'DJI_0001_T.JPG', 'DJI_0002_T.JPG'))
+    Image.new('RGB', (40, 30), (40, 90, 160)).save(os.path.join(folder, 'DJI_0001_V.JPG'))
+    for name in ('DJI_0001_T.JPG', 'DJI_0002_T.JPG'):
+        Image.new('RGB', (64, 51), (200, 40, 40)).save(os.path.join(folder, name))
+    d = dataset(source='folder', folder=folder, analysis={'files': [
+        {'path': 'DJI_0001_V.JPG', 'kind': 'not_thermal'}, {'path': 'DJI_0001_T.JPG', 'kind': 'thermal'},
+        {'path': 'DJI_0002_T.JPG', 'kind': 'thermal'}]})
+    url = "{}/{}/thumbnail".format(DATASETS, d.id)
+
+    def picture(file, **params):
+        res = api.get(url, {'file': file, **params})
+        assert res.status_code == 200
+        with Image.open(io.BytesIO(res.content)) as im:
+            return im.size, im.convert('RGB').getpixel((im.width // 2, im.height // 2))
+
+    def grey(colour):
+        return max(colour) - min(colour) < 12
+
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
+        # Measured (8 x 10 px, warming to the east) and coloured in grey over its own range, at each size
+        for params in ({}, {'size': 'preview'}, {'size': 'full'}):
+            size, colour = picture('DJI_0001_T.JPG', palette='gray', **params)
+            assert grey(colour) and 60 < colour[0] < 200
+        assert picture('DJI_0001_T.JPG', palette='gray', size='full')[0] == (10, 8)
+        # Without a palette, with a DJI palette the frame doesn't hold, or on a visual photo: the camera's picture
+        assert picture('DJI_0001_T.JPG', size='full')[0] == (64, 51)
+        assert picture('DJI_0001_T.JPG', palette='dji_ironred', size='full')[0] == (64, 51)
+        assert picture('DJI_0001_V.JPG', palette='gray')[1][2] > 120
+        assert api.get(url, {'file': 'DJI_0001_T.JPG', 'palette': 'nope'}).status_code == 400
+    # A frame dji-thermal-cli can't measure keeps it too
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=RuntimeError("not an R-JPEG")):
+        assert picture('DJI_0002_T.JPG', palette='magma', size='full')[0] == (64, 51)
 
 
 def test_a_dataset_is_created_with_a_name(api):

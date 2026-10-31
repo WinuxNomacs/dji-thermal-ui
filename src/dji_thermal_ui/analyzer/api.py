@@ -33,7 +33,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, video, webodm, webodm_tasks
+from . import backup, basemaps, colouring, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, video, webodm, webodm_tasks
 from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
@@ -823,7 +823,7 @@ class DatasetCancelView(DatasetView):
 
 
 THUMBNAIL_SIZE = (96, 96)
-PREVIEW_SIZE = (1280, 1280)      # ?size=preview: the Files tab's detail pane
+PREVIEW_SIZE = (1280, 1280)      # ?size=preview: the Files tab's detail pane (?size=full: the image's own size)
 
 
 def flight_file(dataset, rel, kind=None):
@@ -853,22 +853,58 @@ def video_cover(path):
     return picture
 
 
+def thermal_picture(dataset, rel, palette):
+    """A thermal frame's temperatures (as its own parameters give them) coloured with a palette over the frame's own
+    range: an RGB image, or None where the camera's picture stays (a palette the frame doesn't hold, a frame that
+    can't be measured)"""
+    from PIL import Image
+    try:
+        values = exports.frame_values(dataset, None, rel, None, 'C')
+        rgba = colouring.colour(values, exports.palette_colors(palette, exports.frame_path(dataset, rel)),
+                                exports.auto_range(values))
+    except exports.ExportError:
+        return None
+    return Image.fromarray(np.ascontiguousarray(rgba[..., :3]))
+
+
 class DatasetThumbnailView(DatasetView):
     def get(self, request, pk):
         """A small JPEG of one of the files its analysis lists (?file=; a video's cover), for the Files tab; a larger
-        one with ?size=preview, for its detail pane"""
+        one with ?size=preview, for its detail pane, and the image at its own size with ?size=full. With ?palette= (a
+        key as the map pages offer them), a thermal frame is coloured with that palette instead of the camera's."""
         from PIL import Image
         from django.http import HttpResponse
-        path = flight_file(get_dataset(pk), request.query_params.get('file') or "")
-        size = PREVIEW_SIZE if request.query_params.get('size') == 'preview' else THUMBNAIL_SIZE
+        dataset = get_dataset(pk)
+        rel = request.query_params.get('file') or ""
+        path = flight_file(dataset, rel)
+        palette = request.query_params.get('palette') or ""
+        if palette and palette not in {p['key'] for p in palette_choices()}:
+            raise ValidationError({'palette': "Not a palette: " + palette})
+        size = {'preview': PREVIEW_SIZE, 'full': None}.get(request.query_params.get('size'), THUMBNAIL_SIZE)
+        thermal = bool(palette) and any(r.get('path') == rel and r.get('kind') == 'thermal'
+                                        for r in (dataset.analysis or {}).get('files') or [])
+        picture = thermal_picture(dataset, rel, palette) if thermal else None
         out = io.BytesIO()
         try:
-            with Image.open(io.BytesIO(video_cover(path)) if video.is_video(path) else path) as im:
-                # The JPEG decoder scales down while reading: a few milliseconds a frame
-                im.draft('RGB', size)
-                im = im.convert('RGB')
-                im.thumbnail(size)
-                im.save(out, 'JPEG', quality=75 if size == THUMBNAIL_SIZE else 85)
+            if picture is None and size is None:
+                # At its own size, as the file is (a video's cover)
+                if video.is_video(path):
+                    out.write(video_cover(path))
+                else:
+                    with Image.open(path) as im:
+                        if im.format != 'JPEG':
+                            raise ValueError
+                    with open(path, 'rb') as f:
+                        out.write(f.read())
+            else:
+                with picture or Image.open(io.BytesIO(video_cover(path)) if video.is_video(path) else path) as im:
+                    if size is not None:
+                        # The JPEG decoder scales down while reading: a few milliseconds a frame
+                        im.draft('RGB', size)
+                    im = im.convert('RGB')
+                    if size is not None:
+                        im.thumbnail(size)
+                    im.save(out, 'JPEG', quality=75 if size == THUMBNAIL_SIZE else 85 if size else 92)
         except (OSError, ValueError):
             raise NotFound({'error': "The file is not an image"}) from None
         response = HttpResponse(out.getvalue(), content_type="image/jpeg")
