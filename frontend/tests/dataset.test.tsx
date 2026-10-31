@@ -102,9 +102,9 @@ function choose(input: HTMLInputElement, files: File[]) {
     input.dispatchEvent(new Event("change", {bubbles: true}));
 }
 
-function page(fetchFn: ReturnType<typeof server>, nav = vi.fn()) {
+function page(fetchFn: ReturnType<typeof server>, nav = vi.fn(), palette = "") {
     vi.stubGlobal("fetch", fetchFn);
-    render(<DatasetPage api={API} publicUrl="/" id={5} projectId={4} projectName="Silos" nav={nav}/>, byId("root"));
+    render(<DatasetPage api={API} publicUrl="/" id={5} projectId={4} projectName="Silos" palette={palette} nav={nav}/>, byId("root"));
     return nav;
 }
 
@@ -494,7 +494,7 @@ describe("the dataset page", () => {
         expect(details).toContain("0.91");
         await enter(row("rgb/a_V.JPG").querySelector("td.thumb")!);
         expect(shown()).toBe("rgb/a_V.JPG");
-        expect($(".files-detail-open")).toBeNull();
+        expect($(".files-detail-open a")).toBeNull();
 
         // Closed, it stays shut until another row is hovered
         click($(".files-detail .close")!);
@@ -559,6 +559,70 @@ describe("the dataset page", () => {
         expect(shown()).toBeNull();
         await enter(row("thermal/b_T.JPG").children[1]);
         expect(shown()).toBeNull();
+    });
+
+    it("colours the thermal pictures with the preferred palette, the visual photos as they are", async () => {
+        localStorage.setItem("thermalAnalyzer.thumbnails", "1");
+        page(routes(), vi.fn(), "dji_ironred");
+        await ticks();
+        const row = (path: string) => $$("table.files tbody tr").find((tr) => tr.textContent!.includes(path))!;
+        const thumb = (path: string) => row(path).querySelector("td.thumb img")!.getAttribute("src");
+        expect(thumb("thermal/a_T.JPG")).toBe(URL + "/thumbnail?file=thermal%2Fa_T.JPG&palette=dji_ironred");
+        expect(thumb("rgb/a_V.JPG")).toBe(URL + "/thumbnail?file=rgb%2Fa_V.JPG");
+        click(row("thermal/a_T.JPG").children[3]);
+        await ticks();
+        expect($<HTMLImageElement>(".files-detail img")!.getAttribute("src"))
+            .toBe(URL + "/thumbnail?file=thermal%2Fa_T.JPG&palette=dji_ironred&size=preview");
+    });
+
+    it("shows the pane's file at its own size over the page, fitting the window, zoomed and panned", async () => {
+        page(routes(), vi.fn(), "magma");
+        await ticks();
+        const row = (path: string) => $$("table.files tbody tr").find((tr) => tr.textContent!.includes(path))!;
+        click(row("thermal/a_T.JPG").children[3]);
+        await ticks();
+        click($(".files-full-size")!);
+        await ticks();
+        const img = $<HTMLImageElement>(".full-size-stage img")!;
+        expect(img.getAttribute("src")).toBe(URL + "/thumbnail?file=thermal%2Fa_T.JPG&palette=magma&size=full");
+        expect($(".full-size-name")!.textContent).toBe("thermal/a_T.JPG");
+        expect($(".full-size-loading")).not.toBeNull();
+
+        // Loaded (640 x 512) on a 1280 x 1024 stage: twice its size, centred; 1:1 and back to the fit
+        $(".full-size-stage")!.getBoundingClientRect = () => ({left: 0, top: 0, width: 1280, height: 1024}) as DOMRect;
+        Object.defineProperties(img, {naturalWidth: {value: 640}, naturalHeight: {value: 512}});
+        img.dispatchEvent(new Event("load"));
+        await ticks();
+        expect($(".full-size-dims")!.textContent).toBe("640 × 512 px, 200 %");
+        expect(img.style.width).toBe("1280px");
+        click($(".full-size-actual")!);
+        await ticks();
+        expect([img.style.width, img.style.transform]).toEqual(["640px", "translate(320px, 256px)"]);
+
+        // The wheel zooms about the pointer, dragging pans
+        $(".full-size-stage")!.dispatchEvent(new WheelEvent("wheel", {deltaY: -100, clientX: 320, clientY: 256, bubbles: true, cancelable: true}));
+        await ticks();
+        expect([img.style.width, img.style.transform]).toEqual(["800px", "translate(320px, 256px)"]);
+        const stage = $(".full-size-stage")!;
+        stage.dispatchEvent(new PointerEvent("pointerdown", {button: 0, pointerId: 1, clientX: 100, clientY: 100, bubbles: true}));
+        stage.dispatchEvent(new PointerEvent("pointermove", {pointerId: 1, clientX: 130, clientY: 90, bubbles: true}));
+        stage.dispatchEvent(new PointerEvent("pointerup", {pointerId: 1, bubbles: true}));
+        await ticks();
+        expect(img.style.transform).toBe("translate(350px, 246px)");
+        click($(".full-size-fit")!);
+        await ticks();
+        expect(img.style.width).toBe("1280px");
+
+        // Escape closes it, and only it: the pane stays
+        key(document.body, "Escape");
+        await ticks();
+        expect($(".full-size")).toBeNull();
+        expect($(".files-detail-name")!.textContent).toBe("thermal/a_T.JPG");
+        click($(".files-full-size")!);
+        await ticks();
+        click($(".full-size .close")!);
+        await ticks();
+        expect($(".full-size")).toBeNull();
     });
 
     it("sorts the files by a column, both ways", async () => {

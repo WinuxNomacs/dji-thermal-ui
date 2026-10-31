@@ -83,6 +83,9 @@ def test_a_rebuilt_page_loads_its_built_script_with_its_settings(client):
     assert '<div id="app" data-page="dataset" data-api="/api/"' in html and 'data-id="%d"' % d.id in html
     assert 'data-project="%d" data-project-name="Default Project"' % d.project_id in html
     assert '<script type="module" src="/static/dist/assets/dataset-f6.js"></script>' in html
+    assert 'data-palette=""' in html
+    client.put(PREFERENCES, {'palette': 'magma'}, content_type='application/json')
+    assert 'data-palette="magma"' in client.get("/dataset/%d" % d.id).content.decode()
 
 
 def test_every_page_loads_only_its_build_and_the_icon(client):

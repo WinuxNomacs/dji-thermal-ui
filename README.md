@@ -48,7 +48,10 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   deleted, never overwritten). With Hover for detail checked (the default, remembered by the browser), a pane at the
   right shows a file's picture, larger (a video's cover), and its columns as the pointer passes over its thumbnail
   or name. Clicking a row keeps it there until it is clicked again or closed (×, or Escape); unchecked, only a
-  clicked row opens the pane.
+  clicked row opens the pane. The pane's **Full size** shows the picture at its own size over the page: fitting the
+  window at first, zoomed with the wheel or shown 1:1, and moved by dragging; Escape or × closes it. The tab's
+  thermal pictures (thumbnails, pane and full size) are coloured with the palette chosen under User Preferences,
+  over each frame's own range; with "As each flight's images" they are the camera's own pictures.
 - **Datasets:** a flight's images converted to temperatures with any of dji-thermal-cli's settings, and their
   mosaics. You can keep several side by side, cancel one, or download it. The R-JPEG output (`rjpeg`) writes each
   frame again as an R-JPEG with the dataset's measurement parameters in DJI's header, so DJI's own tools measure it
