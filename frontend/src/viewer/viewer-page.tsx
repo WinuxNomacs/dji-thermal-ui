@@ -1,7 +1,8 @@
 // The mosaic viewer: a conversion's mosaics on a map (as converted, harmonized, the source frames' seams, the view angles
-// and the visual mosaic), with their palette, range and image adjustments, the values under the cursor, measuring with the isotherm
-// and the thermal correction, the saved measurements, the source frames of a spot or an area in a window, the
-// dataset's findings, and the mosaic as a PNG; kept up to date while the mosaics are built. The view (tab, palette,
+// and the visual mosaic), with their palette, range and image adjustments, the values under the cursor, the drawing
+// tools on the map, a shape's temperatures in a card there (with the isotherm and the thermal correction), kept as a
+// finding or a saved measurement, the source frames of a spot or an area in a window, the dataset's findings, and
+// the mosaic as a PNG; kept up to date while the mosaics are built. The view (tab, palette,
 // range, adjustments, the frame outlined, the findings shown and the one open) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import GeoJSON from "ol/format/GeoJSON";
@@ -20,11 +21,11 @@ import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/form
 import {partChanged} from "../core/navigation";
 import {convertTemp, formatDelta} from "../core/units";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, FileText, Grid, Image, Images, Save, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, FileText, Grid, Image, Stop} from "../components/icons";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
-import {type Coords, type Geometry, isothermParam, isothermText, type Measured, type Measurement, nearestIndex,
+import {type Coords, type Geometry, isothermParam, type Measured, type Measurement, nearestIndex,
         type Shape, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
-import {type IsothermState, Isotherm, Measurements, ResultView, Toolbar} from "../measure/result";
+import {type IsothermState, Isotherm, MeasureCard, Measurements, Toolbar} from "../measure/result";
 import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {SourcesWindow} from "../sources/window";
 import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, findingSources,
@@ -37,7 +38,7 @@ import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPe
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
 import {MosaicExport} from "./export";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
-        Readout, Report, Section, Whole} from "./panel";
+        PanelGroup, Readout, Report, Section, Whole} from "./panel";
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
         disagreement, type Extra, extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
         readView, reportRows, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
@@ -94,9 +95,11 @@ export const SOURCES_SHAPE = new OlStyle({stroke: new Stroke({color: "#ffea00", 
 // The Visual tab: the visual mosaic shown over the as converted one, whose values the readout, the source frames and
 // the shapes drawn read
 const VISUAL = "visual";
-// The tabs whose spots and areas open their source frames, and the tools that draw them
+// The tabs whose spots and areas open their source frames, and the tools that draw them where nothing is measured
 const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
 const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
+// A tab whose shapes are measured: a temperature mosaic, not under the visual one
+const measures = (tab: Maybe<string>, visual: boolean) => !!tab && isTemperatureTab(tab) && !visual;
 
 // A tab's palette and range before any is chosen
 export function defaultStyle(v: Mosaics, tab: string): Style {
@@ -163,8 +166,6 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [saveName, setSaveName] = useState("");
     const [measureError, setMeasureError] = useState("");
     const [sources, setSources] = useState<Asked | null>(null);
-    // What the drawing tool on draws for: a measurement, or the source frames
-    const [drawFor, setDrawFor] = useState<"measure" | "sources">("measure");
     const [findings, setFindings] = useState<Finding[]>([]);
     const [showFindings, setShowFindings] = useState(wanted.findings !== false);
     const [hidden, setHidden] = useState<number[]>(wanted.hidden || []);
@@ -208,8 +209,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const colouring = colouringOf(shown);
 
     // What the map's handlers (set up once) read: this render's values
-    const now = useRef({tab, visual, params, current, pinned, outlined, drawFor, findings});
-    now.current = {tab, visual, params, current, pinned, outlined, drawFor, findings};
+    const now = useRef({tab, visual, params, current, pinned, outlined, findings});
+    now.current = {tab, visual, params, current, pinned, outlined, findings};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -258,10 +259,13 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     useEffect(() => {
         load();
-        // Enter finishes the shape being drawn and Esc cancels it; else Esc lets go of the spot or frame kept
+        // Enter finishes the shape being drawn and Esc cancels it; else Esc closes the measurement's card, or lets go
+        // of the spot or frame kept
         const keys = (e: KeyboardEvent) => {
             if (drawingKey(e, drawing.current)) return syncTools();
-            if (e.key === "Escape" && now.current.pinned && !inField(e.target)) follow();
+            if (e.key !== "Escape" || inField(e.target)) return;
+            if (now.current.current) closeCard();
+            else if (now.current.pinned) follow();
         };
         document.addEventListener("keydown", keys);
         return () => {
@@ -302,8 +306,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         });
         drawing.current = new Drawing({
             map: m, toCoords, fromCoords, distance: (a, b) => getDistance(a, b),
+            // Measured in the card on a temperature mosaic; elsewhere its source frames open
             onDone: (geometry, shape) => {
-                if (now.current.drawFor === "sources") {
+                if (!measures(now.current.tab, now.current.visual)) {
                     openSources(geometry, {shape});
                     syncTools();
                     return;
@@ -568,6 +573,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (!r.ok) return setDraft({...d, fields: v, error: errorText(r.data, "Could not save the finding.")});
         setDraft(null);
         setFindingError("");
+        // The shape kept as a finding is drawn as one from now on: its card closes
+        if (!d.edit && s) setCurrent((c) => c && !c.saved && JSON.stringify(c.geometry) === JSON.stringify(s.geometry) ? null : c);
         setHidden((h) => h.filter((x) => x !== r.data.id));
         await loadFindings();
         openFinding(r.data);
@@ -582,16 +589,25 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         await loadFindings();
     }
 
-    // A drawing tool put on (or away), for a measurement or the source frames
-    function pickTool(x: ReturnType<Drawing["tool"]>, purpose: "measure" | "sources") {
-        if (x) {
-            setDrawFor(purpose);
-            now.current.drawFor = purpose;
-            drawing.current?.start(x);
-        } else {
-            drawing.current?.stop();
-        }
+    // A drawing tool put on (or away)
+    function pickTool(x: ReturnType<Drawing["tool"]>) {
+        if (x) drawing.current?.start(x);
+        else drawing.current?.stop();
         syncTools();
+    }
+
+    // The measurement's card closed, and its shape taken off the map
+    function closeCard() {
+        asked.current.measure++;
+        setCurrent(null);
+        setIndex(null);
+        setMeasureError("");
+    }
+
+    // The shape in the card kept as a finding: the form, with the frames that saw it in the window beside it
+    function keepCard(c: Current) {
+        openSources(c.geometry, {shape: c.shape, measurement: c.saved || undefined});
+        newFinding(c.saved?.name || saveName.trim());
     }
 
     // The frame's footprint outlined on the mosaic, what it contributes (null: none); fit: the map moves to it
@@ -691,8 +707,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         if (onVisual !== visual) {
             setVisual(onVisual);
             now.current.visual = onVisual;
-            // The measuring tools are the thermal tabs'
-            if (onVisual && drawFor === "measure") drawing.current?.stop();
+            // The tools are another set there
+            drawing.current?.stop();
             syncTools();
         }
         if (next === tab) return;
@@ -920,6 +936,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const starts = correctionStarts(t?.kind ? (v.baselines || {})[t.kind] : null, unit);
     const auto_ = shown ? sliderPositions(autoRange(), shown.range) : {brightness: 0, contrast: 0};
     const res = current && current.target === tab ? current : null;
+    // The tools: measuring on a temperature mosaic, else the source frames' where a tab has them
+    const measuring = measures(tab, visual);
+    const drawable = measuring || visual || tab === "source_frame";
 
     return (
         <div class="page viewer">
@@ -973,73 +992,51 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     })}
                 </div>}
                 <div class="viewer-body">
-                    <div class="viewer-map" id="map" ref={mapEl}/>
+                    <div class="map-stage">
+                        <div class="viewer-map" id="map" ref={mapEl}/>
+                        {ready && drawable && <Toolbar tool={tools.tool} count={tools.count} tools={measuring ? TOOLS : SOURCES_TOOLS}
+                            label={measuring ? "Drawing tools: measure a spot, a line or an area" : "Drawing tools: the frames that saw a spot or an area"}
+                            onTool={pickTool} onFinish={() => { drawing.current?.finish(); syncTools(); }}/>}
+                        {ready && measuring && res && <MeasureCard m={res} unit={unit} index={index}
+                            onIndex={(i) => showIndex(i, res.res?.result?.profile?.points)}
+                            name={saveName} error={measureError} onName={setSaveName} onSave={save} onClose={closeCard}
+                            onKeep={hasSources(res.geometry) ? () => keepCard(res) : undefined}
+                            onSources={hasSources(res.geometry) ?
+                                () => openSources(res.geometry, {shape: res.shape, measurement: res.saved || undefined}) : undefined}/>}
+                    </div>
                     {ready && t && shown && <div class="viewer-panel">
+                        <PanelGroup title="View"/>
                         {visual ? <p class="hint" id="visual-hint">{TAB_HINTS[VISUAL]}</p> :
                             <Controls tab={t} palette={shown.palette} palettes={v.palettes || []} scale={scale} unit={unit}
                                       range={rangeText || rangeFields(shown.range)} rangeError={rangeError}
                                       frames={(v.frames || []).length}
                                       onPalette={(palette) => setStyle({palette})} onRange={typedRange} onAuto={() => auto()}/>}
-                        {tab !== "source_frame" && !visual && <Section name="image" title="Image">
+                        {tab !== "source_frame" && !visual && <Section name="image" title="Image" folded>
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
                                            temperature={temperature} onSlide={slide} onGamma={gamma}
                                            onSharpen={sharpen}
                                            onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
                                            onReset={() => auto(true)}/>
                         </Section>}
+                        {measuring && <Section name="isotherm" title="Isotherm">
+                            <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
+                        </Section>}
+                        <PanelGroup title="Values"/>
                         <Section name="cursor" title="Pointer info">
                             <div class="readout" id="readout">
                                 <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
                             </div>
                         </Section>
-                        {SOURCES_TABS.includes(tab!) && <Section name="sources" title="Source frames">
-                            <Toolbar tool={drawFor === "sources" ? tools.tool : null} count={tools.count} tools={SOURCES_TOOLS}
-                                     label="Source frames tools" onTool={(x) => pickTool(x, "sources")}
-                                     onFinish={() => { drawing.current?.finish(); syncTools(); }}/>
-                            <p class="message">{tab === "source_frame" || visual ? "Click the mosaic, or draw a spot or an area, " :
-                                "Draw a spot or an area "}to see every frame that saw it{visual ? ", thermal and visual" : ""}.</p>
-                        </Section>}
-                        {temperature && !visual && <>
-                            <Section name="measure" title="Measure">
-                                <Toolbar tool={drawFor === "measure" ? tools.tool : null} count={tools.count}
-                                         onTool={(x) => pickTool(x, "measure")}
-                                         onFinish={() => { drawing.current?.finish(); syncTools(); }}/>
-                                <div id="result">
-                                    {!res ? <p class="message">Choose a tool and draw on the mosaic.</p> :
-                                        res.error ? <p class="text-danger">{res.error}</p> :
-                                        res.res === undefined ? <p class="message">Measuring…</p> : <>
-                                            {res.saved && <div class="message">Saved as <strong>{res.saved.name}</strong>
-                                                {res.saved.values && (res.saved.values as {isotherm?: string}).isotherm &&
-                                                    ", isotherm " + isothermText((res.saved.values as {isotherm?: string}).isotherm, unit)}</div>}
-                                            <ResultView res={res.res} unit={unit} shape={res.shape} index={index}
-                                                        onIndex={(i) => showIndex(i, res.res?.result?.profile?.points)}/>
-                                            {hasSources(res.geometry) &&
-                                                <button type="button" class="button default small" name="sources"
-                                                        title="The frames that saw it, in a window"
-                                                        onClick={() => openSources(res.geometry, {shape: res.shape, measurement: res.saved || undefined})}>
-                                                    <Images/> Source frames</button>}
-                                        </>}
-                                </div>
-                                {res && !res.saved && res.res?.result?.valid_pixels ? <div class="measure-save" id="save">
-                                    <div class="inline">
-                                        <input type="text" name="name" maxLength={255} placeholder="Name" value={saveName}
-                                               onInput={(e) => setSaveName(e.currentTarget.value)}/>
-                                        <button type="button" class="button primary small" onClick={save}><Save/> Save</button>
-                                    </div>
-                                </div> : null}
-                                {measureError && <div class="text-danger" id="measure-error">{measureError}</div>}
-                            </Section>
-                            <Section name="isotherm" title="Isotherm">
-                                <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
-                            </Section>
-                            <Section name="parameters" title="Parameters">
+                        {measuring && <>
+                            <Section name="parameters" title="Parameters" folded>
                                 <Correction values={typed} starts={starts} error={corrError.error} field={corrError.field}
                                             onInput={correctionInput} onChange={correctionChange}/>
                             </Section>
-                            <Section name="whole" title="This mosaic">
+                            <Section name="whole" title="This mosaic" folded>
                                 <Whole whole={style?.whole} unit={unit}/>
                             </Section>
                         </>}
+                        <PanelGroup title="Kept"/>
                         <Section name="saved" title={<span class="measurements-head"><span>Saved measurements</span>
                             {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}
                                                     onClick={(e) => e.stopPropagation()}><Download/> CSV</a>}
@@ -1047,7 +1044,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                 <a class="button default small" id="geojson" href={base + "/measurements.geojson"}
                                    title="The measurements on the mosaics, with their shapes, for a GIS"
                                    onClick={(e) => e.stopPropagation()}><Download/> GeoJSON</a>}</span>}>
-                            {!temperature && measureError && <div class="text-danger" id="measure-error">{measureError}</div>}
+                            {!(measuring && res) && measureError && <div class="text-danger" id="measure-error">{measureError}</div>}
                             <Measurements items={saved} unit={unit} current={current?.saved?.id ?? null} compared={compared}
                                           editing={editing} fields={PARAM_FIELDS} onShow={showSaved}
                                           onCompare={(x, on) => setCompared((c) => toggleCompared(c, x, on))}
@@ -1061,7 +1058,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                       onDelete={deleteFinding}
                                       onHide={(x, hide) => setHidden((h) => hide ? h.concat(x) : h.filter((y) => y !== x))}/>
                         </Section>
-                        <Section name="report" title="The mosaic">
+                        <PanelGroup title="About"/>
+                        <Section name="report" title="The mosaic" folded>
                             {visual ? <Report rows={visualRows(v.visual)} files={v.visual?.files} base={base}/> :
                                 <Report rows={reportRows(kind)} files={kind?.files} base={base}/>}
                         </Section>

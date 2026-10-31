@@ -21,11 +21,29 @@ describe("a section of the panel", () => {
         expect(details.open).toBe(true);
         details.open = false;
         details.dispatchEvent(new Event("toggle"));
-        expect(JSON.parse(localStorage.getItem("thermal-analyzer.viewer.folded")!)).toEqual(["image"]);
+        expect(JSON.parse(localStorage.getItem("thermal-analyzer.viewer.folded")!)).toEqual({image: false});
         render(null, root());
         render(<Section name="image" title="Image"><p>inside</p></Section>, root());
         await ticks();
         expect(root().querySelector("details")!.open).toBe(false);
+    });
+
+    it("starts folded where it is meant to, until it is opened, then stays open", async () => {
+        render(<Section name="whole" title="This mosaic" folded><p>inside</p></Section>, root());
+        const details = root().querySelector("details")!;
+        expect(details.open).toBe(false);
+        details.open = true;
+        details.dispatchEvent(new Event("toggle"));
+        render(null, root());
+        render(<Section name="whole" title="This mosaic" folded><p>inside</p></Section>, root());
+        await ticks();
+        expect(root().querySelector("details")!.open).toBe(true);
+    });
+
+    it("reads the folded sections as an earlier version kept them", () => {
+        localStorage.setItem("thermal-analyzer.viewer.folded", JSON.stringify(["image"]));
+        render(<><Section name="image" title="Image"><p/></Section><Section name="cursor" title="Pointer info"><p/></Section></>, root());
+        expect([...root().querySelectorAll("details")].map((d) => d.open)).toEqual([false, true]);
     });
 });
 
