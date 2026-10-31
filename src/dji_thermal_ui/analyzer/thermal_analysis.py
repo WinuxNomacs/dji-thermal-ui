@@ -62,9 +62,10 @@ def is_visual(row):
 
 
 def file_row(report, root):
-    """One file of the dataset: what it is and, for a thermal image, what the Files table shows"""
+    """One file of the dataset: what it is and, for a thermal image or a drone's visual photo (dji-thermal-cli 1.11's
+    `visual`: no temperatures or measurement parameters), what the Files table shows"""
     row = {'path': relative(report.path, root), 'kind': report.status.kind, 'reason': report.status.reason or ""}
-    info = report.info
+    info = report.info if report.info is not None else getattr(report, 'visual', None)
     if info is None:
         try:
             row['size'] = os.path.getsize(report.path)
@@ -72,7 +73,7 @@ def file_row(report, root):
             row['size'] = None
         return row
 
-    f, cam, th = info.get('file', {}), info.get('camera', {}), info.get('thermal', {})
+    f, cam, th = info.get('file') or {}, info.get('camera') or {}, info.get('thermal') or {}
     temp, geo, att = info.get('temperature') or {}, info.get('geospatial') or {}, info.get('attitude') or {}
     params = th.get('measurement_params') or {}
     rangefinder = geo.get('rangefinder') or {}

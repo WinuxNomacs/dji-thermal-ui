@@ -366,7 +366,7 @@ def report_author():
     return Preferences.load().data.get(REPORT_AUTHOR_KEY) or ""
 
 
-DATASET_REPORT = ('title', 'author', 'date', 'notes', 'appendix')
+DATASET_REPORT = ('title', 'author', 'date', 'notes', 'appendix', 'visual')
 MOSAIC_REPORT = ('title', 'author', 'date', 'notes', 'view', 'left_out')
 VIEW_KEYS = {'tab': str, 'palette': str, 'range': list, 'adjust': dict, 'findings': bool, 'hidden': list}
 MAX_LEFT_OUT = 1000
@@ -374,7 +374,7 @@ MAX_LEFT_OUT = 1000
 
 def parse_report(value, saved, keys=DATASET_REPORT):
     """A report's text, changed: the keys sent replace those saved (a title, author and notes are text, the date a
-    YYYY-MM-DD day or "", the appendix a yes or no; a mosaic report's view as the viewer's URL has it, and the ids of
+    YYYY-MM-DD day or "", the appendix and the visual photos on the map a yes or no; a mosaic report's view as the viewer's URL has it, and the ids of
     the measurements it leaves out; null forgets one, which the page then fills in again)"""
     if not isinstance(value, dict):
         raise ValidationError({'report': "An object of " + ", ".join(keys)})
@@ -393,9 +393,10 @@ def parse_report(value, saved, keys=DATASET_REPORT):
             if not isinstance(v, str) or v and not parse_day(v):
                 raise ValidationError({'report': "The date is a day as YYYY-MM-DD"})
             out[key] = v
-        elif key == 'appendix':
+        elif key in ('appendix', 'visual'):
             if not isinstance(v, bool):
-                raise ValidationError({'report': "The appendix is true or false"})
+                raise ValidationError({'report': "The {} is true or false".format(
+                    "appendix" if key == 'appendix' else "visual photos' layer")})
             out[key] = v
         elif key == 'view':
             out[key] = report_view(v)
@@ -2725,6 +2726,10 @@ class FramesView(DatasetView):
             'flight_zone': thermal_analysis.flight_zone(conversion.dataset.analysis),
             'frames': [dict(f, recorded={k: rows[f['path']].get(k) for k in recorded})
                        for f in thermal_measure.frame_list(conversion)],
+            # Where the flight's visual photos were taken, for the frames' map (dji-thermal-cli 1.11 reads them)
+            'visual_photos': [{'path': r['path'], 'lat': r['lat'], 'lon': r['lon']}
+                              for r in (conversion.dataset.analysis or {}).get('files') or []
+                              if thermal_analysis.is_visual(r) and r.get('lat') is not None and r.get('lon') is not None],
             'palettes': palettes, 'default_palette': default_palette(conversion, palettes),
             'changes': list(thermal_measure.CHANGES), 'limits': thermal_conversion.LIMITS,
         }))

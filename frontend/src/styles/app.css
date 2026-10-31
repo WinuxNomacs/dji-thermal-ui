@@ -738,6 +738,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .app-main .frame-map { flex: 1 1 auto; height: calc(100vh - 270px); background: var(--frame-bg); }
 .frame .viewer-panel { flex-basis: 340px; }
 .frame-locator { height: 180px; border-radius: var(--radius); background: var(--map-bg); }
+.locator-visual { display: block; margin-top: 6px; font-size: 13px; }
 
 /* The compare page: two panes, the split between them dragged, each pane's picked point under its map */
 .compare-style {

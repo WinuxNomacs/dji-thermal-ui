@@ -15,7 +15,7 @@ import pytest
 
 from dji_thermal_ui.analyzer import thermal_measure as measuring
 from dji_thermal_ui.analyzer import thermal_mosaics as mosaics
-from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalMeasurement
+from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset, ThermalMeasurement
 from dji_thermal_ui.analyzer.raster.thermal_correction import corrected_array
 from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, analysed, converted, fake_measure, fake_process,
                          mosaic_lonlat, mosaic_square, mosaic_temperature, mosaic_tile, uploaded)
@@ -349,6 +349,18 @@ def test_a_saved_measurement_is_measured_again_with_other_parameters(api):
         rows = csv_rows(api, c)
     row = [r for r in rows if r['Name'] == 'Row (parameters changed)']
     assert (row[0]['Shape'], len(row), row[1]['Length / area unit']) == ('LineString', 11, 'px')
+
+
+def test_the_frames_list_says_where_the_flights_visual_photos_were_taken(api):
+    c = analysed(converted(api)[0])
+    rows = c.dataset.analysis['files'] + [
+        {'path': '100MEDIA/DJI_0001_V.JPG', 'kind': 'not_thermal', 'lat': 42.1, 'lon': -88.07},
+        {'path': '100MEDIA/DJI_0002_V.JPG', 'kind': 'not_thermal', 'reason': 'not an R-JPEG'},     # read before 1.11
+        {'path': '100MEDIA/photo.jpg', 'kind': 'not_thermal', 'lat': 42.1, 'lon': -88.07}]          # not DJI's visual
+    ThermalDataset.objects.filter(pk=c.dataset_id).update(analysis={'files': rows})
+    frames = api.get("{}/{}/frames".format(CONVERSIONS, c.id)).data
+    assert frames['visual_photos'] == [{'path': '100MEDIA/DJI_0001_V.JPG', 'lat': 42.1, 'lon': -88.07}]
+    assert len(frames['frames']) == 2
 
 
 def test_frames_are_measured_as_converted_and_again_with_parameters_changed(api):

@@ -43,6 +43,9 @@ All notable changes are recorded here. The format follows
   described, attached to a finding and deleted. The flight report has a Video frames section, numbered V1, V2… on
   its map; a finding shows the frames attached to it in the flight's and the mosaic's reports. A project's export
   carries them (its format is now version 2: an older app refuses it; it still imports version 1).
+- The Files tab shows a visual photo's time, position, heights, gimbal pitch and yaw and rangefinder distance, read
+  from its metadata by dji-thermal-cli 1.11 (a flight gets them on its next Analyze). The flight report can put the
+  visual photos on its map (saved with the report), and so can the frame page's map of where the frames are.
 
 ### Changed
 

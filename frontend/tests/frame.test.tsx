@@ -2,6 +2,7 @@ import OlMap from "ol/Map";
 import ImageLayer from "ol/layer/Image";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import type ImageStatic from "ol/source/ImageStatic";
+import VectorSource from "ol/source/Vector";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserLocale} from "../src/core/format";
@@ -190,6 +191,28 @@ describe("the frame page", () => {
         expect($(".viewer-panel .scale, .frame-panel .scale")!.textContent).toContain("Temperature, °C");
         expect(location.search).toBe("?palette=dji_ironred&min=17&max=28&frame=thermal%2Fa_T.JPG");
         expect(calls(fetchFn)).toContain("GET " + BASE + "/measurements?frame=" + enc(A));
+    });
+
+    it("puts the flight's visual photos on the frames' map when switched on, kept for the next visit", async () => {
+        const added = vi.spyOn(VectorSource.prototype, "addFeature");
+        const placed = {...FRAMES, frames: FRAMES.frames!.map((f, i) => ({...f, lat: 42.1, lon: -88.07 + i * 0.0001})),
+                        visual_photos: [{path: "rgb/a_V.JPG", lat: 42.1, lon: -88.07}]};
+        await open(server(routes({[BASE + "/frames"]: placed})));
+        const tips = () => added.mock.calls.map((c) => c[0].get("tip") as string);
+        expect(tips()).toEqual([A, B]);
+        const box = byId("locator-visual") as HTMLInputElement;
+        expect(box.checked).toBe(false);
+        click(box);
+        await ticks();
+        expect(tips()).toEqual([A, B, "rgb/a_V.JPG"]);
+        expect(localStorage.getItem("thermal-analyzer.frame.locator-visual")).toBe("1");
+        added.mockRestore();
+    });
+
+    it("offers no visual photos on the frames' map when none has a position", async () => {
+        await open(server(routes({[BASE + "/frames"]: {...FRAMES, frames: FRAMES.frames!.map((f) => ({...f, lat: 42.1, lon: -88.07}))}})));
+        expect($("#locator")).not.toBeNull();
+        expect($("#locator-visual")).toBeNull();
     });
 
     it("shows the frame's visual pair on its switch, kept for the next visit, and the frame where it has none", async () => {

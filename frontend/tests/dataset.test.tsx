@@ -4,6 +4,8 @@ import {fileKind} from "../src/core/format";
 import {setUserUnit} from "../src/core/units";
 import {type Conversion, parsePrefill, skipReasons} from "../src/dataset/conversions";
 import {DatasetPage} from "../src/dataset/dataset-page";
+import {FILE_COLUMNS} from "../src/dataset/files";
+import {cell} from "../src/dataset/tabs";
 import {active, type Analysis, columnType, type Condition, fileRows, filterQuery, filtersFrom, newCondition, newestReady,
         parseFilters, shownAs, SHOWS, sortRows} from "../src/dataset/files";
 import {differences, formProblem, planSettings, resetSetting, type Settings} from "../src/dataset/settings";
@@ -176,6 +178,14 @@ describe("the conversion settings", () => {
 });
 
 describe("the dataset's files and conversions", () => {
+    it("show a frame's distance as embedded / the rangefinder's, and a visual photo's rangefinder alone", () => {
+        const col = FILE_COLUMNS.find((c) => c.key === "distance")!;
+        expect(cell({path: "a_T.JPG", kind: "thermal", distance: 5, lrf: 21.4}, col)).toBe("5.0 m / 21.4 m");
+        expect(cell({path: "a_T.JPG", kind: "thermal", distance: 5}, col)).toBe("5.0 m");
+        expect(cell({path: "a_V.JPG", kind: "not_thermal", distance: null, lrf: 20.7}, col)).toBe("20.7 m");
+        expect(cell({path: "a_V.JPG", kind: "not_thermal"}, col)).toBe("");
+    });
+
     it("filters the files by every word of a text condition, in any case, or by none of them", () => {
         const view = {filters: [{key: "path", op: "has" as const, value: "T.jpg THERMAL"}], sort: "path", desc: false};
         expect(fileRows(ANALYSIS, view).map((r) => r.path)).toEqual(["thermal/a_T.JPG", "thermal/b_T.JPG"]);

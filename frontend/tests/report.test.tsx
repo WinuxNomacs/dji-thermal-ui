@@ -80,10 +80,10 @@ function type(el: HTMLElement, value: string) {
 describe("the report's figures", () => {
     it("are filled in with the dataset's name, the author last typed and today until typed", () => {
         expect(reportText(undefined, "Roof", "A. Inspector", "2026-10-28"))
-            .toEqual({title: "Roof", author: "A. Inspector", date: "2026-10-28", notes: "", appendix: false});
+            .toEqual({title: "Roof", author: "A. Inspector", date: "2026-10-28", notes: "", appendix: false, visual: false});
         // What was typed is kept, even when it was cleared
         expect(reportText({title: "Survey", author: "", appendix: true}, "Roof", "A. Inspector", "2026-10-28"))
-            .toEqual({title: "Survey", author: "", date: "2026-10-28", notes: "", appendix: true});
+            .toEqual({title: "Survey", author: "", date: "2026-10-28", notes: "", appendix: true, visual: false});
         expect(todayText(new Date(2026, 0, 5, 23, 30))).toBe("2026-01-05");
     });
 
@@ -220,6 +220,25 @@ describe("the dataset report", () => {
         expect($$(".report-files th").map((x) => x.textContent)).not.toContain("Kind");
         const patches = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH");
         expect(patches.map((c) => JSON.parse(c[1]!.body as string))).toEqual([{report: {appendix: true}}]);
+    });
+
+    it("puts the visual photos with a position on the map when switched on, saved at once", async () => {
+        vi.useFakeTimers();
+        const files = [...FILES, {path: "rgb/b_V.JPG", kind: "not_thermal", reason: "not an R-JPEG", lat: 42.1, lon: -88.1}];
+        const withVisual = {...DATASET, analysis: {...DATASET.analysis, files}};
+        const {fetchFn} = await page(withVisual, [], {["PATCH " + URL]: withVisual});
+        expect(text("#report-where")).not.toContain("visual");
+        click($("#report-visual")!);
+        await vi.advanceTimersByTimeAsync(0);
+        await ticks();
+        expect(text("#report-where")).toContain("3 frames with a position, and 1 visual photo (orange squares)");
+        const patches = fetchFn.mock.calls.filter((c) => c[1]?.method === "PATCH");
+        expect(patches.map((c) => JSON.parse(c[1]!.body as string))).toEqual([{report: {visual: true}}]);
+    });
+
+    it("offers no visual photos' layer when none has a position", async () => {
+        await page();
+        expect($("#report-visual")).toBeNull();
     });
 
     it("prints from its button", async () => {

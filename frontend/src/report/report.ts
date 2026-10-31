@@ -1,18 +1,18 @@
 // A dataset's report as the page lays it out, from the dataset and its findings: the text typed on it (or what fills
 // it in), the frames' settings and temperatures summed up, the findings numbered, and the files their thumbnails are
 // of. Plain functions, no DOM.
-import {formatNumber, median} from "../core/format";
+import {fileKind, formatNumber, median} from "../core/format";
 import {formatTemp} from "../core/units";
 import {type FileRow} from "../dataset/files";
 
 // What is saved on the dataset (its "report"), each field typed on the page
-export interface ReportText {title?: string; author?: string; date?: string; notes?: string; appendix?: boolean}
+export interface ReportText {title?: string; author?: string; date?: string; notes?: string; appendix?: boolean; visual?: boolean}
 
 // The text shown: what was saved, else the dataset's name, the author last typed and today
 export function reportText(saved: ReportText | undefined, name: string, author: string, today: string): Required<ReportText> {
     const s = saved || {};
     return {title: s.title ?? name, author: s.author ?? author, date: s.date ?? today, notes: s.notes ?? "",
-            appendix: !!s.appendix};
+            appendix: !!s.appendix, visual: !!s.visual};
 }
 
 // Today in the computer's time, as the date field has it: "2026-10-28"
@@ -81,6 +81,11 @@ export function temperatureSummary(files: FileRow[] | undefined): TemperatureRow
 // Where each frame was taken (lon, lat)
 export function framePositions(files: FileRow[] | undefined): [number, number][] {
     return thermalFrames(files).filter((f) => present(f.lon) && present(f.lat)).map((f) => [f.lon!, f.lat!]);
+}
+
+// Where the flight's visual photos were taken, as [lon, lat]: those whose DJI XMP says so (dji-thermal-cli 1.11 on)
+export function visualPositions(files: FileRow[] | undefined): [number, number][] {
+    return (files || []).filter((f) => fileKind(f) === "visual" && present(f.lon) && present(f.lat)).map((f) => [f.lon!, f.lat!]);
 }
 
 // The dataset's file a frame name is (a mosaic names its frames as converted: the same path, maybe another extension),
