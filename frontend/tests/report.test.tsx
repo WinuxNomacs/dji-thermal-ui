@@ -134,7 +134,8 @@ describe("the dataset report", () => {
         expect(text("#report-where")).toContain("3 frames with a position, and the findings by their numbers");
         expect(text("#report-coverage")).toContain("2.1 cm/px");
         expect(text("#report-coverage")).not.toContain("radiometric");      // the coverage only, not the task options
-        expect(text("#report-problems")).toContain("1 image with an unusual maximum");
+        expect(text("#report-problems")).toContain("1 frame with an unusual maximum temperature (the flight's median 40.0 °C)");
+        expect(document.querySelector("#report-problems .finding-fix")).toBeNull();
         expect($("#report-problems a")).toBeNull();                         // listed, not links to a tab
         expect(text(".report-settings")).toContain("0.95 (2), 0.90 (1)");
         expect(text(".report-settings")).toContain("70 % (2), not recorded (1)");
