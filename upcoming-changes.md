@@ -8,8 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: P3, the Files tab pane's full size image and the preferred palette on its thermal images (see
-Photos on the Files tab), planned 2026-10-31. Then U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
+**Up next**: U1, a review of the pages for how intuitive they are (see Usability), whose findings the user turns into
 phases; X1, Linux, Windows and macOS checked (see Platforms). Both to be planned with the user.
 
 **Then**: nothing planned.
@@ -1742,7 +1741,7 @@ Two requests from `new.md` (2026-10-31).
 - **Hover for detail off:** the pane opens only for a selected row and closes when it is deselected. Unchecking
   the box closes a pane shown by hovering; a selected row keeps it.
 
-### P3: the pane's full size image and the preferred palette (requested 2026-10-31)
+### P3: the pane's full size image and the preferred palette (built 2026-10-31, see Done)
 
 **The requests** (in chat): the pane can show the full size source image; a thermal image is coloured with the
 preferred thermal palette (User Preferences) instead of the camera's.
@@ -2428,3 +2427,11 @@ those that are truly necessary, not there for coverage.
   by the user's request the same day). The full suite with the flight tests (`ignored/m4t-tv`) passed in a scratch
   environment, leaving `.venv` to the user's running instance; checked live on 8081: a flight's visual rows and
   the detail pane show their time, height, pitch and rangefinder distance.
+- **P3: the pane's full size image and the preferred palette** (2026-10-31): `thermal_picture()` and the thumbnail
+  view's `?palette=` and `?size=full` (the file as it is, MPO too, for a picture not recoloured) in `api.py`;
+  `FullSize` (`dataset/full-size.tsx`, `.full-size` in `app.css`), the pane's Full size button and `pictureOf()` in
+  `FilesTab` (`dataset/tabs.tsx`); the preference reaches the page as `data-palette` (`dataset_page`). Tests:
+  `tests/test_api_datasets.py`, `tests/test_pages.py`, `frontend/tests/dataset.test.tsx`. Checked live on 8081 (10
+  frames of `ignored/m4t-220` and 3 visual photos of `ignored/m4t-rgb`, scratch data and config): DJI ironred in
+  light and magma in dark on the thumbnails, pane and full size; fit, 1:1, wheel, drag and Escape; a visual photo at
+  4032 × 3024; 600 px wide; thumbnails at most 420 ms; no console or HTTP errors.

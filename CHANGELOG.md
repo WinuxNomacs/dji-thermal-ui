@@ -50,6 +50,11 @@ All notable changes are recorded here. The format follows
   picture, up to 1280 px (a video's cover), and its columns, following the thumbnail or name the pointer is over.
   A clicked row stays in the pane until it is clicked again, closed or Escape is pressed; with the box unchecked,
   only a clicked row opens it.
+- Full size in the Files tab's pane: the picture at its own size over the page (4032 × 3024 for an M4T's visual
+  photo), fitting the window at first, zoomed with the wheel or shown 1:1, dragged to move it; Escape or × closes it.
+- The Files tab's thermal pictures (thumbnails, the pane and full size) are coloured with the preferred palette
+  (User Preferences) over each frame's own range, instead of the camera's colours; "As each flight's images", or a
+  DJI palette a frame doesn't hold, keeps the camera's pictures.
 
 ### Changed
 
