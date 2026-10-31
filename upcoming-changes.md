@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: U7, the navigation pane and the settings pages (see Usability), to be planned with the user.
+**Up next**: U7, the navigation pane and the settings pages (see Usability), planned 2026-10-31 and being built.
 
 **Then**: U8, polish (see Usability), planned with the user before it is built.
 
@@ -1991,6 +1991,29 @@ Proposed:
   chosen from the computer are enough): Choose images and Choose a folder only, both copying. Flights already read in
   place keep working (their pages, the Storage page, a backup restored with its folders kept), and the API still
   takes `source: folder`.
+
+### U7: the navigation pane and the settings pages
+
+As they are: the pane lists Projects › flights › under each flight "Flight report" and its datasets › under each
+dataset Tools (Compare, Mosaic report), Mosaics (one row per viewer tab) and Frames (Mosaic, Oblique, with counts),
+then User Preferences, and System Settings, which folds to show Storage. What the pane unfolds to show the page shown
+is not remembered, so it folds again on the next page. The frames explorer's lists (in the mosaic, oblique) are
+reached only from the pane. The Storage page is full width; User Preferences and System Settings are a 720 px column.
+Proposed:
+- **The pane stops at Projects › flights › datasets.** A dataset's row opens its viewer (else its frames explorer,
+  else its flight's Datasets tab); on any of its pages (viewer, Compare, Mosaic report, frames explorer) the dataset
+  is marked, on the Flight report its flight. The server's navigation stops sending the viewer's tabs and the frame
+  counts.
+- **The frames explorer's own list switch,** above its frames once the mosaics are built: All · In the mosaic (n) ·
+  Oblique (n), kept in the URL as now.
+- **Storage beside the other settings pages** in the pane, and in the same 720 px column.
+
+### U7: decisions (2026-10-31)
+
+- **No "Flight report" row** in the pane: it is opened from the flight page's header.
+- **What the pane unfolds stays unfolded** (remembered as a fold the user made), so it only folds when clicked.
+- **The settings pages are three rows** at the pane's foot, each with its icon: User Preferences, System Settings,
+  Storage; System Settings no longer folds.
 
 ## Platforms
 
