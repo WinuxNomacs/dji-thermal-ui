@@ -127,3 +127,5 @@ THERMAL_PROCESSES = None
 
 # The front end's build (npm run build): its manifest says which files each page loads
 VITE_MANIFEST = STATIC_DIR / "dist" / "manifest.json"
+# The documentation, built from docs/ (zensical.toml) and served at /help/
+DOCS_DIR = STATIC_DIR / "docs"

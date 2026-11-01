@@ -125,3 +125,30 @@ def test_a_mosaic_report_page_carries_its_dataset_and_project(client):
     html = client.get("/conversion/%d/report" % c.id).content.decode()
     assert "<title>Nadir · Mosaic report · Thermal Analyzer</title>" in html
     assert 'data-dataset="%d" data-dataset-name="Roof" data-project-name="Default Project"' % c.dataset_id in html
+
+
+@pytest.fixture
+def docs(settings, tmp_path):
+    """A built documentation: its start page and one guide page"""
+    settings.DOCS_DIR = tmp_path / "docs"
+    (settings.DOCS_DIR / "guide" / "storage").mkdir(parents=True)
+    (settings.DOCS_DIR / "index.html").write_text("<h1>Thermal Analyzer</h1>")
+    (settings.DOCS_DIR / "guide" / "storage" / "index.html").write_text("<h1>Storage</h1>")
+    return settings.DOCS_DIR
+
+
+def test_help_serves_the_documentation_a_folder_as_its_index(client, docs):
+    assert client.get("/help").url == "/help/"
+    assert b"Thermal Analyzer" in b"".join(client.get("/help/").streaming_content)
+    assert b"Storage" in b"".join(client.get("/help/guide/storage/").streaming_content)
+    assert client.get("/help/guide/storage").url == "/help/guide/storage/"
+    assert client.get("/help/guide/nowhere/").status_code == 404
+    # A path out of the documentation is refused, as Django refuses any suspicious path: a 400
+    assert Client(raise_request_exception=False).get("/help/../settings.py").status_code == 400
+
+
+def test_help_without_a_built_documentation_says_how_to_build_it(client, settings, tmp_path):
+    settings.DOCS_DIR = tmp_path / "none"
+    res = client.get("/help/")
+    assert res.status_code == 404
+    assert b"zensical build" in res.content

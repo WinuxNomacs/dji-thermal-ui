@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.urls import include, path, re_path
+from django.views.generic import RedirectView
 from django.views.static import serve
 
 from .analyzer import views
@@ -17,6 +18,8 @@ urlpatterns = [
     path("conversion/<int:conversion_id>/frame", views.frame_page, name="frame"),
     path("conversion/<int:conversion_id>/report", views.conversion_report, name="conversion-report"),
     path("conversion/<int:conversion_id>/compare", views.compare_page, name="compare"),
+    path("help", RedirectView.as_view(url="/help/")),
+    re_path(r"^help/(?P<path>.*)$", views.help_page, name="help"),
     # The static files, served by the app itself: it runs without DEBUG and has no web server in front of it
     re_path(r"^static/(?P<path>.*)$", serve, {"document_root": settings.STATIC_DIR}),
 ]
