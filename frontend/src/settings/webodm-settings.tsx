@@ -1,7 +1,9 @@
 // System Settings › WebODM: its address and login, checked with a login by the server before they are written to .env
 // in place of those there, the password encrypted. The password never comes back: the page says only that one is set
 // (or that it can't be read, its key gone with the database), and the user name is shown masked. Those set in the environment (WEBODM_URL, WEBODM_USERNAME, WEBODM_PASSWORD) are shown only: they are
-// changed there. The WebODM permissions the account needs are listed below the fields.
+// changed there. The WebODM permissions the account needs are listed below the fields. Create the account makes it in
+// WebODM with an admin's login, used for that one request only, and saves it as Check and save does.
+import {type ComponentChildren} from "preact";
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask} from "../components/dialog";
@@ -11,6 +13,23 @@ export interface WebODMState {
     source: string | null; file: string | null;
 }
 export interface WebODMNode {id: number; label: string; online: boolean}
+
+// The name the account created here is given unless it is changed (webodm.ACCOUNT_NAME)
+export const ACCOUNT_NAME = "dji-thermal-ui-api-user";
+const PASSWORD_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+// A long random password, from the browser's cryptographic randomness (values past the last whole run of the 62
+// characters are drawn again, so each character is as likely)
+export function generatePassword(length = 32): string {
+    const limit = 256 - 256 % PASSWORD_CHARACTERS.length;
+    let out = "";
+    while (out.length < length) {
+        for (const v of crypto.getRandomValues(new Uint8Array(length))) {
+            if (v < limit && out.length < length) out += PASSWORD_CHARACTERS[v % PASSWORD_CHARACTERS.length];
+        }
+    }
+    return out;
+}
 
 // The model permissions the account needs, as WebODM's admin lists them under User permissions (and the API names them)
 export const MODEL_PERMISSIONS: [string, string][] = [
@@ -37,7 +56,8 @@ export function Permissions({url = null}: {url?: string | null}) {
         <p class="hint">Done by a WebODM admin, in WebODM's Administration{url ? "" : " (its /admin/ pages)"}. The
             names are those its pages show.</p>
         <ol>
-            <li><AdminPage url={url} path="/admin/auth/user/add/">Users › Add user</AdminPage>: a user name and a
+            <li><AdminPage url={url} path="/admin/auth/user/add/">Users › Add user</AdminPage> (or <b>Create the
+                account</b> above, which does this step and the next with an admin's login): a user name and a
                 password, then Save. On the page that follows, leave <b>Active</b> ticked and <b>Staff status</b> and
                 {" "}<b>Superuser status</b> unticked: the app needs no more than an ordinary account.</li>
             <li>Its permissions. WebODM puts a new account in its <b>Default</b> group, which holds these unless they
@@ -76,6 +96,74 @@ function Nodes({nodes}: {nodes: WebODMNode[]}) {
         {" "}{nodes.map((n, i) => <>{i ? ", " : ""}<b>{n.label}</b>{n.online ? "" : " (offline)"}</>)}.</p>;
 }
 
+function Field({id, label, children}: {id: string; label: string; children: ComponentChildren}) {
+    return <div class="field"><label for={id}>{label}</label>{children}</div>;
+}
+
+// Create the account: an admin's login, used once, and the new account's name and password
+function AccountForm({state, url, busy, onCreate, onCancel}: {
+    state: WebODMState; url: string; busy: boolean;
+    onCreate: (body: Record<string, string>) => void; onCancel: () => void;
+}) {
+    const [address, setAddress] = useState(url);
+    const [adminUsername, setAdminUsername] = useState("");
+    const [adminPassword, setAdminPassword] = useState("");
+    const [username, setUsername] = useState(ACCOUNT_NAME);
+    const [password, setPassword] = useState("");
+    const [shown, setShown] = useState(false);
+    const value = (set: (v: string) => void) => (e: Event) => set((e.target as HTMLInputElement).value);
+
+    function submit(e: Event) {
+        e.preventDefault();
+        onCreate({url: address.trim(), admin_username: adminUsername.trim(), admin_password: adminPassword,
+                  username: username.trim(), password});
+    }
+
+    return (<form class="webodm-form" id="webodm-account-form" onSubmit={submit}>
+        <p class="hint">WebODM creates the account the app logs in as, with the permissions it needs, when one of its
+            admins asks: type an admin's login, used for this once and never saved.</p>
+        <Field id="webodm-account-url" label="Address">
+            <input type="url" id="webodm-account-url" value={address} placeholder="http://localhost:8000"
+                   autocomplete="off" spellcheck={false} disabled={busy} maxLength={2048} onInput={value(setAddress)}/>
+        </Field>
+        <Field id="webodm-admin-username" label="Admin's user name">
+            <input type="text" id="webodm-admin-username" value={adminUsername} autocomplete="off" spellcheck={false}
+                   disabled={busy} maxLength={150} onInput={value(setAdminUsername)}/>
+        </Field>
+        <Field id="webodm-admin-password" label="Admin's password">
+            <input type="password" id="webodm-admin-password" value={adminPassword} autocomplete="off"
+                   disabled={busy} onInput={value(setAdminPassword)}/>
+        </Field>
+        <Field id="webodm-account-username" label="The new account's user name">
+            <input type="text" id="webodm-account-username" value={username} autocomplete="off" spellcheck={false}
+                   disabled={busy} maxLength={150} onInput={value(setUsername)}/>
+        </Field>
+        <Field id="webodm-account-password" label="Its password">
+            <div class="webodm-password-row">
+                {shown
+                    ? <input type="text" id="webodm-account-password" value={password} autocomplete="off"
+                             spellcheck={false} disabled={busy} onInput={value(setPassword)}/>
+                    : <input type="password" id="webodm-account-password" value={password}
+                             autocomplete="new-password" disabled={busy} onInput={value(setPassword)}/>}
+                <button type="button" class="button default" id="webodm-generate" disabled={busy}
+                        onClick={() => { setPassword(generatePassword()); setShown(true); }}>Generate</button>
+            </div>
+        </Field>
+        <p class="hint">WebODM puts the new account in its <b>Default</b> group, which gives it the permissions the app
+            needs. The app then logs in as it and writes its user name and password to
+            {" "}<code class="path">{state.file}</code>, the password encrypted, as Check and save does: it need not be
+            typed again. A user name WebODM already has is refused: the app never changes an existing account.</p>
+        <div class="webodm-actions">
+            <button type="submit" class="button primary" id="webodm-account-save"
+                    disabled={busy || !address.trim() || !adminUsername.trim() || !adminPassword || !username.trim()
+                              || !password}>
+                {busy ? "Creating…" : "Create and save"}</button>
+            <button type="button" class="button default" id="webodm-account-cancel" disabled={busy} onClick={onCancel}>
+                Cancel</button>
+        </div>
+    </form>);
+}
+
 export function WebODMSettings({api}: {api: string}) {
     const [state, setState] = useState<WebODMState | null>(null);
     const [url, setUrl] = useState("");
@@ -84,6 +172,7 @@ export function WebODMSettings({api}: {api: string}) {
     const [busy, setBusy] = useState("");
     const [error, setError] = useState("");
     const [nodes, setNodes] = useState<WebODMNode[] | null>(null);
+    const [creating, setCreating] = useState(false);
     const endpoint = api + "settings/webodm";
 
     function loaded(s: WebODMState) {
@@ -99,20 +188,39 @@ export function WebODMSettings({api}: {api: string}) {
             .catch(() => setError("WebODM's settings could not be read."));
     }, [endpoint]);
 
+    // A call to the server: true once it is done; a state it answers is shown
     async function run(what: string, method: string, url: string, body: unknown, fallback: string) {
         setBusy(what);
         setError("");
         setNodes(null);
         try {
             const r = await readJson<WebODMState & {nodes?: WebODMNode[]}>(await sendJson(url, method, body));
-            if (!r.ok) return setError(errorText(r.data, fallback));
-            if (method !== "POST") loaded(r.data);
+            if (!r.ok) {
+                setError(errorText(r.data, fallback));
+                return false;
+            }
+            if ("configured" in r.data) loaded(r.data);
             if (r.data.nodes) setNodes(r.data.nodes);
+            return true;
         } catch {
             setError(fallback + ": is the app still running?");
+            return false;
         } finally {
             setBusy("");
         }
+    }
+
+    async function create(body: Record<string, string>) {
+        if (state?.configured && !await ask("Replace the saved login?", "The account created in WebODM is saved in " +
+                                            "place of the login saved now. That account is not changed in WebODM.",
+                                            "Create and replace")) return;
+        if (await run("create", "POST", endpoint + "/account", body, "The account could not be created")) setCreating(false);
+    }
+
+    function openForm() {
+        setError("");
+        setNodes(null);
+        setCreating(true);
     }
 
     function save(e: Event) {
@@ -151,7 +259,9 @@ export function WebODMSettings({api}: {api: string}) {
                     ? <>the environment it was started from (<code>WEBODM_URL</code>, <code>WEBODM_USERNAME</code>,
                         {" "}<code>WEBODM_PASSWORD</code>): to change them, change them there.</>
                     : <><code class="path">{state.source}</code>.</>}</>}</p>}
-        {state && !fromEnvironment && <form class="webodm-form" onSubmit={save}>
+        {state && !fromEnvironment && creating && <AccountForm state={state} url={url} busy={!!busy} onCreate={create}
+                                                               onCancel={() => { setError(""); setCreating(false); }}/>}
+        {state && !fromEnvironment && !creating && <form class="webodm-form" onSubmit={save}>
             <div class="field">
                 <label for="webodm-url">Address</label>
                 <input type="url" id="webodm-url" value={url} placeholder="http://localhost:8000" autocomplete="off"
@@ -183,6 +293,8 @@ export function WebODMSettings({api}: {api: string}) {
                 {state.configured && <button type="button" class="button default" id="webodm-check" disabled={!!busy}
                         onClick={() => run("check", "POST", endpoint + "/check", undefined, "WebODM could not be checked")}>
                     {busy === "check" ? "Logging in…" : "Check the saved login"}</button>}
+                <button type="button" class="button default" id="webodm-create" disabled={!!busy} onClick={openForm}>
+                    Create the account…</button>
                 {(state.url || state.username || state.password) &&
                     <button type="button" class="button danger" id="webodm-remove" disabled={!!busy} onClick={remove}>
                         Remove</button>}
