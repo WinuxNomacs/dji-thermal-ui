@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: N1, the name DJI Thermal Analyzer and the banner image (see Name and banner): planned, being built. X1 (platforms) and W1–W3 (the documentation) are built.
+**Up next**: nothing planned. N1 (the name and banner), X1 (platforms) and W1–W3 (the documentation) are built. X1 (platforms) and W1–W3 (the documentation) are built.
 
 **Then**: nothing planned yet.
 
@@ -2269,6 +2269,8 @@ that is checked in. Resize copies of the source image as needed for their destin
     screens on the docs), as JPEGs of a few hundred kB. The README shows the copy the docs site publishes, so it
     shows on GitHub and on PyPI alike.
 
+- **Built** (2026-11-01): see Done.
+
 ### Decisions (2026-11-01)
 
 - **Scope:** only the shown name changes. The command, the package and the repositories keep `dji-thermal-ui`.
@@ -2989,3 +2991,11 @@ that is checked in. Resize copies of the source image as needed for their destin
   (`fix-py314-http-errors`). The script has no bash 4 features (macOS's bash is 3.2); the platform-guarded tests all
   check real differences. CLAUDE.md's Mac list is now what the macOS job runs. Checked: pytest on Linux (3.12, 3.14)
   and Windows (3.12, 3.14), ruff, the strict docs build, check_dist, and the smoke check on Windows.
+- **N1: the name and the banner** (2026-11-01). The shown name is DJI Thermal Analyzer (the header, the page titles,
+  hints and messages, the docs' site name, the README's title; the tests and `scripts/smoke.py` follow); the command,
+  package and repositories keep `dji-thermal-ui`, and the front end's storage keys keep `thermal-analyzer.*`. The
+  banner's source is `branding/dji-thermal-analyzer.jpg` (outside `docs/`); `scripts/banner.py` makes
+  `docs/assets/banner-1600.jpg` and `banner-2400.jpg`, shown on the docs' home page and, from the docs site's address,
+  in the README; `check_dist.py` allows `.jpg` in the docs. The 30 screenshots made again (in a worktree with its own
+  environment, as the user's 8080 serves this checkout). Checked: pytest 438, Vitest 447, ruff and lint, the strict
+  build, check_dist, twine, the smoke check (wheel 5.8 MB), and the header at 375 and 800 px.
