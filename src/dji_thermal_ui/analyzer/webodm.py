@@ -1,6 +1,7 @@
 """WebODM, through its REST API. Its address and login are WEBODM_URL, WEBODM_USERNAME and WEBODM_PASSWORD, from the
 environment or a .env file (envfile), where System Settings writes them once WebODM has taken the login; never in the
-database, and the password never goes to the browser.
+database, and the password never goes to the browser. A .env file keeps the password encrypted, its key in the database
+(encryption).
 
 The client logs in when it needs a token (WebODM's JWT lasts 6 hours and is kept in memory only), and again when the
 token expires or is refused. Every call has a timeout; what goes wrong is said in plain words (WebODMError)."""
@@ -17,7 +18,7 @@ import urllib.request
 
 from django.conf import settings
 
-from . import envfile
+from . import encryption, envfile
 
 URL_ENV = 'WEBODM_URL'
 USERNAME_ENV = 'WEBODM_USERNAME'
@@ -35,6 +36,8 @@ DOWNLOAD_CHUNK = 1024 * 1024
 
 # WebODM's task statuses (nodeodm.status_codes)
 TASK_STATUSES = {10: 'queued', 20: 'running', 30: 'failed', 40: 'completed', 50: 'canceled'}
+
+UNREADABLE = "The saved password can't be read: type it again under System Settings › WebODM"
 
 _tokens = {}            # (url, username, password) -> (token, when it expires)
 _lock = threading.Lock()
@@ -57,13 +60,19 @@ _opener = urllib.request.build_opener(_NoRedirect)
 
 
 def config():
-    """The address and login: {url, username, password, source ('environment', a .env file's path, or None)}; any
-    of them from the environment makes it the environment's"""
+    """The address and login: {url, username, password, unreadable, source ('environment', a .env file's path, or
+    None)}; any of them from the environment makes it the environment's. A password the key can't open is None, and
+    unreadable True"""
     found = {name: envfile.lookup(name) for name in NAMES}
     sources = [source for _, source in found.values() if source]
     source = envfile.ENVIRONMENT if envfile.ENVIRONMENT in sources else (sources[0] if sources else None)
-    return {'url': found[URL_ENV][0], 'username': found[USERNAME_ENV][0], 'password': found[PASSWORD_ENV][0],
-            'source': source}
+    password, unreadable = found[PASSWORD_ENV][0], False
+    try:
+        password = encryption.decrypt(password)
+    except encryption.Unreadable:
+        password, unreadable = None, True
+    return {'url': found[URL_ENV][0], 'username': found[USERNAME_ENV][0], 'password': password,
+            'unreadable': unreadable, 'source': source}
 
 
 def masked(username):
@@ -72,10 +81,11 @@ def masked(username):
 
 
 def state():
-    """What the page says: the address, the user name masked, whether a password is set, where they come from, and
-    the file new ones are written to (None while the environment's are used)"""
+    """What the page says: the address, the user name masked, whether a password is set and whether it can be read,
+    where they come from, and the file new ones are written to (None while the environment's are used)"""
     c = config()
     return {'url': c['url'], 'username': masked(c['username']), 'password': bool(c['password']),
+            'unreadable': c['unreadable'],
             'source': c['source'], 'configured': bool(c['url'] and c['username'] and c['password']),
             'file': None if c['source'] == envfile.ENVIRONMENT else envfile.target_file(*NAMES)}
 
@@ -165,6 +175,8 @@ class Client:
     @classmethod
     def from_config(cls):
         c = config()
+        if c['unreadable']:
+            raise WebODMError(UNREADABLE)
         if not (c['url'] and c['username'] and c['password']):
             raise WebODMError("WebODM is not set up: give its address and login under System Settings › WebODM")
         return cls(c['url'], c['username'], c['password'])
@@ -344,13 +356,25 @@ def check(url, username, password):
 
 
 def save(url, username, password):
-    """Writes the address and login to the .env file"""
-    return envfile.write({URL_ENV: url, USERNAME_ENV: username, PASSWORD_ENV: password})
+    """Writes the address and login to the .env file, the password encrypted"""
+    return envfile.write({URL_ENV: url, USERNAME_ENV: username, PASSWORD_ENV: encryption.encrypt(password)})
+
+
+def encrypt_saved_password():
+    """Encrypts in place a password a .env file keeps as typed (saved by an earlier build, or put there by hand); one in the
+    environment is left alone. The files changed"""
+    changed = []
+    for path in settings.ENV_FILES:
+        value = envfile.file_value(path, PASSWORD_ENV)
+        if value and not encryption.is_encrypted(value):
+            changed.append(envfile.write({PASSWORD_ENV: encryption.encrypt(value)}, str(path)))
+    return changed
 
 
 def remove():
     """Takes the address and login out of every .env file that has them"""
     for path in settings.ENV_FILES:
         envfile.write({name: None for name in NAMES}, str(path))
+    encryption.forget()
     with _lock:
         _tokens.clear()

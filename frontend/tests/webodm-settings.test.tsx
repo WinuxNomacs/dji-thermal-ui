@@ -5,8 +5,8 @@ import {calls, jsonResponse, server, ticks} from "./helpers";
 
 const FILE = "/home/me/.local/share/dji-thermal-ui/.env";
 const URL = "http://127.0.0.1:8001";
-const UNSET: WebODMState = {url: null, username: null, password: false, configured: false, source: null, file: FILE};
-const SAVED: WebODMState = {url: URL, username: "a…", password: true, configured: true, source: FILE, file: FILE};
+const UNSET: WebODMState = {url: null, username: null, password: false, unreadable: false, configured: false, source: null, file: FILE};
+const SAVED: WebODMState = {url: URL, username: "a…", password: true, unreadable: false, configured: true, source: FILE, file: FILE};
 const NODES = [{id: 1, label: "node-odx-1", online: true}, {id: 2, label: "spare:3001", online: false}];
 
 const root = () => document.getElementById("root")!;
@@ -79,6 +79,17 @@ describe("System Settings › WebODM", () => {
         expect(($("#webodm-url") as HTMLInputElement).value).toBe(URL);
         expect(root().innerHTML).not.toContain("s3cret");
         expect(ids()).toEqual(["webodm-save", "webodm-check", "webodm-remove"]);
+    });
+
+    it("asks for a saved password its key can't open to be typed again before saving", async () => {
+        await page(server({"/api/settings/webodm": {...SAVED, password: false, unreadable: true, configured: false}}));
+        expect(text("#webodm-state")).toBe("The saved password can't be read: type it again.");
+        expect(($("#webodm-password") as HTMLInputElement).placeholder).toBe("");
+        expect(ids()).toEqual(["webodm-save", "webodm-remove"]);
+        await type("#webodm-url", URL);
+        expect(($("#webodm-save") as HTMLButtonElement).disabled).toBe(true);
+        await type("#webodm-password", "s3cret");
+        expect(($("#webodm-save") as HTMLButtonElement).disabled).toBe(false);
     });
 
     it("changes the address alone, keeping the saved login", async () => {

@@ -1,5 +1,5 @@
 """WebODM's address and login under System Settings: checked with a login before they are written to .env, shown
-masked, the password never sent back; and the client that logs in when it needs a token"""
+masked, the password never sent back and kept encrypted, its key in the database; and the client that logs in when it needs a token"""
 
 import base64
 import io
@@ -11,7 +11,8 @@ import urllib.parse
 
 import pytest
 
-from dji_thermal_ui.analyzer import envfile, webodm
+from dji_thermal_ui.analyzer import encryption, envfile, webodm
+from dji_thermal_ui.analyzer.models import EncryptionKey
 
 URL = "http://127.0.0.1:8001"
 SETTINGS = "/api/settings/webodm"
@@ -71,31 +72,38 @@ def server(monkeypatch):
     webodm._tokens.clear()
 
 
+def saved(path):
+    """The password as the .env file keeps it"""
+    return envfile.file_value(path, 'WEBODM_PASSWORD')
+
+
 def save(api, url=URL, username="admin", password=PASSWORD):
     return api.put(SETTINGS, {'url': url, 'username': username, 'password': password}, format='json')
 
 
 def test_a_login_webodm_takes_is_written_to_dotenv_and_shown_masked_without_the_password(api, env_file, server):
-    assert api.get(SETTINGS).data == {'url': None, 'username': None, 'password': False, 'source': None,
-                                      'configured': False, 'file': str(env_file)}
+    assert api.get(SETTINGS).data == {'url': None, 'username': None, 'password': False, 'unreadable': False,
+                                      'source': None, 'configured': False, 'file': str(env_file)}
     res = save(api, url=URL + "/")
     assert res.status_code == 200
-    assert res.data == {'url': URL, 'username': "a…", 'password': True, 'source': str(env_file), 'configured': True,
-                        'file': str(env_file),
+    assert res.data == {'url': URL, 'username': "a…", 'password': True, 'unreadable': False,
+                        'source': str(env_file), 'configured': True, 'file': str(env_file),
                         'nodes': [{'id': 1, 'label': "node-odx-1", 'online': True},
                                   {'id': 2, 'label': "spare:3001", 'online': False}]}
     assert PASSWORD not in res.content.decode() and "admin" not in res.content.decode()
     assert PASSWORD not in api.get(SETTINGS).content.decode()
-    assert env_file.read_text() == "WEBODM_URL=%s\nWEBODM_USERNAME=admin\nWEBODM_PASSWORD=\"%s\"\n" % (URL, PASSWORD)
+    assert env_file.read_text() == "WEBODM_URL=%s\nWEBODM_USERNAME=admin\nWEBODM_PASSWORD=%s\n" % (URL, saved(env_file))
     assert not POSIX or env_file.stat().st_mode & 0o777 == 0o600
-    assert webodm.config() == {'url': URL, 'username': "admin", 'password': PASSWORD, 'source': str(env_file)}
+    assert webodm.config() == {'url': URL, 'username': "admin", 'password': PASSWORD, 'unreadable': False,
+                               'source': str(env_file)}
 
 
 def test_an_empty_user_name_or_password_keeps_the_one_saved(api, env_file, server):
     env_file.write_text("OTHER=1\nWEBODM_URL=http://old:8000\nWEBODM_USERNAME=admin\nWEBODM_PASSWORD='%s'\n" % PASSWORD)
     assert save(api, username="", password="").status_code == 200
-    assert env_file.read_text() == "OTHER=1\nWEBODM_URL=%s\nWEBODM_USERNAME=admin\nWEBODM_PASSWORD=\"%s\"\n" % (
-        URL, PASSWORD)
+    assert env_file.read_text() == "OTHER=1\nWEBODM_URL=%s\nWEBODM_USERNAME=admin\nWEBODM_PASSWORD=%s\n" % (
+        URL, saved(env_file))
+    assert encryption.decrypt(saved(env_file)) == PASSWORD
 
 
 @pytest.mark.parametrize("url, message", [
@@ -152,13 +160,72 @@ def test_remove_takes_the_login_out_of_the_dotenv_keeping_the_other_lines(api, e
     res = api.delete(SETTINGS)
     assert res.status_code == 200 and res.data['configured'] is False
     assert env_file.read_text() == "MAPBOX_API_TOKEN=pk.a.b\n"
+    save(api)
+    assert EncryptionKey.objects.count() == 1
+    api.delete(SETTINGS)
+    assert EncryptionKey.objects.count() == 0
+
+
+def test_the_password_is_written_encrypted_differently_each_time_and_its_key_is_kept_in_the_database(api, env_file,
+                                                                                                     server):
+    save(api)
+    first = saved(env_file)
+    save(api)
+    second = saved(env_file)
+    assert first.startswith("enc:") and second.startswith("enc:") and first != second
+    assert PASSWORD not in env_file.read_text() and "pass" not in env_file.read_text()
+    assert EncryptionKey.objects.count() == 1
+    assert EncryptionKey.objects.get().key not in env_file.read_text()
+    assert encryption.decrypt(first) == encryption.decrypt(second) == PASSWORD
+
+
+def test_a_password_the_key_cannot_open_is_said_so_and_typing_it_again_saves_it(api, env_file, server):
+    save(api)
+    EncryptionKey.objects.all().delete()        # the .env file with another database
+    server['calls'].clear()
+    assert api.get(SETTINGS).data == {'url': URL, 'username': "a…", 'password': False, 'unreadable': True,
+                                      'source': str(env_file), 'configured': False, 'file': str(env_file)}
+    res = api.post(CHECK)
+    assert res.status_code == 400 and res.data['error'] == webodm.UNREADABLE
+    res = save(api, password="")
+    assert res.status_code == 400 and res.data['password'] == webodm.UNREADABLE
+    assert server['calls'] == []
+    assert save(api).data['configured'] is True
+    assert webodm.config()['password'] == PASSWORD
+
+
+def test_a_changed_encrypted_password_cannot_be_read(api, env_file, server):
+    save(api)
+    value = saved(env_file)
+    envfile.write({'WEBODM_PASSWORD': value[:-6] + ("AAAAAA" if not value.endswith("AAAAAA") else "BBBBBB")})
+    assert webodm.config()['unreadable'] is True and webodm.config()['password'] is None
+
+
+def test_a_password_kept_as_typed_in_any_dotenv_is_encrypted_in_place_and_an_encrypted_one_left(db, settings, tmp_path,
+                                                                                               monkeypatch):
+    first, second, third = tmp_path / "a.env", tmp_path / "b.env", tmp_path / "c.env"
+    settings.ENV_FILES = [first, second, third]
+    first.write_text("A=1\nWEBODM_PASSWORD='%s'\nB=2\n" % PASSWORD)
+    second.write_text("WEBODM_PASSWORD=plain\n")
+    if POSIX:
+        second.chmod(0o640)
+    third.write_text("MAPBOX_API_TOKEN=pk.a.b\n")
+    assert webodm.encrypt_saved_password() == [str(first), str(second)]
+    assert first.read_text() == "A=1\nWEBODM_PASSWORD=%s\nB=2\n" % saved(first)
+    assert encryption.decrypt(saved(first)) == PASSWORD and encryption.decrypt(saved(second)) == "plain"
+    assert not POSIX or second.stat().st_mode & 0o777 == 0o640
+    assert third.read_text() == "MAPBOX_API_TOKEN=pk.a.b\n"
+    before = first.read_text()
+    assert webodm.encrypt_saved_password() == [] and first.read_text() == before
+    monkeypatch.setenv("WEBODM_PASSWORD", "from-the-environment")
+    assert webodm.config()['password'] == "from-the-environment"
 
 
 def test_a_login_in_the_environment_is_shown_and_cannot_be_changed_here(api, env_file, server, monkeypatch):
     env_file.write_text("WEBODM_USERNAME=admin\nWEBODM_PASSWORD=x\n")
     monkeypatch.setenv("WEBODM_URL", URL)
-    assert api.get(SETTINGS).data == {'url': URL, 'username': "a…", 'password': True, 'source': 'environment',
-                                      'configured': True, 'file': None}
+    assert api.get(SETTINGS).data == {'url': URL, 'username': "a…", 'password': True, 'unreadable': False,
+                                      'source': 'environment', 'configured': True, 'file': None}
     assert save(api).status_code == 409
     res = api.delete(SETTINGS)
     assert res.status_code == 409 and "set in the environment" in res.data['error']

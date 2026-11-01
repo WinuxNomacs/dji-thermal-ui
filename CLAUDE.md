@@ -16,7 +16,8 @@ machine. Keep it short; edit in place.
   `dataset` › `conversion`. A visible string says flight for a `dataset` and dataset for a `conversion`.
 - Processing with ODM is not done here: a conversion's TIFFs are sent to a WebODM of the user's through its REST API
   (`analyzer/webodm.py`, `analyzer/webodm_tasks.py`; "ODM" in `upcoming-changes.md`), never by importing its code.
-  WebODM credentials go in `.env`, never in the database, and the pages show them masked.
+  WebODM credentials go in `.env`, never in the database (the password encrypted there: its key is in the
+  database, `analyzer/encryption.py`), and the pages show them masked.
 
 ## Rules for this repository
 

@@ -260,9 +260,14 @@ only if WebODM takes them; it then lists the processing nodes the account can se
 login, WebODM out of reach, an address that isn't WebODM's) and nothing is changed.
 
 They are kept as `WEBODM_URL`, `WEBODM_USERNAME` and `WEBODM_PASSWORD` in a `.env` file, as the Mapbox token is (the
-one they were read from, else the data folder's, made readable by you only), never in the database. The page never
-shows the password, only that one is set, and shows the user name masked; leave either empty to keep the saved one.
-Remove takes all three out of the file. Set in the environment the app is started from, they win over the files:
+one they were read from, else the data folder's, made readable by you only), never in the database. The password is
+written encrypted (`WEBODM_PASSWORD=enc:…`, AES with a fresh random IV each time, so saving the same password twice
+gives two different values), with a key the app makes once and keeps in its database, not in `.env`: the file alone
+doesn't give the password away. A password typed into the file by hand is encrypted in place the next time the app
+starts; one set in the environment is left as it is. If the key is gone (the data folder's database replaced, or
+`.env` used with another data folder), System Settings › WebODM says the saved password can't be read: type it
+again. The page never shows the password, only that one is set, and shows the user name masked; leave either empty
+to keep the saved one. Remove takes all three out of the file, and the key out of the database. Set in the environment the app is started from, they win over the files:
 System Settings then shows them, and they are changed there. The app asks WebODM for a login token when it needs one
 and keeps it in memory only.
 

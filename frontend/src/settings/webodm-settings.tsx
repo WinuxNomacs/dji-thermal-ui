@@ -1,13 +1,13 @@
 // System Settings › WebODM: its address and login, checked with a login by the server before they are written to .env
-// in place of those there. The password never comes back: the page says only that one is set, and the user name is
-// shown masked. Those set in the environment (WEBODM_URL, WEBODM_USERNAME, WEBODM_PASSWORD) are shown only: they are
+// in place of those there, the password encrypted. The password never comes back: the page says only that one is set
+// (or that it can't be read, its key gone with the database), and the user name is shown masked. Those set in the environment (WEBODM_URL, WEBODM_USERNAME, WEBODM_PASSWORD) are shown only: they are
 // changed there. The WebODM permissions the account needs are listed below the fields.
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {ask} from "../components/dialog";
 
 export interface WebODMState {
-    url: string | null; username: string | null; password: boolean; configured: boolean;
+    url: string | null; username: string | null; password: boolean; unreadable: boolean; configured: boolean;
     source: string | null; file: string | null;
 }
 export interface WebODMNode {id: number; label: string; online: boolean}
@@ -128,7 +128,6 @@ export function WebODMSettings({api}: {api: string}) {
     }
 
     const fromEnvironment = state?.source === "environment";
-    const needsLogin = !state?.username || !state?.password;
     return (<fieldset class="preference" id="webodm-settings">
         <legend>WebODM</legend>
         <p class="hint">Conversions are processed with ODM in a WebODM of your own, through its API: here are its
@@ -143,7 +142,9 @@ export function WebODMSettings({api}: {api: string}) {
             <li>A completed task's orthophoto comes back as temperatures: a WebODM tab in the viewer, to read, measure
                 and compare with the app's own mosaics.</li>
         </ul>
-        {state && <p id="webodm-state">{!state.configured
+        {state && <p id="webodm-state">{state.unreadable
+            ? "The saved password can't be read: type it again."
+            : !state.configured
             ? "Not set up yet."
             : <>The app logs in to <code class="path">{state.url}</code> as <code>{state.username}</code>, from
                 {" "}{fromEnvironment
@@ -173,10 +174,11 @@ export function WebODMSettings({api}: {api: string}) {
             <p class="hint">The address may be <code>http://</code>, for a WebODM on this computer or your network.
                 Check and save logs in to WebODM first, then writes them to
                 {" "}<code class="path">{state.file}</code> as <code>WEBODM_URL</code>, <code>WEBODM_USERNAME</code>
-                {" "}and <code>WEBODM_PASSWORD</code>. The password is never shown again.</p>
+                {" "}and <code>WEBODM_PASSWORD</code>. The password is written encrypted, its key kept in the app's
+                database, and is never shown again.</p>
             <div class="webodm-actions">
                 <button type="submit" class="button primary" id="webodm-save"
-                        disabled={!!busy || !url.trim() || (needsLogin && (!username.trim() || !password))}>
+                        disabled={!!busy || !url.trim() || (!state.username && !username.trim()) || (!state.password && !password)}>
                     {busy === "save" ? "Logging in…" : "Check and save"}</button>
                 {state.configured && <button type="button" class="button default" id="webodm-check" disabled={!!busy}
                         onClick={() => run("check", "POST", endpoint + "/check", undefined, "WebODM could not be checked")}>

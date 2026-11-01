@@ -448,6 +448,16 @@ class Preferences(models.Model):
         return obj
 
 
+
+class EncryptionKey(models.Model):
+    """The key the WebODM password is encrypted with in a .env file (encryption): a single row, never sent to the
+    browser"""
+    key = models.CharField(max_length=64, help_text=_("A Fernet key"), verbose_name=_("Key"))
+
+    class Meta:
+        verbose_name = _("Encryption key")
+        verbose_name_plural = _("Encryption keys")
+
 def dataset_dir(dataset_id):
     return os.path.join(settings.DATASETS_DIR, str(dataset_id))
 
