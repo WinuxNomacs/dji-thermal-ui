@@ -33,3 +33,23 @@ def test_every_page_is_in_the_navigation_and_every_entry_is_a_page():
     nav = list(nav_pages(tomllib.loads((ROOT / "zensical.toml").read_text(encoding="utf-8"))["project"]["nav"]))
     pages = sorted(p.relative_to(DOCS).as_posix() for p in DOCS.rglob("*.md"))
     assert sorted(nav) == pages
+
+
+# A link to a heading, [text](page.md#heading) or [text](#heading), and a heading's anchor as Python-Markdown's toc
+# makes it (lower case, without punctuation, spaces as hyphens)
+ANCHOR_LINK = re.compile(r"\]\(([^)#\s]*\.md)?#([^)\s]+)\)")
+
+
+def anchors(page):
+    headings = re.findall(r"^#+ (.+)$", page.read_text(encoding="utf-8"), re.MULTILINE)
+    return {re.sub(r"[\s-]+", "-", re.sub(r"[^\w\s-]", "", h).strip().lower()) for h in headings}
+
+
+def test_every_link_to_a_heading_finds_it():
+    broken = []
+    for page in DOCS.rglob("*.md"):
+        for target, anchor in ANCHOR_LINK.findall(page.read_text(encoding="utf-8")):
+            linked = (page.parent / target).resolve() if target else page
+            if anchor not in anchors(linked):
+                broken.append(f"{page.relative_to(DOCS)}: {target}#{anchor}")
+    assert broken == []

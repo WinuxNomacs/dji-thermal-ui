@@ -69,6 +69,7 @@ toggle.name = "Switch to the computer's"
 
 [project.markdown_extensions]
 admonition = {}
+tables = {}
 attr_list = {}
 def_list = {}
 md_in_html = {}

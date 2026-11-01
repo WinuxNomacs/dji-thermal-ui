@@ -22,9 +22,12 @@ The documentation is `docs/` (Markdown), laid out in `zensical.toml`'s `nav`, bu
 4. **Screenshots** of a page that changed are made again with the screenshot script, once W3 has added it; never edit
    one by hand. No GPS coordinate, address or basemap may show in one.
 5. **Check it:** `uv run --only-group docs zensical build --strict` (fails on a broken link) and
-   `uv run pytest tests/test_docs.py` (a missing picture, a page not in the navigation). Look at a changed page with
+   `uv run pytest tests/test_docs.py` (a missing picture, a page not in the navigation, a link to a heading that
+   isn't there). Look at a changed page with
    `uv run --only-group docs zensical serve`, or at `/help/` on an instance of the branch.
-6. Commit the docs with the change, on the same branch.
+6. **The README** keeps only what the app is (a short list linking to the guide's pages), Install, Run, Development
+   and Licence: change its list only when a part of the app is added or removed, and Install or Run when they change.
+7. Commit the docs with the change, on the same branch.
 
 ## At a release
 

@@ -11,7 +11,8 @@ All notable changes are recorded here. The format follows
 - Help in the header: the documentation, opened in a new tab at the guide's page for the page shown. The app serves
   it at `/help/` from the copy it was installed with (built from `docs/` by Zensical 0.0.73, and carried by the
   wheel), so it matches the version and works offline. `scripts/publish_docs.py` commits the same site in a clone of
-  the public `dji-thermal-ui-docs` repository for GitHub Pages. The guide's pages are laid out; their text follows.
+  the public `dji-thermal-ui-docs` repository for GitHub Pages. It has Getting started, a user guide with a page for
+  each part of the app, and Reference (the command, its environment variables, and where the data lives).
 - System Settings › WebODM: WebODM's address and an account's login, saved to `.env` (`WEBODM_URL`,
   `WEBODM_USERNAME`, `WEBODM_PASSWORD`) once WebODM has taken them, with the processing nodes the account sees. The
   password is written encrypted (Fernet, from `cryptography` 50.0.2), its key kept in the database, so `.env` alone
@@ -65,6 +66,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The README keeps what the app is, how to install it and how to run it: the rest, its feature list included, is
+  in the documentation.
 - The image sliders (Brightness, Contrast, Gamma and Sharpening, on the viewer, the frame page, the video tab and
   the compare page) move in steps half as big as before, for finer adjustments.
 - The flight page's Files tab: the Thermal frame column goes (Kind says it; a link or saved filter on it is read
