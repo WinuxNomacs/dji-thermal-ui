@@ -1235,7 +1235,8 @@ class WebODMSettingsView(DatasetView):
         if not username:
             raise ValidationError({'username': "Type the WebODM account's user name"})
         if not password:
-            raise ValidationError({'password': "Type the WebODM account's password"})
+            raise ValidationError({'password': webodm.UNREADABLE if current['unreadable']
+                                   else "Type the WebODM account's password"})
         if len(username) > webodm.USERNAME_MAX or any(c in username for c in '\r\n\0'):
             raise ValidationError({'username': "That is not a WebODM user name"})
         if len(password) > webodm.PASSWORD_MAX or any(c in password for c in '\r\n\0'):

@@ -29,6 +29,7 @@ classifiers = [
 ]
 dependencies = [
     "affine==3.0.1",
+    "cryptography==50.0.2",
     "django==6.1.2",
     "djangorestframework==3.18.3",
     "dji-thermal-cli==1.11.0",

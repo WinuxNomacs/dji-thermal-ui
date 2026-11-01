@@ -2049,6 +2049,40 @@ Proposed:
 - **Flight rows:** all four actions in the "…" menu.
 - **Compare's toggles:** pressed, with a check, one fixed label each (not switches).
 
+## Secrets
+
+Requested 2026-10-31 (new.md): "securely salt and encrypt the password in the .env file. I'm aware the key will still
+be stored on disk but significantly more difficult to use. Maybe store the key in the database".
+
+### What it builds on
+
+- `analyzer/webodm.py`: `WEBODM_URL`, `WEBODM_USERNAME` and `WEBODM_PASSWORD`, read from the environment or a `.env`
+  file (`analyzer/envfile.py`: the start folder's, then the data folder's), written there by System Settings › WebODM
+  once WebODM has taken the login. The password is never sent to the browser; it is in the file as typed.
+- The database (`db.sqlite3`) and the secret key file live in the data folder; a data-folder move carries both, and
+  the data folder's `.env` with them. A project's backup carries neither the database's other rows nor `.env`.
+- The Mapbox token is in `.env` too, but the browser is sent it to draw the map, so encrypting it hides nothing.
+
+### Proposed phase
+
+- **S1: the WebODM password encrypted in `.env`** (built 2026-10-31, see Done).
+  - A random key, made once and kept in the database (a row of its own, never in what the API sends), not in `.env`:
+    `.env` alone (copied, shared, committed by mistake) no longer gives the password away.
+  - Saving writes `WEBODM_PASSWORD=enc:<token>`: authenticated encryption with a fresh random IV each time (so the
+    same password never reads the same twice, the salt asked for), and tampering is detected.
+  - Reading decrypts an `enc:` value; a plain one (set by hand, or in the environment) still works as it is.
+  - A password the key can't open (the database replaced, the value edited) is shown on System Settings › WebODM as
+    "The saved password can't be read: enter it again", not as a failed login.
+  - Remove takes the key out along with the three values.
+
+### Decisions (2026-10-31)
+
+- **Library:** `cryptography`'s Fernet, pinned exactly (50.0.2).
+- **The key:** in the database, a table of its own; a different data folder can't read the password.
+- **A plain password already saved in a `.env` file:** encrypted in place when the app starts; one set in the
+  environment is left alone.
+- **Order:** before W1, so the docs describe it.
+
 ## Platforms
 
 Requested 2026-10-31 (new.md): the app supports Linux, Windows and macOS. Windows can be checked from the
@@ -2802,3 +2836,12 @@ as feature changes require going forward."
   `compare.test.tsx`, `report.test.tsx` and `mosaic-report.test.tsx`. Checked on the user's data on a scratch 8081
   instance (GETs only), light and dark: the Problems column (every row 30 px), an old `thermal_frame` link, both
   menus, the toggles, the basemap list, both reports' bars.
+- **S1: the WebODM password encrypted in `.env`** (2026-10-31). Fernet from `cryptography` 50.0.2
+  (`analyzer/encryption.py`), its key in the `EncryptionKey` table (migration `0011_encryption_key`); written by
+  `webodm.save`, read by `webodm.config` (unreadable when the key can't open it), plain ones encrypted at start-up
+  (`webodm.encrypt_saved_password`, called in `cli.make_server`), the key deleted by Remove. System Settings › WebODM
+  says when the saved password can't be read, and its Save asks only for the missing parts of the login
+  (`settings/webodm-settings.tsx`). Tests in `tests/test_webodm.py` and `frontend/tests/webodm-settings.test.tsx`.
+  Checked on a scratch 8081 instance (scratch data and start folders) against the dev WebODM: a plain password
+  encrypted at start, the saved login checked, a fresh database giving "can't be read", the password typed again and
+  saved.
