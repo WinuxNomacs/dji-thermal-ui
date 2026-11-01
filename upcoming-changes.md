@@ -8,8 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
-Documentation), to be planned with the user.
+**Up next**: W2–W3, the documentation's user guide and quickstart tutorials with screenshots (see Documentation),
+to be planned with the user. W1, the docs site, is built.
 
 **Then**: X1, Linux, Windows and macOS checked (see Platforms).
 
@@ -2170,6 +2170,27 @@ as feature changes require going forward."
   anywhere in a screenshot (maps without a basemap, coordinates, the project's location and the frames' positions
   replaced or hidden); the images themselves can be shown as they are (decided 2026-10-31).
 
+### W1: the docs site (planned 2026-10-31)
+
+- **Built** (2026-10-31): see Done. Zensical's strict build fails on a broken link but not on a missing picture, so
+  `tests/test_docs.py` checks the pictures (and that every page is in the navigation).
+
+- **Pages:** `docs/` with Zensical's `zensical.toml`, laid out as Getting started, Quickstart, User guide (a page per
+  part of the app) and Reference (the command, its options and environment variables, where the data lives). W1's
+  guide pages say what each will hold; W2 fills them from the README, W3 adds the tutorials.
+- **Build:** Zensical pinned in a `docs` dependency group; `uv run --group docs zensical build --strict` writes the
+  site to `src/dji_thermal_ui/static/docs/` (gitignored, like `static/dist`), which the wheel and sdist carry;
+  `check_dist.py` requires it and `smoke.py` fetches `/help/`. CI builds it before `uv build` (still only on a `v*` tag
+  or by hand).
+- **In the app:** `/help/` serves the built site; without a build it says how to make one. A **Help** link in the
+  page header, beside the version, opens the guide page for the page you are on, in a new tab (decided 2026-10-31).
+- **Publishing:** the public `dji-thermal-ui-docs` repository serves the site with GitHub Pages from its `main`
+  branch (no Actions). `scripts/publish_docs.py <checkout>` copies the built site into a local clone of it and
+  commits there; the user pushes.
+- **Reference:** the command and the data only, not the REST API, which belongs to the pages and changes with them
+  (decided 2026-10-31).
+- **Keeping it current:** a `.claude/skills` procedure, pointed to from CLAUDE.md.
+
 ## Finer slider steps
 
 Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) should move in smaller steps, about
@@ -2862,3 +2883,14 @@ Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) s
   saved.
 - **T1: the image sliders' steps halved** (2026-10-31). `SLIDERS` in `frontend/src/viewer/view.ts`; tests in
   `frontend/tests/view.test.ts` (steps half of F1's, both ends reached) and `frontend/tests/viewer.test.tsx`.
+- **W1: the docs site** (2026-10-31). `docs/` laid out in `zensical.toml` (Getting started, Quickstart, the user
+  guide, Reference; each page says what it will hold), Zensical 0.0.73 in the `docs` dependency group, built strictly
+  into `static/docs` (gitignored) with the browser's own fonts so the copy in the app works offline. `/help/` serves
+  it (`help_page` in `analyzer/views.py`; `help_missing.html` without a build); the header's Help opens the guide's
+  page for the page shown in a new tab (`helpUrl`, `HELP_PAGES` in `components/header.tsx`). `check_dist.py` allows
+  and requires it, `smoke.py` fetches `/help/`, CI and `dji-thermal-ui.sh build` build it.
+  `scripts/publish_docs.py` commits it in a clone of the public `dji-thermal-ui-docs` repository, never pushing.
+  Upkeep: `.claude/skills/update-docs`, pointed to from CLAUDE.md. Tests: `tests/test_pages.py` (help),
+  `tests/test_docs.py`, `tests/test_publish_docs.py`, `tests/test_script.py`, `frontend/tests/header.test.tsx`.
+  Checked in Chromium on a scratch instance: the link, the new tab, the docs light and dark, the search, and no
+  request leaving 127.0.0.1.

@@ -1,11 +1,11 @@
 // The header every page has: the navigation pane's switch, the app's name, the unit temperatures are shown in and the
-// theme, both saved for the app (and on the preferences page too). A new unit shows the page again in it; a new theme
-// is applied at once.
+// theme, both saved for the app (and on the preferences page too), and Help. A new unit shows the page again in it; a
+// new theme is applied at once.
 import {useEffect, useState} from "preact/hooks";
 import {sendJson} from "../core/api";
 import {applyTheme, onTheme, type Theme} from "../core/theme";
 import {type Unit} from "../core/units";
-import {Menu, Monitor, Moon, Sun, Thermometer} from "./icons";
+import {Help, Menu, Monitor, Moon, Sun, Thermometer} from "./icons";
 
 export interface HeaderProps {
     api: string;
@@ -22,6 +22,25 @@ const THEME_CHOICES: {theme: Theme; label: string; Icon: typeof Sun}[] = [
     {theme: "dark", label: "Dark", Icon: Moon},
     {theme: "system", label: "As the computer", Icon: Monitor},
 ];
+
+// The documentation's page for each of the app's pages (docs/guide), by its address after the app's own: the first
+// that matches
+const HELP_PAGES: [RegExp, string][] = [
+    [/^(project\/\d+)?$/, "guide/projects/"],
+    [/^dataset\/\d+\/report$/, "guide/reports/"],
+    [/^dataset\/\d+$/, "guide/flights/"],
+    [/^conversion\/\d+\/frame$/, "guide/frames/"],
+    [/^conversion\/\d+\/report$/, "guide/reports/"],
+    [/^conversion\/\d+\/compare$/, "guide/compare/"],
+    [/^conversion\/\d+$/, "guide/mosaics/"],
+    [/^(preferences|settings)$/, "guide/settings/"],
+    [/^settings\/storage$/, "guide/storage/"],
+];
+
+export function helpUrl(publicUrl: string, pathname: string): string {
+    const page = pathname.startsWith(publicUrl) ? pathname.slice(publicUrl.length) : "";
+    return publicUrl + "help/" + (HELP_PAGES.find(([address]) => address.test(page))?.[1] ?? "");
+}
 
 export async function savePreference(api: string, preference: Record<string, string>): Promise<void> {
     const res = await sendJson(api + "preferences", "PUT", preference);
@@ -80,6 +99,8 @@ export function Header({api, publicUrl, unit, theme: initialTheme, version, nav,
                                 onClick={() => theme !== t && changeTheme(t)}><Icon/></button>
                     ))}
                 </div>
+                <a class="app-help" href={helpUrl(publicUrl, window.location.pathname)} target="_blank"
+                   title="The guide to this page, in a new tab"><Help/> Help</a>
                 <span class="app-version" title="dji-thermal-ui's version">{version}</span>
             </div>
         </header>

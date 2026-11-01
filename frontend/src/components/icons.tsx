@@ -78,6 +78,8 @@ export const ChevronRight = (p: Props) => (<Icon {...p}><path d="M9 18l6-6-6-6"/
 export const ChevronDown = (p: Props) => (<Icon {...p}><path d="M6 9l6 6 6-6"/></Icon>);
 export const Menu = (p: Props) => (<Icon {...p}><path d="M3 6h18M3 12h18M3 18h18"/></Icon>);
 export const Info = (p: Props) => (<Icon {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></Icon>);
+export const Help = (p: Props) => (
+    <Icon {...p}><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></Icon>);
 export const Save = (p: Props) => (
     <Icon {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>
     </Icon>);

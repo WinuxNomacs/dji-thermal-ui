@@ -231,3 +231,4 @@ node_modules/
 
 # dji-thermal-ui.sh: the PID file and the log
 /.run/
+src/dji_thermal_ui/static/docs/

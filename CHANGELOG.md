@@ -8,6 +8,10 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- Help in the header: the documentation, opened in a new tab at the guide's page for the page shown. The app serves
+  it at `/help/` from the copy it was installed with (built from `docs/` by Zensical 0.0.73, and carried by the
+  wheel), so it matches the version and works offline. `scripts/publish_docs.py` commits the same site in a clone of
+  the public `dji-thermal-ui-docs` repository for GitHub Pages. The guide's pages are laid out; their text follows.
 - System Settings › WebODM: WebODM's address and an account's login, saved to `.env` (`WEBODM_URL`,
   `WEBODM_USERNAME`, `WEBODM_PASSWORD`) once WebODM has taken them, with the processing nodes the account sees. The
   password is written encrypted (Fernet, from `cryptography` 50.0.2), its key kept in the database, so `.env` alone

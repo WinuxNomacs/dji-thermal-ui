@@ -1,9 +1,11 @@
 """The app's pages (the plugin's mount points, without its login and project checks). Each sets the CSRF cookie the
 scripts send back to the API."""
 
+from django.conf import settings
 from django.http import Http404
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.static import serve
 
 from .._version import __version__
 from .api import app_locale, app_palette, app_theme, app_unit, report_author
@@ -100,3 +102,15 @@ def compare_page(request, conversion_id):
             raise Http404("No such dataset") from None
     return page(request, "compare.html", title="Compare", entry="compare", conversion=conversion, other=other,
                 dataset=conversion.dataset, basemaps=page_basemaps())
+
+
+def help_page(request, path):
+    """The documentation the package carries, a folder's address served as its index.html (with its slash added);
+    without a build, how to make one"""
+    if not (settings.DOCS_DIR / "index.html").is_file():
+        return render(request, "help_missing.html", status=404)
+    if path == "" or path.endswith("/"):
+        path += "index.html"
+    elif (settings.DOCS_DIR / path).resolve().is_relative_to(settings.DOCS_DIR.resolve()) and (settings.DOCS_DIR / path).is_dir():
+        return redirect(request.path + "/")
+    return serve(request, path, document_root=settings.DOCS_DIR)

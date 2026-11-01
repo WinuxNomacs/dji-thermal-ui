@@ -16,6 +16,7 @@ pytestmark = pytest.mark.skipif(os.name == "nt" or not shutil.which("bash"), rea
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "dji-thermal-ui.sh"
 MANIFEST = Path("src/dji_thermal_ui/static/dist/manifest.json")
+DOCS = "uv run --locked --only-group docs zensical build --strict"
 TIMEOUT = 90
 
 
@@ -104,18 +105,18 @@ def test_a_start_that_fails_shows_the_log(clone):
     assert not (clone / ".run" / "dji-thermal-ui.pid").exists()
 
 
-def test_build_syncs_installs_and_builds_and_rebuild_does_the_same(clone):
+def test_build_syncs_installs_and_builds_the_pages_and_help_and_rebuild_does_the_same(clone):
     bin_dir = clone.parent / "bin"
     stub(bin_dir, "uv", "")
     stub(bin_dir, "npm", "")
     assert run(clone, "build").returncode == 0
     assert run(clone, "rebuild").returncode == 0
-    assert calls(clone) == ["uv sync --locked", "npm ci", "npm run build"] * 2
+    assert calls(clone) == ["uv sync --locked", "npm ci", "npm run build", DOCS] * 2
 
 
 def test_start_builds_a_clone_never_built_first(clone):
     bin_dir = clone.parent / "bin"
-    stub(bin_dir, "uv", 'ln -s "%s" .venv' % (ROOT / ".venv"))
+    stub(bin_dir, "uv", '[ "$1" = sync ] && ln -s "%s" .venv\ntrue' % (ROOT / ".venv"))
     stub(bin_dir, "npm", '[ "$1" = ci ] && mkdir node_modules\n'
                          '[ "$1" = run ] && mkdir -p "%s" && echo {} > "%s"\ntrue' % (MANIFEST.parent, MANIFEST))
     port = free_port()
@@ -124,7 +125,7 @@ def test_start_builds_a_clone_never_built_first(clone):
         assert r.returncode == 0, r.stdout + r.stderr
     finally:
         run(clone, "stop")
-    assert calls(clone) == ["uv sync --locked", "npm ci", "npm run build"]
+    assert calls(clone) == ["uv sync --locked", "npm ci", "npm run build", DOCS]
 
 
 def test_build_installs_uv_when_it_is_missing(clone):

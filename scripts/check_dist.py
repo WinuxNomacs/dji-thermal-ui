@@ -2,8 +2,8 @@
 
 Every file in the wheel and sdist must match an allowlist, so nothing local (editor or assistant settings, test data,
 the front end's sources and tests, node_modules, build leftovers) can be published by accident. Also checks both carry
-the templates, the migrations and the built front end (npm run build): each page's entry and files, and the
-licences of what is bundled into it.
+the templates, the migrations, the built front end (npm run build): each page's entry and files, and the licences of
+what is bundled into it, and the built documentation (zensical build).
 """
 
 from __future__ import annotations
@@ -18,7 +18,8 @@ from pathlib import Path
 PY = r"dji_thermal_ui/(?:[a-z_0-9]+/)*[a-z_0-9]+\.py"
 TEMPLATES = r"dji_thermal_ui/templates/[a-z_]+\.html"
 STATIC = (r"dji_thermal_ui/static/(?:favicon\.svg|vendor/mapbox/(?:mapbox-logo\.svg|LICENSE\.txt)"
-          r"|dist/(?:manifest\.json|THIRD-PARTY-LICENSES\.txt|assets/[A-Za-z0-9_.-]+\.(?:js|css|png|svg|woff2)))")
+          r"|dist/(?:manifest\.json|THIRD-PARTY-LICENSES\.txt|assets/[A-Za-z0-9_.-]+\.(?:js|css|png|svg|woff2))"
+          r"|docs/(?:[a-z0-9_-]+/)*(?:[A-Za-z0-9_.-]+\.(?:html|js|css|json|xml|png|svg)|LICENSE))")
 PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}"
 LICENSES = r"LICENSE"
 WHEEL = re.compile(rf"(?:{PACKAGE})|dji_thermal_ui-[^/]+\.dist-info/(?:METADATA|WHEEL|RECORD|entry_points\.txt"
@@ -36,6 +37,9 @@ REQUIRED = [
     "dji_thermal_ui/static/dist/THIRD-PARTY-LICENSES.txt",        # the licences of what is bundled, beside it
     "dji_thermal_ui/static/vendor/mapbox/mapbox-logo.svg",       # Mapbox's wordmark, with its licence
     "dji_thermal_ui/static/vendor/mapbox/LICENSE.txt",
+    "dji_thermal_ui/static/docs/index.html",                     # the documentation, served at /help/
+    "dji_thermal_ui/static/docs/guide/projects/index.html",
+    "dji_thermal_ui/static/docs/search.json",
 ]
 # The pages' entries in the build's manifest (frontend/src/pages), each with its files in the distribution
 PAGES = ["projects", "project", "dataset", "viewer", "frame", "compare", "preferences"]

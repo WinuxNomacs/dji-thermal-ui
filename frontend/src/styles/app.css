@@ -139,6 +139,7 @@ ul { padding-left: 20px; }
 .app-settings { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
 .app-settings label { color: var(--muted); }
 .app-version { color: var(--muted); font-size: 12px; }
+.app-help { display: inline-flex; align-items: center; gap: 4px; }
 .app-start { display: flex; align-items: center; gap: 8px; min-width: 0; }
 #nav-toggle { font-size: 18px; color: var(--text); }
 .app-body { display: flex; align-items: flex-start; }
