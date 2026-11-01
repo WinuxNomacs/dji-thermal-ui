@@ -8,10 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**:
-1. **O1: creating the WebODM account** (see "Creating the WebODM account" below), from System Settings › WebODM.
+**Up next**: nothing planned yet.
 
-T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the documentation) are built.
+O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+documentation) are built.
 
 **Then**: nothing planned yet.
 
@@ -2323,7 +2323,7 @@ uses. The user types WebODM's address and an admin account's user name and passw
 
 ### Proposed phase
 
-- **O1: creating the WebODM account.**
+- **O1: creating the WebODM account** (built 2026-11-01, see Done).
   - On System Settings › WebODM, beside the login form: **Create the account** opens a small form with the address,
     the admin's user name and password, and the new account's name (filled with `dji-thermal-ui-api-user`) and
     password.
@@ -3070,3 +3070,13 @@ uses. The user types WebODM's address and an admin account's user name and passw
   no misspelling a user reads: every unknown word is a code name, a technical term or a British spelling. A search
   for doubled words found one, in a docstring in `api.py` (the findings' view), made readable. Nothing a user sees
   changed, so the README, the CHANGELOG, the docs and the screenshots are as they were. Checked: ruff.
+- **O1: creating the WebODM account** (2026-11-01). `webodm.create_account` (admin login, its token dropped at once;
+  `POST /api/admin/users/` with only the name and password; then a login as the new account and its nodes) and
+  `WebODMAccountView` at `settings/webodm/account` (409 while the login is in the environment), saving as Check and
+  save does. On the page, **Create the account…** opens `AccountForm` in `frontend/src/settings/webodm-settings.tsx`
+  (`ACCOUNT_NAME`, **Generate** with `generatePassword`: 32 letters and digits from `crypto.getRandomValues`), and
+  asks before replacing a saved login. Tests: `tests/test_webodm.py` (the fake WebODM now holds users and staff) and
+  `frontend/tests/webodm-settings.test.tsx`. Docs: the WebODM guide's "Creating the account from here", System
+  Settings, README, CHANGELOG, the settings shot. Checked live on a scratch 8081 against the test WebODM :8001: a wrong
+  admin password and a taken name refused, an account created (ordinary, Default group, hashed password, sees
+  node-odx-1), then deleted from WebODM.
