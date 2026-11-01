@@ -80,7 +80,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                 setItems(rm.ok ? rm.data.measurements || [] : []);
                 setText({title: s.title ?? datasetName + " · " + rc.data.name, author: s.author ?? author,
                          date: s.date ?? today, notes: s.notes ?? "", left_out: s.left_out || []});
-                document.title = rc.data.name + " · Mosaic report · Thermal Analyzer";
+                document.title = rc.data.name + " · Mosaic report · DJI Thermal Analyzer";
                 const [rd, rf, rs] = await Promise.all([get<DatasetInfo>(api + "datasets/" + datasetId),
                                                         get<{findings: Finding[]}>(findingsUrl(api, datasetId)),
                                                         get<{frames: SavedFrame[]}>(framesUrl(api + "datasets/" + datasetId))

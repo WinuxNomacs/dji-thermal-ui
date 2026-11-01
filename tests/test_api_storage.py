@@ -64,4 +64,4 @@ def test_the_measurement_is_taken_again_each_time(api, settings, tmp_path):
 def test_the_storage_page_is_served(client, db):
     res = client.get("/settings/storage")
     assert res.status_code == 200
-    assert "<title>Storage · Thermal Analyzer</title>" in res.content.decode()
+    assert "<title>Storage · DJI Thermal Analyzer</title>" in res.content.decode()

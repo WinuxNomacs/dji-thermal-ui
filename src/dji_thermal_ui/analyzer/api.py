@@ -1,5 +1,5 @@
 """
-The API of the Thermal Analyzer: the projects (a site's datasets together), the thermal datasets (uploaded images, or a folder on this computer), uploading their
+The API of DJI Thermal Analyzer: the projects (a site's datasets together), the thermal datasets (uploaded images, or a folder on this computer), uploading their
 images, their analysis in a job, their conversions (several, side by side), their mosaics (tiles and values for the
 viewer), the radiometric analysis of the mosaics and frames (measuring, saved measurements, frames measured again with
 other parameters) and the saved preferences (conversion settings, temperature unit).

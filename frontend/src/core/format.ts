@@ -155,7 +155,7 @@ export interface DeleteOf {
 
 // What deleting a dataset (a summary of it, or its detail) takes with it, paragraph by paragraph
 export function deleteText(d: DeleteOf): string[] {
-    const out = [d.source === "folder" ? "“" + d.name + "” is deleted from the Thermal Analyzer. Its server folder" +
+    const out = [d.source === "folder" ? "“" + d.name + "” is deleted from DJI Thermal Analyzer. Its server folder" +
         (d.folder ? " (" + d.folder + ")" : "") + " is left as it is." :
         "“" + d.name + "” and its " + count(d.file_count || 0, "image", "images") + " are deleted."];
     const with_: string[] = [];

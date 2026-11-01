@@ -103,7 +103,7 @@ function MapboxSettings({api}: {api: string}) {
 export function SettingsPage({api, publicUrl}: {api: string; publicUrl: string}) {
     return (<div class="page settings">
         <div class="page-header"><h1>System Settings</h1></div>
-        <p class="hint">For the Thermal Analyzer on this computer.</p>
+        <p class="hint">For DJI Thermal Analyzer on this computer.</p>
         <SectionFilter label="Filter the settings">
             <MapboxSettings api={api}/>
             <WebODMSettings api={api}/>

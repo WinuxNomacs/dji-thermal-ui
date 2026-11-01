@@ -19,7 +19,7 @@ PY = r"dji_thermal_ui/(?:[a-z_0-9]+/)*[a-z_0-9]+\.py"
 TEMPLATES = r"dji_thermal_ui/templates/[a-z_]+\.html"
 STATIC = (r"dji_thermal_ui/static/(?:favicon\.svg|vendor/mapbox/(?:mapbox-logo\.svg|LICENSE\.txt)"
           r"|dist/(?:manifest\.json|THIRD-PARTY-LICENSES\.txt|assets/[A-Za-z0-9_.-]+\.(?:js|css|png|svg|woff2))"
-          r"|docs/(?:[a-z0-9_-]+/)*(?:[A-Za-z0-9_.-]+\.(?:html|js|css|json|xml|png|svg)|LICENSE))")
+          r"|docs/(?:[a-z0-9_-]+/)*(?:[A-Za-z0-9_.-]+\.(?:html|js|css|json|xml|png|jpg|svg)|LICENSE))")
 PACKAGE = rf"{PY}|{TEMPLATES}|{STATIC}"
 LICENSES = r"LICENSE"
 WHEEL = re.compile(rf"(?:{PACKAGE})|dji_thermal_ui-[^/]+\.dist-info/(?:METADATA|WHEEL|RECORD|entry_points\.txt"

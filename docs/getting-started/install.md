@@ -1,6 +1,6 @@
 # Install
 
-Thermal Analyzer runs on Linux, macOS and Windows, and needs Python 3.12 or newer. It is not on PyPI yet.
+DJI Thermal Analyzer runs on Linux, macOS and Windows, and needs Python 3.12 or newer. It is not on PyPI yet.
 
 ## From a built wheel
 

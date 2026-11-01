@@ -370,7 +370,7 @@ describe("the datasets list's actions, and an upload that does not all arrive", 
         await ticks();
         expect(calls(fetchFn)).toContain("DELETE " + API + "datasets/5");
         expect(deleteText({...DATASET, source: "folder", folder: "/data/roof"})[0])
-            .toBe("“Roof” is deleted from the Thermal Analyzer. Its server folder (/data/roof) is left as it is.");
+            .toBe("“Roof” is deleted from DJI Thermal Analyzer. Its server folder (/data/roof) is left as it is.");
     });
 
     it("stops when images could not be sent, and analyzes once they are sent again", async () => {

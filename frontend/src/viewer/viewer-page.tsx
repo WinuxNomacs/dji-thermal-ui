@@ -215,7 +215,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         clearTimeout(timer.current);
         const wasReady = isReady(v);
         setV(data);
-        document.title = data.name + " · Thermal Analyzer";
+        document.title = data.name + " · DJI Thermal Analyzer";
         if (isReady(data)) {
             // Rebuilt: start again from the new mosaics' ranges
             if (!wasReady && map.current) setStyles({});
