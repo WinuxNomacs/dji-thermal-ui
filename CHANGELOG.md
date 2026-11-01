@@ -134,6 +134,13 @@ All notable changes are recorded here. The format follows
 
 ### Fixed
 
+- On Windows, WebODM's orthophoto and DSM were saved with `\` in their paths: they now use `/`, as the mosaics do,
+  so a data folder reads the same on any system.
+- On Windows, a mosaic's colours no longer fail when two requests draw them at once (its kept histogram is written
+  again next time instead).
+- Importing a project, a file whose name this computer can't keep (on Windows, a name with a colon; on Windows and
+  macOS, two names that differ only in case) is said so, instead of failing with a server error or one file
+  replacing the other.
 - The flight report's map showed its zoom buttons, scale, attribution and basemap switch unstyled, piled up in its
   corner: the page now loads OpenLayers' styles. Printing was not affected.
 

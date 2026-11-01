@@ -164,7 +164,12 @@ class Reader:
             self.member = ('skip', None)
         elif info.isreg():
             self.member = ('file', None)
-            self.out = open(self.destination(name), 'wb')
+            path = self.destination(name)
+            try:
+                self.out = open(path, 'wb')
+            except OSError as e:                   # a name this system refuses (Windows: a colon, a question mark...)
+                raise RestoreError("This computer can't keep one of the archive's files: {} ({})".format(
+                    name, e.strerror)) from None
         else:
             raise RestoreError("The archive holds a link or a special file: {}".format(name))
         self.meta.clear()
@@ -184,6 +189,8 @@ class Reader:
             path = path_traversal_check(os.path.join(self.folder, *name.split('/')), self.folder)
         except SuspiciousFileOperation:
             raise RestoreError("The archive holds a file that is not its flights': {}".format(name)) from None
+        if os.path.exists(path):                   # Windows and macOS: two names that differ only in case
+            raise RestoreError("The archive holds two files this computer can't keep apart: {}".format(name))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         return path
 
