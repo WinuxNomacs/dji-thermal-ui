@@ -170,6 +170,10 @@ needed. It is the Thermal Analyzer that used to be a plugin of LuxODM, a WebODM 
   how much its images take there, outside the data folder's total. The data folder can be moved from there to
   another folder (see [Where the data lives](#where-the-data-lives)).
 
+- **Help:** the header's Help link opens the documentation in a new tab, at the guide's page for the page you are
+  on. The app serves it at `/help/` from the copy it was installed with, so it matches that version and works
+  offline.
+
 It runs on Linux, macOS and Windows. The server listens on 127.0.0.1 only, for the one person using the computer:
 there are no logins or accounts.
 
@@ -179,8 +183,8 @@ dji-thermal-ui is not on PyPI yet. From a built wheel, it installs as a command 
 `uv tool install dji_thermal_ui-<version>-py3-none-any.whl` (or `pipx install` with the same file). It needs
 Python 3.12 or newer.
 
-From a clone, for development: `uv sync` and `npm ci && npm run build` (the pages are built with Node.js), then
-`uv run dji-thermal-ui`.
+From a clone, for development: `uv sync`, `npm ci && npm run build` (the pages are built with Node.js) and
+`uv run --only-group docs zensical build --strict` (the help), then `uv run dji-thermal-ui`.
 
 ### From a clone, with the script
 
@@ -189,7 +193,7 @@ background:
 
 | Command | |
 |---|---|
-| `./dji-thermal-ui.sh build` | set up the environment, or bring it up to date: `uv sync --locked`, `npm ci` and `npm run build`. It does not pull: the code checked out is used as it is. Without uv, it installs uv into `~/.local/bin` first (without changing the shell's startup files); without Node.js and npm, it stops and says where to get them. |
+| `./dji-thermal-ui.sh build` | set up the environment, or bring it up to date: `uv sync --locked`, `npm ci`, `npm run build` and the help's build (Zensical). It does not pull: the code checked out is used as it is. Without uv, it installs uv into `~/.local/bin` first (without changing the shell's startup files); without Node.js and npm, it stops and says where to get them. |
 | `./dji-thermal-ui.sh rebuild` | the same as `build` |
 | `./dji-thermal-ui.sh start` | start the app in the background, on http://127.0.0.1:8080, building it first if it was never built. Options after `start` go to the command: `--port`, `--data-dir`, `--no-browser`. |
 | `./dji-thermal-ui.sh stop` | stop it (as Ctrl+C would) |
@@ -396,9 +400,14 @@ npm ci
 npm test                 # the pages' tests (Vitest)
 npm run -s lint          # ESLint and the TypeScript check
 npm run build            # the pages, into src/dji_thermal_ui/static/dist (`-- --watch` while working on them)
+uv run --only-group docs zensical build --strict    # the documentation (docs/), into src/dji_thermal_ui/static/docs
 ```
 
-Release checks, on the built distributions (after `npm run build`, which they carry):
+The documentation's sources are `docs/`, laid out in `zensical.toml`; `zensical serve` instead of `build` shows them
+as they are written. `scripts/publish_docs.py <clone>` builds them and commits them in a clone of the public
+`dji-thermal-ui-docs` repository, which GitHub Pages serves; it never pushes.
+
+Release checks, on the built distributions (after `npm run build` and the documentation's build, which they carry):
 
 ```
 uv build --no-sources

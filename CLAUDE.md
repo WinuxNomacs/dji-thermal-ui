@@ -24,10 +24,14 @@ machine. Keep it short; edit in place.
 - **Never push and never tag.** A `v*` tag runs CI (`.github/workflows/ci.yml`: lint, tests on Linux and Windows,
   the build checks and a smoke check of the wheel), as does running it by hand; a push to a branch runs nothing.
   Neither publishes anything. No workflow publishes yet; when a release
-  workflow is added, this line says what a push or a `v*` tag publishes.
+  workflow is added, this line says what a push or a `v*` tag publishes. A push of the clone of the public
+  `dji-thermal-ui-docs` repository publishes the documentation site (GitHub Pages, from its `main`).
 - **Licence: AGPL-3.0-only.** The code comes from LuxODM/WebODM (AGPL-3.0) and uses dji-thermal-cli (AGPL-3.0). A
   file copied from WebODM keeps its copyright notice, and its header says where it came from.
 - Work is planned in `upcoming-changes.md`. New requests arrive in `new.md` (untracked).
+- **The documentation** is `docs/` (Zensical, `zensical.toml`), built into `static/docs` (gitignored), served at
+  `/help/` and carried by the wheel; the header's Help opens the guide page for the page shown. A change a user sees
+  updates its pages on the same branch: follow `.claude/skills/update-docs`.
 - Dependencies are pinned exactly, in `pyproject.toml` and `uv.lock`, and in `package.json` and `package-lock.json`.
 - **Linux, Windows and macOS are all supported.** Code that differs by platform is checked on Windows before the
   merge that touches it. A test only a Mac can run is added only where behaviour really differs there, never for
@@ -72,7 +76,9 @@ machine. Keep it short; edit in place.
 - `uv run pytest`, `uv run ruff check`. Set `DJI_THERMAL_FLIGHT_DIR` to a folder of one flight's R-JPEGs to run
   the `flight` tests too (with its visual `_V` images beside them, the visual mosaic's too).
 - `npm ci`, then `npm test`, `npm run -s lint` and `npm run build` (`-- --watch` while working on the pages).
-- Release checks, after `npm run build`: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
+- `uv run --only-group docs zensical build --strict` builds the documentation (`serve` instead of `build` while
+  writing it); `scripts/publish_docs.py <clone>` commits it in a clone of the public docs repository, never pushing.
+- Release checks, after `npm run build` and the documentation's build: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
   `uvx twine@7.0.0 check --strict dist/*`, then `uv run --no-project python scripts/smoke.py uvx --from <wheel>
   dji-thermal-ui` (the installed command serving its pages). The changelog is `CHANGELOG.md` (Keep a Changelog).
 
