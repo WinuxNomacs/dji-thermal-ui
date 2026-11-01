@@ -19,8 +19,13 @@ The documentation is `docs/` (Markdown), laid out in `zensical.toml`'s `nav`, bu
 3. **A new page** goes in `zensical.toml`'s `nav` (`tests/test_docs.py` fails otherwise). A new app page gets an entry
    in `HELP_PAGES`, with its address in the header test (`frontend/tests/header.test.tsx`), which also checks the
    page exists in `docs/`.
-4. **Screenshots** of a page that changed are made again with the screenshot script, once W3 has added it; never edit
-   one by hand. No GPS coordinate, address or basemap may show in one.
+4. **Screenshots** are made by `scripts/screenshots.mjs`, never edited by hand: after a change to a page they show,
+   run `npm run screenshots -- <a flight's images>` (on the machine with the test flight: the images of
+   "m4t-test-flights") and commit the shots that changed. It runs its own instance on 8081 with scratch folders,
+   takes several minutes (upload, analysis, conversion, mosaics), and fails a shot that shows the flight's
+   coordinates; it masks the serial numbers and the data folder's path. `--keep DIR` keeps its data, so a second run
+   skips straight to the shots after the dataset. A new shot goes in the script and on a page: `tests/test_docs.py`
+   fails on a shot no page shows.
 5. **Check it:** `uv run --only-group docs zensical build --strict` (fails on a broken link) and
    `uv run pytest tests/test_docs.py` (a missing picture, a page not in the navigation, a link to a heading that
    isn't there). Look at a changed page with

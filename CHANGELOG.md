@@ -12,7 +12,9 @@ All notable changes are recorded here. The format follows
   it at `/help/` from the copy it was installed with (built from `docs/` by Zensical 0.0.73, and carried by the
   wheel), so it matches the version and works offline. `scripts/publish_docs.py` commits the same site in a clone of
   the public `dji-thermal-ui-docs` repository for GitHub Pages. It has Getting started, a user guide with a page for
-  each part of the app, and Reference (the command, its environment variables, and where the data lives).
+  each part of the app, Quickstart tutorials from a first flight to its report and exports, and Reference (the
+  command, its environment variables, and where the data lives). Its screenshots are made by
+  `npm run screenshots` (Playwright 1.64.1) on an instance of their own.
 - System Settings › WebODM: WebODM's address and an account's login, saved to `.env` (`WEBODM_URL`,
   `WEBODM_USERNAME`, `WEBODM_PASSWORD`) once WebODM has taken them, with the processing nodes the account sees. The
   password is written encrypted (Fernet, from `cryptography` 50.0.2), its key kept in the database, so `.env` alone
