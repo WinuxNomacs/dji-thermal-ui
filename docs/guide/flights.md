@@ -3,6 +3,8 @@
 A flight holds the images of one flight of the drone. Its page has the flight's figures and its tabs: **Files**,
 **Videos**, **Problems**, **WebODM plan** and **Datasets**.
 
+![A flight's page, on its Files tab](../assets/screenshots/flight-files.png)
+
 ## Making a flight
 
 **New Flight** on a project's page names the flight and takes its images, chosen one by one (**Choose images**) or

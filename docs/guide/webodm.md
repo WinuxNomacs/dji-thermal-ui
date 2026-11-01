@@ -4,6 +4,8 @@ Processing with ODM is done in a WebODM of your own, through its API: Thermal An
 TIFFs to it as a task, follows it, and can bring its orthophoto and surface model back. The flight page's
 **WebODM plan** tab says how the flight would be processed there.
 
+![System Settings › WebODM, before it is set up](../assets/screenshots/settings-webodm.png)
+
 ## Connecting it
 
 The app logs in to WebODM as a WebODM account. Under System Settings › WebODM, give its address (`http://` is fine,

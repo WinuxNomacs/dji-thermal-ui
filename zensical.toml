@@ -14,7 +14,15 @@ nav = [
     "getting-started/first-run.md",
     "getting-started/finding-your-way.md",
   ] },
-  { "Quickstart" = ["quickstart/index.md"] },
+  { "Quickstart" = [
+    "quickstart/index.md",
+    "quickstart/first-flight.md",
+    "quickstart/analysis.md",
+    "quickstart/mosaic.md",
+    "quickstart/finding.md",
+    "quickstart/report.md",
+    "quickstart/export.md",
+  ] },
   { "User guide" = [
     "guide/projects.md",
     "guide/flights.md",

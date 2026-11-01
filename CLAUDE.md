@@ -77,7 +77,9 @@ machine. Keep it short; edit in place.
   the `flight` tests too (with its visual `_V` images beside them, the visual mosaic's too).
 - `npm ci`, then `npm test`, `npm run -s lint` and `npm run build` (`-- --watch` while working on the pages).
 - `uv run --only-group docs zensical build --strict` builds the documentation (`serve` instead of `build` while
-  writing it); `scripts/publish_docs.py <clone>` commits it in a clone of the public docs repository, never pushing.
+  writing it); `scripts/publish_docs.py <clone>` commits it in a clone of the public docs repository, never pushing;
+  `npm run screenshots -- <a flight's images>` makes its screenshots again (its own instance on 8081, scratch
+  folders; Playwright's Chromium from `npx playwright install chromium`).
 - Release checks, after `npm run build` and the documentation's build: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,
   `uvx twine@7.0.0 check --strict dist/*`, then `uv run --no-project python scripts/smoke.py uvx --from <wheel>
   dji-thermal-ui` (the installed command serving its pages). The changelog is `CHANGELOG.md` (Keep a Changelog).

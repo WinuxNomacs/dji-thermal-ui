@@ -3,6 +3,8 @@
 A finding is a spot or an area of a mosaic kept on its flight, with a name, notes, a severity and a status, the
 temperatures measured when it was kept, and the frames that saw it (all of them, or those you pick).
 
+![A finding open on the viewer, with the frames that saw it](../assets/screenshots/viewer-finding.png)
+
 ## Keeping one
 
 - Draw a spot or an area on a mosaic and press **Keep as finding** on its card: the form opens with the frames beside

@@ -2,6 +2,8 @@
 
 **Export…** opens the Export dialog:
 
+![The Export frames dialog, from the Files tab](../assets/screenshots/export-frames.png)
+
 - on the [frame page](frames.md), for the frame shown, as converted or with the parameters changed;
 - on the flight page's [Files tab](flights.md#files), for the frames the filter shows or all of them, measured with
   one of the flight's datasets or the frames' own values, with a palette and one range shared by all of them;

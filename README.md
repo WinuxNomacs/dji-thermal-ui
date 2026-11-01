@@ -84,10 +84,13 @@ npm test                 # the pages' tests (Vitest)
 npm run -s lint          # ESLint and the TypeScript check
 npm run build            # the pages, into src/dji_thermal_ui/static/dist (`-- --watch` while working on them)
 uv run --only-group docs zensical build --strict    # the documentation (docs/), into src/dji_thermal_ui/static/docs
+npm run screenshots -- <a flight's images>          # the documentation's screenshots, made again (Playwright)
 ```
 
 The documentation's sources are `docs/`, laid out in `zensical.toml`; `zensical serve` instead of `build` shows them
-as they are written. `scripts/publish_docs.py <clone>` builds them and commits them in a clone of the public
+as they are written. Its screenshots are made by `scripts/screenshots.mjs` on an instance of its own (port 8081,
+scratch folders) from a flight's images, which it uploads, analyzes and converts as the Quickstart does; it needs
+Playwright's Chromium (`npx playwright install chromium`). `scripts/publish_docs.py <clone>` builds them and commits them in a clone of the public
 `dji-thermal-ui-docs` repository, which GitHub Pages serves; it never pushes.
 
 Release checks, on the built distributions (after `npm run build` and the documentation's build, which they carry):

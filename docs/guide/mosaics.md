@@ -2,6 +2,8 @@
 
 The viewer shows a dataset's mosaics, opened with **View mosaics** on its card or from the navigation pane.
 
+![The viewer, on the Mosaic tab, with its side panel](../assets/screenshots/viewer.png)
+
 ## The tabs
 
 Each tab's tooltip says what it shows.

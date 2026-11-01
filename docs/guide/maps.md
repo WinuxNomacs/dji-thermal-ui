@@ -3,6 +3,8 @@
 The switch at the top right of a mosaic's map chooses what is under it. Every map starts with the one chosen under
 User Preferences › Map (ESRI Satellite unless another is chosen), and switching changes that map only.
 
+![System Settings › Mapbox Satellite](../assets/screenshots/settings-mapbox.png)
+
 - **ESRI Satellite** (the default) and **OpenStreetMap** need nothing set up. Where Esri's imagery stops short of the
   zoom shown, its deepest level there is stretched instead of showing "Map data not yet available".
 - **Mapbox Satellite** needs a Mapbox account of your own and its access token, saved under System Settings. The

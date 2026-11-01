@@ -8,10 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: W3, the quickstart tutorials with screenshots (see Documentation; planned 2026-11-01). W1 and W2, the
-docs site and its user guide, are built.
+**Up next**: X1, Linux, Windows and macOS checked (see Platforms), to be planned with the user. W1–W3, the
+documentation, are built.
 
-**Then**: X1, Linux, Windows and macOS checked (see Platforms).
+**Then**: nothing planned yet.
 
 ## Standalone (option A)
 
@@ -2205,6 +2205,8 @@ as feature changes require going forward."
 
 ### W3: quickstart tutorials with screenshots (planned 2026-11-01)
 
+- **Built** (2026-11-01): see Done. The serial numbers are masked too (the decision of 2026-10-31), and the data
+  folder's path shown as Linux's default.
 - **Script:** `scripts/screenshots.mjs` (Playwright pinned in `package.json`), run as `npm run screenshots --
   <images folder>`. It starts its own instance on 8081 with scratch data and config folders, does the tutorials'
   steps as a first-time user (a project, a flight, the images uploaded, the analysis, a dataset, the mosaic, a
@@ -2929,3 +2931,11 @@ Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) s
   to the guide), Install, Run, Development and Licence. `tests/test_docs.py` also checks links to headings, which
   the strict build doesn't. Checked: pytest 436, the header test, the strict build, check_dist and twine on the
   README, and `/help/` in Chromium in light and dark on an 8081 instance.
+- **W3: quickstart tutorials with screenshots** (2026-11-01). `scripts/screenshots.mjs` (`npm run screenshots --
+  <images>`, Playwright 1.64.1 pinned) makes the 30 shots in `docs/assets/screenshots/` on its own instance (8081,
+  scratch folders, the data folder set through the config folder's `data-dir`), through the pages as a first-time
+  user, in about 5 minutes on the 654 images of "m4t-test-flights"; no basemap, a shot showing the flight's
+  coordinates fails, serial numbers and the data folder's path masked. Six tutorials in `docs/quickstart/`, one or
+  two shots on each user guide page; `tests/test_docs.py` fails on a shot no page shows. Checked: pytest 437, Vitest
+  447, ruff and lint, the strict build, check_dist, twine, the smoke check of the wheel (5.2 MB), and the pages in
+  Chromium in light and dark.
