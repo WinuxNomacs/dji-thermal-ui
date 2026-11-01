@@ -8,7 +8,11 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned. N1 (the name and banner), X1 (platforms) and W1–W3 (the documentation) are built. X1 (platforms) and W1–W3 (the documentation) are built.
+**Up next**:
+1. **T1: spelling** (see "Spelling" below): the misspellings fixed, keeping British spelling.
+2. **O1: creating the WebODM account** (see "Creating the WebODM account" below), from System Settings › WebODM.
+
+N1 (the name and banner), X1 (platforms) and W1–W3 (the documentation) are built.
 
 **Then**: nothing planned yet.
 
@@ -2278,6 +2282,67 @@ that is checked in. Resize copies of the source image as needed for their destin
 - **Scope:** only the shown name changes. The command, the package and the repositories keep `dji-thermal-ui`.
 - **The image:** the user replaced it with one that spells DJI in plain letters instead of DJI's logo; it is used on
   the public docs site and in the README as it is.
+
+## Spelling
+
+Requested 2026-11-01 (new.md): "license is spelled incorrectly in the readme. Check for other misspellings as well."
+
+### What it builds on
+
+- The README's heading `## Licence` and "their licences" are British spellings, not typos: the whole project is
+  written in British English (colour, colouring, behaviour, grey, centre, metres, favourite, analyse), in the README,
+  the docs, the pages' text and the code (`colour.ts`, `colouring.py`, `thermal-analyzer.*` aside). The file names
+  `LICENSE` and `THIRD-PARTY-LICENSES.txt` are already American.
+
+### Proposed phase
+
+- **T1: spelling.**
+  - Run a spell checker over the README, `docs/` and the pages' strings, and fix the real misspellings it finds.
+  - The screenshots are made again only if a word they show changes.
+
+### Decisions (2026-11-01)
+
+- **Spelling:** British stays (licence, colour, behaviour); only real misspellings are fixed.
+
+## Creating the WebODM account
+
+Requested 2026-11-01 (new.md): under System Settings › WebODM, a button that creates the WebODM account the app
+uses. The user types WebODM's address and an admin account's user name and password; the app creates its own user
+(named like `dji-thermal-ui-api-user`) with the permissions it needs, with a password the user chooses.
+
+### What it builds on
+
+- System Settings › WebODM (`frontend/src/settings/webodm-settings.tsx`) asks for the address, user name and
+  password, checks them by logging in and saves them to `.env`, the password encrypted (S1). Its "Setting up the
+  WebODM account, and the permissions it needs" explains the steps a WebODM admin takes by hand.
+- WebODM's API (read in LuxODM's copy): `POST /api/admin/users/` with `{username, password}` creates a user; only a
+  staff account may call it (`IsAdminUser`), and it hashes the password. WebODM adds every new user to its
+  **Default** group, which holds the project, task, preset and processing-node permissions the app needs.
+  - A processing node is offered to the Default group only if it was there when WebODM first started; a node added
+    later needs **Can view Processing Node** given to the account by hand, and the API has no way to give it.
+  - The API's PATCH of a user stores the password unhashed, so the app never changes an existing user's password.
+
+### Proposed phase
+
+- **O1: creating the WebODM account.**
+  - On System Settings › WebODM, beside the login form: **Create the account** opens a small form with the address,
+    the admin's user name and password, and the new account's name (filled with `dji-thermal-ui-api-user`) and
+    password.
+  - The server logs in as the admin, creates the account, then logs in as it and lists the processing nodes it sees,
+    and saves the new account (not the admin's) to `.env` as "Check and save" does. The admin's password is used
+    for that one request: never saved, logged or sent back.
+  - Refusals say what to do: an admin that is not staff, a name already taken (choose another, or type that
+    account's password in the login form), a password WebODM refuses.
+  - If the new account sees no processing node, the page says which step of the manual instructions gives it one.
+  - Hidden when the login is set in the environment (as the form's fields are now).
+  - The docs' WebODM page, the README and the CHANGELOG say how.
+
+### Decisions (2026-11-01)
+
+- **The new account's password:** typed by the user, or filled with a long random one by a **Generate** button; the
+  app saves it, so it is never typed again.
+- **A name already taken:** refused, saying to choose another or to type that account's password in the login form.
+  The app never changes an existing WebODM account.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
