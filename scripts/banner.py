@@ -6,7 +6,8 @@
 
 The source, branding/dji-thermal-analyzer.jpg, is kept as it was made. Its copies are in docs/assets/, which the
 documentation publishes and the wheel carries: 1600 px wide for the README and the docs' home page, and 2400 px for
-sharp screens there. The README shows the docs site's copy, as the repository is private and PyPI shows the README.
+sharp screens there. The README shows the docs site's copy, by its address: PyPI shows the README too, and can't
+read a path in the repository.
 """
 
 from __future__ import annotations

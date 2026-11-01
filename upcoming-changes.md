@@ -2116,6 +2116,8 @@ those that are truly necessary, not there for coverage.
   off: it runs only while the repository variable `MACOS_CI` is `true`, so the user turns it on in the repository's
   settings, with no commit, once there are minutes for it (they ran out again). Until then the Mac's check is by
   hand.
+- **The repository is public** (the user, 2026-11-01), so its Actions minutes are free, macOS's too. CI still runs
+  only on a `v*` tag or by hand (the user's decision that day); the macOS job is still turned on by `MACOS_CI`.
 
 ## Documentation
 
