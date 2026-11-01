@@ -10,12 +10,27 @@ export function csrfToken(doc: Document = document): string {
     return m ? decodeURIComponent(m[1]) : "";
 }
 
+// A response's JSON; an error that says nothing itself (a page that isn't JSON, or JSON without a message) is given a
+// detail saying what its status means: a request the app doesn't know (a server older than the page) or its own failure
 export async function readJson<T = Record<string, unknown>>(res: Response): Promise<{ok: boolean; data: T}> {
+    let data: T;
     try {
-        return {ok: res.ok, data: await res.json()};
+        data = await res.json();
     } catch {
-        return {ok: res.ok, data: {} as T};
+        data = {} as T;
     }
+    const why = res.ok || errorText(data, "") ? null : unexplained(res.status);
+    if (why) data = {...(data && typeof data === "object" ? data : {}), detail: why} as T;
+    return {ok: res.ok, data};
+}
+
+// What an error answer without a message of its own means, when its status says (else the page's own words do)
+export function unexplained(status: number): string | null {
+    if (status === 404 || status === 405) {
+        return "The app doesn't know this request (" + status + "): if it was updated since it started, restart it";
+    }
+    if (status >= 500) return "The app ran into an error (" + status + "): its log says more";
+    return null;
 }
 
 // The first message of a DRF error ({field: ["message"]} or {detail: "message"})
