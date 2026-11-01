@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned. X1 (platforms) and W1–W3 (the documentation) are built.
+**Up next**: N1, the name DJI Thermal Analyzer and the banner image (see Name and banner): planned, being built. X1 (platforms) and W1–W3 (the documentation) are built.
 
 **Then**: nothing planned yet.
 
@@ -2238,6 +2238,42 @@ Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) s
   compare page's Opacity and the video's Time are left as they are.
 - No decision was open: the request named the size. The finer gamma steps were checked not to stick at its low end,
   where gamma is rounded to 0.01.
+
+## Name and banner
+
+Requested 2026-11-01 (new.md): "The title and display name of this app should be DJI Thermal Analyzer", and "make
+./dji-thermal-analyzer.jpg the backsplash image of the readme and for the docs. Move it to an appropriate location
+that is checked in. Resize copies of the source image as needed for their destination purpose."
+
+### What it builds on
+
+- The name shown today is "Thermal Analyzer": the header (`components/header.tsx`), every page's `<title>`
+  (`templates/page.html`, and `document.title` in the dataset, viewer and report pages), hints on the preferences and
+  settings pages, a deletion message (`core/format.ts`), `help_missing.html`, the docs' `site_name` and copyright
+  (`zensical.toml`), `docs/index.md` and other guide pages, and the checks that look for it (`scripts/smoke.py`,
+  `tests/test_pages.py`, `tests/test_cli.py`, `tests/test_api_storage.py`, Vitest's `dataset` and `datasets` tests).
+  The README's title is the package name, `dji-thermal-ui`.
+- The command, the package and the repositories are `dji-thermal-ui` (and `dji-thermal-ui-docs`).
+- The image: 3168 × 1344 JPEG, 3.1 MB, untracked at the top of the clone. It shows DJI's logo beside "Thermal
+  Analyzer".
+- The README is also the package's description (`readme` in `pyproject.toml`), shown on PyPI once it is published;
+  the repository is private, so a picture there must come from a public address (the docs site) to show on PyPI.
+
+### Proposed phase
+
+- **N1: the name and the banner.**
+  - Every name a user sees says DJI Thermal Analyzer: the header, the page titles, the hints and messages, the
+    docs' site name, the README's title; the tests and smoke check follow.
+  - The source image is kept in the repository (`docs/assets/source/`, outside the built pages), with resized copies
+    for each use: a banner for the README and the docs' home page (1600 px wide, and a 3200 px one for sharp
+    screens on the docs), as JPEGs of a few hundred kB. The README shows the copy the docs site publishes, so it
+    shows on GitHub and on PyPI alike.
+
+### Decisions (2026-11-01)
+
+- **Scope:** only the shown name changes. The command, the package and the repositories keep `dji-thermal-ui`.
+- **The image:** the user replaced it with one that spells DJI in plain letters instead of DJI's logo; it is used on
+  the public docs site and in the README as it is.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
