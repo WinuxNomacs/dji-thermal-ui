@@ -8,8 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: W2, the user guide moved from the README, then W3, the quickstart tutorials with screenshots (see
-Documentation; both planned 2026-11-01). W1, the docs site, is built.
+**Up next**: W3, the quickstart tutorials with screenshots (see Documentation; planned 2026-11-01). W1 and W2, the
+docs site and its user guide, are built.
 
 **Then**: X1, Linux, Windows and macOS checked (see Platforms).
 
@@ -2193,6 +2193,7 @@ as feature changes require going forward."
 
 ### W2: the user guide (planned 2026-11-01)
 
+- **Built** (2026-11-01): see Done.
 - **Text:** the README's feature list and its sections (the maps, WebODM, where the data lives) move into the guide's
   pages, written as pages to read in the app's own names: each page for the part of the app it describes, Install
   and Run into Getting started, the command's options into Reference › Command, the data folder into Reference ›
@@ -2921,3 +2922,10 @@ Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) s
   `tests/test_docs.py`, `tests/test_publish_docs.py`, `tests/test_script.py`, `frontend/tests/header.test.tsx`.
   Checked in Chromium on a scratch instance: the link, the new tab, the docs light and dark, the search, and no
   request leaving 127.0.0.1.
+- **W2: the user guide** (2026-11-01). The README's feature list and its sections written as the documentation's
+  pages: Getting started (`docs/getting-started/`), the user guide (`docs/guide/`, a page per part of the app, its
+  labels checked in the code) and Reference (`docs/reference/`: the command, its environment variables,
+  `dji-thermal-ui.sh`, the data and config folders on each system). The README keeps what the app is (a list linking
+  to the guide), Install, Run, Development and Licence. `tests/test_docs.py` also checks links to headings, which
+  the strict build doesn't. Checked: pytest 436, the header test, the strict build, check_dist and twine on the
+  README, and `/help/` in Chromium in light and dark on an 8081 instance.
