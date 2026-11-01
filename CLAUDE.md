@@ -96,8 +96,9 @@ machine. Keep it short; edit in place.
   - `ignored/` (test flights) and `.env` (a Mapbox token) are not in git; copy them over by hand when they are needed.
   - The data folder, with its database and datasets, is not in git either.
 - **CI's macOS job is off** (the repository variable `MACOS_CI` turns it on: its minutes cost ten times Linux's).
-  Until it is on, run the full set by hand on a Mac:
-  `uv run pytest`, `uv run ruff check`, `npm test`, `npm run -s lint`, `npm run build`, and the release checks.
+  Until it is on, a Mac runs by hand what that job runs, which is all that differs there: `uv run pytest` (with
+  `tests/test_script.py`, the script under the Mac's bash 3.2 and BSD tools), then the release checks' wheel serving
+  its pages (`smoke.py`). Lint, Vitest and the page build are the same on every system.
 - **Live checks:** Playwright with Chromium, from `npx playwright install chromium`. macOS needs no host override.
   - Run them on their own instance (`--port 8081 --no-browser`, with `DJI_THERMAL_UI_DATA_DIR` and
     `DJI_THERMAL_UI_CONFIG_DIR` on scratch folders), so an instance the user runs on 8080 keeps running.

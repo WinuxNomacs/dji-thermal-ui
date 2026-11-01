@@ -33,6 +33,8 @@ straight to the browser's download, so it needs no room in the data folder.
 **Import** on the projects page makes such an archive a new project, here or on another computer. A name already in
 use gets a free one ("Roof (2)"), which you can change. Flights that were read from a folder come back as uploaded
 ones. An import needs about the archive's size free in the data folder, as it is unpacked there while it is sent.
+An archive made on Linux can hold a file another system can't keep: a name with a colon or a question mark on
+Windows, or two names that differ only in case on Windows and macOS. The import stops and says which file.
 
 ## Deleting
 
