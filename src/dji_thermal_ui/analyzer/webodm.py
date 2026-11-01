@@ -127,10 +127,11 @@ def _send(url, method='GET', data=None, headers=None, timeout=TIMEOUT):
         with _opener.open(req, timeout=timeout) as res:
             return res.status, res.read()
     except urllib.error.HTTPError as e:
-        if 300 <= e.code < 400:
-            raise WebODMError("WebODM's address sends to %s instead: use that address"
-                              % (e.headers.get('Location') or "another")) from None
-        return e.code, e.read()
+        with e:                                    # its response, closed (Python 3.14 warns of one left open)
+            if 300 <= e.code < 400:
+                raise WebODMError("WebODM's address sends to %s instead: use that address"
+                                  % (e.headers.get('Location') or "another")) from None
+            return e.code, e.read()
     except (urllib.error.URLError, OSError) as e:
         reason = getattr(e, 'reason', e)
         raise WebODMError("WebODM could not be reached at %s (%s): is it running?"
@@ -239,10 +240,11 @@ class Client:
             try:
                 res = _opener.open(req, timeout=DOWNLOAD_TIMEOUT)
             except urllib.error.HTTPError as e:
-                if e.code in (401, 403) and not fresh:
-                    token, fresh = self.login(), True
-                    continue
-                raise _refused(e.code, e.read(), url[len(self.url):]) from None
+                with e:
+                    if e.code in (401, 403) and not fresh:
+                        token, fresh = self.login(), True
+                        continue
+                    raise _refused(e.code, e.read(), url[len(self.url):]) from None
             except (urllib.error.URLError, OSError) as e:
                 raise WebODMError("WebODM could not be reached at %s (%s): is it running?"
                                   % (self.url, getattr(e, 'reason', e))) from None
