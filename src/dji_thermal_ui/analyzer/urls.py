@@ -63,6 +63,7 @@ urlpatterns = [
     re_path(r'^settings/mapbox$', api.MapboxTokenView.as_view()),
     re_path(r'^settings/webodm$', api.WebODMSettingsView.as_view()),
     re_path(r'^settings/webodm/check$', api.WebODMCheckView.as_view()),
+    re_path(r'^settings/webodm/account$', api.WebODMAccountView.as_view()),
     re_path(r'^webodm/projects$', api.WebODMProjectsView.as_view()),
     re_path(r'^webodm/choices$', api.WebODMChoicesView.as_view()),
     re_path(r'^webodm/presets$', api.WebODMPresetsView.as_view()),

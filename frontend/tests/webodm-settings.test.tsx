@@ -1,6 +1,6 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {MODEL_PERMISSIONS, type WebODMState, WebODMSettings} from "../src/settings/webodm-settings";
+import {ACCOUNT_NAME, generatePassword, MODEL_PERMISSIONS, type WebODMState, WebODMSettings} from "../src/settings/webodm-settings";
 import {calls, jsonResponse, server, ticks} from "./helpers";
 
 const FILE = "/home/me/.local/share/dji-thermal-ui/.env";
@@ -58,7 +58,7 @@ describe("System Settings › WebODM", () => {
         const fetchFn = await page(server({"/api/settings/webodm": UNSET,
                                            "PUT /api/settings/webodm": {...SAVED, nodes: NODES}}));
         expect(text("#webodm-state")).toBe("Not set up yet.");
-        expect(ids()).toEqual(["webodm-save"]);
+        expect(ids()).toEqual(["webodm-save", "webodm-create"]);
         expect(($("#webodm-save") as HTMLButtonElement).disabled).toBe(true);
         await type("#webodm-url", URL + "/");
         await type("#webodm-username", " admin ");
@@ -78,14 +78,14 @@ describe("System Settings › WebODM", () => {
         expect(($("#webodm-username") as HTMLInputElement).placeholder).toBe("Unchanged (a…)");
         expect(($("#webodm-url") as HTMLInputElement).value).toBe(URL);
         expect(root().innerHTML).not.toContain("s3cret");
-        expect(ids()).toEqual(["webodm-save", "webodm-check", "webodm-remove"]);
+        expect(ids()).toEqual(["webodm-save", "webodm-check", "webodm-create", "webodm-remove"]);
     });
 
     it("asks for a saved password its key can't open to be typed again before saving", async () => {
         await page(server({"/api/settings/webodm": {...SAVED, password: false, unreadable: true, configured: false}}));
         expect(text("#webodm-state")).toBe("The saved password can't be read: type it again.");
         expect(($("#webodm-password") as HTMLInputElement).placeholder).toBe("");
-        expect(ids()).toEqual(["webodm-save", "webodm-remove"]);
+        expect(ids()).toEqual(["webodm-save", "webodm-create", "webodm-remove"]);
         await type("#webodm-url", URL);
         expect(($("#webodm-save") as HTMLButtonElement).disabled).toBe(true);
         await type("#webodm-password", "s3cret");
@@ -138,7 +138,7 @@ describe("System Settings › WebODM", () => {
         await ticks();
         expect(calls(fetchFn)).toEqual(["GET /api/settings/webodm", "DELETE /api/settings/webodm"]);
         expect(text("#webodm-state")).toBe("Not set up yet.");
-        expect(ids()).toEqual(["webodm-save"]);
+        expect(ids()).toEqual(["webodm-save", "webodm-create"]);
     });
 
     it("shows a login from the environment, which is changed there; it can still be checked", async () => {
@@ -147,6 +147,85 @@ describe("System Settings › WebODM", () => {
             + "from (WEBODM_URL, WEBODM_USERNAME, WEBODM_PASSWORD): to change them, change them there.");
         expect($("#webodm-url")).toBeNull();
         expect(ids()).toEqual(["webodm-check"]);
+    });
+
+    it("creates the account with an admin's login, used once, then saves it and lists the nodes it sees", async () => {
+        const created = {...SAVED, username: "d…", nodes: NODES};
+        const fetchFn = await page(server({"/api/settings/webodm": UNSET, "POST /api/settings/webodm/account": created}));
+        ($("#webodm-create") as HTMLButtonElement).click();
+        await ticks();
+        expect($("#webodm-url")).toBeNull();
+        expect(($("#webodm-account-username") as HTMLInputElement).value).toBe(ACCOUNT_NAME);
+        expect(($("#webodm-account-password") as HTMLInputElement).type).toBe("password");
+        const create = () => $("#webodm-account-save") as HTMLButtonElement;
+        expect(create().disabled).toBe(true);
+        await type("#webodm-account-url", URL);
+        await type("#webodm-admin-username", " admin ");
+        await type("#webodm-admin-password", "admin pass");
+        expect(create().disabled).toBe(true);
+        ($("#webodm-generate") as HTMLButtonElement).click();
+        await ticks();
+        const generated = ($("#webodm-account-password") as HTMLInputElement);
+        expect(generated.type).toBe("text");
+        expect(generated.value).toMatch(/^[A-Za-z0-9]{32}$/);
+        expect(create().disabled).toBe(false);
+        create().closest("form")!.dispatchEvent(new Event("submit", {cancelable: true}));
+        await ticks();
+
+        expect(calls(fetchFn)).toEqual(["GET /api/settings/webodm", "POST /api/settings/webodm/account"]);
+        expect(body(fetchFn, "POST")).toEqual({url: URL, admin_username: "admin", admin_password: "admin pass",
+                                               username: ACCOUNT_NAME, password: generated.value});
+        // Back to the login form, which shows the account saved
+        expect($("#webodm-account-form")).toBeNull();
+        expect(text("#webodm-state")).toBe("The app logs in to " + URL + " as d…, from " + FILE + ".");
+        expect(text("#webodm-nodes")).toContain("The account sees 2 processing nodes");
+        expect(root().innerHTML).not.toContain("admin pass");
+    });
+
+    it("says why WebODM did not create the account, keeping what was typed", async () => {
+        const refusal = "WebODM already has a user named dji-thermal-ui-api-user. Choose another name, or, to use that "
+            + "account, type its password in the login form: the app never changes an existing WebODM account";
+        await page(server({"/api/settings/webodm": UNSET,
+                           "POST /api/settings/webodm/account": () => jsonResponse({error: refusal}, false)}));
+        ($("#webodm-create") as HTMLButtonElement).click();
+        await ticks();
+        await type("#webodm-account-url", URL);
+        await type("#webodm-admin-username", "admin");
+        await type("#webodm-admin-password", "admin pass");
+        await type("#webodm-account-password", "typed");
+        ($("#webodm-account-form") as HTMLFormElement).dispatchEvent(new Event("submit", {cancelable: true}));
+        await ticks();
+        expect(text("#webodm-error")).toBe(refusal);
+        expect(($("#webodm-account-password") as HTMLInputElement).value).toBe("typed");
+        expect(text("#webodm-state")).toBe("Not set up yet.");
+        ($("#webodm-account-cancel") as HTMLButtonElement).click();
+        await ticks();
+        expect($("#webodm-error")).toBeNull();
+        expect($("#webodm-url")).not.toBeNull();
+    });
+
+    it("asks before the created account replaces a saved login", async () => {
+        const fetchFn = await page(server({"/api/settings/webodm": SAVED}));
+        ($("#webodm-create") as HTMLButtonElement).click();
+        await ticks();
+        expect(($("#webodm-account-url") as HTMLInputElement).value).toBe(URL);
+        await type("#webodm-admin-username", "admin");
+        await type("#webodm-admin-password", "admin pass");
+        await type("#webodm-account-password", "typed");
+        ($("#webodm-account-form") as HTMLFormElement).dispatchEvent(new Event("submit", {cancelable: true}));
+        await ticks();
+        expect(text("#dialog-title")).toBe("Replace the saved login?");
+        [...document.querySelectorAll<HTMLButtonElement>(".dialog button")].find((b) => b.textContent === "Cancel")!.click();
+        await ticks();
+        expect(calls(fetchFn)).toEqual(["GET /api/settings/webodm"]);
+        expect($("#webodm-account-form")).not.toBeNull();
+    });
+
+    it("generates long random passwords of letters and digits, a different one each time", () => {
+        const made = new Set(Array.from({length: 50}, () => generatePassword()));
+        expect(made.size).toBe(50);
+        for (const p of made) expect(p).toMatch(/^[A-Za-z0-9]{32}$/);
+        expect(generatePassword(8)).toHaveLength(8);
     });
 
     it("guides an admin through setting up the account in WebODM, with the permissions as its admin names them", async () => {

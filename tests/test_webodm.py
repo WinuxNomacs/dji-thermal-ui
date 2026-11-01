@@ -17,7 +17,9 @@ from dji_thermal_ui.analyzer.models import EncryptionKey
 URL = "http://127.0.0.1:8001"
 SETTINGS = "/api/settings/webodm"
 CHECK = "/api/settings/webodm/check"
+ACCOUNT = "/api/settings/webodm/account"
 PASSWORD = "s3cret pass#'word\""
+NEW_PASSWORD = "the app's own: Xq7#pL2"
 NODES = [{'id': 1, 'label': "node-odx-1", 'hostname': "node-odx-1", 'port': 3000, 'online': True},
          {'id': 2, 'label': "", 'hostname': "spare", 'port': 3001, 'online': False}]
 POSIX = os.name != "nt"
@@ -37,9 +39,14 @@ def env_file(settings, tmp_path):
 
 @pytest.fixture
 def server(monkeypatch):
-    """A WebODM taking admin and PASSWORD, its answers changed through the dict; the calls are kept"""
+    """A WebODM taking admin and PASSWORD (a staff account), its answers changed through the dict; the calls are
+    kept. Users added through its admin API log in with a token of their own"""
     fake = {'calls': [], 'logins': 0, 'token': jwt(time.time() + 6 * 3600), 'refuse': set(), 'down': False,
-            'redirect': None, 'routes': {'GET /api/processingnodes/': (200, NODES)}}
+            'redirect': None, 'routes': {'GET /api/processingnodes/': (200, NODES)},
+            'users': {'admin': PASSWORD}, 'staff': {'admin'}, 'created': []}
+
+    def token_of(name):
+        return fake['token'] if name == "admin" else "token-of-" + name
 
     class Answer(io.BytesIO):
         status = 200
@@ -54,13 +61,26 @@ def server(monkeypatch):
             raise urllib.error.HTTPError(url, 302, "Found", {'Location': fake['redirect']}, io.BytesIO())
         if path == "/api/token-auth/":
             form = dict(urllib.parse.parse_qsl(req.data.decode()))
-            if form != {'username': "admin", 'password': PASSWORD}:
+            if set(form) != {'username', 'password'} or fake['users'].get(form['username']) != form['password']:
                 raise urllib.error.HTTPError(url, 400, "Bad", {}, io.BytesIO(
                     b'{"non_field_errors":["Unable to log in with provided credentials."]}'))
             fake['logins'] += 1
-            return Answer(json.dumps({'token': fake['token']}).encode())
-        if req.get_header('Authorization') != "JWT " + fake['token'] or path in fake['refuse']:
+            return Answer(json.dumps({'token': token_of(form['username'])}).encode())
+        caller = next((name for name in fake['users'] if req.get_header('Authorization') == "JWT " + token_of(name)),
+                      None)
+        if caller is None or path in fake['refuse']:
             raise urllib.error.HTTPError(url, 403, "Forbidden", {}, io.BytesIO(b'{"detail":"Not allowed."}'))
+        if (method, path) == ("POST", "/api/admin/users/") and "POST /api/admin/users/" not in fake['routes']:
+            if caller not in fake['staff']:
+                raise urllib.error.HTTPError(url, 403, "Forbidden", {}, io.BytesIO(
+                    b'{"detail":"You do not have permission to perform this action."}'))
+            user = json.loads(req.data)
+            fake['created'].append(user)
+            if user['username'] in fake['users']:
+                raise urllib.error.HTTPError(url, 400, "Bad", {}, io.BytesIO(
+                    b'{"username":["A user with that username already exists."]}'))
+            fake['users'][user['username']] = user['password']
+            return Answer(json.dumps({'id': len(fake['users']), 'username': user['username']}).encode())
         code, data = fake['routes'].get(method + " " + path, (404, {'detail': "Not found."}))
         if code != 200:
             raise urllib.error.HTTPError(url, code, "No", {}, io.BytesIO(json.dumps(data).encode()))
@@ -238,6 +258,92 @@ def test_the_check_logs_in_with_the_saved_login_and_lists_the_nodes_the_account_
     envfile.write({'WEBODM_URL': URL, 'WEBODM_USERNAME': "admin", 'WEBODM_PASSWORD': PASSWORD})
     res = api.post(CHECK)
     assert res.status_code == 200 and [n['label'] for n in res.data['nodes']] == ["node-odx-1", "spare:3001"]
+
+
+def create(api, **change):
+    return api.post(ACCOUNT, dict({'url': URL, 'admin_username': "admin", 'admin_password': PASSWORD,
+                                   'username': webodm.ACCOUNT_NAME, 'password': NEW_PASSWORD}, **change), format='json')
+
+
+def test_creating_the_account_adds_only_its_name_and_password_and_saves_it_not_the_admin(api, env_file, server):
+    env_file.write_text("OTHER=1\nWEBODM_URL=http://old:8000\nWEBODM_USERNAME=someone\n")
+    res = create(api, url=URL + "/")
+    assert res.status_code == 200
+    assert server['created'] == [{'username': "dji-thermal-ui-api-user", 'password': NEW_PASSWORD}]
+    assert res.data == {'url': URL, 'username': "d…", 'password': True, 'unreadable': False,
+                        'source': str(env_file), 'configured': True, 'file': str(env_file),
+                        'nodes': [{'id': 1, 'label': "node-odx-1", 'online': True},
+                                  {'id': 2, 'label': "spare:3001", 'online': False}]}
+    for secret in (PASSWORD, NEW_PASSWORD, "admin"):
+        assert secret not in res.content.decode() and secret not in env_file.read_text()
+    assert webodm.config()['username'] == "dji-thermal-ui-api-user"
+    assert webodm.config()['password'] == NEW_PASSWORD
+    assert env_file.read_text().startswith("OTHER=1\n")
+    assert [key[1] for key in webodm._tokens] == ["dji-thermal-ui-api-user"]   # the admin's token is not kept
+
+
+@pytest.mark.parametrize("change, message", [
+    ({'admin_password': "wrong"}, "WebODM refused the admin's user name and password"),
+    ({'staff': set()}, "WebODM refused: the admin account is not staff. Use one with Staff status (WebODM's "
+                       "Administration › Users)"),
+    ({'route': (404, {'detail': "Not found."})}, "This WebODM has no API for adding users (/api/admin/users/): set "
+                                                 "the account up by hand, as below"),
+    ({'route': (400, {'username': ["Enter a valid username."]})}, "WebODM did not create the account: Enter a valid "
+                                                                  "username."),
+    ({'route': (500, {})}, "WebODM answered 500: try again later"),
+    ({'down': True}, "WebODM could not be reached at http://127.0.0.1:8001 ([Errno 111] Connection refused): is it "
+                     "running?"),
+    ({'refuse': True}, "WebODM created the account dji-thermal-ui-api-user, but the app could not log in as it: "
+                       "WebODM refused: the account lacks a permission this needs (see System Settings › WebODM): "
+                       "Not allowed."),
+])
+def test_an_account_webodm_does_not_create_leaves_the_dotenv_as_it_was(api, env_file, server, change, message):
+    env_file.write_text("WEBODM_URL=http://old:8000\n")
+    server['down'] = change.get('down', False)
+    server['staff'] = change.get('staff', server['staff'])
+    if 'route' in change:
+        server['routes']["POST /api/admin/users/"] = change['route']
+    if change.get('refuse'):
+        server['refuse'].add("/api/processingnodes/")
+    res = create(api, admin_password=change.get('admin_password', PASSWORD))
+    assert (res.status_code, str(res.data['error'])) == (400, message)
+    assert env_file.read_text() == "WEBODM_URL=http://old:8000\n"
+    assert not webodm._tokens or all(key[1] != "admin" for key in webodm._tokens)
+
+
+def test_a_name_already_taken_is_refused_and_that_account_is_left_as_it_was(api, env_file, server):
+    server['users']["dji-thermal-ui-api-user"] = "its own"
+    res = create(api)
+    assert res.status_code == 400
+    assert str(res.data['error']) == ("WebODM already has a user named dji-thermal-ui-api-user. Choose another name, "
+                                      "or, to use that account, type its password in the login form: the app never "
+                                      "changes an existing WebODM account")
+    assert server['users']["dji-thermal-ui-api-user"] == "its own"
+    assert [(m, p) for m, p, _, _ in server['calls'] if p.startswith("/api/admin/")] == [("POST", "/api/admin/users/")]
+    assert not env_file.exists()
+
+
+@pytest.mark.parametrize("change, key, message", [
+    ({'url': "localhost:8000"}, 'url', "WebODM's address starts with http:// or https://, then its host"),
+    ({'admin_username': " "}, 'admin_username', "Type the WebODM admin's user name"),
+    ({'admin_password': ""}, 'admin_password', "Type the WebODM admin's password"),
+    ({'username': None}, 'username', "Type the new account's user name"),
+    ({'password': ""}, 'password', "Type the new account's password, or generate one"),
+    ({'password': "a\nb"}, 'password', "A user name or password here cannot hold a line break"),
+    ({'username': "dji thermal"}, 'username', "A WebODM user name is at most 150 letters, digits and @ . + - _"),
+    ({'username': "u" * 151}, 'username', "A WebODM user name is at most 150 letters, digits and @ . + - _"),
+])
+def test_a_missing_or_unusable_field_is_refused_before_webodm_is_asked(api, env_file, server, change, key, message):
+    res = create(api, **change)
+    assert (res.status_code, str(res.data[key])) == (400, message)
+    assert server['calls'] == []
+
+
+def test_the_account_cannot_be_created_while_the_login_is_set_in_the_environment(api, env_file, server, monkeypatch):
+    monkeypatch.setenv("WEBODM_URL", URL)
+    res = create(api)
+    assert res.status_code == 409 and "set in the environment" in res.data['error']
+    assert server['calls'] == [] and not env_file.exists()
 
 
 def test_the_client_keeps_its_token_and_logs_in_again_once_when_it_is_refused_or_expiring(server):

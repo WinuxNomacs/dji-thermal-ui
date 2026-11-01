@@ -1256,6 +1256,41 @@ class WebODMSettingsView(DatasetView):
         return Response(webodm.state())
 
 
+class WebODMAccountView(DatasetView):
+    def post(self, request):
+        """Creates the app's own WebODM account with an admin's login, then writes it to the .env file as the saved
+        login does: {url, admin_username, admin_password, username, password}. The admin's login is used for this call
+        only: never saved or sent back (409 while the environment's login is used). Answers the state, and the
+        processing nodes the new account sees"""
+        if webodm.config()['source'] == envfile.ENVIRONMENT:
+            return Response({'error': IN_ENVIRONMENT}, status=status.HTTP_409_CONFLICT)
+        try:
+            url = webodm.clean_url(request.data.get('url'))
+        except ValueError as e:
+            raise ValidationError({'url': str(e)}) from None
+        fields = {}
+        for key, missing in (('admin_username', "Type the WebODM admin's user name"),
+                             ('admin_password', "Type the WebODM admin's password"),
+                             ('username', "Type the new account's user name"),
+                             ('password', "Type the new account's password, or generate one")):
+            value = request.data.get(key)
+            value = value.strip() if isinstance(value, str) and key.endswith('username') else value
+            if not isinstance(value, str) or not value:
+                raise ValidationError({key: missing})
+            if len(value) > webodm.PASSWORD_MAX or any(c in value for c in '\r\n\0'):
+                raise ValidationError({key: "A user name or password here cannot hold a line break"})
+            fields[key] = value
+        if len(fields['username']) > webodm.USERNAME_MAX or not webodm.USERNAME_CHARACTERS.match(fields['username']):
+            raise ValidationError({'username': "A WebODM user name is at most 150 letters, digits and @ . + - _"})
+        try:
+            nodes = webodm.create_account(url, fields['admin_username'], fields['admin_password'], fields['username'],
+                                          fields['password'])
+        except webodm.WebODMError as e:
+            raise ValidationError({'error': str(e)}) from None
+        webodm.save(url, fields['username'], fields['password'])
+        return Response(dict(webodm.state(), nodes=nodes))
+
+
 class WebODMCheckView(DatasetView):
     def post(self, request):
         """Logs in to WebODM with the saved address and login: the processing nodes the account can see"""

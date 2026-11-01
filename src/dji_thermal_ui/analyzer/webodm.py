@@ -9,6 +9,7 @@ token expires or is refused. Every call has a timeout; what goes wrong is said i
 import base64
 import json
 import mimetypes
+import re
 import threading
 import time
 import uuid
@@ -26,6 +27,8 @@ PASSWORD_ENV = 'WEBODM_PASSWORD'
 NAMES = (URL_ENV, USERNAME_ENV, PASSWORD_ENV)
 URL_MAX = 2048
 USERNAME_MAX = 150      # Django's
+USERNAME_CHARACTERS = re.compile(r'[\w.@+-]+\Z')   # Django's too
+ACCOUNT_NAME = 'dji-thermal-ui-api-user'            # the account System Settings › WebODM creates, unless renamed
 PASSWORD_MAX = 4096
 TIMEOUT = 15            # s, for each call
 TOKEN_MARGIN = 300      # s: a token this close to expiring is asked for again
@@ -188,7 +191,7 @@ class Client:
         status, raw = _send(self.url + '/api/token-auth/', 'POST', body,
                             {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'})
         if status == 400:
-            raise WebODMError("WebODM refused the user name and password")
+            raise WebODMError("WebODM refused the user name and password", 400)
         if status in (404, 405):
             raise WebODMError("That address has no WebODM login (/api/token-auth/): is it WebODM's?")
         if status != 200:
@@ -355,6 +358,46 @@ def check(url, username, password):
     client = Client(url, username, password)
     client.login()
     return client.nodes()
+
+
+def create_account(url, admin_username, admin_password, username, password):
+    """Creates the app's own account in WebODM with an admin's login, used for this call only and never kept (its
+    token is forgotten at once): logs in as the admin, adds the user, then logs in as it. WebODM puts a new user in its
+    Default group, which holds the permissions the app needs. A user of that name already there is never changed (the
+    API would store a changed password unhashed). The processing nodes the new account sees"""
+    admin = Client(url, admin_username, admin_password)
+    try:
+        token = admin.login()
+    except WebODMError as e:
+        if e.status == 400:
+            raise WebODMError("WebODM refused the admin's user name and password") from None
+        raise
+    finally:
+        with _lock:
+            _tokens.pop(admin._key(), None)
+    status, raw = _send(url + '/api/admin/users/', 'POST', json.dumps({'username': username, 'password': password}).encode(),
+                        {'Authorization': 'JWT ' + token, 'Content-Type': 'application/json', 'Accept': 'application/json'})
+    if status in (401, 403):
+        raise WebODMError("WebODM refused: the admin account is not staff. Use one with Staff status (WebODM's "
+                          "Administration › Users)")
+    if status in (404, 405):
+        raise WebODMError("This WebODM has no API for adding users (/api/admin/users/): set the account up by hand, "
+                          "as below")
+    if status == 400:
+        data = _json(raw)
+        named = data.get('username') if isinstance(data, dict) else None
+        if any('exists' in str(m) for m in (named if isinstance(named, list) else [named])):
+            raise WebODMError("WebODM already has a user named %s. Choose another name, or, to use that account, type "
+                              "its password in the login form: the app never changes an existing WebODM account"
+                              % username)
+        detail = _detail(data)
+        raise WebODMError("WebODM did not create the account" + (": " + detail if detail else ""))
+    if not 200 <= status < 300:
+        raise WebODMError("WebODM answered %d: try again later" % status)
+    try:
+        return check(url, username, password)
+    except WebODMError as e:
+        raise WebODMError("WebODM created the account %s, but the app could not log in as it: %s" % (username, e)) from None
 
 
 def save(url, username, password):

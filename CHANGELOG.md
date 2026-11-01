@@ -8,6 +8,11 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- System Settings › WebODM: **Create the account…** creates the account the app logs in as, with a WebODM admin's
+  login used for that one request and never saved. The new account (`dji-thermal-ui-api-user` unless renamed) is an
+  ordinary one in WebODM's Default group, its password typed or made by **Generate**; the app logs in as it, lists
+  its processing nodes and saves it to `.env` as Check and save does. A name WebODM already has is refused, and an
+  existing WebODM account is never changed.
 - Help in the header: the documentation, opened in a new tab at the guide's page for the page shown. The app serves
   it at `/help/` from the copy it was installed with (built from `docs/` by Zensical 0.0.73, and carried by the
   wheel), so it matches the version and works offline. `scripts/publish_docs.py` commits the same site in a clone of
