@@ -3080,3 +3080,8 @@ uses. The user types WebODM's address and an admin account's user name and passw
   Settings, README, CHANGELOG, the settings shot. Checked live on a scratch 8081 against the test WebODM :8001: a wrong
   admin password and a taken name refused, an account created (ordinary, Default group, hashed password, sees
   node-odx-1), then deleted from WebODM.
+- **fix-unexplained-errors** (2026-11-01, reported by the user): Create and save showed a bare "The account could not
+  be created" because their server, started before O1, answered with Django's 404 page. `readJson`
+  (`frontend/src/core/api.ts`) now gives an error answer without a message a detail from `unexplained(status)`: a
+  request the app doesn't know (404, 405: restart it) or its own failure (5xx); other statuses keep the page's words.
+  Tests in `frontend/tests/core.test.ts`; checked in a browser with the request answered by a 404 page.
