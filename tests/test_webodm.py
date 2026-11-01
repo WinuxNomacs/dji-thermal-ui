@@ -248,8 +248,9 @@ def test_the_client_keeps_its_token_and_logs_in_again_once_when_it_is_refused_or
     assert [c[:2] for c in server['calls']] == [("POST", "/api/token-auth/")] + [("GET", "/api/processingnodes/")] * 2
     assert {c[3] for c in server['calls']} == {webodm.TIMEOUT}
 
-    # WebODM no longer takes the token (another secret, a restart): a new one, once
-    server['token'] = jwt(time.time() + 6 * 3600)
+    # WebODM no longer takes the token (another secret, a restart): a new one, once (a second later, as Windows'
+    # clock may not have moved since the first)
+    server['token'] = jwt(time.time() + 6 * 3600 + 1)
     assert client.nodes()[0]['label'] == "node-odx-1"
     assert server['logins'] == 2
     # A refusal with a new token is the account's permissions, not the token

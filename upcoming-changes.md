@@ -8,8 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: X1, Linux, Windows and macOS checked (see Platforms), to be planned with the user. W1–W3, the
-documentation, are built.
+**Up next**: nothing planned. X1 (platforms) and W1–W3 (the documentation) are built.
 
 **Then**: nothing planned yet.
 
@@ -2109,10 +2108,14 @@ those that are truly necessary, not there for coverage.
   - Make the Mac's list as short as it can be: only what a Mac alone can show (likely `dji-thermal-ui.sh` under the
     Mac's bash and tools, and the default data folder), as one command the user runs after pulling.
 
-### Open decisions
+- **Built** (2026-11-01): see Done.
 
-- Whether a macOS job is added to CI, run by hand only (macOS minutes cost ten times Linux's on a private repo, and
-  the minutes ran out in October), or the Mac stays a by-hand check.
+### Decisions (2026-11-01)
+
+- **macOS in CI:** a job of its own (the tests on Python 3.12, and the built wheel serving its pages), wired up but
+  off: it runs only while the repository variable `MACOS_CI` is `true`, so the user turns it on in the repository's
+  settings, with no commit, once there are minutes for it (they ran out again). Until then the Mac's check is by
+  hand.
 
 ## Documentation
 
@@ -2939,3 +2942,14 @@ Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) s
   two shots on each user guide page; `tests/test_docs.py` fails on a shot no page shows. Checked: pytest 437, Vitest
   447, ruff and lint, the strict build, check_dist, twine, the smoke check of the wheel (5.2 MB), and the pages in
   Chromium in light and dark.
+- **X1: platforms checked** (2026-11-01). CI's `macos` job (`.github/workflows/ci.yml`: pytest on 3.12 and the wheel's
+  smoke check, in one job) runs only while the repository variable `MACOS_CI` is `true`. The full suite run natively
+  on Windows (3.12 and 3.14) and the wheel's smoke check there found: WebODM's raster paths saved with `\`
+  (`webodm_tasks.py`, now `/`), a kept histogram's `os.replace` that fails while another request reads it
+  (`thermal_measure.kept_histogram`, now best-effort), and test-only issues (Windows' coarse clock in the token test,
+  a path compared as a string). An import now says so when this computer can't keep a file (`restore.py`: Windows'
+  refused characters, names that fold into one, any `OSError` opening it; `tests/test_api_import.py`). Python 3.14's
+  `ResourceWarning` for an `HTTPError` left open failed 13 tests on every system; fixed on main first
+  (`fix-py314-http-errors`). The script has no bash 4 features (macOS's bash is 3.2); the platform-guarded tests all
+  check real differences. CLAUDE.md's Mac list is now what the macOS job runs. Checked: pytest on Linux (3.12, 3.14)
+  and Windows (3.12, 3.14), ruff, the strict docs build, check_dist, and the smoke check on Windows.

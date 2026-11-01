@@ -256,6 +256,9 @@ def test_an_archive_that_is_damaged_or_not_a_project_s_is_refused_and_its_folder
         tar_of(manifest(), ('datasets/7/images/../../../evil.JPG', b'x', tarfile.REGTYPE)): "not its flights'",
         tar_of(manifest(), ('/etc/evil', b'x', tarfile.REGTYPE)): "not its flights'",
         tar_of(manifest(), ('datasets/7/images/a.JPG', b'', tarfile.SYMTYPE)): "a link",
+        # one file landing on another, as two names that differ only in case do on Windows and macOS
+        tar_of(manifest(), ('datasets/7/images/a.JPG', b'x', tarfile.REGTYPE),
+               ('datasets/7/images/a.JPG', b'y', tarfile.REGTYPE)): "can't keep apart",
     }
     for data, why in refused.items():
         import_id = start(api, data)
@@ -264,6 +267,25 @@ def test_an_archive_that_is_damaged_or_not_a_project_s_is_refused_and_its_folder
         assert staged() == [] and put(api, import_id, data, 0).status_code == 404
     assert not os.path.exists(os.path.join(settings.DATA_DIR, 'evil.JPG'))
     assert not Project.objects.exclude(name="Default Project").exists()
+
+
+def test_an_archive_holding_a_name_this_computer_refuses_says_so(api, monkeypatch):
+    # A character Windows refuses, in a file name made on Linux
+    monkeypatch.setattr(restore, 'WINDOWS', True)
+    data = tar_of(manifest(), ('datasets/7/images/a:b.JPG', b'x', tarfile.REGTYPE))
+    res = put(api, start(api, data), data, 0)
+    assert res.status_code == 400
+    assert res.data['error'] == "This computer can't keep one of the archive's files: datasets/7/images/a:b.JPG " \
+                                "(a character Windows refuses in a file name)"
+    # Any other name the system refuses (Windows: a path too long)
+    data = tar_of(manifest(), ('datasets/7/images/a.JPG', b'x', tarfile.REGTYPE))
+    import_id = start(api, data)
+    with mock.patch.object(restore, 'open', side_effect=OSError(22, "Invalid argument"), create=True):
+        res = put(api, import_id, data, 0)
+    assert res.status_code == 400
+    assert res.data['error'] == "This computer can't keep one of the archive's files: datasets/7/images/a.JPG " \
+                                "(Invalid argument)"
+    assert staged() == []
 
 
 def test_an_archive_is_refused_when_its_rows_do_not_fit(api):

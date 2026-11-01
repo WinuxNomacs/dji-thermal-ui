@@ -147,6 +147,13 @@ def test_mosaics_and_frames_have_a_curve_the_browser_colours_them_and_their_lege
     with mock.patch.object(measuring, 'read_mosaic', wraps=measuring.read_mosaic) as read:
         assert api.get(curve, {'rescale': '5,35', 'equalize': '1'}).status_code == 200
     assert read.call_count == 0
+    # One that can't be replaced (Windows, while another request reads it) is drawn all the same, and kept next time
+    os.remove(kept)
+    measuring.kept_histogram.cache_clear()
+    with mock.patch.object(measuring.os, 'replace', side_effect=PermissionError):
+        assert api.get(curve, {'rescale': '0,40', 'equalize': '1'}).status_code == 200
+    assert not os.path.exists(kept)
+    assert not [f for f in os.listdir(os.path.dirname(kept)) if f.endswith('.tmp')]
 
     # Linear, bent by gamma, or equalized (the fake mosaic's 10 to 30 °C, evenly)
     shares = api.get(curve, {'rescale': '0,40'}).data['shares']

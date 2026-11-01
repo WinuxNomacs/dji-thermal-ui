@@ -68,6 +68,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- CI has a macOS job (the tests, and the built wheel serving its pages), off until the repository variable
+  `MACOS_CI` is set to `true`.
 - The README keeps what the app is, how to install it and how to run it: the rest, its feature list included, is
   in the documentation.
 - The image sliders (Brightness, Contrast, Gamma and Sharpening, on the viewer, the frame page, the video tab and
@@ -132,6 +134,13 @@ All notable changes are recorded here. The format follows
 
 ### Fixed
 
+- On Windows, WebODM's orthophoto and DSM were saved with `\` in their paths: they now use `/`, as the mosaics do,
+  so a data folder reads the same on any system.
+- On Windows, a mosaic's colours no longer fail when two requests draw them at once (its kept histogram is written
+  again next time instead).
+- Importing a project, a file whose name this computer can't keep (on Windows, a name with a colon; on Windows and
+  macOS, two names that differ only in case) is said so, instead of failing with a server error or one file
+  replacing the other.
 - The flight report's map showed its zoom buttons, scale, attribution and basemap switch unstyled, piled up in its
   corner: the page now loads OpenLayers' styles. Printing was not affected.
 

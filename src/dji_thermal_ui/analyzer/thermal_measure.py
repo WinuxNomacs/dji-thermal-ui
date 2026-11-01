@@ -433,7 +433,10 @@ def kept_histogram(path, unit, kept, version):
     with os.fdopen(fd, 'w') as f:
         json.dump({'key': key, 'counts': histogram[0].tolist() if histogram else None,
                    'edges': histogram[1].tolist() if histogram else None}, f)
-    os.replace(temporary, kept)
+    try:
+        os.replace(temporary, kept)
+    except OSError:                                # Windows: another request is reading the one kept; it is kept next time
+        os.remove(temporary)
     return histogram
 
 

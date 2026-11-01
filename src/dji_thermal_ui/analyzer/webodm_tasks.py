@@ -466,7 +466,7 @@ def run_download(asset, pk, run_id):
         os.replace(made, os.path.join(folder, name))
         if asset == 'dsm':
             os.replace(heights_name(made), os.path.join(folder, heights_name(name)))
-            info['heights_raster'] = os.path.join(thermal_mosaics.WEBODM, heights_name(name))
+            info['heights_raster'] = thermal_mosaics.WEBODM + '/' + heights_name(name)
     except Stopped:
         return
     except Exception as e:
@@ -482,7 +482,7 @@ def run_download(asset, pk, run_id):
             if os.path.exists(path):
                 os.remove(path)
     from .models import ThermalConversion
-    shown = dict(info, raster=os.path.join(thermal_mosaics.WEBODM, name), task=pk, task_name=task.name,
+    shown = dict(info, raster=thermal_mosaics.WEBODM + '/' + name, task=pk, task_name=task.name,
                  downloaded_at=timezone.now().isoformat())
     before = ThermalConversion.objects.filter(pk=conversion.pk).values_list(asset, flat=True).first()
     ThermalConversion.objects.filter(pk=conversion.pk).update(**{asset: shown})

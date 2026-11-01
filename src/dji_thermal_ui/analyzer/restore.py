@@ -27,6 +27,9 @@ MAX_MANIFEST = 256 * 1024 * 1024
 MAX_HEADER = 1024 * 1024
 ABANDONED = 3600                # seconds an import nobody sends to is kept
 FILE = re.compile(r'^datasets/([0-9]+)/(images|conversions/([0-9]+)|video-frames)/(.+)$')
+WINDOWS = os.name == 'nt'
+REFUSED_ON_WINDOWS = '<>:"|?*'                 # in a file name made on another system
+CANT_KEEP = "This computer can't keep one of the archive's files: {} ({})"
 
 
 class RestoreError(Exception):
@@ -164,7 +167,11 @@ class Reader:
             self.member = ('skip', None)
         elif info.isreg():
             self.member = ('file', None)
-            self.out = open(self.destination(name), 'wb')
+            path = self.destination(name)
+            try:
+                self.out = open(path, 'wb')
+            except OSError as e:                   # a name or path this system refuses (Windows: too long...)
+                raise RestoreError(CANT_KEEP.format(name, e.strerror)) from None
         else:
             raise RestoreError("The archive holds a link or a special file: {}".format(name))
         self.meta.clear()
@@ -180,10 +187,14 @@ class Reader:
         if not m or flight not in self.files or m.group(3) and int(m.group(3)) not in self.files[flight] or \
                 any(p in ('', '.', '..') for p in m.group(4).split('/')):
             raise RestoreError("The archive holds a file that is not its flights': {}".format(name))
+        if WINDOWS and any(ch in REFUSED_ON_WINDOWS for ch in m.group(4)):
+            raise RestoreError(CANT_KEEP.format(name, "a character Windows refuses in a file name"))
         try:
             path = path_traversal_check(os.path.join(self.folder, *name.split('/')), self.folder)
         except SuspiciousFileOperation:
             raise RestoreError("The archive holds a file that is not its flights': {}".format(name)) from None
+        if os.path.exists(path):                   # Windows and macOS: two names that differ only in case
+            raise RestoreError("The archive holds two files this computer can't keep apart: {}".format(name))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         return path
 
