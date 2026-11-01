@@ -176,9 +176,9 @@ export function sliderPositions(ref: [number, number], range: [number, number]):
             contrast: clamp(Math.log(refWidth / width) / Math.LN2, 2)};
 }
 
-// A slider's ends and its step: 5% finer than a step of 0.05 or 0.1 (0.5 for sharpening), and a whole number of
+// A slider's ends and its step: half of one 5% finer than 0.05 or 0.1 (0.5 for sharpening), and a whole number of
 // them from end to end, so that both ends are reached
-const slider = (min: number, max: number, step: number) => ({min, max, step: (max - min) / Math.round((max - min) / (step * 0.95))});
+const slider = (min: number, max: number, step: number) => ({min, max, step: (max - min) / Math.round((max - min) / (step * 0.95)) / 2});
 export const SLIDERS = {brightness: slider(-1, 1, 0.05), contrast: slider(-2, 2, 0.1), gamma: slider(-2.3, 2.3, 0.1),
                         sharpen: slider(0, SHARPEN_MAX, 0.5)};
 

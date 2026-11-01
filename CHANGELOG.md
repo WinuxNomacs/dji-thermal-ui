@@ -61,6 +61,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The image sliders (Brightness, Contrast, Gamma and Sharpening, on the viewer, the frame page, the video tab and
+  the compare page) move in steps half as big as before, for finer adjustments.
 - The flight page's Files tab: the Thermal frame column goes (Kind says it; a link or saved filter on it is read
   as Kind), and With problems and Notes become one Problems column naming each problem (Unusual max, Oblique…),
   its sentence the tooltip, every row one height.
