@@ -2170,6 +2170,24 @@ as feature changes require going forward."
   anywhere in a screenshot (maps without a basemap, coordinates, the project's location and the frames' positions
   replaced or hidden); the images themselves can be shown as they are (decided 2026-10-31).
 
+### W1: the docs site (planned 2026-10-31)
+
+- **Pages:** `docs/` with Zensical's `zensical.toml`, laid out as Getting started, Quickstart, User guide (a page per
+  part of the app) and Reference (the command, its options and environment variables, where the data lives). W1's
+  guide pages say what each will hold; W2 fills them from the README, W3 adds the tutorials.
+- **Build:** Zensical pinned in a `docs` dependency group; `uv run --group docs zensical build --strict` writes the
+  site to `src/dji_thermal_ui/static/docs/` (gitignored, like `static/dist`), which the wheel and sdist carry;
+  `check_dist.py` requires it and `smoke.py` fetches `/help/`. CI builds it before `uv build` (still only on a `v*` tag
+  or by hand).
+- **In the app:** `/help/` serves the built site; without a build it says how to make one. A **Help** link in the
+  page header, beside the version, opens the guide page for the page you are on, in a new tab (decided 2026-10-31).
+- **Publishing:** the public `dji-thermal-ui-docs` repository serves the site with GitHub Pages from its `main`
+  branch (no Actions). `scripts/publish_docs.py <checkout>` copies the built site into a local clone of it and
+  commits there; the user pushes.
+- **Reference:** the command and the data only, not the REST API, which belongs to the pages and changes with them
+  (decided 2026-10-31).
+- **Keeping it current:** a `.claude/skills` procedure, pointed to from CLAUDE.md.
+
 ## Finer slider steps
 
 Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) should move in smaller steps, about
