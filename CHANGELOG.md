@@ -68,6 +68,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- CI has a macOS job (the tests, and the built wheel serving its pages), off until the repository variable
+  `MACOS_CI` is set to `true`.
 - The README keeps what the app is, how to install it and how to run it: the rest, its feature list included, is
   in the documentation.
 - The image sliders (Brightness, Contrast, Gamma and Sharpening, on the viewer, the frame page, the video tab and

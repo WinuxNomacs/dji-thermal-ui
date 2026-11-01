@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: X1, Linux, Windows and macOS checked (see Platforms), to be planned with the user. W1–W3, the
+**Up next**: X1, Linux, Windows and macOS checked (see Platforms): planned, being built. W1–W3, the
 documentation, are built.
 
 **Then**: nothing planned yet.
@@ -2109,10 +2109,12 @@ those that are truly necessary, not there for coverage.
   - Make the Mac's list as short as it can be: only what a Mac alone can show (likely `dji-thermal-ui.sh` under the
     Mac's bash and tools, and the default data folder), as one command the user runs after pulling.
 
-### Open decisions
+### Decisions (2026-11-01)
 
-- Whether a macOS job is added to CI, run by hand only (macOS minutes cost ten times Linux's on a private repo, and
-  the minutes ran out in October), or the Mac stays a by-hand check.
+- **macOS in CI:** a job of its own (the tests on Python 3.12, and the built wheel serving its pages), wired up but
+  off: it runs only while the repository variable `MACOS_CI` is `true`, so the user turns it on in the repository's
+  settings, with no commit, once there are minutes for it (they ran out again). Until then the Mac's check is by
+  hand.
 
 ## Documentation
 

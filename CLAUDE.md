@@ -22,7 +22,8 @@ machine. Keep it short; edit in place.
 ## Rules for this repository
 
 - **Never push and never tag.** A `v*` tag runs CI (`.github/workflows/ci.yml`: lint, tests on Linux and Windows,
-  the build checks and a smoke check of the wheel), as does running it by hand; a push to a branch runs nothing.
+  the build checks and a smoke check of the wheel; a macOS job too while the repository variable `MACOS_CI` is
+  `true`, off for now), as does running it by hand; a push to a branch runs nothing.
   Neither publishes anything. No workflow publishes yet; when a release
   workflow is added, this line says what a push or a `v*` tag publishes. A push of the clone of the public
   `dji-thermal-ui-docs` repository publishes the documentation site (GitHub Pages, from its `main`).
@@ -94,7 +95,8 @@ machine. Keep it short; edit in place.
 - **Only on the machine that holds the files:** the flight tests and the live checks on real data.
   - `ignored/` (test flights) and `.env` (a Mapbox token) are not in git; copy them over by hand when they are needed.
   - The data folder, with its database and datasets, is not in git either.
-- **CI runs on Linux and Windows only.** On a Mac, run the full set by hand:
+- **CI's macOS job is off** (the repository variable `MACOS_CI` turns it on: its minutes cost ten times Linux's).
+  Until it is on, run the full set by hand on a Mac:
   `uv run pytest`, `uv run ruff check`, `npm test`, `npm run -s lint`, `npm run build`, and the release checks.
 - **Live checks:** Playwright with Chromium, from `npx playwright install chromium`. macOS needs no host override.
   - Run them on their own instance (`--port 8081 --no-browser`, with `DJI_THERMAL_UI_DATA_DIR` and

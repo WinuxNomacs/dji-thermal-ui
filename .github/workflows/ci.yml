@@ -1,6 +1,8 @@
 name: CI
 
 # Tests only: nothing here publishes anything. Run on a release tag, or by hand (Actions › CI › Run workflow).
+# The macOS job runs only while the repository variable MACOS_CI is "true" (Settings › Secrets and variables ›
+# Actions › Variables): its minutes cost ten times Linux's, so it is off until it is wanted.
 
 on:
   push:
@@ -119,3 +121,26 @@ jobs:
           for py in 3.12 3.14; do
             uv run --no-project python scripts/smoke.py uvx --python $py --from "$wheel" dji-thermal-ui
           done
+
+  macos:
+    # What only a Mac shows: the tests (dji-thermal-ui.sh under the Mac's bash and BSD tools, the default data
+    # folder) and the built wheel serving its pages, on the oldest Python only, in one job to keep its minutes down
+    if: vars.MACOS_CI == 'true'
+    needs: build
+    runs-on: macos-latest
+    env:
+      UV_PYTHON: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv run --locked pytest -q
+      - name: Install the wheel and serve its pages
+        run: uv run --no-project python scripts/smoke.py uvx --from "$(ls dist/*.whl)" dji-thermal-ui
