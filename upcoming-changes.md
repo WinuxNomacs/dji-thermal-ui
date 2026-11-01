@@ -3085,3 +3085,6 @@ uses. The user types WebODM's address and an admin account's user name and passw
   (`frontend/src/core/api.ts`) now gives an error answer without a message a detail from `unexplained(status)`: a
   request the app doesn't know (404, 405: restart it) or its own failure (5xx); other statuses keep the page's words.
   Tests in `frontend/tests/core.test.ts`; checked in a browser with the request answered by a 404 page.
+- **label-create-account** (2026-11-01, new.md): the button on System Settings › WebODM says **Create the account for
+  me** (the user's wording, without the ellipsis), and so do the WebODM guide, the page's own guide (step 1), the
+  CHANGELOG and the settings shot.

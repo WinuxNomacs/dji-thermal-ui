@@ -31,10 +31,10 @@ and keeps it in memory only.
 ### Creating the account from here
 
 With a WebODM admin's login at hand, System Settings › WebODM can create the account itself: press
-**Create the account…**, then type WebODM's address, the admin's user name and password, the new account's user name
-(`dji-thermal-ui-api-user` unless you change it) and its password, or press **Generate** for a long random one, shown
-so you can note it. **Create and save** logs in to WebODM as the admin, creates an ordinary account (not staff),
-logs in as it and saves it as **Check and save** does, listing the processing nodes it sees. WebODM puts a new
+**Create the account for me**, then type WebODM's address, the admin's user name and password, the new account's user
+name (`dji-thermal-ui-api-user` unless you change it) and its password, or press **Generate** for a long random one,
+shown so you can note it. **Create and save** logs in to WebODM as the admin, creates an ordinary account (not
+staff), logs in as it and saves it as **Check and save** does, listing the processing nodes it sees. WebODM puts a new
 account in its **Default** group, which gives it the permissions below (steps 1 and 2). The admin's login is used
 for that one request: it is never saved, and its token is forgotten at once. A saved login is replaced only after you
 confirm.

@@ -1,8 +1,8 @@
 // System Settings › WebODM: its address and login, checked with a login by the server before they are written to .env
 // in place of those there, the password encrypted. The password never comes back: the page says only that one is set
 // (or that it can't be read, its key gone with the database), and the user name is shown masked. Those set in the environment (WEBODM_URL, WEBODM_USERNAME, WEBODM_PASSWORD) are shown only: they are
-// changed there. The WebODM permissions the account needs are listed below the fields. Create the account makes it in
-// WebODM with an admin's login, used for that one request only, and saves it as Check and save does.
+// changed there. The WebODM permissions the account needs are listed below the fields. Create the account for me makes
+// it in WebODM with an admin's login, used for that one request only, and saves it as Check and save does.
 import {type ComponentChildren} from "preact";
 import {useEffect, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
@@ -57,7 +57,7 @@ export function Permissions({url = null}: {url?: string | null}) {
             names are those its pages show.</p>
         <ol>
             <li><AdminPage url={url} path="/admin/auth/user/add/">Users › Add user</AdminPage> (or <b>Create the
-                account</b> above, which does this step and the next with an admin's login): a user name and a
+                account for me</b> above, which does this step and the next with an admin's login): a user name and a
                 password, then Save. On the page that follows, leave <b>Active</b> ticked and <b>Staff status</b> and
                 {" "}<b>Superuser status</b> unticked: the app needs no more than an ordinary account.</li>
             <li>Its permissions. WebODM puts a new account in its <b>Default</b> group, which holds these unless they
@@ -100,7 +100,7 @@ function Field({id, label, children}: {id: string; label: string; children: Comp
     return <div class="field"><label for={id}>{label}</label>{children}</div>;
 }
 
-// Create the account: an admin's login, used once, and the new account's name and password
+// Create the account for me: an admin's login, used once, and the new account's name and password
 function AccountForm({state, url, busy, onCreate, onCancel}: {
     state: WebODMState; url: string; busy: boolean;
     onCreate: (body: Record<string, string>) => void; onCancel: () => void;
@@ -294,7 +294,7 @@ export function WebODMSettings({api}: {api: string}) {
                         onClick={() => run("check", "POST", endpoint + "/check", undefined, "WebODM could not be checked")}>
                     {busy === "check" ? "Logging in…" : "Check the saved login"}</button>}
                 <button type="button" class="button default" id="webodm-create" disabled={!!busy} onClick={openForm}>
-                    Create the account…</button>
+                    Create the account for me</button>
                 {(state.url || state.username || state.password) &&
                     <button type="button" class="button danger" id="webodm-remove" disabled={!!busy} onClick={remove}>
                         Remove</button>}
