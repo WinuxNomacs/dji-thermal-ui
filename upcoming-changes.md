@@ -9,10 +9,9 @@ sections below. New requests arrive in `new.md`: they are turned into phases her
 its title.
 
 **Up next**:
-1. **T1: spelling** (see "Spelling" below): the misspellings fixed, keeping British spelling.
-2. **O1: creating the WebODM account** (see "Creating the WebODM account" below), from System Settings › WebODM.
+1. **O1: creating the WebODM account** (see "Creating the WebODM account" below), from System Settings › WebODM.
 
-N1 (the name and banner), X1 (platforms) and W1–W3 (the documentation) are built.
+T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the documentation) are built.
 
 **Then**: nothing planned yet.
 
@@ -2296,7 +2295,7 @@ Requested 2026-11-01 (new.md): "license is spelled incorrectly in the readme. Ch
 
 ### Proposed phase
 
-- **T1: spelling.**
+- **T1: spelling** (built 2026-11-01, see Done).
   - Run a spell checker over the README, `docs/` and the pages' strings, and fix the real misspellings it finds.
   - The screenshots are made again only if a word they show changes.
 
@@ -3066,3 +3065,8 @@ uses. The user types WebODM's address and an admin account's user name and passw
   in the README; `check_dist.py` allows `.jpg` in the docs. The 30 screenshots made again (in a worktree with its own
   environment, as the user's 8080 serves this checkout). Checked: pytest 438, Vitest 447, ruff and lint, the strict
   build, check_dist, twine, the smoke check (wheel 5.8 MB), and the header at 375 and 800 px.
+- **T1: spelling** (2026-11-01). British spelling kept (the user's decision). codespell 2.4.1 and a dictionary check
+  (pyspellchecker) over the README, the CHANGELOG, `docs/`, the pages, the templates and the server's messages found
+  no misspelling a user reads: every unknown word is a code name, a technical term or a British spelling. A search
+  for doubled words found one, in a docstring in `api.py` (the findings' view), made readable. Nothing a user sees
+  changed, so the README, the CHANGELOG, the docs and the screenshots are as they were. Checked: ruff.

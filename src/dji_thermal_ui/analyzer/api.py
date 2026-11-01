@@ -2447,7 +2447,7 @@ class FindingsView(DatasetView):
         Saves a spot or an area as a finding (name, notes, severity, status): drawn on a conversion's mosaic
         (conversion, tab, geometry, shape, parameters: the correction, as MeasureView's), its temperatures measured
         there; or a saved measurement's (measurement: its id), its figures copied. The frames that saw it are found
-        on that mosaic, the ones named in kept kept (all without it).
+        on that mosaic, the ones named in `kept` are kept (all of them without it).
         """
         dataset = get_dataset(pk)
         fields = finding_fields(request.data, partial=False)
