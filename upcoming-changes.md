@@ -2170,6 +2170,21 @@ as feature changes require going forward."
   anywhere in a screenshot (maps without a basemap, coordinates, the project's location and the frames' positions
   replaced or hidden); the images themselves can be shown as they are (decided 2026-10-31).
 
+## Finer slider steps
+
+Requested 2026-10-31 (`new.md`): the image sliders (Brightness, Contrast etc.) should move in smaller steps, about
+50% smaller. Builds on F1, whose steps were made 5% finer.
+
+### T1: the image sliders' steps halved
+
+- **Built** (2026-10-31): see Done.
+- **Steps:** half of F1's, still a whole number from end to end: brightness 2/42 → 2/84, contrast 4/42 → 4/84,
+  gamma 4.6/48 → 4.6/96, sharpening 5/11 → 5/22. They are the sliders under Image in the panel of the viewer, the
+  frame page and the video tab, and Gamma and Sharpening on the compare page (`SLIDERS`, `viewer/view.ts`); the
+  compare page's Opacity and the video's Time are left as they are.
+- No decision was open: the request named the size. The finer gamma steps were checked not to stick at its low end,
+  where gamma is rounded to 0.01.
+
 ## Done (kept here briefly as a note, not a tracked deferral)
 
 
@@ -2845,3 +2860,5 @@ as feature changes require going forward."
   Checked on a scratch 8081 instance (scratch data and start folders) against the dev WebODM: a plain password
   encrypted at start, the saved login checked, a fresh database giving "can't be read", the password typed again and
   saved.
+- **T1: the image sliders' steps halved** (2026-10-31). `SLIDERS` in `frontend/src/viewer/view.ts`; tests in
+  `frontend/tests/view.test.ts` (steps half of F1's, both ends reached) and `frontend/tests/viewer.test.tsx`.

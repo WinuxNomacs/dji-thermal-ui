@@ -414,7 +414,7 @@ describe("the viewer page", () => {
         change($("input[name=gamma]")!, "1");
         await ticks();
         expect(location.search).toContain("gamma=2");
-        change($("input[name=sharpen]")!, String(SLIDERS.sharpen.step * 3), "input");
+        change($("input[name=sharpen]")!, String(SLIDERS.sharpen.step * 6), "input");
         await ticks();
         expect((restyled.mock.lastCall![0] as {variables: Record<string, number>}).variables.sharpen).toBeCloseTo(1.36, 2);
         expect([...document.querySelectorAll(".slider-value")].at(-1)!.textContent).toBe("1.4");
