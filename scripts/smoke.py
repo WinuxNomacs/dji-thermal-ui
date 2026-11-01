@@ -57,6 +57,8 @@ def check(base: str) -> list[str]:
         ("", b"Thermal Analyzer"),
         (script.group(1).decode(), b"import"),
         ("static/favicon.svg", b"<svg"),
+        ("help/", b"Thermal Analyzer"),
+        ("help/guide/projects/", b"Projects"),
     ]
     for path, needle in expect:
         status, body = get(base + path)

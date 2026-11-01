@@ -1,6 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {Header} from "../src/components/header";
+import {Header, helpUrl} from "../src/components/header";
 import {mountPage} from "../src/core/page";
 import {applyTheme} from "../src/core/theme";
 import {userUnit} from "../src/core/units";
@@ -103,3 +105,41 @@ describe("a page", () => {
         expect((document.querySelector("#app-unit") as HTMLSelectElement).value).toBe("K");
     });
 });
+
+describe("the header's Help", () => {
+    const pages = {
+        "/": "/help/guide/projects/",
+        "/project/3": "/help/guide/projects/",
+        "/dataset/4": "/help/guide/flights/",
+        "/dataset/4/report": "/help/guide/reports/",
+        "/conversion/2": "/help/guide/mosaics/",
+        "/conversion/2/frame": "/help/guide/frames/",
+        "/conversion/2/report": "/help/guide/reports/",
+        "/conversion/2/compare": "/help/guide/compare/",
+        "/preferences": "/help/guide/settings/",
+        "/settings": "/help/guide/settings/",
+        "/settings/storage": "/help/guide/storage/",
+    };
+
+    it("opens the guide's page for the page shown, else the documentation's start", () => {
+        for (const [page, help] of Object.entries(pages)) expect(helpUrl("/", page)).toBe(help);
+        expect(helpUrl("/", "/somewhere/else")).toBe("/help/");
+        expect(helpUrl("/app/", "/app/conversion/2")).toBe("/app/help/guide/mosaics/");
+    });
+
+    it("opens a page the documentation has", () => {
+        for (const help of new Set(Object.values(pages))) {
+            const page = help.replace(/^\/help\/(.*)\/$/, "$1.md");
+            expect(fs.existsSync(path.resolve(import.meta.dirname, "../../docs", page)), page).toBe(true);
+        }
+    });
+
+    it("is a link in the header, opening in a new tab", () => {
+        header(server({}));
+        const link = root().querySelector("a.app-help") as HTMLAnchorElement;
+        expect(link.textContent).toBe(" Help");
+        expect(link.getAttribute("href")).toBe("/help/guide/projects/");
+        expect(link.target).toBe("_blank");
+    });
+});
+

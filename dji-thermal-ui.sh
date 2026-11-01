@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Builds, starts and stops dji-thermal-ui from this clone (Linux, WSL and macOS).
 #
-#   dji-thermal-ui.sh build      set up or update the environment: uv sync, npm ci, npm run build
+#   dji-thermal-ui.sh build      set up or update the environment: uv sync, npm ci, npm run build, and the help
+#                                (zensical build)
 #   dji-thermal-ui.sh rebuild    the same as build
 #   dji-thermal-ui.sh start      start the app in the background (building it first if it was never built);
 #                                options after start go to dji-thermal-ui: --port, --data-dir, --no-browser
@@ -59,6 +60,8 @@ build() {
     npm ci
     say "== npm run build"
     npm run build
+    say "== zensical build"
+    uv run --locked --only-group docs zensical build --strict
 }
 
 built() {
