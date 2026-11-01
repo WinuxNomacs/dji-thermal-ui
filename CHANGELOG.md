@@ -142,6 +142,9 @@ All notable changes are recorded here. The format follows
 
 ### Fixed
 
+- A failed request whose answer gave no reason (a page that isn't JSON) showed only "could not be done": it now says
+  when the app doesn't know the request, as a server started before an update answers a page made after it (restart
+  it), or when the app ran into an error (its log says more).
 - On Windows, WebODM's orthophoto and DSM were saved with `\` in their paths: they now use `/`, as the mosaics do,
   so a data folder reads the same on any system.
 - On Windows, a mosaic's colours no longer fail when two requests draw them at once (its kept histogram is written

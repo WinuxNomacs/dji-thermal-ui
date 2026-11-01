@@ -2,7 +2,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 import {escapeHtml, fileKind, formatBytes, kindLabel, median, mosaicLabel, stageText, statusLabel} from "../src/core/format";
 import {convertDelta, convertTemp, formatDelta, formatTemp, setUserUnit, userUnit} from "../src/core/units";
 import {batchTimeout, batches, uploadFiles, uploadName} from "../src/core/upload";
-import {errorText, readJson} from "../src/core/api";
+import {errorText, readJson, unexplained} from "../src/core/api";
 import {file, jsonResponse, ticks} from "./helpers";
 
 afterEach(() => vi.useRealTimers());
@@ -74,11 +74,36 @@ describe("temperatures", () => {
 describe("the API", () => {
     it("reads a response's JSON, or nothing when it has none, and finds a DRF error's message", async () => {
         expect(await readJson(await jsonResponse({a: 1}))).toEqual({ok: true, data: {a: 1}});
-        const broken = {ok: false, json: () => Promise.reject(new Error("not JSON"))} as unknown as Response;
-        expect(await readJson(broken)).toEqual({ok: false, data: {}});
+        const fine = {ok: true, status: 200, json: () => Promise.reject(new Error("not JSON"))} as unknown as Response;
+        expect(await readJson(fine)).toEqual({ok: true, data: {}});
         expect(errorText({name: ["Too long."]}, "x")).toBe("Too long.");
         expect(errorText({detail: "Not found."}, "x")).toBe("Not found.");
         expect(errorText({}, "Could not save.")).toBe("Could not save.");
+    });
+});
+
+describe("an error answer without a message", () => {
+    const answer = (status: number, json: () => Promise<unknown>) => ({ok: false, status, json}) as unknown as Response;
+
+    it("says what the app answered, so a failure is never bare", async () => {
+        // A server older than the page: Django's 404 page, not JSON
+        const r = await readJson(answer(404, () => Promise.reject(new Error("not JSON"))));
+        expect(r).toEqual({ok: false, data: {detail: "The app doesn't know this request (404): if it was updated "
+                                                     + "since it started, restart it"}});
+        expect(errorText(r.data, "The account could not be created")).toBe(unexplained(404));
+        expect((await readJson(answer(500, () => Promise.resolve({})))).data).toEqual(
+            {detail: "The app ran into an error (500): its log says more"});
+        expect(unexplained(405)).toContain("(405)");
+        // A refusal without a message keeps the page's own words
+        const refused = await readJson(answer(400, () => Promise.resolve({})));
+        expect(errorText(refused.data, "Could not save.")).toBe("Could not save.");
+    });
+
+    it("keeps the message an error gives itself", async () => {
+        expect((await readJson(answer(400, () => Promise.resolve({error: "WebODM refused"})))).data).toEqual(
+            {error: "WebODM refused"});
+        expect((await readJson(answer(404, () => Promise.resolve({detail: "Not found."})))).data).toEqual(
+            {detail: "Not found."});
     });
 });
 
