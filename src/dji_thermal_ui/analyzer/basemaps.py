@@ -87,7 +87,8 @@ def check_token(token):
             res.read(1)
         return None
     except urllib.error.HTTPError as e:
-        return REFUSED.get(e.code, "Mapbox answered %d: try again later" % e.code)
+        with e:                                    # its response, closed (Python 3.14 warns of one left open)
+            return REFUSED.get(e.code, "Mapbox answered %d: try again later" % e.code)
     except (urllib.error.URLError, OSError):
         return "Mapbox could not be reached: is this computer online?"
 

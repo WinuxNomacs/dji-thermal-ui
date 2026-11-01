@@ -49,7 +49,8 @@ def ask(path, params, language=""):
             with urlopen(req, timeout=TIMEOUT) as res:
                 return json.loads(res.read().decode('utf-8'))
         except HTTPError as e:
-            raise PlacesError("{} refused the search ({})".format(SERVICE, e.code)) from None
+            with e:                                # its response, closed (Python 3.14 warns of one left open)
+                raise PlacesError("{} refused the search ({})".format(SERVICE, e.code)) from None
         except (URLError, TimeoutError, OSError):
             raise PlacesError("{} could not be reached: is the computer online?".format(SERVICE)) from None
         except ValueError:
