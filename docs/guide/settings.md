@@ -27,6 +27,7 @@ found from the frames' two clocks. A flight analyzed by an earlier version of th
 ## System Settings
 
 - **Mapbox Satellite:** the Mapbox token (see [The maps under the mosaics](maps.md#mapbox-satellite)).
-- **WebODM:** its address and login, with a short list of what connecting it brings (see
+- **WebODM:** its address and login, or an account created there with a WebODM admin's login, with a short list of
+  what connecting it brings (see
   [WebODM](webodm.md#connecting-it)).
 - A link to [Storage](storage.md).

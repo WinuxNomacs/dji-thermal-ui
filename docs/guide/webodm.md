@@ -28,10 +28,32 @@ to keep the saved one. Remove takes all three out of the file, and the key out o
 System Settings then shows them, and they are changed there. The app asks WebODM for a login token when it needs one
 and keeps it in memory only.
 
+### Creating the account from here
+
+With a WebODM admin's login at hand, System Settings › WebODM can create the account itself: press
+**Create the account…**, then type WebODM's address, the admin's user name and password, the new account's user name
+(`dji-thermal-ui-api-user` unless you change it) and its password, or press **Generate** for a long random one, shown
+so you can note it. **Create and save** logs in to WebODM as the admin, creates an ordinary account (not staff),
+logs in as it and saves it as **Check and save** does, listing the processing nodes it sees. WebODM puts a new
+account in its **Default** group, which gives it the permissions below (steps 1 and 2). The admin's login is used
+for that one request: it is never saved, and its token is forgotten at once. A saved login is replaced only after you
+confirm.
+
+Nothing is changed in WebODM when it says no:
+
+- **The admin's login is refused**, or **the admin is not staff**: use an account with **Staff status**.
+- **A user name WebODM already has:** choose another, or, to use that account, type its password in the login form.
+  The app never changes an existing WebODM account.
+- **A WebODM without the API for adding users:** set the account up by hand, as below.
+
+If the new account sees no processing node, WebODM's processing node was added after it first started: give the
+account **Can view Processing Node** on it (step 3 below).
+
 ### The account
 
-The account is set up by a WebODM admin, in WebODM's Administration (its `/admin/` pages). System Settings › WebODM
-walks through it with the names those pages show, linking to them once WebODM's address is saved:
+The account is set up by a WebODM admin, in WebODM's Administration (its `/admin/` pages), unless it was
+[created from here](#creating-the-account-from-here). System Settings › WebODM walks through it with the names those
+pages show, linking to them once WebODM's address is saved:
 
 1. **Users › Add user**: a user name and a password. Leave **Active** ticked, **Staff status** and **Superuser status**
    unticked: an ordinary account is enough.
