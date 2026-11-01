@@ -27,7 +27,7 @@ def conversion_or_404(conversion_id):
 
 @ensure_csrf_cookie
 def projects_list(request):
-    return page(request, "projects.html", title="Thermal Analyzer", entry="projects", basemaps=page_basemaps())
+    return page(request, "projects.html", title="DJI Thermal Analyzer", entry="projects", basemaps=page_basemaps())
 
 
 @ensure_csrf_cookie

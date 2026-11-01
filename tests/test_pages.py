@@ -33,7 +33,7 @@ def test_each_page_is_served_with_the_csrf_cookie(client):
         html = res.content.decode()
         assert 'id="%s"' % page_id in html
         assert 'data-api="/api/"' in html and 'data-public="/"' in html
-        assert "Thermal Analyzer" in html
+        assert "DJI Thermal Analyzer" in html
 
 
 def test_an_unknown_dataset_or_conversion_is_a_404(client):
@@ -46,7 +46,7 @@ def test_an_unknown_dataset_or_conversion_is_a_404(client):
 def test_a_project_page_is_named_after_its_project(client):
     p = Project.objects.create(name="Grain silos")
     html = client.get("/project/%d" % p.id).content.decode()
-    assert "<title>Grain silos · Thermal Analyzer</title>" in html and 'data-id="%d"' % p.id in html
+    assert "<title>Grain silos · DJI Thermal Analyzer</title>" in html and 'data-id="%d"' % p.id in html
 
 
 def test_compare_takes_two_conversions_of_different_datasets(client):
@@ -104,7 +104,7 @@ def test_the_pages_show_dates_in_the_locale_chosen_or_the_computers(client):
     assert 'data-locale=""' in client.get("/").content.decode()
     APIClient().put(PREFERENCES, {'locale': 'en-GB'}, format='json')
     assert 'data-locale="en-GB"' in client.get("/preferences").content.decode()
-    assert "<title>User Preferences · Thermal Analyzer</title>" in client.get("/preferences").content.decode()
+    assert "<title>User Preferences · DJI Thermal Analyzer</title>" in client.get("/preferences").content.decode()
 
 
 def test_a_report_page_carries_its_project_and_the_author_last_typed(client):
@@ -114,7 +114,7 @@ def test_a_report_page_carries_its_project_and_the_author_last_typed(client):
     d.project = p
     d.save()
     html = client.get("/dataset/%d/report" % d.id).content.decode()
-    assert "<title>Roof · Flight report · Thermal Analyzer</title>" in html
+    assert "<title>Roof · Flight report · DJI Thermal Analyzer</title>" in html
     assert 'data-project-name="Grain silos" data-location="Farm Rd 4" data-author=""' in html
     APIClient().patch("/api/datasets/%d" % d.id, {'report': {'author': "A. Inspector"}}, format='json')
     assert 'data-author="A. Inspector"' in client.get("/dataset/%d/report" % dataset().id).content.decode()
@@ -123,7 +123,7 @@ def test_a_report_page_carries_its_project_and_the_author_last_typed(client):
 def test_a_mosaic_report_page_carries_its_dataset_and_project(client):
     c = conversion(dataset(name="Roof"), name="Nadir")
     html = client.get("/conversion/%d/report" % c.id).content.decode()
-    assert "<title>Nadir · Mosaic report · Thermal Analyzer</title>" in html
+    assert "<title>Nadir · Mosaic report · DJI Thermal Analyzer</title>" in html
     assert 'data-dataset="%d" data-dataset-name="Roof" data-project-name="Default Project"' % c.dataset_id in html
 
 
@@ -132,14 +132,14 @@ def docs(settings, tmp_path):
     """A built documentation: its start page and one guide page"""
     settings.DOCS_DIR = tmp_path / "docs"
     (settings.DOCS_DIR / "guide" / "storage").mkdir(parents=True)
-    (settings.DOCS_DIR / "index.html").write_text("<h1>Thermal Analyzer</h1>")
+    (settings.DOCS_DIR / "index.html").write_text("<h1>DJI Thermal Analyzer</h1>")
     (settings.DOCS_DIR / "guide" / "storage" / "index.html").write_text("<h1>Storage</h1>")
     return settings.DOCS_DIR
 
 
 def test_help_serves_the_documentation_a_folder_as_its_index(client, docs):
     assert client.get("/help").url == "/help/"
-    assert b"Thermal Analyzer" in b"".join(client.get("/help/").streaming_content)
+    assert b"DJI Thermal Analyzer" in b"".join(client.get("/help/").streaming_content)
     assert b"Storage" in b"".join(client.get("/help/guide/storage/").streaming_content)
     assert client.get("/help/guide/storage").url == "/help/guide/storage/"
     assert client.get("/help/guide/nowhere/").status_code == 404

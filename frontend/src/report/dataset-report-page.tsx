@@ -170,7 +170,7 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                 if (!r.ok) return setNotice("Could not load the flight.");
                 setD(r.data);
                 setText(reportText(r.data.report, r.data.name, author, today));
-                document.title = r.data.name + " · Flight report · Thermal Analyzer";
+                document.title = r.data.name + " · Flight report · DJI Thermal Analyzer";
                 const [f, v] = await Promise.all([
                     fetch(findingsUrl(api, id), {credentials: "same-origin"}).then((res) => readJson<{findings: Finding[]}>(res)),
                     fetch(framesUrl(url), {credentials: "same-origin"}).then((res) => readJson<{frames: SavedFrame[]}>(res))

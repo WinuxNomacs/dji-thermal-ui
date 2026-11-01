@@ -84,7 +84,7 @@ export function Header({api, publicUrl, unit, theme: initialTheme, version, nav,
                                 aria-expanded={nav.shown} title={nav.shown ? "Hide the navigation" : "Show the navigation"}
                                 aria-label={nav.shown ? "Hide the navigation" : "Show the navigation"}
                                 onClick={nav.toggle}><Menu/></button>}
-                <a class="app-name" href={publicUrl}><Thermometer/> Thermal Analyzer</a>
+                <a class="app-name" href={publicUrl}><Thermometer/> DJI Thermal Analyzer</a>
             </div>
             <div class="app-settings">
                 <label for="app-unit">Temperatures in</label>

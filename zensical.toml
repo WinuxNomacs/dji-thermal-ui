@@ -1,12 +1,12 @@
 # The documentation: docs/ built into src/dji_thermal_ui/static/docs (uv run --group docs zensical build --strict),
 # which the app serves at /help/ and the wheel carries, and which is published on its own public repository
 [project]
-site_name = "Thermal Analyzer"
+site_name = "DJI Thermal Analyzer"
 site_description = "Analyze, convert, mosaic and measure DJI thermal flights in the browser, on your own computer"
 site_url = "https://winuxnomacs.github.io/dji-thermal-ui-docs/"
 docs_dir = "docs"
 site_dir = "src/dji_thermal_ui/static/docs"
-copyright = "Thermal Analyzer is free software, under the GNU Affero General Public License 3.0"
+copyright = "DJI Thermal Analyzer is free software, under the GNU Affero General Public License 3.0"
 nav = [
   { "Home" = "index.md" },
   { "Getting started" = [

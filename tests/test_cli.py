@@ -54,7 +54,7 @@ def test_the_server_serves_the_home_page(threaded_jobs):
         url = "http://%s:%d/" % (cli.HOST, int(server.effective_port))
         status, body = get(url)
         assert status == 200
-        assert b"Thermal Analyzer" in body
+        assert b"DJI Thermal Analyzer" in body
         status, body = get(url + "static/favicon.svg")
         assert status == 200
         assert body.startswith(b"<svg")

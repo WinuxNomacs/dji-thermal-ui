@@ -1,6 +1,8 @@
-# Thermal Analyzer
+# DJI Thermal Analyzer
 
-Thermal Analyzer (the `dji-thermal-ui` command) analyzes, converts, mosaics and measures DJI thermal flights in the
+<img src="assets/banner-1600.jpg" srcset="assets/banner-2400.jpg 1.5x" alt="DJI Thermal Analyzer">
+
+DJI Thermal Analyzer (the `dji-thermal-ui` command) analyzes, converts, mosaics and measures DJI thermal flights in the
 browser, on your own computer. It does the work with [dji-thermal-cli](https://github.com/WinuxNomacs/dji-thermal-cli),
 so neither ODM nor the DJI Thermal SDK is needed.
 

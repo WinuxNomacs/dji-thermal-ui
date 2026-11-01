@@ -54,10 +54,10 @@ def check(base: str) -> list[str]:
     if not script or not styles:
         return [f"/: status {status}, its built script or stylesheet not found in {page[:500]!r}"]
     expect = [
-        ("", b"Thermal Analyzer"),
+        ("", b"DJI Thermal Analyzer"),
         (script.group(1).decode(), b"import"),
         ("static/favicon.svg", b"<svg"),
-        ("help/", b"Thermal Analyzer"),
+        ("help/", b"DJI Thermal Analyzer"),
         ("help/guide/projects/", b"Projects"),
     ]
     for path, needle in expect:

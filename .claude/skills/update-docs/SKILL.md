@@ -25,13 +25,15 @@ The documentation is `docs/` (Markdown), laid out in `zensical.toml`'s `nav`, bu
    takes several minutes (upload, analysis, conversion, mosaics), and fails a shot that shows the flight's
    coordinates; it masks the serial numbers and the data folder's path. `--keep DIR` keeps its data, so a second run
    skips straight to the shots after the dataset. A new shot goes in the script and on a page: `tests/test_docs.py`
-   fails on a shot no page shows.
+   fails on a shot no page shows. The banner (the README's and the home page's) is made from its source,
+   `branding/dji-thermal-analyzer.jpg`, by `uv run scripts/banner.py`; replace the source, never the copies.
 5. **Check it:** `uv run --only-group docs zensical build --strict` (fails on a broken link) and
    `uv run pytest tests/test_docs.py` (a missing picture, a page not in the navigation, a link to a heading that
    isn't there). Look at a changed page with
    `uv run --only-group docs zensical serve`, or at `/help/` on an instance of the branch.
 6. **The README** keeps only what the app is (a short list linking to the guide's pages), Install, Run, Development
    and Licence: change its list only when a part of the app is added or removed, and Install or Run when they change.
+   Its banner is the docs site's copy (an address on the site, so it shows on PyPI too).
 7. Commit the docs with the change, on the same branch.
 
 ## At a release

@@ -7,6 +7,7 @@ machine. Keep it short; edit in place.
 
 ## What it is
 
+- **DJI Thermal Analyzer** is the name a user sees; the command, the package and the repositories are `dji-thermal-ui`.
 - The Thermal Analyzer, moved out of LuxODM (a WebODM fork), where it was the `coreplugins/thermal-analyzer` plugin
   (plugin 0.15.0, LuxODM commit a2a81052). The plugin gets no new features; work on the analyzer happens here.
 - One user, on their own computer: the server listens on 127.0.0.1 only, with no login, accounts or sharing.
@@ -79,6 +80,7 @@ machine. Keep it short; edit in place.
 - `npm ci`, then `npm test`, `npm run -s lint` and `npm run build` (`-- --watch` while working on the pages).
 - `uv run --only-group docs zensical build --strict` builds the documentation (`serve` instead of `build` while
   writing it); `scripts/publish_docs.py <clone>` commits it in a clone of the public docs repository, never pushing;
+  `uv run scripts/banner.py` makes the banner's copies from `branding/`, and
   `npm run screenshots -- <a flight's images>` makes its screenshots again (its own instance on 8081, scratch
   folders; Playwright's Chromium from `npx playwright install chromium`).
 - Release checks, after `npm run build` and the documentation's build: `uv build --no-sources`, `uv run --no-project python scripts/check_dist.py dist`,

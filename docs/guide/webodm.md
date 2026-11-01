@@ -1,6 +1,6 @@
 # WebODM
 
-Processing with ODM is done in a WebODM of your own, through its API: Thermal Analyzer sends a dataset's temperature
+Processing with ODM is done in a WebODM of your own, through its API: DJI Thermal Analyzer sends a dataset's temperature
 TIFFs to it as a task, follows it, and can bring its orthophoto and surface model back. The flight page's
 **WebODM plan** tab says how the flight would be processed there.
 

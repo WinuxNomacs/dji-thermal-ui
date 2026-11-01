@@ -306,7 +306,7 @@ describe("the dataset page", () => {
         expect($(".message")!.textContent).toBe("Loading…");
         await ticks();
         expect(byId("name").textContent).toBe("Roof");
-        expect(document.title).toBe("Roof · Thermal Analyzer");
+        expect(document.title).toBe("Roof · DJI Thermal Analyzer");
         expect($(".figures")!.textContent).toContain("M4T · 640×512 · SN1 · 2 frame(s)");
         expect($(".figures")!.textContent).toContain("Thermal frames2 (and 1 visual)");
         expect($$("[role=tab]").map((t) => t.getAttribute("data-tab"))).toEqual(["files", "problems", "webodm", "datasets"]);

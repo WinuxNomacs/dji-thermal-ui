@@ -108,7 +108,7 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
         const listed = (data.conversions || []).map((c) => c.id + ":" + c.status + ":" + c.mosaic_status).join();
         if (shows.current !== null && shows.current !== listed) navigationChanged();
         shows.current = listed;
-        document.title = data.name + " · Thermal Analyzer";
+        document.title = data.name + " · DJI Thermal Analyzer";
         // An upload to WebODM too: the tasks once in WebODM are followed by their own lines
         if (data.status === "analyzing" || (data.conversions || []).some((c) => isBusy(c) || transferring(c.webodm_tasks))) {
             timer.current = setTimeout(load, POLL_MS);

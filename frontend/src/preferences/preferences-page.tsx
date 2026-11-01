@@ -80,7 +80,7 @@ export function PreferencesPage({api, publicUrl = "/", unit, theme: initialTheme
             return true;
         } catch {
             undo();
-            setStatus({text: "Not saved: is the Thermal Analyzer still running?", error: true});
+            setStatus({text: "Not saved: is DJI Thermal Analyzer still running?", error: true});
             return false;
         } finally {
             setSaving(false);
@@ -123,7 +123,7 @@ export function PreferencesPage({api, publicUrl = "/", unit, theme: initialTheme
 
     return (<div class="page preferences">
         <div class="page-header"><h1>User Preferences</h1></div>
-        <p class="hint">Saved for the Thermal Analyzer on this computer, for every project.</p>
+        <p class="hint">Saved for DJI Thermal Analyzer on this computer, for every project.</p>
         <SectionFilter label="Filter the preferences">
 
             <fieldset class="preference" id="unit-preference">
