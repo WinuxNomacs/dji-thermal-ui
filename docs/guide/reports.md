@@ -3,6 +3,10 @@
 The two reports are pages laid out to print, or to save as PDF from the browser's print dialog, on A4 or Letter. They
 always print light, without the app's header and controls.
 
+![The flight report](../assets/screenshots/flight-report.png)
+
+![The mosaic report](../assets/screenshots/mosaic-report.png)
+
 ## Flight report
 
 Opened with the flight page's **Flight report** button, it holds:

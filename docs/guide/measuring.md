@@ -3,6 +3,8 @@
 Spots, lines, areas, boxes and circles are measured on mosaics, in the [viewer](mosaics.md) and on the
 [compare page](compare.md), and on single frames, on the [frame page](frames.md).
 
+![A box measured on a mosaic, with its card](../assets/screenshots/viewer-measure.png)
+
 ## Drawing a shape
 
 The drawing tools are on the map's top edge, beside the zoom buttons. A shape drawn is measured in a card on the map,

@@ -5,6 +5,8 @@ The Storage page, in the navigation pane beside the other settings pages, shows 
 the free space on its drive, with each project and its flights, the database and the rest. A flight read in place
 from a folder says how much its images take there, outside the data folder's total.
 
+![The Storage page](../assets/screenshots/storage.png)
+
 ## Moving the data folder
 
 The data folder can be moved from this page to another folder:

@@ -3,6 +3,10 @@
 Both pages are in the navigation pane, with [Storage](storage.md). Each has a filter at the top, showing the sections
 whose title, labels, help or choices have the words typed ("dark" finds Theme).
 
+![User Preferences](../assets/screenshots/preferences.png)
+
+![System Settings](../assets/screenshots/settings.png)
+
 ## User Preferences
 
 In the order the page has them:

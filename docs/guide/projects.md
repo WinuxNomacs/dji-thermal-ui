@@ -3,6 +3,10 @@
 A project holds a site's flights together, with a name, a description and a location, and a map of where each
 flight was flown. The projects page lists them; a project's page lists its flights, with **New Flight** to add one.
 
+![The projects page](../assets/screenshots/projects.png)
+
+![A project's page, with the map of its flights and their list](../assets/screenshots/project.png)
+
 ## Making and changing a project
 
 **New Project** on the projects page asks for its name, description and location; the project's own page changes

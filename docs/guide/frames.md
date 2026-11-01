@@ -3,6 +3,8 @@
 The frame page shows a dataset's frames one at a time, as converted, opened with **Frames** on its card or in the
 viewer's header.
 
+![The frames explorer, with the list of frames, the frame and its panel](../assets/screenshots/frames.png)
+
 ## The list
 
 The frames are listed beside the frame shown, in the order they were taken. Once the mosaics are built, a switch

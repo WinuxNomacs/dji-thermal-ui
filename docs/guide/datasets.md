@@ -3,6 +3,8 @@
 A dataset is a flight's images converted to temperatures with dji-thermal-cli's settings, with its mosaics. They are
 on the flight page's **Datasets** tab, where the page opens once there is one.
 
+![The Datasets tab, with a dataset's card and the New dataset form](../assets/screenshots/datasets.png)
+
 ## Converting
 
 The tab lists the flight's datasets first, then the **New dataset** bar: the settings summed up and the **Convert**

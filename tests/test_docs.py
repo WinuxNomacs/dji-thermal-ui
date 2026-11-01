@@ -53,3 +53,10 @@ def test_every_link_to_a_heading_finds_it():
             if anchor not in anchors(linked):
                 broken.append(f"{page.relative_to(DOCS)}: {target}#{anchor}")
     assert broken == []
+
+
+def test_every_screenshot_is_shown_by_a_page():
+    shown = {(page.parent / (m.group(1) or m.group(2))).resolve()
+             for page in DOCS.rglob("*.md") for m in PICTURE.finditer(page.read_text(encoding="utf-8"))}
+    unused = [p.name for p in sorted((DOCS / "assets" / "screenshots").glob("*.png")) if p.resolve() not in shown]
+    assert unused == []
