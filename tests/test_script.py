@@ -116,7 +116,7 @@ def test_build_syncs_installs_and_builds_the_pages_and_help_and_rebuild_does_the
 
 def test_start_builds_a_clone_never_built_first(clone):
     bin_dir = clone.parent / "bin"
-    stub(bin_dir, "uv", 'ln -s "%s" .venv' % (ROOT / ".venv"))
+    stub(bin_dir, "uv", '[ "$1" = sync ] && ln -s "%s" .venv\ntrue' % (ROOT / ".venv"))
     stub(bin_dir, "npm", '[ "$1" = ci ] && mkdir node_modules\n'
                          '[ "$1" = run ] && mkdir -p "%s" && echo {} > "%s"\ntrue' % (MANIFEST.parent, MANIFEST))
     port = free_port()
