@@ -8,8 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: W2–W3, the documentation's user guide and quickstart tutorials with screenshots (see Documentation),
-to be planned with the user. W1, the docs site, is built.
+**Up next**: W2, the user guide moved from the README, then W3, the quickstart tutorials with screenshots (see
+Documentation; both planned 2026-11-01). W1, the docs site, is built.
 
 **Then**: X1, Linux, Windows and macOS checked (see Platforms).
 
@@ -2190,6 +2190,33 @@ as feature changes require going forward."
 - **Reference:** the command and the data only, not the REST API, which belongs to the pages and changes with them
   (decided 2026-10-31).
 - **Keeping it current:** a `.claude/skills` procedure, pointed to from CLAUDE.md.
+
+### W2: the user guide (planned 2026-11-01)
+
+- **Text:** the README's feature list and its sections (the maps, WebODM, where the data lives) move into the guide's
+  pages, written as pages to read in the app's own names: each page for the part of the app it describes, Install
+  and Run into Getting started, the command's options into Reference › Command, the data folder into Reference ›
+  Data. The REST API lines are left out (W1's decision).
+- **README:** keeps what the app is (a short list linking to each guide page), Install, Run, Development (for
+  whoever works on the code) and Licence, and links to the documentation for the rest.
+- **Checks:** the strict build, `tests/test_docs.py`, the header test of the Help targets, and `/help/` looked at on
+  an instance of the branch.
+
+### W3: quickstart tutorials with screenshots (planned 2026-11-01)
+
+- **Script:** `scripts/screenshots.mjs` (Playwright pinned in `package.json`), run as `npm run screenshots --
+  <images folder>`. It starts its own instance on 8081 with scratch data and config folders, does the tutorials'
+  steps as a first-time user (a project, a flight, the images uploaded, the analysis, a dataset, the mosaic, a
+  measurement, a finding, the report, an export), shoots as it goes (light theme, 1280 × 800, PNG in
+  `docs/assets/screenshots/`), and stops its instance by its PID. The user's 8080 server is never touched.
+- **Data:** a fresh instance fed with the images of "m4t-test-flights" (327 thermal and 327 visual), read from the
+  user's data folder and uploaded; the script analyzes, converts and builds the mosaic itself (several minutes a
+  run), and runs on another machine given the folder (decided 2026-11-01).
+- **Location:** no basemap and no project location on the scratch instance; whatever shows coordinates is hidden;
+  before each shot the script fails if the flight's latitude or longitude appears in the page's text.
+- **Pages:** the Quickstart tutorials (`docs/quickstart/`, a page per task, a few steps and a shot each), and one or
+  two shots at the top of each User guide page (decided 2026-11-01).
+- **Upkeep:** the update-docs skill says to run the script again when a page changes.
 
 ## Finer slider steps
 
