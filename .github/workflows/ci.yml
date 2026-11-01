@@ -2,7 +2,7 @@ name: CI
 
 # Tests only: nothing here publishes anything. Run on a release tag, or by hand (Actions › CI › Run workflow).
 # The macOS job runs only while the repository variable MACOS_CI is "true" (Settings › Secrets and variables ›
-# Actions › Variables): its minutes cost ten times Linux's, so it is off until it is wanted.
+# Actions › Variables), so it is turned on and off in the settings, with no commit.
 
 on:
   push:
@@ -124,7 +124,7 @@ jobs:
 
   macos:
     # What only a Mac shows: the tests (dji-thermal-ui.sh under the Mac's bash and BSD tools, the default data
-    # folder) and the built wheel serving its pages, on the oldest Python only, in one job to keep its minutes down
+    # folder) and the built wheel serving its pages, on the oldest Python only, in one job
     if: vars.MACOS_CI == 'true'
     needs: build
     runs-on: macos-latest
