@@ -8,10 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: S1, the WebODM password encrypted in `.env` (see Secrets).
+**Up next**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
+Documentation), to be planned with the user.
 
-**Then**: W1–W3, the documentation site, its user guide and quickstart tutorials with screenshots (see
-Documentation), to be planned with the user; then X1, Linux, Windows and macOS checked (see Platforms).
+**Then**: X1, Linux, Windows and macOS checked (see Platforms).
 
 ## Standalone (option A)
 
@@ -2065,7 +2065,7 @@ be stored on disk but significantly more difficult to use. Maybe store the key i
 
 ### Proposed phase
 
-- **S1: the WebODM password encrypted in `.env`.**
+- **S1: the WebODM password encrypted in `.env`** (built 2026-10-31, see Done).
   - A random key, made once and kept in the database (a row of its own, never in what the API sends), not in `.env`:
     `.env` alone (copied, shared, committed by mistake) no longer gives the password away.
   - Saving writes `WEBODM_PASSWORD=enc:<token>`: authenticated encryption with a fresh random IV each time (so the
@@ -2836,3 +2836,12 @@ as feature changes require going forward."
   `compare.test.tsx`, `report.test.tsx` and `mosaic-report.test.tsx`. Checked on the user's data on a scratch 8081
   instance (GETs only), light and dark: the Problems column (every row 30 px), an old `thermal_frame` link, both
   menus, the toggles, the basemap list, both reports' bars.
+- **S1: the WebODM password encrypted in `.env`** (2026-10-31). Fernet from `cryptography` 50.0.2
+  (`analyzer/encryption.py`), its key in the `EncryptionKey` table (migration `0011_encryption_key`); written by
+  `webodm.save`, read by `webodm.config` (unreadable when the key can't open it), plain ones encrypted at start-up
+  (`webodm.encrypt_saved_password`, called in `cli.make_server`), the key deleted by Remove. System Settings › WebODM
+  says when the saved password can't be read, and its Save asks only for the missing parts of the login
+  (`settings/webodm-settings.tsx`). Tests in `tests/test_webodm.py` and `frontend/tests/webodm-settings.test.tsx`.
+  Checked on a scratch 8081 instance (scratch data and start folders) against the dev WebODM: a plain password
+  encrypted at start, the saved login checked, a fresh database giving "can't be read", the password typed again and
+  saved.
