@@ -568,7 +568,7 @@ def test_a_completed_tasks_dsm_is_brought_back_as_written_and_the_mosaics_are_pr
     assert c.orthophoto == {}
     # Used the next time the mosaics are built, which say so
     options = build_mosaics(api, c)
-    assert (str(options.dsm), options.height_cell) == (path, webodm_tasks.DSM_CELL)
+    assert (os.path.normpath(options.dsm), options.height_cell) == (os.path.normpath(path), webodm_tasks.DSM_CELL)
     detail = api.get("%s/%d" % (CONVERSIONS, c.id)).data
     assert detail['dsm']['use'] is True and detail['dsm']['task_name'] == task.name
     assert detail['mosaics_dsm'] == {'task_name': task.name, 'height_cell': webodm_tasks.DSM_CELL}

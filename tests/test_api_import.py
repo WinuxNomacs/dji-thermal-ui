@@ -269,13 +269,21 @@ def test_an_archive_that_is_damaged_or_not_a_project_s_is_refused_and_its_folder
     assert not Project.objects.exclude(name="Default Project").exists()
 
 
-def test_an_archive_holding_a_name_this_computer_refuses_says_so(api):
+def test_an_archive_holding_a_name_this_computer_refuses_says_so(api, monkeypatch):
+    # A character Windows refuses, in a file name made on Linux
+    monkeypatch.setattr(restore, 'WINDOWS', True)
     data = tar_of(manifest(), ('datasets/7/images/a:b.JPG', b'x', tarfile.REGTYPE))
-    import_id = start(api, data)
-    with mock.patch.object(restore, 'open', side_effect=OSError(22, "Invalid argument"), create=True):  # Windows
-        res = put(api, import_id, data, 0)
+    res = put(api, start(api, data), data, 0)
     assert res.status_code == 400
     assert res.data['error'] == "This computer can't keep one of the archive's files: datasets/7/images/a:b.JPG " \
+                                "(a character Windows refuses in a file name)"
+    # Any other name the system refuses (Windows: a path too long)
+    data = tar_of(manifest(), ('datasets/7/images/a.JPG', b'x', tarfile.REGTYPE))
+    import_id = start(api, data)
+    with mock.patch.object(restore, 'open', side_effect=OSError(22, "Invalid argument"), create=True):
+        res = put(api, import_id, data, 0)
+    assert res.status_code == 400
+    assert res.data['error'] == "This computer can't keep one of the archive's files: datasets/7/images/a.JPG " \
                                 "(Invalid argument)"
     assert staged() == []
 
