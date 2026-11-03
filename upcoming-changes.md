@@ -2424,15 +2424,16 @@ tab alike:
   values; then the range's fields; then the D-pad, where the span buttons are now (below the fields, above Image).
 - The D-pad: four arrow buttons round a centre one, each doing what its button does today (the same steps, limits
   and greying out), with the old names in their tooltips and labels (`#span-narrow` and the others keep their ids).
-  The centre is Auto (`#auto`, its tooltip as now).
+  The centre is Auto (`#auto`, its tooltip as now), which no longer sits beside the fields.
 - Without the image's limits the arrows are greyed out and the centre's Auto still works, so Auto never goes missing.
 - Docs: the Mosaics guide's side panel, Frames and the Video tab's Recoloured, the CHANGELOG, and the shots that show
   the panel (viewer, viewer-measure, viewer-finding, frames).
 
-### Open decisions
+### Decisions (2026-11-03)
 
-- Auto only in the D-pad's centre (leaving the range's fields), or in both places.
-- The arrows' look: plain arrows (▲ ▼ ◀ ▶) with the names in their tooltips, or each arrow with its name beside it.
+- **Auto only in the D-pad's centre:** it leaves the row of the range's fields.
+- **Arrows with their names beside them:** "Raise" by ▲, "Narrow" by ◀, "Widen" by ▶, "Lower" by ▼ (tooltips as now).
+- **Order:** Y2 first, then Q1.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
