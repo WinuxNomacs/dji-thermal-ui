@@ -29,4 +29,5 @@ thermal frame under them. A frame can be measured again with other parameters.
 Its small map shows where the frames were taken. It can show the flight's visual photos too (orange squares), a
 switch the browser remembers.
 
-**Export…** exports the frame shown, as converted or with the parameters changed (see [Exports](exports.md)).
+**Export…** exports the frame as shown, with its saved measurements and colour scale, or the frame alone, as converted
+or with the parameters changed (see [Exports](exports.md)).

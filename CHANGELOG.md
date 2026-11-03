@@ -77,6 +77,11 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The viewer's and the frame page's **Export PNG** button is now the Export dialog's first format, **PNG as shown**,
+  making the same picture (title, date, saved measurements, colour scale).
+- **Build the mosaics again** is **Rebuild mosaics** (the viewer and the WebODM heights panel), and **Open this
+  frame** is **Open frame** (Pointer info and the source frames window). Pointer info shows it only once a click
+  keeps the point, not while the cursor passes over a frame.
 - The app is called DJI Thermal Analyzer: in the header, the page titles, the documentation and the README. The
   command and the package are still `dji-thermal-ui`.
 - A banner heads the README and the documentation's home page.

@@ -47,12 +47,12 @@ left.
 
 ## Pointer info
 
-Pointer info gives the values under the cursor. A click keeps them and outlines the frame there; Escape or a second
-click on that frame lets go of it.
+Pointer info gives the values under the cursor. A click keeps them and outlines the frame there, and **Open frame**
+then opens that frame on the [frame page](frames.md); Escape or a second click on that frame lets go of it.
 
 ## From the viewer
 
 The viewer's header has **Frames** (the [frames explorer](frames.md)), **Compare with…** (the
-[compare page](compare.md)), **Export PNG** (the mosaic as shown, with its saved measurements and colour scale, the
-basemap left out), **Export…** (the mosaic whole, at full resolution: see [Exports](exports.md)) and
-**Mosaic report** (see [Reports](reports.md#mosaic-report)).
+[compare page](compare.md)), **Export…** (the mosaic as shown, with its saved measurements and colour scale, or
+whole, at full resolution: see [Exports](exports.md)), **Mosaic report** (see [Reports](reports.md#mosaic-report))
+and **Rebuild mosaics**.
