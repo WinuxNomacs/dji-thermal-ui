@@ -84,7 +84,8 @@ A frame or a second back or on, ⅛× to 2×, and a loop between an in and an ou
 ### Recoloured
 
 The frame shown can be turned back into the camera's levels (0 to 255) through DJI's Ironbow, then drawn in any
-palette, with a range (Auto takes the frame's 2nd to 98th percentile, and the range stays put from frame to frame),
+palette, with a range (Auto takes the frame's 2nd to 98th percentile, Narrow, Widen, Lower and Raise step it within
+the frame's levels as on a [mosaic](mosaics.md#the-side-panel), and the range stays put from frame to frame),
 brightness, contrast, gamma, sharpening and an isotherm in levels. It starts as filmed (DJI ironred, 0 to 255). The
 pointer gives the level and pixel under it.
 

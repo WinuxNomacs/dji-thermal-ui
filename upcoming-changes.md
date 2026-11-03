@@ -10,7 +10,7 @@ its title.
 
 **Up next**: nothing planned yet.
 
-O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -2343,6 +2343,25 @@ uses. The user types WebODM's address and an admin account's user name and passw
 - **A name already taken:** refused, saying to choose another or to type that account's password in the login form.
   The app never changes an existing WebODM account.
 
+## Range span buttons
+
+Requested 2026-11-03: buttons that change the colour range's span, in the panel under the range's minimum and
+maximum, above the Image section. It builds on the range fields of `Controls` (`frontend/src/viewer/panel.tsx`),
+shared by the viewer's panel, the frame page's panel and the flight's Video tab, and goes through the same path as a
+typed range (`onRange`). Brightness and Contrast (Image) already move the range from the Auto one; these step it from
+wherever it is.
+
+**R1: the span buttons.** Four buttons, in the units shown:
+- **Narrow** takes 10% off the span and **Widen** adds 10%, half at each end.
+- **Lower** and **Raise** move both ends by 10% of the span (the user's choice: of the span, not of each temperature,
+  so °C and °F agree).
+- Neither end goes past the image's own lowest and highest values (the "This mosaic" / "This frame" line): an end
+  that reaches one stays there while the other moves on, so the span shrinks against the edge (the user's choice). A
+  button that would change nothing is disabled.
+- Everywhere the range shows (the user's choice): the viewer (every tab with a range, Difference too), the frame page
+  and the Video tab. Not the Compare page, which has its own range.
+- Ends are rounded to a tenth, as the fields are.
+
 ## Done (kept here briefly as a note, not a tracked deferral)
 
 
@@ -3088,3 +3107,12 @@ uses. The user types WebODM's address and an admin account's user name and passw
 - **label-create-account** (2026-11-01, new.md): the button on System Settings › WebODM says **Create the account for
   me** (the user's wording, without the ellipsis), and so do the WebODM guide, the page's own guide (step 1), the
   CHANGELOG and the settings shot.
+- **R1: the range's span buttons** (2026-11-03). `stepRange` and `SPAN_STEPS` in `frontend/src/viewer/view.ts`; the
+  buttons (`#span-narrow`, `-widen`, `-lower`, `-raise`) in `Controls` (`frontend/src/viewer/panel.tsx`), so the
+  viewer, the frame page and the Video tab all have them, and they call `onRange` as a typed range does. The image's
+  ends are taken to the tenth the panel shows. Tests: `frontend/tests/view.test.ts` ("the range") and
+  `frontend/tests/panel.test.tsx` ("the range's span buttons"). Docs: the Mosaics guide's side panel, Frames, the
+  Video tab's Recoloured, the CHANGELOG, and the viewer, viewer-measure, viewer-finding and frames shots. Checked
+  live on a scratch 8081 with a copy of the data (dataset 1, °F): each button on the mosaic and a frame, Raise
+  stopping at the line's maximum while the span shrank, Widen greyed out at the frame's whole range, no console
+  errors, light and dark. Checked: Vitest 459, lint, pytest 456, ruff, the strict docs build.

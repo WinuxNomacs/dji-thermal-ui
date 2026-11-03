@@ -5,7 +5,7 @@ import {setUserUnit} from "../src/core/units";
 import {gradientCss, gradientStops, paletteCss} from "../src/viewer/canvas";
 import {
     defaultRange, disagreement, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
-    shownRange, sliderPositions, SLIDERS, slidRange, styleGroup, takenText, dataUrl, toneShares, valueCaption, valueUnit,
+    shownRange, sliderPositions, SLIDERS, slidRange, stepRange, styleGroup, takenText, dataUrl, toneShares, valueCaption, valueUnit,
     viewQuery, visualRows,
 } from "../src/viewer/view";
 
@@ -108,6 +108,30 @@ describe("the range", () => {
         expect(sliderPositions(ref, range)).toEqual({brightness: 0.5, contrast: 1});
         expect(sliderGamma(1)).toBe(2);
         expect(sliderGamma(9)).toBe(5);
+    });
+
+    it("narrows and widens the span by a tenth, half at each end, and moves it by a tenth of the span", () => {
+        const limits: [number, number] = [-49.2, 133.6];
+        expect(stepRange([49.2, 125.4], limits, "narrow")).toEqual([53, 121.6]);
+        expect(stepRange([49.2, 125.4], limits, "widen")).toEqual([45.4, 129.2]);
+        expect(stepRange([49.2, 125.4], limits, "lower")).toEqual([41.6, 117.8]);
+        expect(stepRange([49.2, 125.4], limits, "raise")).toEqual([56.8, 133]);
+    });
+
+    it("never goes past the image's own ends, the other end moving on so the span shrinks", () => {
+        expect(stepRange([20, 95], [0, 100], "raise")).toEqual([27.5, 100]);
+        expect(stepRange([27.5, 100], [0, 100], "raise")).toEqual([34.8, 100]);
+        expect(stepRange([2, 50], [0, 50], "widen")).toEqual([0, 50]);
+        expect(stepRange([2, 108], [1.96, 110.17], "widen")).toEqual([2, 110.2]);
+        expect(stepRange([20, 109], [1.96, 110.17], "raise")).toEqual([28.9, 110.2]);
+    });
+
+    it("gives nothing when the range would not change or is not a range", () => {
+        expect(stepRange([0, 100], [0, 100], "widen")).toBeNull();
+        expect(stepRange([0, 100], [0, 100], "raise")).toEqual([10, 100]);
+        expect(stepRange([99.9, 100], [0, 100], "raise")).toBeNull();
+        expect(stepRange([10, 10.4], [0, 100], "narrow")).toBeNull();
+        expect(stepRange([NaN, 10], [0, 100], "lower")).toBeNull();
     });
 
     it("steps about half as far as before and still reaches both ends", () => {

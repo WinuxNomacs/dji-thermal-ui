@@ -2,8 +2,9 @@
 // report
 import {render} from "preact";
 import {beforeEach, describe, expect, it, vi} from "vitest";
+import {setUserUnit} from "../src/core/units";
 import {resultRows} from "../src/measure/measure";
-import {correctionStarts, Readout, Report, Section, Whole} from "../src/viewer/panel";
+import {Controls, correctionStarts, Readout, Report, Section, Whole} from "../src/viewer/panel";
 import {click, ticks} from "./helpers";
 
 beforeEach(() => {
@@ -44,6 +45,42 @@ describe("a section of the panel", () => {
         localStorage.setItem("thermal-analyzer.viewer.folded", JSON.stringify(["image"]));
         render(<><Section name="image" title="Image"><p/></Section><Section name="cursor" title="Pointer info"><p/></Section></>, root());
         expect([...root().querySelectorAll("details")].map((d) => d.open)).toEqual([false, true]);
+    });
+});
+
+describe("the range's span buttons", () => {
+    const controls = (range: [string, string], onRange: (min: string, max: string) => void, tab = "as_converted") =>
+        render(<Controls tab={{tab, stats: {min: 0, max: 50}}} palette="ironbow" palettes={[]} scale={null} unit="C"
+                         range={range} onPalette={() => {}} onRange={onRange} onAuto={() => {}}/>, root());
+    const button = (k: string) => root().querySelector<HTMLButtonElement>("#span-" + k)!;
+
+    it("step the range as typed, in the user's unit, within the image's own lowest and highest temperatures", () => {
+        setUserUnit("F");
+        const onRange = vi.fn();
+        controls(["50", "112"], onRange);
+        expect(text()).toContain("NarrowWidenLowerRaise");
+        click(button("lower"));
+        expect(onRange).toHaveBeenLastCalledWith("43.8", "105.8");
+        click(button("raise"));
+        expect(onRange).toHaveBeenLastCalledWith("56.2", "118.2");
+        click(button("widen"));
+        expect(onRange).toHaveBeenLastCalledWith("46.9", "115.1");
+        setUserUnit("C");
+    });
+
+    it("are disabled where a step would change nothing, or the range is not one", () => {
+        setUserUnit("C");
+        controls(["0", "50"], () => {});
+        expect(["narrow", "widen", "lower", "raise"].map((k) => button(k).disabled)).toEqual([false, true, false, false]);
+        controls(["", "50"], () => {});
+        expect(button("narrow").disabled).toBe(true);
+    });
+
+    it("show on a tab that is not in temperatures, in its own values", () => {
+        const onRange = vi.fn();
+        controls(["10", "20"], onRange, "view_angle");
+        click(button("raise"));
+        expect(onRange).toHaveBeenLastCalledWith("11", "21");
     });
 });
 
