@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: Q1 (the range's D-pad, with This mosaic under the colour scale).
+**Up next**: nothing planned yet.
 
-Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -3217,3 +3217,16 @@ tab alike:
   showed a small up/down scrollbar at its end. `.tabs` in `frontend/src/styles/app.css` now draws its line as an
   inset shadow the active tab's border covers. Checked on the user's pages in a headless Chromium with the rule
   applied: the strip's scroll height equals its height, the same look in light and dark. Vitest 460, lint.
+- **Q1: the range's D-pad, and This mosaic under the scale** (2026-11-03). `Controls` in
+  `frontend/src/viewer/panel.tsx` (the viewer, the frame page and the Video tab): the colour scale and the "This
+  mosaic:" / "This frame:" line in one `.scale-group`; under the range's fields a `.dpad` grid (in
+  `frontend/src/styles/app.css`) of the four span buttons as solid triangles (`TriangleUp` and the others in
+  `components/icons.tsx`, not text arrows, which Windows may draw as emoji) round `#auto`, each named by a `<label
+  for>` beside it (a click on the name steps too, greyed with a disabled arrow); the arrows are greyed without the
+  image's limits, Auto always works. `SPAN_STEPS` and `stepRange` are unchanged. Tests: `frontend/tests/panel.test.tsx`
+  (the D-pad's order and labels, its steps, greying, Auto without limits, the line under the scale). Docs: Mosaics (the
+  side panel), Frames, Flights (Recoloured), the CHANGELOG (the unreleased span buttons' entry rewritten, Changed),
+  and the panel's shots (viewer, viewer-measure, viewer-finding, finding-form, frames). Checked live on a scratch 8081
+  with a copy of the data, light and dark, on the viewer and the frame page: each arrow and a name step the range,
+  Auto restores it, no console errors; no flight there has videos, so the Video tab was not seen live. Checked: Vitest
+  462, lint, pytest 456, ruff, the strict docs build.

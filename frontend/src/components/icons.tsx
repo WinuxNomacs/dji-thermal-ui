@@ -45,6 +45,12 @@ export const HardDrive = (p: Props) => (
         <path d="M6 16h.01M10 16h.01"/></Icon>);
 export const CaretUp = (p: Props) => (<Icon {...p}><path d="M6 15l6-6 6 6"/></Icon>);
 export const CaretDown = (p: Props) => (<Icon {...p}><path d="M6 9l6 6 6-6"/></Icon>);
+// The range's D-pad: solid triangles pointing each way
+const triangle = (d: string) => (p: Props) => (<Icon {...p}><path d={d} fill="currentColor"/></Icon>);
+export const TriangleUp = triangle("M12 6l7 12H5z");
+export const TriangleDown = triangle("M12 18L5 6h14z");
+export const TriangleLeft = triangle("M6 12l12-7v14z");
+export const TriangleRight = triangle("M18 12L6 19V5z");
 export const Play = (p: Props) => (<Icon {...p}><path d="M7 4l13 8-13 8z"/></Icon>);
 export const Stop = (p: Props) => (<Icon {...p}><rect x="5" y="5" width="14" height="14" rx="1"/></Icon>);
 export const Pause = (p: Props) => (<Icon {...p}><path d="M8 5v14M16 5v14"/></Icon>);
