@@ -10,10 +10,10 @@ its title.
 
 **Up next**: Y2 (Frames in the navigation pane).
 
-Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+The tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: nothing planned yet.
+**Then**: Q1 (the range's D-pad, with This mosaic under the colour scale).
 
 ## Standalone (option A)
 
@@ -2401,6 +2401,39 @@ Docs (mosaics, frames, exports, webodm, measuring where they name these) and scr
 **Y2: Frames in the navigation pane.** Datasets fold (their fold kept with the others), Frames under each with frames,
 marked on the frame page; the pane's tests and the guide's page on it.
 
+## The range's D-pad
+
+Requested 2026-11-03 (from `new.md`):
+- Replace Narrow, Widen, Lower and Raise with one D-pad (a cross of four direction buttons): Narrow on its left, Widen
+  on its right, Lower on its down and Raise on its up. If the D-pad has a centre button, it does what Auto does.
+- Move the "This mosaic:" line (the mosaic's own lowest and highest temperatures) directly below the colour scale,
+  kept together with it.
+
+### What it builds on
+
+- **The panel's View section** (`Controls`, `frontend/src/viewer/panel.tsx`), shared by the viewer's panel, the
+  frame page's panel (where the line says "This frame:") and the flight's Video tab. Its order today: Palette, the
+  colour scale (`ScaleView`), the range's fields with **Auto** beside them, the range's error, R1's four span buttons
+  (`SPAN_STEPS`, `stepRange` in `viewer/view.ts`), then the "This mosaic:" line.
+- The span buttons show only when the image's lowest and highest values are known (they are the buttons' limits);
+  Auto always shows. The Compare page has its own range and Auto (`compare/pane.tsx`), without the span buttons.
+
+**Q1: the D-pad, and This mosaic under the scale.** In `Controls`, so on the viewer, the frame page and the Video
+tab alike:
+- The colour scale and the "This mosaic:" / "This frame:" line are one block, the line straight under the scale's
+  values; then the range's fields; then the D-pad, where the span buttons are now (below the fields, above Image).
+- The D-pad: four arrow buttons round a centre one, each doing what its button does today (the same steps, limits
+  and greying out), with the old names in their tooltips and labels (`#span-narrow` and the others keep their ids).
+  The centre is Auto (`#auto`, its tooltip as now).
+- Without the image's limits the arrows are greyed out and the centre's Auto still works, so Auto never goes missing.
+- Docs: the Mosaics guide's side panel, Frames and the Video tab's Recoloured, the CHANGELOG, and the shots that show
+  the panel (viewer, viewer-measure, viewer-finding, frames).
+
+### Open decisions
+
+- Auto only in the D-pad's centre (leaving the range's fields), or in both places.
+- The arrows' look: plain arrows (▲ ▼ ◀ ▶) with the names in their tooltips, or each arrow with its name beside it.
+
 ## Done (kept here briefly as a note, not a tracked deferral)
 
 
@@ -3167,3 +3200,8 @@ marked on the frame page; the pane's tests and the guide's page on it.
   1, °F), light and dark: no Export PNG on either page, Rebuild mosaics, no Open frame while hovering and Open frame
   after a click, PNG as shown saving the titled picture with its scale from the viewer and the frame page, no
   console errors. Checked: Vitest 460, lint, pytest 456, ruff, the strict docs build.
+- **The tab strip's scrollbar** (2026-11-03, a fix the user asked for). The viewer's and the flight page's tabs reached
+  1px below their strip (`margin-bottom: -1px` over its border), and the strip scrolls sideways, so Windows browsers
+  showed a small up/down scrollbar at its end. `.tabs` in `frontend/src/styles/app.css` now draws its line as an
+  inset shadow the active tab's border covers. Checked on the user's pages in a headless Chromium with the rule
+  applied: the strip's scroll height equals its height, the same look in light and dark. Vitest 460, lint.
