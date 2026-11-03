@@ -1,6 +1,6 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {cannotCarry, firstOffered, frameFormats, mosaicFormats, originalKind, startExport, viewAsked} from "../src/core/exports";
+import {cannotCarry, firstOffered, frameFormats, mosaicFormats, originalKind, shownFormat, startExport, viewAsked} from "../src/core/exports";
 import {setUserUnit} from "../src/core/units";
 import type {Conversion} from "../src/dataset/conversions";
 import {FilesExport, filesExportBody, type FilesAsked} from "../src/dataset/export";
@@ -65,6 +65,7 @@ describe("the formats offered", () => {
     it("offers a mosaic as its GeoTIFF, private or not, or a PNG", () => {
         expect(mosaicFormats(false).map((f) => f.format)).toEqual(["png", "tiff", "tiff_private"]);
         expect(mosaicFormats(true)[0].text).toContain("visual mosaic");
+        expect(shownFormat("The view.")).toEqual({format: "shown", label: "PNG as shown", text: "The view."});
     });
 
     it("sends the view as the server takes it, the isotherm only when there is one", () => {
@@ -195,7 +196,8 @@ describe("the Files tab's export", () => {
 
 describe("the frame explorer's export", () => {
     const VIEW = viewAsked("magma", [18, 32], {gamma: 1, equalize: false, sharpen: 0}, "");
-    const props = {api: API, datasetId: 5, conversion: 9, frame: A, settings: null, view: VIEW, hasVisual: true, onClose: () => undefined};
+    const props = {api: API, datasetId: 5, conversion: 9, frame: A, settings: null, view: VIEW, hasVisual: true,
+                   asShown: async () => "", onClose: () => undefined};
 
     it("sends this frame with the conversion, as converted or with the parameters changed", () => {
         const p = {...props, changes: {emissivity: 0.98}};
@@ -215,6 +217,11 @@ describe("the frame explorer's export", () => {
         await ticks();
         expect($("input[name=export-changes]")).toBeNull();
         render(<FrameExport {...props} changes={{emissivity: 0.98}} onClose={onClose}/>, byId("root"));
+        await ticks();
+        // As shown is the picture the page draws: how it is measured is the page's
+        expect(radio("export-format", "shown").checked).toBe(true);
+        expect($("input[name=export-changes]")).toBeNull();
+        choose(radio("export-format", "png"));
         await ticks();
         expect(radio("export-changes", "").checked).toBe(true);
         choose(radio("export-changes", "1"));
@@ -237,6 +244,25 @@ describe("the frame explorer's export", () => {
         expect(onClose).toHaveBeenCalledTimes(3);
         expect(fetchFn).not.toHaveBeenCalled();
     });
+
+    it("saves the frame as shown through the page, without asking the server, and says why it couldn't", async () => {
+        const fetchFn = server({});
+        vi.stubGlobal("fetch", fetchFn);
+        const asShown = vi.fn().mockResolvedValueOnce("Could not make the image.").mockResolvedValueOnce("");
+        const onClose = vi.fn();
+        render(<FrameExport {...props} changes={{}} asShown={asShown} onClose={onClose}/>, byId("root"));
+        await ticks();
+        expect(offered()[0]).toBe("shown *");
+        click(byId("export-save"));
+        await ticks();
+        expect(byId("export-dialog").textContent).toContain("Could not make the image.");
+        expect(onClose).not.toHaveBeenCalled();
+        click(byId("export-save"));
+        await ticks();
+        expect(asShown).toHaveBeenCalledTimes(2);
+        expect(onClose).toHaveBeenCalled();
+        expect(fetchFn).not.toHaveBeenCalled();
+    });
 });
 
 describe("the viewer's export", () => {
@@ -244,19 +270,19 @@ describe("the viewer's export", () => {
 
     it("sends the view and the correction on a temperature tab, nothing more on the visual one", () => {
         const p = {base: "/api/conversions/9", tab: "harmonized", label: "Harmonized", view: VIEW, correction: {emissivity: 0.9},
-                   onClose: () => undefined};
+                   asShown: async () => "", onClose: () => undefined};
         expect(mosaicExportBody(p, "png")).toEqual({format: "png", view: VIEW, correction: {emissivity: 0.9}});
         expect(mosaicExportBody({...p, tab: "visual", view: null}, "tiff_private")).toEqual({format: "tiff_private"});
     });
 
-    it("exports the tab shown, as a PNG by default", async () => {
+    it("exports the tab shown, as shown by default", async () => {
         const fetchFn = server({["POST /api/conversions/9/mosaics/visual/exports"]: {url: "/api/exports/01"}});
         vi.stubGlobal("fetch", fetchFn);
         render(<MosaicExport base="/api/conversions/9" tab="visual" label="Visual" view={null} correction={{}}
-                             onClose={() => undefined}/>, byId("root"));
+                             asShown={async () => ""} onClose={() => undefined}/>, byId("root"));
         await ticks();
-        expect(offered()).toEqual(["png *", "tiff", "tiff_private"]);
-        expect(byId("export-dialog").textContent).toContain("The “Visual” mosaic, whole");
+        expect(offered()).toEqual(["shown *", "png", "tiff", "tiff_private"]);
+        expect(byId("export-dialog").textContent).toContain("The “Visual” mosaic, as shown or whole");
         choose(radio("export-format", "tiff"));
         await ticks();
         click(byId("export-save"));

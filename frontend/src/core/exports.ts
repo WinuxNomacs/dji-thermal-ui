@@ -59,6 +59,13 @@ export function mosaicFormats(visual: boolean): FormatChoice[] {
     ];
 }
 
+// The view as the page shows it, drawn in the browser rather than made by the server
+export const AS_SHOWN = "shown";
+
+export function shownFormat(text: string): FormatChoice {
+    return {format: AS_SHOWN, label: "PNG as shown", text};
+}
+
 // The first format that can be chosen, the one asked if it can
 export function firstOffered(formats: FormatChoice[], wanted?: string): string {
     const ok = formats.filter((f) => !f.disabled);

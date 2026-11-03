@@ -171,7 +171,7 @@ export interface Point {
     height?: number | null; base_m?: number | null;     // the ground's, above WebODM's DSM's lowest ground (base_m)
 }
 
-// The values under the cursor, or at the point clicked (pinned)
+// The values under the cursor, or at the point clicked (pinned), whose frame can then be opened
 export function Readout({point, unit, frameUrl, pinned, onFollow}: {point: Maybe<Point>; unit: unknown; frameUrl: string;
                                                                     pinned: boolean; onFollow: () => void}) {
     const follow = pinned && <button type="button" class="button default small" id="follow" onClick={onFollow}>Follow the cursor</button>;
@@ -192,8 +192,8 @@ export function Readout({point, unit, frameUrl, pinned, onFollow}: {point: Maybe
             {rows.map(([k, v, title]) => <tr key={k}><th>{k}</th><td title={title}>{v}</td></tr>)}
         </tbody></table>
         <div class="inline">
-            {point.frame && <a class="button default small" id="open-frame" href={frameUrl + encodeURIComponent(point.frame)}>
-                <Image/> Open this frame</a>}
+            {pinned && point.frame && <a class="button default small" id="open-frame" href={frameUrl + encodeURIComponent(point.frame)}>
+                <Image/> Open frame</a>}
             {follow}
         </div>
     </>);

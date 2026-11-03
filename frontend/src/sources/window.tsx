@@ -190,7 +190,7 @@ export function SourcesWindow({groups, name, anchor, about, visual: startVisual 
                 <span class="sources-count">{i + 1} of {frames.length}</span>
                 <button type="button" class="button default small" name="next" title="The next frame (→)"
                         aria-label="Next frame" disabled={i === frames.length - 1} onClick={() => setIndex(i + 1)}><ChevronRight/></button>
-                <a class="button default small" href={group.href(f.frame)}><Image/> Open this frame</a>
+                <a class="button default small" href={group.href(f.frame)}><Image/> Open frame</a>
             </div>
             {res.kind === "Point" && !f.pixel && <p class="message">The spot is not marked: build the mosaics again to know where it is.</p>}
             {res.kind === "Polygon" && !res.models && <p class="message">The area is not outlined without the frames' models.</p>}

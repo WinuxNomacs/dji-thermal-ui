@@ -124,7 +124,7 @@ is kept as WebODM wrote it, once dji-thermal-cli has read it, and the card says 
 - **The height cell:** the size of the cells the surface is read on, in mosaic pixels (8 to 1024; 16 at first),
   with its size on the ground once the mosaics are built (16 px was about 24 cm in a test flight, and gave straight
   roof edges where the default 64 px stepped).
-- **Build the mosaics again** shows when the mosaics were built otherwise (without it, or on another cell).
+- **Rebuild mosaics** shows when the mosaics were built otherwise (without it, or on another cell).
 
 A dataset keeps one DSM: another task's replaces it, keeping the tick and the cell. **Remove**, or taking its task
 off the list, removes it; the mosaics built on it are kept.

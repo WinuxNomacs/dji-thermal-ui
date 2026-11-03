@@ -723,9 +723,10 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     }
 
     // The frame as shown (every pane: with the visual pair beside it, with parameters changed), its saved measurements
-    // (and the one drawn, not saved yet) and colour scale, as a PNG. The frame is in pixels: there is no scale bar.
-    async function exportPng() {
-        if (!meta || !frame || !layers.current[0]) return;
+    // (and the one drawn, not saved yet) and colour scale, as a PNG (the Export dialog's As shown): "" once saved, else
+    // why it couldn't be. The frame is in pixels: there is no scale bar.
+    async function exportShown(): Promise<string> {
+        if (!meta || !frame || !layers.current[0]) return "The frame isn't shown yet.";
         const shownPanes = [0].concat(beside && maps.current[SIDE] ? [SIDE] : [],
                                       changed && !onPair && maps.current[1] && layers.current[1] ? [1] : []);
         const onVisual = (i: number) => i === SIDE || (i === 0 && onPair);
@@ -744,8 +745,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             date: (taken ? "Taken " + taken + " · exported " : "Exported ") + today,
             panes, legend: scale, scale: null, ratio: Math.max(1, devicePixelRatio || 1),
         });
-        const error = await saveCanvas(canvas, fileName([meta.dataset_name, meta.name, frame.replace(/\.[^./]*$/, "")], ".png"));
-        if (error) setStatus({text: error, error: true});
+        return await saveCanvas(canvas, fileName([meta.dataset_name, meta.name, frame.replace(/\.[^./]*$/, "")], ".png")) || "";
     }
 
     if (!meta) {
@@ -774,17 +774,14 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                     <div class="subtitle">{meta.description || ""}</div>
                 </div>
                 <div class="page-actions">
-                    {info && <button type="button" class="button default" id="png" onClick={exportPng}
-                                     title="The frame as shown (both panes with parameters changed), with its saved measurements and colour scale">
-                        <Download/> Export PNG</button>}
                     {info && shown && <button type="button" class="button default" id="export" onClick={() => setExporting(true)}
-                                              title="This frame as a PNG, TIFF, R-JPEG or its original, private or not">
+                                              title="This frame as shown, with its measurements and colour scale, or as a PNG, TIFF, R-JPEG or its original">
                         <Download/> Export…</button>}
                 </div>
             </div>
 
             {exporting && frame && shown && <FrameExport api={api} datasetId={datasetId} conversion={id} frame={frame}
-                settings={{...meta.settings, normalize: meta.normalized}} changes={changesIn(changes, unit)} hasVisual={!!pair}
+                settings={{...meta.settings, normalize: meta.normalized}} changes={changesIn(changes, unit)} hasVisual={!!pair} asShown={exportShown}
                 view={viewAsked(shown.palette, shown.range, shown.adjust, isoValue)} onClose={() => setExporting(false)}/>}
             {notice && <div class="notice error" role="alert">{notice}</div>}
             {status.text && <div class={"status " + (status.error ? "text-danger" : "text-muted")} id="status">{status.text}</div>}

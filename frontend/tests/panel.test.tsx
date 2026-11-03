@@ -85,14 +85,19 @@ describe("the range's span buttons", () => {
 });
 
 describe("the readout", () => {
-    it("shows the temperature, the frame and its pixel, with a link to open the frame", () => {
-        render(<Readout point={{valid: true, temperature: 21.46, frame: "DJI_0001_T.JPG", frame_pixel: [12, 34], view_angle: 7.25}}
-                        unit="C" frameUrl="/conversion/3/frame?frame=" pinned={false} onFollow={() => {}}/>, root());
+    it("shows the temperature, the frame and its pixel, with Open frame only once the point is kept", () => {
+        const point = {valid: true, temperature: 21.46, frame: "DJI_0001_T.JPG", frame_pixel: [12, 34] as [number, number], view_angle: 7.25};
+        render(<Readout point={point} unit="C" frameUrl="/conversion/3/frame?frame=" pinned={false} onFollow={() => {}}/>, root());
         expect(text()).toContain("Temperature21.46 °C");
         expect(text()).toContain("Frame pixelx 12, y 34");
         expect(text()).toContain("View angle7.3°");
-        expect(root().querySelector("#open-frame")!.getAttribute("href")).toBe("/conversion/3/frame?frame=DJI_0001_T.JPG");
+        expect(root().querySelector("#open-frame")).toBeNull();
         expect(root().querySelector("#follow")).toBeNull();
+        render(<Readout point={point} unit="C" frameUrl="/conversion/3/frame?frame=" pinned={true} onFollow={() => {}}/>, root());
+        const open = root().querySelector("#open-frame")!;
+        expect(open.textContent).toBe(" Open frame");
+        expect(open.getAttribute("href")).toBe("/conversion/3/frame?frame=DJI_0001_T.JPG");
+        expect(root().querySelector("#follow")).not.toBeNull();
     });
 
     it("gives the ground's height above the DSM's lowest ground, as WebODM gives it in its tooltip", () => {

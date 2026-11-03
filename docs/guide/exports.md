@@ -20,6 +20,11 @@ A frame, the frames chosen or a whole flight export as:
 
 A mosaic exports as its **GeoTIFF**, or a **PNG** of the view at full size.
 
+On the viewer and the frame page, **PNG as shown** comes first: the view as you see it, drawn by the browser, with
+the title, the date it was taken and exported, the saved measurements (and one drawn but not saved yet) and the
+colour scale. The viewer's has a scale bar and leaves the basemap out; the frame page's has every pane shown (the
+visual image beside it, the parameters changed).
+
 Each format says what it is for. R-JPEG and Original are turned off, with the reason, for a normalized dataset or
 replaced values, which only TIFF carries.
 
@@ -30,4 +35,4 @@ or an email address could be. A private mosaic's GeoTIFF has no place.
 
 ## Downloads
 
-Several files come as a zip, made as it downloads. **Export PNG**, in the viewer, still saves the view as shown.
+Several files come as a zip, made as it downloads.

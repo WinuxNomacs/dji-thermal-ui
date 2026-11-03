@@ -307,6 +307,10 @@ describe("the viewer page", () => {
         await open(fetchFn);
         click(byId("export"));
         await ticks();
+        const png = $("input[name=export-format][value=png]") as HTMLInputElement;
+        png.checked = true;
+        png.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
         click(byId("export-save"));
         await ticks();
         const post = fetchFn.mock.calls.find((c) => String(c[0]).endsWith("/exports"))!;
@@ -565,7 +569,7 @@ describe("the viewer page", () => {
         vi.advanceTimersByTime(2000);
         await ticks(40);
         expect(document.getElementById("status")).toBeNull();
-        expect(byId("build").textContent).toContain("Build the mosaics again");
+        expect(byId("build").textContent).toContain("Rebuild mosaics");
         expect(($(".viewer-main") as HTMLElement).hidden).toBe(false);
     });
 
