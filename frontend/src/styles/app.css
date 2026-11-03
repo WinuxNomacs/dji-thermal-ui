@@ -189,7 +189,8 @@ ul { padding-left: 20px; }
 .level-1 > .nav-row { padding-left: 12px; }
 .level-2 > .nav-row { padding-left: 26px; }
 .level-3 > .nav-row { padding-left: 40px; }
-.level-3 a { font-size: 12px; }
+.level-3 a, .level-4 a { font-size: 12px; }
+.level-4 > .nav-row { padding-left: 54px; }
 .nav-count { float: right; margin-left: 6px; color: var(--muted); font-weight: normal; font-variant-numeric: tabular-nums; }
 .nav-error { margin: 4px 12px; font-size: 12px; }
 .nav-search { padding: 4px 8px 4px 12px; }

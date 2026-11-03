@@ -64,7 +64,7 @@ async function pane(current: Current = {page: "projects", id: NaN}, fetchFn = se
 }
 
 describe("the navigation pane", () => {
-    it("lists the projects folded, unfolds them to their flights and those to their datasets, and stops there", async () => {
+    it("lists the projects folded, unfolds them to their flights, those to their datasets and those to their frames", async () => {
         await pane();
         expect(links()).toEqual(["Projects", "Default Project", "Silos", "User Preferences", "System Settings", "Storage"]);
         expect(currentLink()).toBe("Projects");
@@ -82,12 +82,18 @@ describe("the navigation pane", () => {
         expect(links().slice(3, 8)).toEqual(["Roof", "Built", "Converted", "Converting", "Field"]);
         // No report row: the flight page's header opens it
         expect($('a[href="/dataset/5/report"]')).toBeNull();
-        // A dataset opens its mosaics, else its frames, else its flight's Datasets tab, and has nothing under it
+        // A dataset opens its mosaics, else its frames, else its flight's Datasets tab
         expect($("a[title=Built]")!.getAttribute("href")).toBe("/conversion/9");
         expect($("a[title=Converted]")!.getAttribute("href")).toBe("/conversion/8/frame");
         expect($("a[title=Converting]")!.getAttribute("href")).toBe("/dataset/5#datasets");
-        expect(fold("c9")).toBeNull();
         expect(root().querySelectorAll(".app-nav .level-4")).toHaveLength(0);
+        // One with frames unfolds to its Frames, opening its frame page; one without has nothing to unfold
+        expect(fold("c7")).toBeNull();
+        click(fold("c9"));
+        await ticks(2);
+        expect(links().slice(3, 9)).toEqual(["Roof", "Built", "Frames", "Converted", "Converting", "Field"]);
+        expect($(".level-4 a")!.getAttribute("href")).toBe("/conversion/9/frame");
+        expect(fold("c8").getAttribute("aria-expanded")).toBe("false");
         // Folded again, with what is under it
         click(fold("p2"));
         await ticks(2);
@@ -171,23 +177,35 @@ describe("the navigation pane", () => {
         expect(currentLink()).toBe("Storage");
     });
 
-    it("marks a dataset on each of its pages", async () => {
-        for (const page of ["viewer", "compare", "conversion_report", "frame"]) {
+    it("marks a dataset on each of its pages, and its Frames on its frame page", async () => {
+        for (const page of ["viewer", "compare", "conversion_report"]) {
             localStorage.clear();
             render(null, root());
             await pane({page, id: 9});
             expect(currentLink()).toBe("Built");
+            expect(fold("c9").getAttribute("aria-expanded")).toBe("false");
         }
+        localStorage.clear();
         render(null, root());
         await pane({page: "frame", id: 8});
+        expect(fold("c8").getAttribute("aria-expanded")).toBe("true");
+        expect(currentLink()).toBe("Frames");
+        expect($(".level-4 [aria-current=page]")!.getAttribute("href")).toBe("/conversion/8/frame");
+        // Folded: the dataset is marked instead
+        click(fold("c8"));
+        await ticks(2);
         expect(currentLink()).toBe("Converted");
+        // One without frames yet has no Frames to mark
+        render(null, root());
+        await pane({page: "frame", id: 7});
+        expect(currentLink()).toBe("Converting");
     });
 
     it("keeps unfolded what it unfolded to the page shown, so that it folds only when clicked", async () => {
         localStorage.setItem("thermal-analyzer.nav.expanded", JSON.stringify(["p1", "c9", "c9.tools", "settings"]));
         await pane({page: "viewer", id: 9});
-        // What an older pane folded (a dataset's groups, System Settings) is forgotten
-        expect(JSON.parse(localStorage.getItem("thermal-analyzer.nav.expanded")!)).toEqual(["p1", "p2", "d5"]);
+        // What an older pane folded (a dataset's groups, System Settings) is forgotten; a dataset's fold is kept
+        expect(JSON.parse(localStorage.getItem("thermal-analyzer.nav.expanded")!)).toEqual(["p1", "c9", "p2", "d5"]);
         render(null, root());
         await pane({page: "projects", id: NaN});
         expect(links()).toContain("Built");
@@ -205,6 +223,7 @@ describe("the navigation pane", () => {
         expect(pathTo(PROJECTS, {page: "viewer", id: 9})).toEqual(["p2", "d5"]);
         expect(pathTo(PROJECTS, {page: "conversion_report", id: 9})).toEqual(["p2", "d5"]);
         expect(pathTo(PROJECTS, {page: "frame", id: 7})).toEqual(["p2", "d5"]);
+        expect(pathTo(PROJECTS, {page: "frame", id: 9})).toEqual(["p2", "d5", "c9"]);
         expect(pathTo(PROJECTS, {page: "dataset_report", id: 5})).toEqual(["p2"]);
         expect(pathTo(PROJECTS, {page: "dataset", id: 5})).toEqual(["p2"]);
         expect(pathTo(PROJECTS, {page: "project", id: 2})).toEqual([]);

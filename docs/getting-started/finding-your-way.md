@@ -5,13 +5,14 @@ of one flight of the drone, and a dataset is a flight's images converted to temp
 
 ## The navigation pane
 
-A pane on the left of every page lists the projects, under each its flights, under each its datasets, then
-**User Preferences**, **System Settings** and **Storage**. The pages' own tabs and buttons go further: the viewer's
-tabs, Compare, the reports, the frames explorer.
+A pane on the left of every page lists the projects, under each its flights, under each its datasets, under each
+dataset with frames its **Frames**, then **User Preferences**, **System Settings** and **Storage**. The pages' own
+tabs and buttons go further: the viewer's tabs, Compare, the reports.
 
 - A dataset opens its mosaics (else its frames, else its flight's Datasets tab), and is marked on any of its pages; a
   flight is marked on its Flight report.
-- Projects and flights fold. What the pane unfolds to show the page shown stays unfolded until folded.
+- **Frames** opens the dataset's [frames explorer](../guide/frames.md), and is marked there.
+- Projects, flights and datasets fold. What the pane unfolds to show the page shown stays unfolded until folded.
 - The whole pane hides, by the header's menu button or the small tab on its edge. Over a narrow screen it opens on
   top of the page.
 - The box under Projects filters the projects by name, and stays as typed from page to page until it is emptied
