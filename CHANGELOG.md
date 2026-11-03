@@ -163,6 +163,8 @@ All notable changes are recorded here. The format follows
   replacing the other.
 - The flight report's map showed its zoom buttons, scale, attribution and basemap switch unstyled, piled up in its
   corner: the page now loads OpenLayers' styles. Printing was not affected.
+- On Windows, the tabs of the viewer and of a flight's page (Mosaic, Harmonized…; Datasets, Files…) showed a small
+  vertical scrollbar at their right end: their line is drawn inside the strip now, so nothing scrolls.
 
 ## [0.9.0] - 2026-10-29
 
