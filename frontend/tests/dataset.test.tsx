@@ -1292,7 +1292,7 @@ describe("the Datasets tab", () => {
         expect(line()).toMatch(/^WebODM's DSM of Roof - Nadir is here\. Project the mosaics onto it, on height cells of px /);
         expect(line()).toContain("(about 24 cm). Remove");
         expect(card().querySelector(".dsm-built")!.textContent!.replace(/\s+/g, " ").trim())
-            .toBe("The mosaics were built on their own heights. Build the mosaics again");
+            .toBe("The mosaics were built on their own heights. Rebuild mosaics");
         const cell = card().querySelector<HTMLInputElement>(".dsm-cell")!;
         cell.value = "4";
         cell.dispatchEvent(new Event("input", {bubbles: true}));

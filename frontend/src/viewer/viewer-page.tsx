@@ -883,10 +883,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         await load();
     }
 
-    // The mosaic as shown, its saved measurements (and the one drawn, not saved yet) and colour scale, as a PNG
-    async function exportPng() {
+    // The mosaic as shown, its saved measurements (and the one drawn, not saved yet) and colour scale, as a PNG (the Export
+    // dialog's As shown): "" once saved, else why it couldn't be
+    async function exportShown(): Promise<string> {
         const m = map.current, l = visual ? visualTiles.current : layer.current?.layer;
-        if (!m || !l || !v || !tab || !mapEl.current) return;
+        if (!m || !l || !v || !tab || !mapEl.current) return "The mosaic isn't shown yet.";
         const shownTab = visual ? VISUAL : tab;
         const shapes = saved.filter((x) => x.target === tab && x.geometry).map((x) => shapeOnMap(m, x.geometry!, fromCoords, x.name));
         drawn.forEach((f) => shapes.push(shapeOnMap(m, f.geometry, fromCoords, f.name)));
@@ -901,8 +902,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             panes: [{el: mapEl.current, images: [image, seamsImage].filter((x) => !!x), shapes}],
             legend: scale, scale: scaleBar(metresPerPixel(m), 120), ratio: Math.max(1, devicePixelRatio || 1),
         });
-        const error = await saveCanvas(canvas, fileName([v.dataset_name, v.name, tabLabel(shownTab)], ".png"));
-        if (error) setNotice(error);
+        return await saveCanvas(canvas, fileName([v.dataset_name, v.name, tabLabel(shownTab)], ".png")) || "";
     }
 
     // The mosaic report, with the view shown: saved with the report first
@@ -951,11 +951,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         <Image/> Frames</a>}
                     {ready && <a class="button default" id="compare" href={publicUrl + "conversion/" + id + "/compare"}
                                  title="This mosaic beside another mosaic, or their difference"><Columns/> Compare with…</a>}
-                    {ready && <button type="button" class="button default" id="png" onClick={exportPng}
-                                      title="The mosaic as shown, with its saved measurements and colour scale (the basemap is left out)">
-                        <Download/> Export PNG</button>}
                     {ready && <button type="button" class="button default" id="export" onClick={() => setExporting(true)}
-                                      title="The mosaic whole, at full resolution: its GeoTIFF, private or not, or a PNG as shown">
+                                      title="The mosaic as shown, with its measurements and colour scale, or whole at full resolution: a PNG or its GeoTIFF">
                         <Download/> Export…</button>}
                     {ready && <button type="button" class="button default" id="report" onClick={openReport}
                                       title="A report of this mosaic as shown, its measurements and findings, to print or save as PDF">
@@ -963,14 +960,14 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     {v.status === "ready" && v.mosaic_status !== "building" &&
                         <button type="button" class="button default" id="build"
                                 onClick={() => action("/mosaics", "Could not build the mosaics.")}>
-                            <Grid/> {v.mosaic_status === "ready" ? "Build the mosaics again" : "Build mosaics"}</button>}
+                            <Grid/> {v.mosaic_status === "ready" ? "Rebuild mosaics" : "Build mosaics"}</button>}
                     {isBusy(v) && <button type="button" class="button default" id="cancel"
                                           onClick={() => action("/cancel", "Could not cancel.")}><Stop/> Cancel</button>}
                 </div>
             </div>
 
             {exporting && tab && (visual || shown) && <MosaicExport base={base} tab={visual ? VISUAL : tab}
-                label={tabLabel(visual ? VISUAL : tab)} correction={params} onClose={() => setExporting(false)}
+                label={tabLabel(visual ? VISUAL : tab)} correction={params} asShown={exportShown} onClose={() => setExporting(false)}
                 view={visual || !shown ? null : viewAsked(shown.palette, shown.range, shown.adjust, temperature ? isoValue : null)}/>}
             {notice && <div class="notice error" role="alert">{notice}</div>}
             <MosaicStatus v={{...v, label: mosaicLabel(v)}}/>

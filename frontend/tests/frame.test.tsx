@@ -414,6 +414,10 @@ describe("the frame page", () => {
         expect(byId("export-dialog").textContent).toContain("“thermal/a_T.JPG”");
         // The conversion is normalized: its R-JPEGs and originals can't be made
         expect(($("input[name=export-format][value=original]") as HTMLInputElement).disabled).toBe(true);
+        const png = $("input[name=export-format][value=png]") as HTMLInputElement;
+        png.checked = true;
+        png.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
         const changed = $("input[name=export-changes][value='1']") as HTMLInputElement;
         changed.checked = true;
         changed.dispatchEvent(new Event("change", {bubbles: true}));

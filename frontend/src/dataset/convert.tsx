@@ -261,7 +261,7 @@ function DsmLine({c, base, onChange, build}: DsmProps) {
         {ready && !same && <div class="dsm-built">
             The mosaics were built {built ? "on WebODM's DSM, on cells of " + built.height_cell + " px" : "on their own heights"}.{" "}
             <button type="button" class="button default small" data-action="dsm-build" onClick={build}>
-                Build the mosaics again</button></div>}
+                Rebuild mosaics</button></div>}
         {problem && <div class="text-danger"><Warning/> {problem}</div>}
     </div>);
 }
