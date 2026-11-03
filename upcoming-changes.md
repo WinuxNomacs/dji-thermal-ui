@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned yet.
+**Up next**: R1 (the range's span buttons).
 
 O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
@@ -2342,6 +2342,25 @@ uses. The user types WebODM's address and an admin account's user name and passw
   app saves it, so it is never typed again.
 - **A name already taken:** refused, saying to choose another or to type that account's password in the login form.
   The app never changes an existing WebODM account.
+
+## Range span buttons
+
+Requested 2026-11-03: buttons that change the colour range's span, in the panel under the range's minimum and
+maximum, above the Image section. It builds on the range fields of `Controls` (`frontend/src/viewer/panel.tsx`),
+shared by the viewer's panel, the frame page's panel and the flight's Video tab, and goes through the same path as a
+typed range (`onRange`). Brightness and Contrast (Image) already move the range from the Auto one; these step it from
+wherever it is.
+
+**R1: the span buttons.** Four buttons, in the units shown:
+- **Narrow** takes 10% off the span and **Widen** adds 10%, half at each end.
+- **Lower** and **Raise** move both ends by 10% of the span (the user's choice: of the span, not of each temperature,
+  so °C and °F agree).
+- Neither end goes past the image's own lowest and highest values (the "This mosaic" / "This frame" line): an end
+  that reaches one stays there while the other moves on, so the span shrinks against the edge (the user's choice). A
+  button that would change nothing is disabled.
+- Everywhere the range shows (the user's choice): the viewer (every tab with a range, Difference too), the frame page
+  and the Video tab. Not the Compare page, which has its own range.
+- Ends are rounded to a tenth, as the fields are.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 

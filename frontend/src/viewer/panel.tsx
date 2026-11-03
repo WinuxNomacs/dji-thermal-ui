@@ -9,7 +9,7 @@ import {Histogram} from "../measure/charts";
 import {type Measured, symbol, temp} from "../measure/measure";
 import {gradientCss, type Scale} from "./canvas";
 import {type Adjust, EMISSIVITY_RANGE, gammaSlider, inTemperatures, type MosaicTab, reflectedRange, scaleTicks,
-        SLIDERS, TAB_HINTS, valueUnit} from "./view";
+        SLIDERS, SPAN_STEPS, type SpanStep, stepRange, TAB_HINTS, valueUnit} from "./view";
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
 
@@ -82,6 +82,9 @@ export function Controls(p: ControlsProps) {
     }
     const conv = (x: Maybe<number>) => temperature ? convertTemp(x, p.unit) as number : x;
     const typed = (min: string, max: string) => p.onRange(min, max), frame = t === "frame" || t === "video";
+    // The span buttons step the range as the fields show it, within the image's own lowest and highest values
+    const limits = s && typeof s.min === "number" && typeof s.max === "number" ? [conv(s.min), conv(s.max)] as [number, number] : null;
+    const spanned = limits && ((k: SpanStep) => stepRange([parseFloat(p.range[0]), parseFloat(p.range[1])], limits, k));
     return (<>
         {hint}
         <label class="field">Palette
@@ -101,6 +104,13 @@ export function Controls(p: ControlsProps) {
                     onClick={p.onAuto}>Auto</button>
         </div>
         {p.rangeError && <div class="text-danger" id="range-error">{p.rangeError}</div>}
+        {spanned && <div class="inline span-steps" role="group" aria-label="The range's span">
+            {SPAN_STEPS.map(([k, label, title]) => {
+                const r = spanned(k);
+                return <button key={k} type="button" class="button default small" id={"span-" + k} title={title} disabled={!r}
+                               onClick={() => r && typed(String(r[0]), String(r[1]))}>{label}</button>;
+            })}
+        </div>}
         {s && <div class="message">{frame ? "This frame" : "This mosaic"}: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
             temperature ? " " + symbol() : u)}</div>}
     </>);
