@@ -122,7 +122,8 @@ describe("the range", () => {
         expect(stepRange([20, 95], [0, 100], "raise")).toEqual([27.5, 100]);
         expect(stepRange([27.5, 100], [0, 100], "raise")).toEqual([34.8, 100]);
         expect(stepRange([2, 50], [0, 50], "widen")).toEqual([0, 50]);
-        expect(stepRange([0.04, 99.97], [0.04, 99.97], "widen")).toEqual([0.1, 99.9]);
+        expect(stepRange([2, 108], [1.96, 110.17], "widen")).toEqual([2, 110.2]);
+        expect(stepRange([20, 109], [1.96, 110.17], "raise")).toEqual([28.9, 110.2]);
     });
 
     it("gives nothing when the range would not change or is not a range", () => {

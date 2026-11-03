@@ -184,13 +184,14 @@ export const SPAN_STEPS: [SpanStep, string, string][] = [
     ["raise", "Raise", "Moves both ends up by 10% of the span"]];
 
 // A step of the span buttons, in the units shown, rounded to a tenth as the fields are. Neither end goes past the
-// image's own lowest and highest values (limits): an end that reaches one stays there while the other moves on, so
-// the span shrinks against it. Null when the range would not change, or is not a range.
+// image's own lowest and highest values (limits, to the tenth the panel shows them): an end that reaches one stays
+// there while the other moves on, so the span shrinks against it. Null when the range would not change, or is not
+// a range.
 export function stepRange(range: [number, number], limits: [number, number], step: SpanStep): [number, number] | null {
     const d = (range[1] - range[0]) / 10;
     const [down, up] = {narrow: [d / 2, -d / 2], widen: [-d / 2, d / 2], lower: [-d, -d], raise: [d, d]}[step];
-    const floor = Math.ceil(limits[0] * 10 - 1e-9) / 10, ceiling = Math.floor(limits[1] * 10 + 1e-9) / 10;
-    const end = (x: number) => Math.min(ceiling, Math.max(floor, Math.round(x * 10) / 10)) + 0;     // + 0: never -0
+    const tenth = (x: number) => Math.round(x * 10) / 10, floor = tenth(limits[0]), ceiling = tenth(limits[1]);
+    const end = (x: number) => Math.min(ceiling, Math.max(floor, tenth(x))) + 0;     // + 0: never -0
     const lo = end(range[0] + down), hi = end(range[1] + up);
     if (!(hi > lo) || (lo === range[0] && hi === range[1])) return null;
     return [lo, hi];
