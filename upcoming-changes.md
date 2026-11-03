@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: Y1 (Export PNG into Export…, and the buttons' wording), then Y2 (Frames in the navigation pane).
+**Up next**: Y2 (Frames in the navigation pane).
 
-R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -3155,3 +3155,15 @@ marked on the frame page; the pane's tests and the guide's page on it.
   live on a scratch 8081 with a copy of the data (dataset 1, °F): each button on the mosaic and a frame, Raise
   stopping at the line's maximum while the span shrank, Widen greyed out at the frame's whole range, no console
   errors, light and dark. Checked: Vitest 459, lint, pytest 456, ruff, the strict docs build.
+- **Y1: Export PNG into Export…, and the wording** (2026-11-03). `AS_SHOWN` and `shownFormat` in
+  `frontend/src/core/exports.ts`; "PNG as shown" first (and chosen) in `MosaicExport` (`viewer/export.tsx`) and
+  `FrameExport` (`frame/export.tsx`), which call the page's `exportShown` (`viewer-page.tsx`, `frame-page.tsx`: the
+  old `exportPng`, now returning why it couldn't save) instead of the server; the `#png` buttons are gone. "Rebuild
+  mosaics" (`viewer-page.tsx`, `dataset/convert.tsx`), "Open frame" (`Readout` in `viewer/panel.tsx`, only while
+  `pinned`; `sources/window.tsx`). Tests: `exports.test.tsx` (the shown format, saving through the page and its
+  error), `panel.test.tsx` (the readout), `viewer.test.tsx`, `frame.test.tsx`, `dataset.test.tsx`. Docs: Mosaics
+  (Pointer info, the header), Frames, Exports, WebODM, the CHANGELOG (Changed), and the export-mosaic, frames,
+  viewer, viewer-measure and viewer-finding shots. Checked live on a scratch 8081 with a copy of the data (dataset
+  1, °F), light and dark: no Export PNG on either page, Rebuild mosaics, no Open frame while hovering and Open frame
+  after a click, PNG as shown saving the titled picture with its scale from the viewer and the frame page, no
+  console errors. Checked: Vitest 460, lint, pytest 456, ruff, the strict docs build.
