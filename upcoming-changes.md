@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned yet.
+**Up next**: Y1 (Export PNG into Export…, and the buttons' wording), then Y2 (Frames in the navigation pane).
 
 R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
@@ -2361,6 +2361,45 @@ wherever it is.
 - Everywhere the range shows (the user's choice): the viewer (every tab with a range, Difference too), the frame page
   and the Video tab. Not the Compare page, which has its own range.
 - Ends are rounded to a tenth, as the fields are.
+
+## Buttons and the navigation pane
+
+Requested 2026-11-03 (from `new.md`), with the user's decisions of the same day:
+- Remove the Export PNG button, as Export… covers it.
+- Rename "Build the mosaics again" to "Rebuild mosaics".
+- Add Frames to the navigation pane, under each dataset, to browse a dataset's frames.
+- Pointer info: rename "Open this frame" to "Open frame", shown only when a frame is selected (a click keeps it), not
+  while the cursor is only over it.
+
+### What it builds on
+
+- **Export PNG:** `exportPng` in `frontend/src/viewer/viewer-page.tsx` and `frontend/src/frame/frame-page.tsx` draws the
+  view as shown through `viewCanvas` (`viewer/canvas.ts`): title, date, the saved measurements (and the one drawn),
+  the colour scale, a scale bar on the viewer, and on the frame page every pane shown (visual, Parameters changed).
+  The Export… dialog (`viewer/export.tsx`, `frame/export.tsx`, `components/export-dialog.tsx`) makes its PNG on the
+  server, coloured as the view at full resolution, with none of those.
+- **The wording:** the viewer's header button (`viewer-page.tsx`), the WebODM heights panel's button on the flight's
+  Datasets tab (`dataset/convert.tsx`); "Open this frame" in Pointer info (`Readout`, `viewer/panel.tsx`) and in the
+  source frames window (`sources/window.tsx`). Pointer info's `pinned` is the frame kept by a click.
+- **The pane:** `components/nav-pane.tsx` and `core/navigation.ts`. A dataset (`conversion`) item links to its mosaics,
+  else its frames, else the flight's Datasets tab (`conversionHref`); only projects and flights fold (`storedExpanded`
+  keeps `p…`/`d…` keys); `trailTo` marks the conversion on any of its pages.
+
+### Decisions (2026-11-03)
+
+- **Export PNG moves into Export…** on both pages: the button goes, and the dialog gets an "As shown" format that makes
+  the picture Export PNG makes today (made in the browser, as now). Nothing is lost.
+- **Frames in the pane:** a dataset folds like projects and flights, with a "Frames" item under it (when it has
+  frames); the dataset's own name still opens its mosaics. The frame page marks the Frames item.
+- **Wording everywhere, sentence case:** "Rebuild mosaics" (the viewer's header and the WebODM heights panel) and
+  "Open frame" (Pointer info and the source frames window, which stays always shown: it always has a chosen frame).
+
+**Y1: Export PNG into Export…, and the wording.** The "As shown" format on the viewer's and the frame page's Export…
+dialogs, the Export PNG buttons removed; "Rebuild mosaics"; "Open frame", in Pointer info only while a frame is kept.
+Docs (mosaics, frames, exports, webodm, measuring where they name these) and screenshots that show the buttons.
+
+**Y2: Frames in the navigation pane.** Datasets fold (their fold kept with the others), Frames under each with frames,
+marked on the frame page; the pane's tests and the guide's page on it.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
