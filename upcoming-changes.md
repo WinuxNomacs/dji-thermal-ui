@@ -8,9 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: R1 (the range's span buttons).
+**Up next**: nothing planned yet.
 
-O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -3107,3 +3107,12 @@ wherever it is.
 - **label-create-account** (2026-11-01, new.md): the button on System Settings › WebODM says **Create the account for
   me** (the user's wording, without the ellipsis), and so do the WebODM guide, the page's own guide (step 1), the
   CHANGELOG and the settings shot.
+- **R1: the range's span buttons** (2026-11-03). `stepRange` and `SPAN_STEPS` in `frontend/src/viewer/view.ts`; the
+  buttons (`#span-narrow`, `-widen`, `-lower`, `-raise`) in `Controls` (`frontend/src/viewer/panel.tsx`), so the
+  viewer, the frame page and the Video tab all have them, and they call `onRange` as a typed range does. The image's
+  ends are taken to the tenth the panel shows. Tests: `frontend/tests/view.test.ts` ("the range") and
+  `frontend/tests/panel.test.tsx` ("the range's span buttons"). Docs: the Mosaics guide's side panel, Frames, the
+  Video tab's Recoloured, the CHANGELOG, and the viewer, viewer-measure, viewer-finding and frames shots. Checked
+  live on a scratch 8081 with a copy of the data (dataset 1, °F): each button on the mosaic and a frame, Raise
+  stopping at the line's maximum while the span shrank, Widen greyed out at the frame's whole range, no console
+  errors, light and dark. Checked: Vitest 459, lint, pytest 456, ruff, the strict docs build.
