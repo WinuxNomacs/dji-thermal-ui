@@ -2,7 +2,7 @@
 // correction, the whole mosaic's figures and dji-thermal-cli's report
 import type {ComponentChildren} from "preact";
 import {useState} from "preact/hooks";
-import {Download, Image, Warning} from "../components/icons";
+import {Download, Image, TriangleDown, TriangleLeft, TriangleRight, TriangleUp, Warning} from "../components/icons";
 import {formatNumber, type Maybe} from "../core/format";
 import {convertTemp, unitSymbol, userUnit} from "../core/units";
 import {Histogram} from "../measure/charts";
@@ -63,6 +63,10 @@ export function ScaleView({scale}: {scale: Maybe<Scale>}) {
     </div>);
 }
 
+// The D-pad's arrows, in the order it is read (and tabbed through)
+const ARROWS: [SpanStep, typeof TriangleUp][] = [["raise", TriangleUp], ["narrow", TriangleLeft], ["widen", TriangleRight],
+                                                 ["lower", TriangleDown]];
+
 export interface Palette {key: string; label: string; color_map?: number[]}
 
 interface ControlsProps {
@@ -82,9 +86,17 @@ export function Controls(p: ControlsProps) {
     }
     const conv = (x: Maybe<number>) => temperature ? convertTemp(x, p.unit) as number : x;
     const typed = (min: string, max: string) => p.onRange(min, max), frame = t === "frame" || t === "video";
-    // The span buttons step the range as the fields show it, within the image's own lowest and highest values
+    // The D-pad's arrows step the range as the fields show it, within the image's own lowest and highest values (greyed
+    // out without them); its centre is Auto. Each arrow's name beside it is its label.
     const limits = s && typeof s.min === "number" && typeof s.max === "number" ? [conv(s.min), conv(s.max)] as [number, number] : null;
-    const spanned = limits && ((k: SpanStep) => stepRange([parseFloat(p.range[0]), parseFloat(p.range[1])], limits, k));
+    const arrow = ([k, Arrow]: [SpanStep, typeof TriangleUp]) => {
+        const [, label, title] = SPAN_STEPS.find((x) => x[0] === k)!;
+        const r = limits && stepRange([parseFloat(p.range[0]), parseFloat(p.range[1])], limits, k);
+        return [<button key={k} type="button" class={"button default small dpad-" + k} id={"span-" + k} title={title} disabled={!r}
+                        onClick={() => r && typed(String(r[0]), String(r[1]))}><Arrow/></button>,
+                <label key={k + "-label"} for={"span-" + k} class={"dpad-label-" + k} title={title}>{label}</label>];
+    };
+    const [raise, narrow, widen, lower] = ARROWS.map(arrow);
     return (<>
         {hint}
         <label class="field">Palette
@@ -92,7 +104,11 @@ export function Controls(p: ControlsProps) {
                 {p.palettes.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
             </select>
         </label>
-        <ScaleView scale={p.scale}/>
+        <div class="scale-group">
+            <ScaleView scale={p.scale}/>
+            {s && <div class="message">{frame ? "This frame" : "This mosaic"}: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
+                temperature ? " " + symbol() : u)}</div>}
+        </div>
         <div class="range">
             <input type="number" step="0.1" id="range-min" title="Minimum" value={p.range[0]}
                    onChange={(e) => typed(e.currentTarget.value, p.range[1])}/>
@@ -100,19 +116,14 @@ export function Controls(p: ControlsProps) {
             <input type="number" step="0.1" id="range-max" title="Maximum" value={p.range[1]}
                    onChange={(e) => typed(p.range[0], e.currentTarget.value)}/>
             <span>{temperature ? unitSymbol(userUnit()) : u.trim()}</span>
-            <button type="button" class="button default small" id="auto" title={"The 2nd to 98th percentile of this " + (frame ? "frame" : "mosaic")}
-                    onClick={p.onAuto}>Auto</button>
         </div>
         {p.rangeError && <div class="text-danger" id="range-error">{p.rangeError}</div>}
-        {spanned && <div class="inline span-steps" role="group" aria-label="The range's span">
-            {SPAN_STEPS.map(([k, label, title]) => {
-                const r = spanned(k);
-                return <button key={k} type="button" class="button default small" id={"span-" + k} title={title} disabled={!r}
-                               onClick={() => r && typed(String(r[0]), String(r[1]))}>{label}</button>;
-            })}
-        </div>}
-        {s && <div class="message">{frame ? "This frame" : "This mosaic"}: {formatNumber(conv(s.min), 1)} to {formatNumber(conv(s.max), 1,
-            temperature ? " " + symbol() : u)}</div>}
+        <div class="dpad" role="group" aria-label="The range">
+            {raise}{narrow}
+            <button type="button" class="button default small dpad-auto" id="auto"
+                    title={"The 2nd to 98th percentile of this " + (frame ? "frame" : "mosaic")} onClick={p.onAuto}>Auto</button>
+            {widen}{lower}
+        </div>
     </>);
 }
 

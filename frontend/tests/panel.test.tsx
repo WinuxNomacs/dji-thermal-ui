@@ -48,17 +48,21 @@ describe("a section of the panel", () => {
     });
 });
 
-describe("the range's span buttons", () => {
-    const controls = (range: [string, string], onRange: (min: string, max: string) => void, tab = "as_converted") =>
-        render(<Controls tab={{tab, stats: {min: 0, max: 50}}} palette="ironbow" palettes={[]} scale={null} unit="C"
-                         range={range} onPalette={() => {}} onRange={onRange} onAuto={() => {}}/>, root());
+describe("the range's D-pad", () => {
+    const controls = (range: [string, string], onRange: (min: string, max: string) => void, tab = "as_converted",
+                      stats: object = {min: 0, max: 50}, onAuto = () => {}) =>
+        render(<Controls tab={{tab, stats}} palette="ironbow" palettes={[]} scale={null} unit="C"
+                         range={range} onPalette={() => {}} onRange={onRange} onAuto={onAuto}/>, root());
     const button = (k: string) => root().querySelector<HTMLButtonElement>("#span-" + k)!;
 
     it("step the range as typed, in the user's unit, within the image's own lowest and highest temperatures", () => {
         setUserUnit("F");
         const onRange = vi.fn();
         controls(["50", "112"], onRange);
-        expect(text()).toContain("NarrowWidenLowerRaise");
+        expect([...root().querySelectorAll(".dpad button")].map((b) => b.id))
+            .toEqual(["span-raise", "span-narrow", "auto", "span-widen", "span-lower"]);
+        expect(root().querySelector(".dpad")!.textContent).toBe("RaiseNarrowAutoWidenLower");
+        expect(root().querySelector<HTMLLabelElement>("label[for=span-lower]")!.control).toBe(button("lower"));
         click(button("lower"));
         expect(onRange).toHaveBeenLastCalledWith("43.8", "105.8");
         click(button("raise"));
@@ -76,7 +80,23 @@ describe("the range's span buttons", () => {
         expect(button("narrow").disabled).toBe(true);
     });
 
-    it("show on a tab that is not in temperatures, in its own values", () => {
+    it("greys out its arrows without the image's own lowest and highest values, and keeps Auto at its centre", () => {
+        const onAuto = vi.fn();
+        controls(["0", "50"], () => {}, "as_converted", {}, onAuto);
+        expect(["narrow", "widen", "lower", "raise"].map((k) => button(k).disabled)).toEqual([true, true, true, true]);
+        click(root().querySelector("#auto")!);
+        expect(onAuto).toHaveBeenCalledOnce();
+        expect(root().querySelector(".range #auto")).toBeNull();
+    });
+
+    it("comes after the line of the image's own values, which is straight under the colour scale", () => {
+        controls(["0", "50"], () => {});
+        const group = root().querySelector(".scale-group")!;
+        expect(group.textContent).toBe("This mosaic: 0.0 to 50.0 °C");
+        expect(group.compareDocumentPosition(root().querySelector(".range")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("works on a tab that is not in temperatures, in its own values", () => {
         const onRange = vi.fn();
         controls(["10", "20"], onRange, "view_angle");
         click(button("raise"));
