@@ -19,9 +19,10 @@ The first is shown on opening; a click or ++arrow-left++ ++arrow-right++ shows a
 
 ## The frame
 
-The frame has the viewer's palette, range, image sliders, Pointer info and [measuring](measuring.md). Its
-**Thermal**/**Visual**/**Both** switch shows the frame's visual image in its place or beside it, with the same shapes
-and the cursor on it, and measures the thermal frame under them. A frame can be measured again with other parameters.
+The frame has the viewer's palette, range (with its Narrow, Widen, Lower and Raise buttons, within the frame's own
+temperatures), image sliders, Pointer info and [measuring](measuring.md). Its **Thermal**/**Visual**/**Both** switch
+shows the frame's visual image in its place or beside it, with the same shapes and the cursor on it, and measures the
+thermal frame under them. A frame can be measured again with other parameters.
 
 ## The map
 
