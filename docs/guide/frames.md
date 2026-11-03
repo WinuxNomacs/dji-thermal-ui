@@ -1,7 +1,7 @@
 # Frames explorer
 
-The frame page shows a dataset's frames one at a time, as converted, opened with **Frames** on its card or in the
-viewer's header.
+The frame page shows a dataset's frames one at a time, as converted, opened with **Frames** on its card, in the
+viewer's header or under the dataset in the navigation pane.
 
 ![The frames explorer, with the list of frames, the frame and its panel](../assets/screenshots/frames.png)
 

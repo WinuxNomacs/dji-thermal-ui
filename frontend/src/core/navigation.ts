@@ -28,10 +28,11 @@ export async function fetchNavigation(api: string): Promise<NavProject[]> {
     return data.projects;
 }
 
-// Each item's key in the pane, for what is unfolded and marked: "p1", "d4", "c12"
+// Each item's key in the pane, for what is unfolded and marked: "p1", "d4", "c12", and "f12" for a conversion's Frames
 export const projectKey = (id: number) => "p" + id;
 export const datasetKey = (id: number) => "d" + id;
 export const conversionKey = (id: number) => "c" + id;
+export const framesKey = (id: number) => "f" + id;
 
 // Where a conversion's item goes: its mosaics, else its frames, else its flight's Datasets tab
 export function conversionHref(c: NavConversion, datasetId: number, publicUrl: string): string {
@@ -43,15 +44,16 @@ export function conversionHref(c: NavConversion, datasetId: number, publicUrl: s
 const CONVERSION_PAGES = ["viewer", "compare", "conversion_report", "frame"];
 
 // The items down to the page shown, from its project: a flight's report shows its flight, a conversion's pages the
-// conversion. Those above it are unfolded so that it can be seen, and the deepest of them that can be seen is marked
+// conversion, and its frames its Frames item (when it has frames). Those above it are unfolded so that it can be
+// seen, and the deepest of them that can be seen is marked
 export function trailTo(projects: NavProject[], current: Current): string[] {
     for (const p of projects) {
         if (current.page === "project" && p.id === current.id) return [projectKey(p.id)];
         for (const d of p.datasets) {
             const above = [projectKey(p.id), datasetKey(d.id)];
             if ((current.page === "dataset" || current.page === "dataset_report") && d.id === current.id) return above;
-            if (CONVERSION_PAGES.includes(current.page) && d.conversions.some((c) => c.id === current.id))
-                return [...above, conversionKey(current.id)];
+            const c = CONVERSION_PAGES.includes(current.page) && d.conversions.find((x) => x.id === current.id);
+            if (c) return [...above, conversionKey(c.id), ...(current.page === "frame" && c.frames ? [framesKey(c.id)] : [])];
         }
     }
     return [];

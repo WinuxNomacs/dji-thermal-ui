@@ -1,12 +1,13 @@
 // The navigation pane on the left of every page: the projects, under each its datasets (flights), under each its
-// conversions (datasets), then User Preferences, System Settings and Storage. The pages' own tabs and buttons do the
-// rest. Projects and flights fold; what is folded is kept for the next visit, and the page shown is unfolded to (kept
-// so too) and marked: a flight's report marks its flight, a conversion's pages the conversion. The pane lists again
+// conversions (datasets), under each with frames its Frames, then User Preferences, System Settings and Storage. The
+// pages' own tabs and buttons do the rest. Projects, flights and datasets fold; what is folded is kept for the next
+// visit, and the page shown is unfolded to (kept so too) and marked: a flight's report marks its flight, a
+// conversion's pages the conversion, its frames its Frames. The pane lists again
 // when a page says what it lists has changed. A filter under Projects lists only the projects whose name matches;
 // like the folds, it is kept from page to page.
 import {type ComponentChildren} from "preact";
 import {useEffect, useState} from "preact/hooks";
-import {conversionHref, conversionKey, type Current, datasetKey, fetchNavigation, markedItem, type NavProject,
+import {conversionHref, conversionKey, type Current, datasetKey, fetchNavigation, framesKey, markedItem, type NavProject,
         onNavigationChanged, pathTo, projectKey, trailTo} from "../core/navigation";
 import {matchesSearch} from "../core/search";
 import {ChevronDown, ChevronRight, Cog, Folder, HardDrive, Monitor} from "./icons";
@@ -18,8 +19,8 @@ const SEARCH_KEY = "thermal-analyzer.nav.search";
 function storedExpanded(): string[] {
     try {
         const v = JSON.parse(localStorage.getItem(EXPANDED_KEY) || "[]");
-        // Only projects and flights fold (what else an older pane folded is forgotten)
-        return Array.isArray(v) ? v.filter((k) => typeof k === "string" && /^[pd]\d+$/.test(k)) : [];
+        // Only projects, flights and datasets fold (what else an older pane folded is forgotten)
+        return Array.isArray(v) ? v.filter((k) => typeof k === "string" && /^[pdc]\d+$/.test(k)) : [];
     } catch {
         return [];
     }
@@ -155,8 +156,11 @@ export function NavPane({api, publicUrl, current, onNavigate, onClose}: NavPaneP
                                   href={publicUrl + "dataset/" + d.id} label={d.name || "(untitled)"}
                                   current={marked === datasetKey(d.id)}>
                                 <ul>{d.conversions.map((c) => (
-                                    <Item key={c.id} {...item} level={3} href={conversionHref(c, d.id, publicUrl)} label={c.name}
-                                          current={marked === conversionKey(c.id)}/>))}</ul>
+                                    <Item key={c.id} itemKey={c.frames ? conversionKey(c.id) : undefined} {...item} level={3}
+                                          href={conversionHref(c, d.id, publicUrl)} label={c.name} current={marked === conversionKey(c.id)}>
+                                        <ul><Item {...item} level={4} href={publicUrl + "conversion/" + c.id + "/frame"} label="Frames"
+                                                  current={marked === framesKey(c.id)}/></ul>
+                                    </Item>))}</ul>
                             </Item>))}</ul>
                     </Item>))}</ul>}
                 {failed && <p class="nav-error text-muted">The projects could not be listed.</p>}

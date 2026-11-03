@@ -8,6 +8,8 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- The navigation pane lists **Frames** under each dataset with frames, opening its frames explorer (marked there):
+  datasets fold now, as projects and flights do.
 - **Narrow**, **Widen**, **Lower** and **Raise** under the colour range, in the viewer's panel, the frame page's and
   the Video tab's: Narrow and Widen take 10% off the span or add 10%, half at each end, and Lower and Raise move both
   ends by 10% of the span. Neither end goes past the image's own lowest and highest values; an end that reaches one

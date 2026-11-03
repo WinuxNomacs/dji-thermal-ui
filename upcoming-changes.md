@@ -8,12 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: Y2 (Frames in the navigation pane).
+**Up next**: Q1 (the range's D-pad, with This mosaic under the colour scale).
 
-The tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: Q1 (the range's D-pad, with This mosaic under the colour scale).
+**Then**: nothing planned yet.
 
 ## Standalone (option A)
 
@@ -3201,6 +3201,17 @@ tab alike:
   1, °F), light and dark: no Export PNG on either page, Rebuild mosaics, no Open frame while hovering and Open frame
   after a click, PNG as shown saving the titled picture with its scale from the viewer and the frame page, no
   console errors. Checked: Vitest 460, lint, pytest 456, ruff, the strict docs build.
+- **Y2: Frames in the navigation pane** (2026-11-03). `framesKey` ("f12") and `trailTo` in
+  `frontend/src/core/navigation.ts` (a conversion's frame page ends its trail at its Frames when it has frames, so
+  the dataset is unfolded to and Frames marked); in `components/nav-pane.tsx` a conversion with frames folds (its
+  "c…" key kept by `storedExpanded` with the projects' and flights'), with a level-4 "Frames" item to
+  `conversion/<id>/frame`; the dataset's own link is unchanged (`conversionHref`). Tests:
+  `frontend/tests/navigation.test.tsx` (unfolding to Frames, marking it on the frame page or the dataset when folded,
+  none without frames, the kept fold, `pathTo`). Docs: Finding your way (the pane), Frames, the CHANGELOG (Added),
+  and the shots that show the pane. Checked live on a scratch 8081 with a copy of the data, light and dark: the frame
+  page unfolds to and marks Frames, the viewer marks the dataset, folds kept (`["p1","d1","c1"]`), following another
+  dataset's Frames opens its frame page marked, no console errors. Checked: Vitest 460, lint, pytest 456, ruff, the
+  strict docs build.
 - **The tab strip's scrollbar** (2026-11-03, a fix the user asked for). The viewer's and the flight page's tabs reached
   1px below their strip (`margin-bottom: -1px` over its border), and the strip scrolls sideways, so Windows browsers
   showed a small up/down scrollbar at its end. `.tabs` in `frontend/src/styles/app.css` now draws its line as an
