@@ -32,12 +32,13 @@ The panel is grouped under:
 
 - **View:** the palette, the temperature range, **Image** (brightness and contrast, gamma, equalization and
   sharpening) and **Isotherm**. They are redrawn as their sliders are dragged. The colour scale is labelled with its
-  range's ends.
+  range's ends, and the line straight under it gives the mosaic's own lowest and highest temperatures.
 
-  Under the range, **Narrow** and **Widen** take 10% off its span or add 10%, half at each end, and **Lower** and
-  **Raise** move both ends by 10% of the span. Neither end goes past the mosaic's own lowest and highest temperatures
-  (the line under the buttons): an end that reaches one stays there while the other moves on, so the span shrinks.
-  A button that would change nothing is greyed out.
+  Under the range's fields is a cross of buttons. Its centre, **Auto**, sets the range to the mosaic's 2nd to 98th
+  percentile. Its arrows step the range: ◀ **Narrow** and ▶ **Widen** take 10% off its span or add 10%, half at each
+  end, and ▼ **Lower** and ▲ **Raise** move both ends by 10% of the span (a click on the name does the same). Neither
+  end goes past the mosaic's own lowest and highest temperatures: an end that reaches one stays there while the other
+  moves on, so the span shrinks. An arrow that would change nothing is greyed out.
 - **Values:** **Pointer info** (the values under the cursor), **Parameters** and **This mosaic**.
 - **Kept:** the saved [measurements](measuring.md) and the [findings](findings.md).
 - **About.**

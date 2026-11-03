@@ -10,10 +10,11 @@ All notable changes are recorded here. The format follows
 
 - The navigation pane lists **Frames** under each dataset with frames, opening its frames explorer (marked there):
   datasets fold now, as projects and flights do.
-- **Narrow**, **Widen**, **Lower** and **Raise** under the colour range, in the viewer's panel, the frame page's and
-  the Video tab's: Narrow and Widen take 10% off the span or add 10%, half at each end, and Lower and Raise move both
-  ends by 10% of the span. Neither end goes past the image's own lowest and highest values; an end that reaches one
-  stays there while the other moves on.
+- A cross of buttons under the colour range, in the viewer's panel, the frame page's and the Video tab's, with
+  **Auto** at its centre (moved from beside the range's fields) and an arrow each way, named beside it: ◀ **Narrow**
+  and ▶ **Widen** take 10% off the span or add 10%, half at each end, and ▼ **Lower** and ▲ **Raise** move both ends
+  by 10% of the span. Neither end goes past the image's own lowest and highest values; an end that reaches one stays
+  there while the other moves on.
 - System Settings › WebODM: **Create the account for me** creates the account the app logs in as, with a WebODM
   admin's login used for that one request and never saved. The new account (`dji-thermal-ui-api-user` unless
   renamed) is an ordinary one in WebODM's Default group, its password typed or made by **Generate**; the app logs in
@@ -79,6 +80,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The line giving the mosaic's (or frame's) own lowest and highest values is straight under the colour scale, above
+  the range's fields.
 - The viewer's and the frame page's **Export PNG** button is now the Export dialog's first format, **PNG as shown**,
   making the same picture (title, date, saved measurements, colour scale).
 - **Build the mosaics again** is **Rebuild mosaics** (the viewer and the WebODM heights panel), and **Open this
