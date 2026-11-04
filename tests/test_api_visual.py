@@ -304,3 +304,59 @@ def test_building_it_again_makes_the_visual_mosaic_again(api):
     assert res.status_code == 200, res.data
     c.refresh_from_db()
     assert make.call_args.args[3].visual_only is True and c.mosaic_status == 'ready' and c.mosaics['visual_only']
+
+
+def sources_of(api, c, geometry):
+    return api.post("{}/{}/mosaics/visual/sources".format(CONVERSIONS, c.id), {'geometry': geometry}, format='json')
+
+
+def test_a_spot_on_it_gives_the_visual_frames_that_saw_it_the_most_nadir_the_one_used(api):
+    c, _ = visual_only(api)
+    res = sources_of(api, c, {'type': 'Point', 'coordinates': mosaic_lonlat(32, 32)})
+    assert res.status_code == 200, res.data
+    frames = res.data['frames']
+    # The first frame's camera is nearer above the spot
+    assert [f['frame'] for f in frames] == list(VISUAL_FILES) and [f['used'] for f in frames] == [True, False]
+    assert all(f['pixel'] and f['visual'] is None for f in frames)
+    assert res.data['models'] is True and 'point' not in res.data
+
+
+def test_an_area_on_it_gives_each_frames_share_and_what_the_mosaic_took_from_it(api):
+    c, _ = visual_only(api)
+    ring = [mosaic_lonlat(x, y) for x, y in ((24, 24), (40, 24), (40, 40), (24, 40), (24, 24))]
+    res = sources_of(api, c, {'type': 'Polygon', 'coordinates': [ring]})
+    assert res.status_code == 200, res.data
+    frames = res.data['frames']
+    assert {f['frame'] for f in frames} == set(VISUAL_FILES)
+    assert all(f['share'] == 1.0 and f['outline'] for f in frames)
+    assert sum(f['used_share'] for f in frames) == pytest.approx(1.0, abs=0.01)
+
+
+def test_a_stripped_one_keeps_its_located_sidecar_for_the_source_frames(api):
+    def located(m, path, compression, located):
+        made = fake_visual(Path(path).parent)
+        os.replace(made.file, path)
+        os.replace(made.sidecar, Path(path).with_suffix('.json'))
+        os.remove(made.preview)
+        return Path(path), Path(path).with_suffix('.json')
+
+    with mock.patch('dji_thermal_cli.visual.write', side_effect=located):
+        c, _ = visual_only(api, {'strip_location': True})
+    assert c.mosaic_status == 'ready', c.mosaic_error
+    assert sorted(os.listdir(os.path.join(c.data_dir(), 'viewer'))) == ['visual.json', 'visual.tif']
+    res = sources_of(api, c, {'type': 'Point', 'coordinates': mosaic_lonlat(32, 32)})
+    assert res.status_code == 200 and len(res.data['frames']) == 2
+
+
+def test_only_a_visual_mosaic_of_its_own_gives_its_frames_as_the_source_frames(api, conversion):
+    res = sources_of(api, conversion, {'type': 'Point', 'coordinates': mosaic_lonlat(32, 32)})
+    assert res.status_code == 404
+
+
+def test_its_visual_frames_are_served_as_themselves(api):
+    from PIL import Image
+    c, _ = visual_only(api)
+    url = "{}/{}/frame/visual".format(CONVERSIONS, c.id)
+    res = api.get(url, {'frame': VISUAL_FILES[1], 'size': 4})
+    assert res.status_code == 200 and Image.open(io.BytesIO(res.content)).size == (4, 4)
+    assert api.get(url, {'frame': THERMAL_FILES[0]}).status_code == 404

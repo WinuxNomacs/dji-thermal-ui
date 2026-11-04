@@ -14,7 +14,8 @@ Files, in the conversion's folder:
     viewer/visual_pairs.json       each thermal frame's visual frame, and how a pixel of one is found in the other
 
 A conversion of a flight without thermal frames (visual_only) has the visual mosaic alone, laid out by its own frames,
-in mosaics/visual/ and viewer/visual.tif, with no thermal mosaics and no pairs.
+in mosaics/visual/ and viewer/visual.tif, with no thermal mosaics and no pairs; viewer/visual.json is its located
+sidecar, whose frame models give the source frames (the download's has none when the location is removed).
 """
 import json
 import os
@@ -341,7 +342,9 @@ def build_visual(report, thermal_raster, out_dir, stripped, compression):
         located = str(located)
     tif = map_copy(located, os.path.join(out_dir, VIEWER_DIR, VISUAL + '.tif'))
     pairs = {}
-    if thermal_raster is not None:
+    if thermal_raster is None:
+        shutil.copyfile(Path(located).with_suffix('.json'), Path(tif).with_suffix('.json'))
+    else:
         pairs = visual_pairs(Path(thermal_raster).with_suffix('.json'), Path(located).with_suffix('.json'))
         with open(os.path.join(out_dir, VIEWER_DIR, VISUAL_PAIRS_FILE), 'w', encoding='utf-8') as f:
             json.dump(pairs, f)
