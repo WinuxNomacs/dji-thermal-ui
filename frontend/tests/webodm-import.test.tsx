@@ -145,6 +145,14 @@ describe("Import from WebODM", () => {
         expect(text(".import-message")).toContain("huge.tif is 1.0 GB: a file can be up to 1.0 GB");
         pick("#import-orthophoto", new File(["ortho"], "roof-orthophoto.tif"));
         pick("#import-dsm-file", new File(["dsm"], "roof-dsm.tif"));
+        // The task's cameras: both or neither
+        pick("#import-shots", new File(["{}"], "shots.geojson"));
+        await ticks();
+        $("#import-start")!.click();
+        await ticks();
+        expect(text(".import-message")).toBe("Choose both the task's shots.geojson and its cameras.json, or neither.");
+        expect(calls(fetchFn)).not.toContain("POST /api/datasets/7/import/file");
+        pick("#import-cameras", new File(["{}"], "cameras.json"));
         await ticks();
         expect($<HTMLInputElement>("#import-name")!.placeholder).toBe("roof-orthophoto");
         $("#import-start")!.click();
@@ -152,6 +160,8 @@ describe("Import from WebODM", () => {
         const body = sent(fetchFn, "POST /api/datasets/7/import/file") as FormData;
         expect((body.get("orthophoto") as File).name).toBe("roof-orthophoto.tif");
         expect((body.get("dsm") as File).name).toBe("roof-dsm.tif");
+        expect((body.get("shots") as File).name).toBe("shots.geojson");
+        expect((body.get("cameras") as File).name).toBe("cameras.json");
         expect(body.get("name")).toBeNull();
         expect(imported).toHaveBeenCalledWith(MADE);
         expect(calls(fetchFn)).not.toContain("POST /api/datasets/7/import/webodm");

@@ -2272,7 +2272,7 @@ def difference(a, a_valid, a_unit, b, b_valid, b_unit):
 def comparable(conversion):
     """The conversions whose mosaics the conversion's can be compared with (its own too): its project's first, then
     by project, dataset and name, with their temperature tabs and whether they have the visual mosaic, or are one of
-    its own (visual_only)"""
+    its own (visual_only), and whether they were imported (no frame page)"""
     out = []
     own = conversion.dataset.project_id
     found = ThermalConversion.objects.select_related('dataset__project').order_by(
@@ -2286,7 +2286,7 @@ def comparable(conversion):
             out.append({'id': c.id, 'name': c.name, 'dataset': c.dataset_id, 'dataset_name': c.dataset.name,
                         'project': c.dataset.project_id, 'project_name': c.dataset.project.name,
                         'unit': mosaic_unit(c), 'tabs': tabs, 'visual': bool((c.mosaics or {}).get('visual')),
-                        'visual_only': alone})
+                        'visual_only': alone, 'imported': bool((c.options or {}).get('imported'))})
     return out
 
 

@@ -796,11 +796,14 @@ describe("an imported dataset in the viewer", () => {
     const tabs = () => [...document.querySelectorAll("[role=tab]")].map((t) => t.textContent);
     beforeEach(() => nav.mockClear());
 
-    it("shows an orthophoto of temperatures on its WebODM and Heights tabs, with where it came from and a link to the task, and no frames or mosaics to build", async () => {
+    it("shows an orthophoto of temperatures on its WebODM and Heights tabs, with where it came from and a link to the task, the frames that saw a spot, and no mosaics to build", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
         const fetchFn = server(routes({[BASE + "/mosaics"]: {...MOSAICS, imported: {...IMPORTED, kind: "thermal"}, frames: [],
             tabs: [{tab: "webodm", kind: "webodm", stats: {percentiles: [20, 30], min: 15, max: 40}, bounds: BOUNDS, maxzoom: 22}, HEIGHTS],
             kinds: {webodm: {task: null, task_name: "Roof", width: 100, height: 80, pixel_m: 0.05}, dsm: {task: null, task_name: "Roof"}},
-            baselines: {webodm: {emissivity: 0.95, reflected_temp: 20}}}}));
+            baselines: {webodm: {emissivity: 0.95, reflected_temp: 20}}},
+            ["POST " + BASE + "/mosaics/webodm/sources"]: {kind: "Point", geometry: {type: "Point", coordinates: WEST}, models: true,
+                reason: null, frames: [{frame: "a_T.JPG", used: true, view_angle: 3, pixel: [4, 3], visual: null}]}}));
         await openWith(fetchFn);
         expect(tabs()).toEqual(["WebODM", "Heights"]);
         expect($(".viewer-panel .hint")!.textContent).toContain("WebODM's orthophoto of temperatures, imported:");
@@ -814,18 +817,31 @@ describe("an imported dataset in the viewer", () => {
         expect(about).toContain("Size100 × 80 px at 5.0 cm");
         expect(about).not.toContain("WebODM's task");
         expect(measured(fetchFn)[0].target).toBe("webodm");
+        // A spot's frames, from the task's cameras: measured as thermal frames, with no frame page to open
+        click($(".map-tools [data-tool=point]")!);
+        drawn(start, {type: "Point", coordinates: WEST as [number, number]});
+        await ticks(40);
+        click($("#measure-card [name=sources]")!);
+        await ticks(40);
+        expect(calls(fetchFn)).toContain("POST " + BASE + "/mosaics/webodm/sources");
+        expect($(".sources-window canvas")!.getAttribute("data-values")).toBe(BASE + "/frame/data?frame=a_T.JPG");
+        expect($(".sources-window a[href*='/frame?frame=']")).toBeNull();
     });
 
-    it("shows a colour orthophoto as a visual mosaic, a spot kept as a finding with no frames, and its DSM on the thermal viewer's Heights tab", async () => {
+    it("shows a colour orthophoto as a visual mosaic, the photos that saw a spot from its task's cameras, and its DSM on the thermal viewer's Heights tab", async () => {
         const start = vi.spyOn(Drawing.prototype, "start");
         const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, files: ["mosaics/visual/orthophoto.tif"], frames: 0,
                         width: 300, height: 240, gsd_m: 0.006};
         const shown = {...MOSAICS, imported: {...IMPORTED, kind: "visual"}, visual, visual_only: true, frames: [], tabs: [HEIGHTS],
                        kinds: {dsm: {task: null, task_name: "Roof"}}, baselines: {}};
         const map = viewerMap();
+        const photo = {frame: "DJI_0001_V.JPG", used: true, view_angle: 2, pixel: [100, 80], width: 400, height: 300, visual: null};
+        const answers = [
+            {kind: "Point", geometry: {type: "Point", coordinates: WEST}, models: true, reason: null, frames: [photo]},
+            {kind: "Point", geometry: {type: "Point", coordinates: WEST}, models: false, reason: "no_cameras", frames: [],
+             error: "WebODM couldn't give the task's cameras: WebODM could not be reached."}];
         const fetchFn = server(routes({[BASE + "/mosaics"]: shown,
-            ["POST " + BASE + "/mosaics/visual/sources"]: {kind: "Point", geometry: {type: "Point", coordinates: WEST},
-                                                           models: false, reason: "not_recorded", frames: []}}));
+            ["POST " + BASE + "/mosaics/visual/sources"]: answers}));
         await openWith(fetchFn);
         expect(tabs()).toEqual(["Visual", "Heights"]);
         expect(byId("visual-hint").textContent).toContain("The colour orthophoto imported from WebODM");
@@ -835,16 +851,19 @@ describe("an imported dataset in the viewer", () => {
         expect(about).toContain("FromWebODM: Site A › Roof");
         expect(about).toContain("Size300 × 240 px at 0.6 cm");
         expect(about).not.toContain("thermal frames");
-        // A click opens no frames: the spot tool keeps one as a finding
+        // A click opens the photos that saw the spot, found from the task's cameras, shown as themselves
         clickMap(map(), WEST);
         await ticks(10);
-        expect(calls(fetchFn)).not.toContain("POST " + BASE + "/mosaics/visual/sources");
+        expect(calls(fetchFn)).toContain("POST " + BASE + "/mosaics/visual/sources");
+        expect($(".sources-window .frame-image img")!.getAttribute("src")).toContain("/frame/visual?frame=DJI_0001_V.JPG");
+        expect($(".sources-window a[href*='/frame?frame=']")).toBeNull();
+        // Where WebODM can't give them, the window says why, and the spot can still be kept as a finding
         click($(".map-tools [data-tool=point]")!);
         await ticks();
-        expect($(".map-tools .tool-hint")!.textContent).toContain("Click a spot to keep it as a finding.");
+        expect($(".map-tools .tool-hint")!.textContent).toContain("the frames that saw it open beside the map");
         drawn(start, {type: "Point", coordinates: WEST as [number, number]});
         await ticks(10);
-        expect($(".sources-window")!.textContent).toContain("WebODM's orthophoto doesn't record which frames each pixel comes from.");
+        expect($(".sources-window")!.textContent).toContain("WebODM couldn't give the task's cameras: WebODM could not be reached. Try again");
         expect($(".sources-window [name=save-finding]")).not.toBeNull();
         // Its Heights tab is the thermal viewer's, and its Visual tab this one
         click($("[data-tab=heights]")!);

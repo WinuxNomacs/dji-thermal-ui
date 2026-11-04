@@ -71,7 +71,9 @@ describe("the source frames", () => {
     it("say why none is listed", () => {
         expect(emptyText({...spot([]), reason: "outside_raster"})).toBe("Outside the mosaic.");
         expect(emptyText(spot([]))).toBe("No frame is known for this spot.");
-        expect(emptyText({...spot([]), reason: "not_recorded"})).toBe("WebODM's orthophoto doesn't record which frames each pixel comes from.");
+        expect(emptyText({...spot([]), reason: "not_recorded"})).toContain("came without its task's cameras");
+        expect(emptyText({...spot([]), reason: "no_cameras", error: "WebODM couldn't give the task's cameras: gone."}))
+            .toBe("WebODM couldn't give the task's cameras: gone. Try again once WebODM can be reached.");
         expect(emptyText({...spot([]), kind: "Polygon", geometry: AREA})).toBe("No frame is known for this area.");
     });
 });
