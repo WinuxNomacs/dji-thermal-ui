@@ -28,6 +28,14 @@ export interface Conversion {
     mosaics_dsm?: {task_name: string; height_cell: number} | null;    // the DSM the mosaics were built on
     mosaics_gsd_m?: number | null;
     visual_only?: boolean;      // a flight without thermal images: no images converted, its visual mosaic alone
+    imported?: Imported | null; // an orthophoto imported from WebODM, not converted here
+}
+
+// Where an imported dataset came from (a WebODM task, or a file downloaded from WebODM's page), and what its
+// orthophoto holds once read: "thermal" (the viewer's WebODM tab) or "visual" (a visual mosaic)
+export interface Imported {
+    from: "webodm" | "file"; kind?: "thermal" | "visual" | null; dsm?: boolean;
+    project_name?: string; task_name?: string; file?: string; dsm_file?: string | null;
 }
 
 export interface ResultFile {
@@ -49,7 +57,8 @@ const BADGES: Record<string, string> = {ready: "success", failed: "danger", canc
 
 export function conversionLabel(c: Conversion): string {
     if (c.visual_only && c.status === "ready") return "Ready";      // nothing was converted
-    const label = STATUS_LABELS[c.status] || c.status;
+    const label = c.imported && c.status === "ready" ? "Imported" : c.imported && c.status === "converting" ? "Importing" :
+        STATUS_LABELS[c.status] || c.status;
     return c.status === "converting" && c.progress ? label + " " + Math.round(c.progress * 100) + "%" : label;
 }
 
@@ -91,4 +100,19 @@ export function parsePrefill(search: string): Prefill | null {
         if (v !== null && v !== "" && !isNaN(Number(v))) changes[k] = Number(v);
     });
     return {from, changes};
+}
+
+// What an import is doing, as the server's stage says: downloading from WebODM, or reading what came
+export function importStageText(stage: Maybe<Stage>): string {
+    const what = stage?.asset === "dsm" ? "the DSM" : "the orthophoto";
+    return stage?.stage === "download" ? "Downloading " + what + " from WebODM…" :
+        stage?.stage === "read" ? "Reading " + what + "…" : "Starting…";
+}
+
+// An imported dataset's chips: where it came from and what it holds
+export function importedChips(i: Imported): string[] {
+    return [i.from === "webodm" ? "From WebODM" : "From a file",
+            i.from === "webodm" ? [i.project_name, i.task_name].filter(Boolean).join(" › ") : i.file || "",
+            i.kind === "thermal" ? "Temperatures" : i.kind === "visual" ? "Colours" : "",
+            i.dsm || i.dsm_file ? "DSM" : ""].filter(Boolean);
 }

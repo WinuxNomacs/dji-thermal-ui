@@ -126,6 +126,10 @@ is kept as WebODM wrote it, once dji-thermal-cli has read it, and the card says 
   roof edges where the default 64 px stepped).
 - **Rebuild mosaics** shows when the mosaics were built otherwise (without it, or on another cell).
 
+An orthophoto made in WebODM from anything else, a task of your own or a GeoTIFF downloaded from WebODM's page, can
+also be [imported into a flight](datasets.md#importing-from-webodm) as a dataset of its own, whether it holds
+temperatures or colours.
+
 A dataset keeps one DSM: another task's replaces it, keeping the tick and the cell. **Remove**, or taking its task
 off the list, removes it; the mosaics built on it are kept.
 

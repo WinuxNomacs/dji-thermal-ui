@@ -128,6 +128,7 @@ export function kindLabel(k: string): string { return KIND_LABELS[k] || k; }
 export interface Stage {
     stage?: string; step?: number; steps?: number; round?: number; rounds?: number;
     done?: number; total?: number; unit?: string;
+    asset?: string;     // an import's: what it downloads or reads (orthophoto, dsm)
 }
 
 const STAGES: Record<string, string> = {

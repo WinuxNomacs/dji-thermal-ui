@@ -33,7 +33,7 @@ from rest_framework.views import APIView
 
 from zipstream.ng import ZipStream
 
-from . import backup, basemaps, colouring, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, video, webodm, webodm_tasks
+from . import backup, basemaps, colouring, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, video, webodm, webodm_import, webodm_tasks
 from .. import move
 from .downloads import download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
@@ -272,6 +272,10 @@ def conversion_summary(c):
         'mosaic_error': c.mosaic_error,
         # The visual mosaic alone, of a flight without thermal frames: no images converted
         'visual_only': bool((c.options or {}).get('visual_only')),
+        # Imported from WebODM (webodm_import): where from, and what its orthophoto holds once read ('thermal' or
+        # 'visual'); None for a dataset converted here
+        'imported': dict((c.options or {})['imported'], kind=r.get('imported'))
+        if (c.options or {}).get('imported') else None,
         'mosaic_files': sorted(f for k in m.get('kinds', {}).values() for f in k.get('files', [])) +
         (sorted((m.get('visual') or {}).get('files') or []) if m.get('visual_only') else []),
         'orthophoto': webodm_tasks.orthophoto_summary(c),
@@ -1406,6 +1410,87 @@ class WebODMProjectsView(DatasetView):
         search = str(request.query_params.get('search', '')).strip().casefold()
         found = [p for p in webodm_call(webodm_client().projects) if search in p['name'].casefold()]
         return Response({'projects': found[:MAX_PROJECTS_LISTED], 'count': len(found)})
+
+
+class DatasetImportWebODMView(DatasetView):
+    def post(self, request, pk):
+        """Imports a completed WebODM task's orthophoto (and its DSM: dsm true) into the flight as a dataset of its
+        own: {project, task, dsm, name (the task's when not given)}. Its download runs in the background"""
+        dataset = get_dataset(pk)
+        data = request.data if isinstance(request.data, dict) else {}
+        project, task = data.get('project'), str(data.get('task') or "")
+        if isinstance(project, bool) or not isinstance(project, int) or not task:
+            raise ValidationError({'error': "Choose a WebODM task"})
+        client = webodm_client()
+        found = next((t for t in webodm_import.ready_tasks(webodm_call(client.tasks, project), None)[0]
+                      if t['id'] == task), None)
+        if not found:
+            raise ValidationError({'task': "WebODM has no completed task with an orthophoto of that id in the project"})
+        dsm = data.get('dsm') is True
+        if dsm and not found['dsm']:
+            raise ValidationError({'dsm': "The task has no DSM"})
+        project_name = next((p['name'] for p in webodm_call(client.projects) if p['id'] == project), "")
+        name = text_field(data, 'name', "The dataset's name", found['name'] or "WebODM task")[:255]
+        conversion = webodm_import.start(dataset, name, {
+            'from': 'webodm', 'url': client.url, 'project': project, 'project_name': project_name, 'task': task,
+            'task_name': found['name'], 'dsm': dsm}, app_unit())
+        return Response(conversion_detail(conversion), status=status.HTTP_201_CREATED)
+
+
+class DatasetImportFileView(DatasetView):
+    def post(self, request, pk):
+        """Imports an orthophoto downloaded from WebODM's page (a GeoTIFF: 'orthophoto', and its DSM: 'dsm') into the
+        flight as a dataset of its own, named 'name' (the file's when not given); read in the background"""
+        dataset = get_dataset(pk)
+        orthophoto, dsm = request.FILES.get('orthophoto'), request.FILES.get('dsm')
+        if orthophoto is None:
+            raise ValidationError({'orthophoto': "Choose the orthophoto's GeoTIFF"})
+        for f in filter(None, (orthophoto, dsm)):
+            if not f.name.lower().endswith(('.tif', '.tiff')):
+                raise ValidationError({'error': "{} is not a GeoTIFF (.tif)".format(f.name)})
+        base = os.path.splitext(os.path.basename(orthophoto.name))[0]
+        name = text_field(request.data, 'name', "The dataset's name", base or "Orthophoto")[:255]
+        imported = {'from': 'file', 'file': os.path.basename(orthophoto.name),
+                    'dsm_file': os.path.basename(dsm.name) if dsm else None}
+        files = dict({'orthophoto': orthophoto}, **({'dsm': dsm} if dsm else {}))
+        conversion = webodm_import.start(dataset, name, imported, app_unit(), files)
+        return Response(conversion_detail(conversion), status=status.HTTP_201_CREATED)
+
+
+class WebODMProjectTasksView(DatasetView):
+    def get(self, request, project):
+        """A WebODM project's tasks that can be imported (completed, with an orthophoto), those over the flight
+        ?dataset= first, and how many others it has: {tasks: [{id, name, created_at, images, processing_ms, dsm,
+        extent, over}], others}"""
+        analysis = None
+        if request.query_params.get('dataset'):
+            try:
+                analysis = get_dataset(int(request.query_params['dataset'])).analysis
+            except ValueError:
+                raise ValidationError({'dataset': "Not a flight"}) from None
+        found = webodm_call(webodm_client().tasks, int(project))
+        tasks, others = webodm_import.ready_tasks(found, analysis)
+        return Response({'tasks': tasks, 'others': others})
+
+
+class WebODMTaskPreviewView(DatasetView):
+    def get(self, request, project, task):
+        """A JPEG of a WebODM task's orthophoto, ?size= one of PREVIEW_SIZES px across at most (the smaller when
+        not given); one of temperatures coloured with the map pages' palette"""
+        from django.http import HttpResponse
+        try:
+            size = int(request.query_params.get('size') or webodm_import.PREVIEW_SIZES[0])
+        except ValueError:
+            size = 0
+        if size not in webodm_import.PREVIEW_SIZES:
+            raise ValidationError({'size': "One of " + ", ".join(map(str, webodm_import.PREVIEW_SIZES))})
+        palette = app_palette()
+        if not palette or palette.startswith(DJI_PREFIX):       # DJI's are read from a flight's frames
+            palette = webodm_import.DEFAULT_PALETTE
+        jpeg = webodm_call(webodm_import.preview, webodm_client(), int(project), task, size, palette)
+        response = HttpResponse(jpeg, content_type='image/jpeg')
+        response['Cache-Control'] = 'private, max-age=3600'
+        return response
 
 
 class WebODMChoicesView(DatasetView):

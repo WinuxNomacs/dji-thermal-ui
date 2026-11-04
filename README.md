@@ -23,7 +23,8 @@ ODM's or WebODM's.
 - **[Reports]** of a flight and of a mosaic, to print or save as PDF; **[compare]** two mosaics or their difference;
   **[exports]** as TIFF, PNG, R-JPEG or GeoTIFF, private if you like.
 - **[WebODM]**: a dataset's temperatures processed in a WebODM of your own, its orthophoto and surface model brought
-  back; the account the app uses can be created there from System Settings, with a WebODM admin's login.
+  back; an orthophoto made there, of temperatures or colours, imported into a flight as a dataset of its own; the
+  account the app uses can be created there from System Settings, with a WebODM admin's login.
 
 It runs on Linux, macOS and Windows. The server listens on 127.0.0.1 only, for the one person using the computer:
 there are no logins or accounts.

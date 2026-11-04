@@ -221,6 +221,12 @@ def parse_settings(raw):
 
 def summary_text(s):
     """A short description of a conversion's settings, for its default name and the list"""
+    imported = s.get('imported')
+    if imported:
+        if imported.get('from') == 'webodm':
+            return 'from WebODM: {} › {}'.format(imported.get('project_name') or 'project', imported.get('task_name') or
+                                                 'task') + (' · DSM' if imported.get('dsm') else '')
+        return 'from a file: ' + (imported.get('file') or '') + (' · DSM' if imported.get('dsm_file') else '')
     if s.get('visual_only'):
         parts = ['visual mosaic']
         if s.get('max_pitch') is not None:

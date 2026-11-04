@@ -8,9 +8,10 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: J (WebODM datasets: Import from WebODM), to plan with the user, in "WebODM datasets" below.
+**Up next**: J2 (WebODM datasets: the viewer, measuring, findings, compare and report of an imported dataset), to plan
+with the user, in "WebODM datasets" below.
 
-G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -2572,6 +2573,13 @@ button to the "New dataset" controls on each Flight."
   progress and cancel; the dataset's card says where it came from, with no conversion settings.
 - **J2: using it.** The viewer with its WebODM (and Heights) tab alone, measuring, findings, the compare page beside
   the flight's mosaics, the mosaic report; the docs.
+  - **Where J1 left it (merged 2026-11-04 at the user's word, with this gap):** **View mosaics** on an imported
+    dataset opens the viewer page, which says "This dataset has no mosaics" and offers **Frames** and **Build
+    mosaics** in its header; the server already lists the tabs (`mosaics`: `webodm`, `heights`) for one of
+    temperatures, and an imported colour one is stored as a visual-only conversion's mosaics are (`mosaics`:
+    `visual_only`, `imported`, `visual`, with no frames). The guide's Datasets page and the card already say what J2
+    makes true ("the viewer's WebODM tab", "the dataset's visual mosaic").
+  - **Owed from J1:** a check against a real WebODM (J1's was against a stand-in serving real rasters).
 
 ### Open decisions
 
@@ -2590,6 +2598,24 @@ button to the "New dataset" controls on each Flight."
   visual mosaic, with lengths and areas as in G2.
 - **DSM:** brought along when the task has one (a checkbox); from a file, an optional second file.
 - **Source frames:** not now (ODM doesn't record them).
+
+### J1's browser (decided 2026-11-04)
+
+Requested in the conversation: "a webodm project/task/map browser control that makes it easier for the user to
+identify and select from, preferably with a preview image" ("map" meaning the orthophoto, not a map of footprints).
+
+- **Where:** Flight page › Datasets tab › **Import from WebODM** (beside the New dataset form's buttons) opens a large
+  dialog (`components/dialog.tsx`), with two ways in: **From WebODM** (the browser) and **From a file**.
+- **The browser:** the account's projects on the left, with the search and count of **Process in WebODM**'s project
+  list; the chosen project's tasks as cards in the middle (preview, name, date, number of images, badges for
+  Orthophoto and DSM, and "Over this flight" when the task's footprint, WebODM's `extent`, meets the flight's
+  area: those cards first); the chosen task on the right, larger preview, its details, a **DSM** checkbox when it
+  has one, and **Import**.
+- **Tasks listed:** only completed ones with an orthophoto; the project says how many others it has.
+- **Previews:** WebODM's own `tasks/<id>/thumbnail?size=` for a colour orthophoto; for one of temperatures (fewer
+  than 3 bands, which WebODM's thumbnail refuses) the app colours one from WebODM's tiler with the value range of
+  its `orthophoto/metadata`, in the app's default palette. Both go through the app's server (the login stays there)
+  and are kept in memory a while (the browser keeps them for an hour).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
@@ -3407,6 +3433,20 @@ button to the "New dataset" controls on each Flight."
   panel's groups in Mosaics, Measuring, Findings and the finding quickstart. Test: the panel's order in
   `viewer.test.tsx`. Checked live on a scratch 8081 (dataset 8's copy), light and dark: the viewer and frame page
   show View and About only, the new line, no console errors; Vitest 466, lint, the strict docs build.
+- **J1: Import from WebODM, with the browser** (2026-11-04). Server: `analyzer/webodm_import.py` (the ready tasks
+  of a project, those over the flight first by WebODM's `extent`; previews: WebODM's `tasks/<id>/thumbnail`, else
+  its grey tiles over the 2nd–98th percentiles coloured with the map pages' palette, kept in memory; the import job
+  on the uploads worker, a conversion `converting` with `options.imported`, the orthophoto read as temperatures, the
+  conversion's `orthophoto`, or colours, a visual-only conversion's `mosaics`, the DSM as `dsm` with `use` off), the
+  client's `tasks`, `thumbnail`, `metadata`, `tile` and `raw` (`webodm.py`), `map_copy` taking 3 bands, the views
+  (`webodm/projects/<p>/tasks`, `.../preview`, `datasets/<id>/import/webodm` and `/file`). Front end:
+  `dataset/webodm-import.tsx` (the dialog), the card's imported state (`convert.tsx`, `conversions.ts`), its CSS.
+  Tests: `tests/test_webodm_import.py` (10), `frontend/tests/webodm-import.test.tsx` (6). Checked live on a scratch
+  8081 against a stand-in WebODM (the user's wasn't running) serving dataset 1's mosaics shaped as ODM writes them,
+  light and dark: the cards' order and previews (coloured thermal, WebODM's RGB, "No preview"), imports of a thermal
+  task with its DSM, an RGB task and a file. Found and fixed: the project buttons' `data-project` matched another
+  element on the page, and statistics that aren't finite gave a blank preview. Checked: pytest 486, Vitest 476,
+  ruff, lint, the strict docs build. The viewer for imported datasets is J2's.
 - **G2: RGB-only flights, measuring, the compare page, the frames and the report** (2026-11-04). dji-thermal-cli 1.13.1
   (released for it: `check` makes no WebODM plan without thermal frames) pinned. Server: the `visual` measurement
   target (`thermal_measure.visual_measure`: the shape's size in the mosaic's projection and the pixels it covers),
