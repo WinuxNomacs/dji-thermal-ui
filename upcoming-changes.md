@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: G2 (RGB-only flights: the compare page, the frames and measuring lengths and areas), in "RGB-only flights"
+**Up next**: G2 (RGB-only flights: the compare page, the frames, measuring lengths and areas, the mosaic report, and the Problems tab's fix through dji-thermal-cli 1.13.1), in "RGB-only flights"
 below.
 
 Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
@@ -2495,6 +2495,39 @@ paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and 
   readout of its own; "Difference" not offered with it.
 - **Frame page:** the visual frames of a flight with no thermal ones, with ← and →.
 - **Measuring:** lengths and areas on the viewer page's Visual tab of an RGB-only dataset, kept as findings.
+
+### G2: decisions (2026-11-04)
+
+- **Measurements:** both, as on the thermal viewer: the card's **Save measurement** with the side panel's Saved
+  measurements list (CSV, GeoJSON), and **Keep as finding**.
+- **Frame page:** view only: each visual photo as taken, with ← and →, its metadata and the frames explorer listing
+  them; no measuring on a single photo (it has no ground scale).
+- **Also in G2:** the mosaic report of a visual-only dataset, and the Problems tab's fix (dji-thermal-cli first).
+
+### G2: the design (2026-11-04)
+
+1. **dji-thermal-cli 1.13.1** (its own repo, `release/1.13.1`): `check(..., webodm=True)` makes no WebODM plan for a
+   flight with no thermal files (`api.py`: `plan` stays None), so no "Only 0 nadir frame(s)…" error. The user pushes
+   and tags it; then it is pinned here, and the Flight page's Problems tab of an RGB-only flight lists only what
+   applies, its Plan tab saying "No plan: the flight has no thermal frames to plan with".
+2. **Measuring on the viewer page of a visual-only dataset** (`viewer/visual-viewer.tsx`): the line, area, box and
+   circle tools join the spot; `/measure` on such a conversion gives the shape's length, or area and perimeter,
+   measured in the visual mosaic's map projection (`thermal_measure.shape_size`), with no temperatures. The card
+   shows them, with **Source frames**, **Save measurement** and **Keep as finding**; the side panel gets Saved
+   measurements (CSV, GeoJSON) and the flight's Findings, as the thermal viewer's.
+3. **Findings** of a visual-only dataset keep the size in place of temperatures; the findings panel, the compare
+   page and the flight report show it.
+4. **Compare page:** `comparable` lists visual-only datasets, with the Visual tab alone; such a pane has no readout
+   or colour scale of its own, a click opens its visual frames, and Difference isn't offered with it. Overlay works
+   either way round.
+5. **Frame page and frames explorer:** for a visual-only dataset, the flight's visual photos (from the analysis),
+   each shown as taken, with ← and → and its metadata; the navigation pane and the Datasets tab's card link to them
+   again (G1 hid them).
+6. **Mosaic report:** offered for a visual-only dataset (the viewer's Mosaic report button): the mosaic's picture,
+   how it was laid out (frames, alignment, heights, frames agreeing) and its findings, with no temperatures.
+7. **Docs** (Datasets, Mosaics, Measuring, Findings, Compare, Frames, Reports; the CHANGELOG) and tests (pytest for
+   measuring, comparable, the frames list and the report on a visual-only conversion; Vitest for the viewer, compare
+   and frame pages); a live check on `ignored/m4t-rgb` on 8081.
 
 ## Panel wording and the mosaics as a preview
 
