@@ -56,6 +56,34 @@ An unnamed one is named "Visual mosaic", followed by whichever of these settings
 
 It has no WebODM processing, and the flight's WebODM plan tab says there is nothing to plan.
 
+## Importing from WebODM
+
+**Import from WebODM**, beside **Convert**, brings an orthophoto made in WebODM into the flight as a dataset of its
+own. Nothing is converted: the dataset is the orthophoto (and its surface model).
+
+- **From WebODM** browses the projects of the app's [WebODM account](webodm.md#connecting-it), newest first, with
+  a search. A project's completed tasks with an orthophoto are cards, each with a preview of the orthophoto, its name,
+  when it was made, and **Orthophoto** and **DSM** chips; those whose orthophoto lies over the flight's photos are
+  marked **Over this flight** and come first. The project says how many tasks it has besides (still running, failed,
+  or without an orthophoto). The chosen task is shown larger beside them, with its project, date, number of images
+  and how long WebODM took, and **Its DSM too** when it has one (ticked at first).
+- **From a file** takes the orthophoto's GeoTIFF from a task's **Download assets** on WebODM's page, and its DSM if
+  you have it (up to 1 GB each).
+
+The dataset is named after the task or the file unless named in the dialog. Its card follows the download and the
+reading (**Importing**, with **Cancel**), then says **Imported**, where it came from and what it holds:
+
+- **Temperatures**: an orthophoto of one band of values, read as °C as ODM writes them and shown in your unit, is the
+  viewer's **WebODM** tab, as a [task's orthophoto brought back](webodm.md#bringing-the-results-here) is. Its preview
+  is coloured with your palette.
+- **Colours**: an orthophoto of red, green and blue is the dataset's visual mosaic, as a
+  [flight of visual images only](#a-flight-of-visual-images-only) has.
+- **DSM**: its surface model, the viewer's **Heights** tab.
+
+An orthophoto of anything else (several bands of values, or none georeferenced) isn't imported, and its card says
+why. An imported dataset has no settings, frames or WebODM tasks of its own: its menu has **Download all**,
+**Rename** and **Delete**.
+
 ## A dataset's card
 
 Each dataset on the tab has a card with its settings and progress. Its button is **View mosaics** once the mosaics
