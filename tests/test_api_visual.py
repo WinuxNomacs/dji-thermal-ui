@@ -360,3 +360,10 @@ def test_its_visual_frames_are_served_as_themselves(api):
     res = api.get(url, {'frame': VISUAL_FILES[1], 'size': 4})
     assert res.status_code == 200 and Image.open(io.BytesIO(res.content)).size == (4, 4)
     assert api.get(url, {'frame': THERMAL_FILES[0]}).status_code == 404
+
+
+def test_the_navigation_pane_gives_it_no_frames(api):
+    c, _ = visual_only(api)
+    listed = api.get("/api/navigation").data['projects']
+    nav = next(x for p in listed for d in p['datasets'] for x in d['conversions'] if x['id'] == c.id)
+    assert (nav['frames'], nav['mosaics']) == (False, True)

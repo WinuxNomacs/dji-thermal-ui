@@ -662,8 +662,9 @@ class NavigationView(DatasetView):
 
 
 def nav_conversion(c):
-    """A conversion as the pane lists it: whether it has frames (once converted) and mosaics (once built) to open"""
-    return {'id': c.id, 'name': c.name, 'frames': c.status == 'ready',
+    """A conversion as the pane lists it: whether it has frames (once converted; none in a visual mosaic of its own)
+    and mosaics (once built) to open"""
+    return {'id': c.id, 'name': c.name, 'frames': c.status == 'ready' and not (c.options or {}).get('visual_only'),
             'mosaics': c.status == 'ready' and (c.mosaic_status == 'ready' or bool((c.orthophoto or {}).get('raster')))}
 
 

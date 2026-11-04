@@ -496,7 +496,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
                        title="The new dataset's name: left empty, it is named after its settings"
                        value={name} onInput={(e) => setName(e.currentTarget.value)}/>
                 <button type="button" class="button primary" id="convert-start" onClick={start}><Play/> {only ? "Make mosaic" : "Convert"}</button>
-                {args && <button type="button" class="button default" id="convert-plan"
+                {args && !only && <button type="button" class="button default" id="convert-plan"
                                  title="The outputs and options the WebODM plan recommends"
                                  onClick={() => { setPlan(planSettings(args, meta!.defaults)); fill(planSettings(args, meta!.defaults));
                                      setOpen(true); say(<>The form has the WebODM plan's settings: <code>{args.join(" ")}</code></>); }}>
