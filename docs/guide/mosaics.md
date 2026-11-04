@@ -2,6 +2,13 @@
 
 The viewer shows a dataset's mosaics, opened with **View mosaics** on its card or from the navigation pane.
 
+!!! note "A preview, not an orthomosaic"
+    The mosaics are a quick preview to help the analysis: each frame is placed by its own position and the camera's
+    angles. They are no replacement for an orthomosaic
+    made by photogrammetry, such as [WebODM](webodm.md)'s (ODM's), which matches the frames to each other and models
+    the ground from them. Measure distances and areas, and place things on a map, from such an orthomosaic when they
+    must be exact.
+
 ![The viewer, on the Mosaic tab, with its side panel](../assets/screenshots/viewer.png)
 
 ## The tabs
@@ -35,7 +42,7 @@ Under the mosaic is a street map or satellite imagery, chosen with the switch at
 
 ## The side panel
 
-The panel is grouped under:
+The panel has, from the top:
 
 - **View:** the palette, the temperature range, **Image** (brightness and contrast, gamma, equalization and
   sharpening) and **Isotherm**. They are redrawn as their sliders are dragged. The colour scale is labelled with its
@@ -46,8 +53,8 @@ The panel is grouped under:
   end, and ▼ **Lower** and ▲ **Raise** move both ends by 10% of the span (a click on the name does the same). Neither
   end goes past the mosaic's own lowest and highest temperatures: an end that reaches one stays there while the other
   moves on, so the span shrinks. An arrow that would change nothing is greyed out.
-- **Values:** **Pointer info** (the values under the cursor), **Parameters** and **This mosaic**.
-- **Kept:** the saved [measurements](measuring.md) and the [findings](findings.md).
+- Then **Pointer info** (the values under the cursor), **Parameters** and **This mosaic**.
+- Then the saved [measurements](measuring.md) and the [findings](findings.md).
 - **About.**
 
 On a first visit Image, Parameters, This mosaic and The mosaic start folded, and each section then stays as it was

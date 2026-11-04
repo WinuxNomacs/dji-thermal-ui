@@ -145,7 +145,7 @@ describe("the viewer page", () => {
         expect($(".map-legend")!.textContent).toBe("");
         expect([...document.querySelectorAll(".viewer-panel .panel-group, .viewer-panel [data-section]")]
             .map((x) => x.getAttribute("data-section") || x.textContent))
-            .toEqual(["View", "image", "isotherm", "Values", "cursor", "parameters", "whole", "Kept", "saved", "findings",
+            .toEqual(["View", "image", "isotherm", "cursor", "parameters", "whole", "saved", "findings",
                       "About", "report"]);
         // Folded on a first visit: what is looked at less often
         expect([...document.querySelectorAll<HTMLDetailsElement>(".viewer-panel details:not([open])")].map((x) => x.dataset.section))

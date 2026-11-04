@@ -86,6 +86,10 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- The viewer's side panel and the frame page's have no Values and Kept headings, so they take less room; the line
+  under the Image sliders reads "Adjustments change how the image is drawn: temperatures remain unchanged."
+- The guide, the README and the documentation's home page say the mosaics are a preview to help the analysis, not a
+  replacement for an orthomosaic made by photogrammetry (ODM's or WebODM's).
 - dji-thermal-cli 1.13.0 (from 1.11.0): mosaics are faster, the frames' overlaps matched in worker processes (the
   thermal test flight's mosaic in 35 s instead of 96 s on 8 workers), and unchanged to the pixel.
 - The line giving the mosaic's (or frame's) own lowest and highest values is straight under the colour scale, above

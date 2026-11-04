@@ -14,7 +14,7 @@ or an area's histogram.
 
 On the card:
 
-- **Save measurement** keeps it, listed in the side panel under Kept.
+- **Save measurement** keeps it, listed in the side panel's Saved measurements.
 - **Keep as finding**, for a spot or an area of a mosaic: see [Findings](findings.md).
 - **Source frames**, for a spot or an area of a mosaic: see below.
 
