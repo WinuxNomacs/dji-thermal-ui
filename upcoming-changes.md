@@ -2489,6 +2489,8 @@ paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and 
   `check`, which counts thermal frames only. A change there (and a release) first.
 - **The mosaic report** of a visual-only dataset isn't offered (the viewer has no Mosaic report button for it).
 
+Both are in G2.
+
 ### G2: the compare page, the frames and measuring
 
 - **Compare page:** an RGB-only dataset's mosaic in either pane beside any mosaic, and as an overlay, with no

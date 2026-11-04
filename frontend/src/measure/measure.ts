@@ -155,8 +155,9 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
     }
     size("Length", "length");
     size("Area", "area");
-    // A visual mosaic's shape has its size alone: its perimeter too
-    if (results.every((r) => !isPresent(r.mean) && !isPresent(r.value))) size("Perimeter", "perimeter");
+    // A visual mosaic's shape has its size alone: its perimeter too, and no pixels measured
+    const sizeAlone = results.every((r) => !isPresent(r.mean) && !isPresent(r.value));
+    if (sizeAlone) size("Perimeter", "perimeter");
     function figure(label: string, key: Key, fmt: (v: Maybe<number>) => string, diffFmt: (v: number) => string) {
         const vs = results.map((r) => r[key]);
         if (vs.every((v) => v === null || v === undefined)) return;
@@ -193,7 +194,7 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
     height("Lowest height", results.map((r) => r.heights?.min));
     height("Mean height", results.map((r) => r.heights?.mean));
     height("Highest height", results.map((r) => r.heights?.max));
-    rows.push({label: "Pixels", values: results.map((r) => String(r.valid_pixels || 0))});
+    if (!sizeAlone) rows.push({label: "Pixels", values: results.map((r) => String(r.valid_pixels || 0))});
     return rows;
 }
 

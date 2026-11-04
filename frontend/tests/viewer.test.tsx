@@ -291,6 +291,7 @@ describe("the viewer page", () => {
         expect(card).toContain("12.50 m²");
         expect(card).toContain("Perimeter14.20 m");
         expect(card).not.toContain("°");
+        expect(card).not.toContain("Pixels");
         expect([...document.querySelectorAll("#measure-card button")].map((b) => b.getAttribute("name")))
             .toEqual(["close", "keep-finding", "sources", "save"]);
         const name = $("#measure-card [name=name]") as HTMLInputElement;
