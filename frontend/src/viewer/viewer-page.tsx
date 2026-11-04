@@ -1086,7 +1086,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             {sources && <SourcesWindow name="viewer" anchor={mapEl.current} onClose={closeSources} about={sourcesAbout()} groups={[{
                 title: "", res: sources.res, error: sources.error, unit, colouring: frameColouring(),
                 values: (f) => base + "/frame/data?frame=" + encodeURIComponent(f),
-                curve: (f) => frameCurve(f), href: (f) => frameUrl + encodeURIComponent(f),
+                curve: (f) => frameCurve(f), href: v.imported ? undefined : (f) => frameUrl + encodeURIComponent(f),
                 visual: v.visual ? (f) => base + "/frame/visual?frame=" + encodeURIComponent(f) + "&size=" + WINDOW_VISUAL_PX : undefined,
             }]} visual={visual}/>}
             {draft && <FindingForm title={draft.title} fields={draft.fields} error={draft.error} onSave={saveFinding}

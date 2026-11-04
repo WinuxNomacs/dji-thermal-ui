@@ -4,8 +4,8 @@ A finding is a spot or an area of a mosaic kept on its flight, with a name, note
 temperatures measured when it was kept, and the frames that saw it (all of them, or those you pick). On the visual
 mosaic of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only), an area's finding keeps its
 area and perimeter instead, and its frames are the visual photos. A finding on an
-[imported dataset](mosaics.md#an-imported-dataset) keeps no frames: ODM doesn't record which photos its orthophoto
-was made of.
+[imported dataset](mosaics.md#an-imported-dataset) keeps the photos found from its WebODM task's cameras
+([the frames of a spot](mosaics.md#the-frames-of-a-spot)), or none without them.
 
 ![A finding open on the viewer, with the frames that saw it](../assets/screenshots/viewer-finding.png)
 

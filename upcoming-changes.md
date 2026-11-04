@@ -10,7 +10,8 @@ its title.
 
 **Up next**: nothing planned yet.
 
-J2 (WebODM datasets: an imported dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -2599,6 +2600,30 @@ button to the "New dataset" controls on each Flight."
 - **DSM:** brought along when the task has one (a checkbox); from a file, an optional second file.
 - **Source frames:** not now (ODM doesn't record them).
 
+### J3: source frames from WebODM's cameras (decided 2026-11-04)
+
+Asked in the conversation: "what's the lift to enable source frame view on imported webodm flights?" WebODM's
+orthophoto doesn't say which photo each pixel came from, but each task offers its cameras: `shots.geojson` (each
+photo's file name, position in UTM and rotation) and `cameras.json` (its lens, OpenSfM's Brown model).
+
+- **What it builds on:** the source frames window (`thermal_sources.sources`) needs only a model's `files`,
+  `footprints`, `pixels` and `view_angles`; a visual mosaic of its own already takes the most nadir frame as the one
+  used. The import dialog lists only tasks over the flight, so the flight holds the photos.
+- **The design:** `analyzer/webodm_cameras.py` projects a point through each WebODM camera, at the DSM's height (the
+  dataset's, when it has one; else the ground under the photos, their positions less their height above it), and
+  maps the photos' names to the flight's files (`DJI_…_T_temp_c.tiff`, a TIFF sent from here, is `DJI_…_T.JPG`). Kept
+  in the dataset's `webodm/cameras.json`, with the task they came from.
+- **Where it shows:** Viewer page and compare page: a click on an imported dataset (WebODM tab or Visual tab) opens the
+  Source frames window with the photos that saw the spot or area; findings keep them. The WebODM tab of a dataset sent
+  to WebODM from here too.
+- **Decisions (the user's):**
+  - **Datasets imported before J3** (and an orthophoto brought back from a task sent from here) fetch the cameras
+    from WebODM the first time a spot is clicked.
+  - **Import:** from WebODM, the cameras come with the orthophoto; **From a file** takes the task's `shots.geojson`
+    and `cameras.json` as optional files (without them, no frames, as today).
+  - **A thermal frame's temperatures:** from a task sent from here, measured with the settings of the dataset it
+    was sent from; otherwise with each frame's own parameters.
+
 ### J2: decisions (2026-11-04)
 
 - **Built without asking (the code settles them):** Viewer page: an imported dataset shows its own tabs, **WebODM**
@@ -3445,6 +3470,24 @@ identify and select from, preferably with a preview image" ("map" meaning the or
   panel's groups in Mosaics, Measuring, Findings and the finding quickstart. Test: the panel's order in
   `viewer.test.tsx`. Checked live on a scratch 8081 (dataset 8's copy), light and dark: the viewer and frame page
   show View and About only, the new line, no console errors; Vitest 466, lint, the strict docs build.
+- **J3: the source frames of WebODM's orthophoto, from its cameras** (2026-11-04). Server: `analyzer/webodm_cameras.py`
+  (a task's `shots.geojson` and `cameras.json` checked, kept in the dataset's `webodm/cameras.json` with their task,
+  fetched when missing or another task's; `Cameras`: OpenSfM's Brown or perspective lens, a point at the DSM's height
+  or the ground under the photos, each photo's file matched by name, its pixels scaled to the file's size, footprints
+  on the ground), `api.webodm_sources` (frames, or `not_recorded` / `no_cameras` with the error), the import bringing
+  the cameras (`webodm_import.run_import`) or taking them from a file (`imported_cameras`), `thermal_measure.measured_as`
+  (a frame of an import measured as the dataset its task was sent from), `comparable`'s `imported`. Front end:
+  `visual-viewer.tsx` (a click opens the photos), `sources.ts` (`NOT_KNOWN`, the messages), no Open frame for an
+  imported dataset (`viewer-page.tsx`, `compare-page.tsx`), the dialog's camera files (`webodm-import.tsx`). Tests:
+  pytest (`test_webodm_cameras.py`, and `test_webodm_import`/`test_webodm_tasks` now `no_cameras`), Vitest (`viewer`,
+  `sources`, `webodm-import`). Checked: against dji-thermal-cli's own frame models of the user's 22 October flight
+  (WebODM's Roof Sample on 8002): 93% agree on which frames saw a point, a median 5.7 px apart; live on a scratch 8081
+  (a copy of that flight's 327 thermal frames read in place, Roof Sample imported from 8002 with its DSM), light and
+  dark: a spot's 182 frames and an area's 306 with outlines, no console errors; 46 random spots' WebODM temperature
+  against the first frame's at its mark, correlation 0.974, a median 1.19 °F apart; the cameras fetched again on the
+  next click after being removed, and the window's reason while WebODM couldn't be reached. Not checked live: an RGB
+  import's photos (the 8002 RGB task's photos aren't on this machine; Vitest and pytest cover it). Checked: pytest
+  496, Vitest 483, ruff, lint, the strict docs build.
 - **J2: an imported dataset in the viewer, compare and report** (2026-11-04). Server: the import ends with
   `mosaic_status` ready and keeps the task's `created_at`, `images`, `processing_ms` (`DatasetImportWebODMView`); an
   imported colour orthophoto is `visual_only` to the pages (`conversion_summary`); its sources say `not_recorded`

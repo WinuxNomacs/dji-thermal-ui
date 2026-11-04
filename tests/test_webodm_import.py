@@ -192,10 +192,10 @@ def test_a_colour_orthophoto_is_imported_as_a_visual_mosaic_of_its_own(api, brow
         assert src.count == 3 and src.dataset_mask().min() == 255
     summary = api.get("%s/%d" % (CONVERSIONS, c.id)).data
     assert summary['imported']['kind'] == 'visual' and summary['visual_only'] is True
-    # No frames to find: WebODM's orthophoto doesn't say which photos it was made of
+    # No frames to find while WebODM has no cameras for the task (test_webodm_cameras has those that do)
     spot = {'type': 'Point', 'coordinates': [(v['bounds'][0] + v['bounds'][2]) / 2, (v['bounds'][1] + v['bounds'][3]) / 2]}
     found = api.post("%s/%d/mosaics/visual/sources" % (CONVERSIONS, c.id), {'geometry': spot}, format='json').data
-    assert found['frames'] == [] and found['reason'] == 'not_recorded'
+    assert found['frames'] == [] and found['reason'] == 'no_cameras'
     assert not os.path.exists(os.path.join(c.data_dir(), webodm_import.IMPORT_DIR))
 
 

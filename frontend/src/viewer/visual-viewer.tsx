@@ -2,8 +2,8 @@
 // the mosaic on a map, with no temperatures to colour or read. A click on a spot opens the visual frames that saw it; a
 // line or an area drawn is measured (its length, or its area and perimeter), saved as a measurement or kept as a finding
 // of the flight, and the panel says how the mosaic was made. The thermal viewer (viewer-page) shows it instead of its
-// own once the mosaics are loaded. A colour orthophoto imported from WebODM is shown as one, with no frames to open
-// (a spot is kept as a finding), and its DSM's Heights tab in the thermal viewer.
+// own once the mosaics are loaded. A colour orthophoto imported from WebODM is shown as one, its photos found from its
+// task's cameras, and its DSM's Heights tab in the thermal viewer.
 import GeoJSON from "ol/format/GeoJSON";
 import type OlMap from "ol/Map";
 import type VectorSource from "ol/source/Vector";
@@ -18,7 +18,7 @@ import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, HINTS, type Measured, type Measurement, type Shape, toggleCompared, type Tool,
         TOOLS} from "../measure/measure";
 import {MeasureCard, Measurements, Toolbar} from "../measure/result";
-import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
+import {hasSources, NOT_KNOWN, type Sources, sourcesUrl} from "../sources/sources";
 import {SourcesWindow} from "../sources/window";
 import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, findingSources,
         findingsUrl} from "../findings/findings";
@@ -32,8 +32,8 @@ import {SOURCES_SHAPE} from "./viewer-page";
 export const VISUAL_ALONE_HINT = "The visual camera's images, laid out by their own overlaps. The flight has no " +
     "thermal images, so nothing here has a temperature: click a spot to see the frames that saw it, or draw a line " +
     "or an area to measure it.";
-export const IMPORTED_HINT = "The colour orthophoto imported from WebODM. Nothing here has a temperature: draw a line " +
-    "or an area to measure it, or keep a spot as a finding.";
+export const IMPORTED_HINT = "The colour orthophoto imported from WebODM. Nothing here has a temperature: click a spot " +
+    "to see the photos that saw it, or draw a line or an area to measure it.";
 const WINDOW_PX = 1600;     // a frame in the source frames window, at most this many pixels across
 const TARGET = "visual";    // what its measurements and findings are measured on
 const HINTS_HERE: Record<Tool, string> = {
@@ -42,7 +42,6 @@ const HINTS_HERE: Record<Tool, string> = {
     box: "Drag from one corner to the opposite one: its area and perimeter.",
     circle: "Drag from the centre outwards: its area and perimeter.",
 };
-const HINTS_IMPORTED: Record<Tool, string> = {...HINTS_HERE, point: "Click a spot to keep it as a finding."};
 
 export interface VisualAlone {
     name: string;
@@ -54,7 +53,7 @@ export interface VisualAlone {
     mosaic_progress?: number | null;
     stage?: Maybe<Stage>;
     visual?: VisualMosaic | null;
-    imported?: Imported | null;         // an orthophoto imported from WebODM: no frames, nothing to build
+    imported?: Imported | null;         // an orthophoto imported from WebODM: nothing to build
     tabs?: {tab: string}[];             // its Heights tab, where it was imported with a DSM
 }
 
@@ -133,12 +132,12 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                 syncTools();
             },
             onChange: syncTools,
-            // A click with no tool on opens the finding there, else the frames that saw the spot (none imported)
+            // A click with no tool on opens the finding there, else the frames that saw the spot
             onClick: (at) => {
                 const hit = findingsShown.current && findingAt(m, m.getPixelFromCoordinate(at), findingsShown.current);
                 const f = hit !== null && now.current.findings.find((x) => x.id === hit);
                 if (f) openFinding(f);
-                else if (!imported) openSources({type: "Point", coordinates: toCoords(at)});
+                else openSources({type: "Point", coordinates: toCoords(at)});
             },
         });
         // Esc ends the drawing, else closes the card
@@ -347,7 +346,7 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
         const f = sources?.finding ? findings.find((x) => x.id === sources.finding) : null;
         if (f) return <FindingAbout f={f} onEdit={() => setDraft({title: "Change finding", fields: fieldsOf(f), edit: f})}/>;
         if (!sources?.res || sources.res.reason === "outside_raster") return null;
-        if (!sources.res.frames?.length && sources.res.reason !== "not_recorded") return null;
+        if (!sources.res.frames?.length && !NOT_KNOWN.includes(sources.res.reason || "")) return null;
         return <SaveFinding onSave={() => newFinding()}/>;
     }
 
@@ -387,9 +386,8 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                 <div class="viewer-body">
                     <div class="map-stage">
                         <div class="viewer-map" id="map" ref={mapEl}/>
-                        {ready && <Toolbar tool={tools.tool} count={tools.count} tools={TOOLS} hints={imported ? HINTS_IMPORTED : HINTS_HERE}
-                                           label={imported ? "Drawing tools: a spot kept as a finding, the length of a line or the size of an area" :
-                                               "Drawing tools: the frames that saw a spot, the length of a line or the size of an area"}
+                        {ready && <Toolbar tool={tools.tool} count={tools.count} tools={TOOLS} hints={HINTS_HERE}
+                                           label="Drawing tools: the frames that saw a spot, the length of a line or the size of an area"
                                            onTool={pickTool} onFinish={() => { drawing.current?.finish(); syncTools(); }}/>}
                         {ready && current && <MeasureCard m={current} unit={undefined} name={saveName} error={measureError}
                             onName={setSaveName} onSave={save} onClose={closeCard}

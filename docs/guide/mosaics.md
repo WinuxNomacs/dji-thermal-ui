@@ -41,16 +41,34 @@ A dataset [imported from WebODM](datasets.md#importing-from-webodm) is shown as 
 
 - **An orthophoto of temperatures** on the **WebODM** tab, with its palette, range, Pointer info, measuring and
   findings as for any mosaic of temperatures.
-- **An orthophoto of colours** on the **Visual** tab, as the visual mosaic of a flight of visual images only is: a line
-  or an area is measured for its size, and the spot tool keeps a spot as a finding.
+- **An orthophoto of colours** on the **Visual** tab, as the visual mosaic of a flight of visual images only is: a click
+  opens the photos that saw the spot, and a line or an area is measured for its size.
 - **Its DSM** on the **Heights** tab, beside either. Beside a Visual tab, Heights loads the page again on the
   temperatures' viewer, and Visual brings it back.
 
-ODM doesn't record which photos each pixel of its orthophoto comes from, so a click opens no frames, and a finding keeps
-none. The header has **Open in WebODM** (the task it came from, in WebODM's dashboard, for one imported from a task),
+The header has **Open in WebODM** (the task it came from, in WebODM's dashboard, for one imported from a task),
 **Compare with…**, **Export…** (on the WebODM and Heights tabs) and **Mosaic report**, with no **Frames** or **Build mosaics**; **The
 mosaic** in the side panel says where it came from: the WebODM project and task, when the task was made, from how many
 images, how long WebODM took, and the DSM (or the files' names).
+
+### The frames of a spot
+
+ODM doesn't record which photo each pixel of its orthophoto comes from, so the flight's photos that saw a spot or an
+area are found from the task's cameras instead: where WebODM placed each photo and how its lens sees, with the spot
+at the height of the DSM (or, without one, of the ground under the photos). **Source frames** lists them, the most
+nadir first, marked **in the mosaic** as the one most likely used, and a finding keeps them as on any mosaic. A
+thermal frame is measured with the settings of the dataset its task was sent from, or with its own parameters for a
+task made in WebODM; an orthophoto of colours shows its photos as they were taken. Frames have no **Open frame**: an
+imported dataset has no frames page.
+
+- **Imported from a task:** the cameras come with the orthophoto. One imported before they did, or while WebODM
+  couldn't give them, fetches them the first time a spot's frames are asked for; while WebODM can't be reached, the
+  window says so, and the spot can still be kept as a finding.
+- **Imported from a file:** the frames are known only when the task's `shots.geojson` and `cameras.json` came with it.
+
+The photos must be the flight's own: a photo is matched by its name, or by the name of the TIFF it was sent to WebODM
+as (`DJI_…_T_temp_c.tiff` for `DJI_…_T.JPG`). Like a mosaic's frames, a photo is listed where it looked towards the
+spot, even if something stood in the way.
 
 The viewer opens on Mosaic, or on Harmonized when the frames disagree (their offsets against their neighbours
 spanning more than 3 °C over the middle 90% of them), with a notice saying so. A link that names a tab opens that one.

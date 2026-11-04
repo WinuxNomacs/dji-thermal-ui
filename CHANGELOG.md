@@ -13,9 +13,15 @@ All notable changes are recorded here. The format follows
   cards with a preview of each orthophoto (WebODM's own for colours, coloured here from its tiles for temperatures),
   those over the flight first; or it takes a GeoTIFF downloaded from WebODM's page. An orthophoto of temperatures is
   the viewer's WebODM tab, one of colours a visual mosaic, the DSM the Heights tab, beside either. The viewer, the
-  compare page and the mosaic report take it as any dataset's mosaic, with no frames to open (ODM doesn't record
-  them); its card and the viewer link to the task in WebODM (**Open in WebODM**), and its report and the viewer's
-  panel say where it came from: the project and task, when it was made, from how many images and how long WebODM took.
+  compare page and the mosaic report take it as any dataset's mosaic; its card and the viewer link to the task in
+  WebODM (**Open in WebODM**), and its report and the viewer's panel say where it came from: the project and task, when
+  it was made, from how many images and how long WebODM took.
+- The frames that saw a spot or an area of WebODM's orthophoto, which ODM doesn't record: found from the task's
+  cameras (its `shots.geojson` and `cameras.json`, at the DSM's height), the most nadir first, in the Source frames
+  window and kept by a finding, on an imported dataset and on the WebODM tab of a dataset without mosaics of its own.
+  An import from a task brings them along, **From a file** takes them as two optional files, and an orthophoto
+  imported or brought back before fetches them the first time. A thermal frame is measured with the settings of the
+  dataset its task was sent from.
 - Flights of visual images only (no thermal ones): each dataset is the mosaic of the visual images, laid out by their
   own overlaps with dji-thermal-cli 1.13.0, made with **Make mosaic** from the New dataset form, which shows only its
   settings (the pitch limit, the pixel size, the height cells and removing the location). The viewer shows it on its

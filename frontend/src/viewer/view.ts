@@ -24,8 +24,8 @@ export const TAB_HINTS: Record<string, string> = {
 };
 // An imported dataset's tabs (webodm_import): its orthophoto and DSM came from WebODM, not from this dataset's images
 const IMPORTED_HINTS: Record<string, string> = {
-    webodm: "WebODM's orthophoto of temperatures, imported: ODM placed and blended the frames, so it doesn't say which " +
-        "frame each pixel comes from.",
+    webodm: "WebODM's orthophoto of temperatures, imported: ODM placed and blended the frames. A spot's frames are " +
+        "found from the task's cameras.",
     heights: "WebODM's DSM, imported with the orthophoto: the height of the ground, roofs and trees in metres above " +
         "its lowest ground.",
 };

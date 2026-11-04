@@ -43,6 +43,8 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
     const [name, setName] = useState("");
     const [orthophoto, setOrthophoto] = useState<File | null>(null);
     const [dsmFile, setDsmFile] = useState<File | null>(null);
+    const [shotsFile, setShotsFile] = useState<File | null>(null);       // the task's cameras, both or neither
+    const [camerasFile, setCamerasFile] = useState<File | null>(null);
     const [problem, setProblem] = useState<string | null>(null);      // WebODM can't be asked: said in place of the browser
     const [message, setMessage] = useState<{text: string; cls: string} | null>(null);
     const [busy, setBusy] = useState(false);
@@ -114,12 +116,19 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                                  {project: project.id, task: chosen.id, dsm: dsm && chosen.dsm, name: name.trim()});
         } else {
             if (!orthophoto) return setMessage({text: "Choose the orthophoto's GeoTIFF.", cls: "text-danger"});
+            if (!shotsFile !== !camerasFile) {
+                return setMessage({text: "Choose both the task's shots.geojson and its cameras.json, or neither.", cls: "text-danger"});
+            }
             const big = [orthophoto, dsmFile].find((f) => f && f.size > MAX_FILE_BYTES);
             if (big) return setMessage({text: big.name + " is " + formatBytes(big.size) + ": a file can be up to " +
                 formatBytes(MAX_FILE_BYTES) + ". Import it from its WebODM task instead.", cls: "text-danger"});
             const body = new FormData();
             body.append("orthophoto", orthophoto);
             if (dsmFile) body.append("dsm", dsmFile);
+            if (shotsFile && camerasFile) {
+                body.append("shots", shotsFile);
+                body.append("cameras", camerasFile);
+            }
             if (name.trim()) body.append("name", name.trim());
             setBusy(true);
             setMessage({text: "Sending " + orthophoto.name + "…", cls: "text-muted"});
@@ -133,10 +142,11 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
         onClose();
     }
 
-    const fileField = (label: string, id: string, file: File | null, set: (f: File | null) => void) => (
+    const fileField = (label: string, id: string, file: File | null, set: (f: File | null) => void,
+                       accept = ".tif,.tiff,image/tiff") => (
         <div class="field">
             <label for={id}>{label}</label>
-            <input type="file" id={id} accept=".tif,.tiff,image/tiff" disabled={busy}
+            <input type="file" id={id} accept={accept} disabled={busy}
                    onChange={(e) => set(e.currentTarget.files?.[0] || null)}/>
             {file && <span class="text-muted"> {formatBytes(file.size)}</span>}
         </div>);
@@ -228,6 +238,10 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                 DSM. A file can be up to {formatBytes(MAX_FILE_BYTES)}.</p>
             {fileField("Orthophoto", "import-orthophoto", orthophoto, setOrthophoto)}
             {fileField("DSM (optional)", "import-dsm-file", dsmFile, setDsmFile)}
+            <p class="text-muted">The task's cameras (its Camera Shots and Camera Parameters, both optional) find the
+                flight's photos that saw a spot of the orthophoto.</p>
+            {fileField("Camera Shots: shots.geojson (optional)", "import-shots", shotsFile, setShotsFile, ".geojson,.json,application/geo+json,application/json")}
+            {fileField("Camera Parameters: cameras.json (optional)", "import-cameras", camerasFile, setCamerasFile, ".json,application/json")}
         </div>);
     }
 }

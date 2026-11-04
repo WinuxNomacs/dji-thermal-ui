@@ -20,6 +20,7 @@ export type PaneName = "a" | "b";
 export interface Comparable {
     id: number; name: string; dataset: number; dataset_name: string; project?: number; project_name?: string;
     unit?: string; tabs: string[]; visual?: boolean; visual_only?: boolean;
+    imported?: boolean;         // an orthophoto imported from WebODM: its frames have no frame page
 }
 
 // A temperature mosaic's palette, range (in the user's unit) and adjustments

@@ -447,7 +447,8 @@ def test_a_completed_tasks_orthophoto_is_brought_back_as_temperatures_and_shown_
     assert point['frame'] is None and point['view_angle'] is None
     lon, lat = mosaic_lonlat(40.5, 10.5)
     assert api.get("%s/%d/mosaics/webodm/point?lon=%r&lat=%r" % (CONVERSIONS, c.id, lon, lat)).data['valid'] is False
-    # Measured, and saved as a finding, as on a mosaic; no frames are said to have seen it
+    # Measured, and saved as a finding, as on a mosaic; no frames are said to have seen it while WebODM has no cameras
+    # for the task (test_webodm_cameras has those that do)
     area = mosaic_square(30, 8, 34, 12)
     res = api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'webodm', 'geometry': area}, format='json')
     assert res.status_code == 200 and res.data['result']['max'] > res.data['result']['min']
@@ -455,7 +456,7 @@ def test_a_completed_tasks_orthophoto_is_brought_back_as_temperatures_and_shown_
     assert api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'webodm', 'geometry': line},
                     format='json').status_code == 200
     sources = api.post("%s/%d/mosaics/webodm/sources" % (CONVERSIONS, c.id), {'geometry': area}, format='json').data
-    assert sources['frames'] == [] and sources['reason'] == 'not_recorded'
+    assert sources['frames'] == [] and sources['reason'] == 'no_cameras'
     res = api.post("%s/%d/findings" % (DATASETS, c.dataset_id), {'name': "Hot", 'conversion': c.id, 'tab': 'webodm',
                                                                  'geometry': area}, format='json')
     assert res.status_code == 201 and res.data['tab'] == 'webodm'

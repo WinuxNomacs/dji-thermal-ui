@@ -68,7 +68,8 @@ own. Nothing is converted: the dataset is the orthophoto (and its surface model)
   or without an orthophoto). The chosen task is shown larger beside them, with its project, date, number of images
   and how long WebODM took, and **Its DSM too** when it has one (ticked at first).
 - **From a file** takes the orthophoto's GeoTIFF from a task's **Download assets** on WebODM's page, and its DSM if
-  you have it (up to 1 GB each).
+  you have it (up to 1 GB each). The task's cameras, its **Camera Shots** (`shots.geojson`) and **Camera Parameters**
+  (`cameras.json`) from the same menu, are optional, both or neither: they find the flight's photos that saw a spot.
 
 The dataset is named after the task or the file unless named in the dialog. Its card follows the download and the
 reading (**Importing**, with **Cancel**), then says **Imported**, where it came from and what it holds:
@@ -82,8 +83,9 @@ reading (**Importing**, with **Cancel**), then says **Imported**, where it came 
 
 An orthophoto of anything else (several bands of values, or none georeferenced) isn't imported, and its card says
 why. One imported from a task has **Open in WebODM**, the task in WebODM's dashboard. **View mosaics** opens it in the
-[viewer](mosaics.md#an-imported-dataset). An imported dataset has no settings, frames or WebODM tasks of its own: its
-menu has **Download all**, **Rename** and **Delete**.
+[viewer](mosaics.md#an-imported-dataset). An imported dataset has no settings, frames page or WebODM tasks of its own:
+its menu has **Download all**, **Rename** and **Delete**. One imported from a task brings the task's cameras along,
+for the [frames that saw a spot](mosaics.md#the-frames-of-a-spot).
 
 ## A dataset's card
 

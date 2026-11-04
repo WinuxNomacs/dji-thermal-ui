@@ -30,15 +30,20 @@ export interface SourceFrame {
     height?: number;
 }
 
-// models: the mosaic knows every frame that saw it, else it lists only those it used (built before dji-thermal-cli 1.5.0)
+// models: the mosaic knows every frame that saw it, else it lists only those it used (built before dji-thermal-cli 1.5.0);
+// error: why WebODM couldn't give its task's cameras (reason no_cameras)
 export interface Sources {
     kind: "Point" | "Polygon";
     geometry: Geometry;
     models: boolean;
     frames: SourceFrame[];
     reason: Maybe<string>;
+    error?: string;
     point?: Point;
 }
+
+// Why no frame is known where a spot can still be kept as a finding: WebODM's orthophoto without its task's cameras
+export const NOT_KNOWN = ["not_recorded", "no_cameras"];
 
 export const NO_MODELS = "Only the frames the mosaic used are listed: build the mosaics again to list every frame " +
     "that saw it.";
@@ -58,7 +63,10 @@ export function frameName(path: string): string {
 // Why no frame is listed
 export function emptyText(s: Sources): string {
     if (s.reason === "outside_raster") return "Outside the mosaic.";
-    if (s.reason === "not_recorded") return "WebODM's orthophoto doesn't record which frames each pixel comes from.";
+    if (s.reason === "not_recorded") return "This orthophoto came without its task's cameras (shots.geojson and " +
+        "cameras.json), so the photos that saw it aren't known.";
+    if (s.reason === "no_cameras") return (s.error || "WebODM couldn't give the task's cameras.") + " Try again once " +
+        "WebODM can be reached.";
     return s.kind === "Point" ? "No frame is known for this spot." : "No frame is known for this area.";
 }
 

@@ -730,7 +730,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                             "&size=" + WINDOW_VISUAL_PX};
             }
             // As the pane's mosaic is named: its conversion and tab
-            return {title, res: m.res, error: m.error, unit: m.unit, href: (f) => frameUrl(m.conv) + encodeURIComponent(f), about,
+            return {title, res: m.res, error: m.error, unit: m.unit, about,
+                    href: c?.imported ? undefined : (f) => frameUrl(m.conv) + encodeURIComponent(f),
                     values: (f) => frameDataUrl(api, m.conv, f),
                     visual: panes![m.pane].info.visual ? (f) => api + "conversions/" + m.conv + "/frame/visual?frame=" +
                         encodeURIComponent(f) + "&size=" + WINDOW_VISUAL_PX : undefined,

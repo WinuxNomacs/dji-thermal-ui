@@ -1441,7 +1441,8 @@ class DatasetImportWebODMView(DatasetView):
 class DatasetImportFileView(DatasetView):
     def post(self, request, pk):
         """Imports an orthophoto downloaded from WebODM's page (a GeoTIFF: 'orthophoto', and its DSM: 'dsm') into the
-        flight as a dataset of its own, named 'name' (the file's when not given); read in the background"""
+        flight as a dataset of its own, named 'name' (the file's when not given); read in the background. The task's
+        cameras ('shots': its shots.geojson, and 'cameras': its cameras.json) give the photos that saw a spot"""
         dataset = get_dataset(pk)
         orthophoto, dsm = request.FILES.get('orthophoto'), request.FILES.get('dsm')
         if orthophoto is None:
@@ -1449,13 +1450,35 @@ class DatasetImportFileView(DatasetView):
         for f in filter(None, (orthophoto, dsm)):
             if not f.name.lower().endswith(('.tif', '.tiff')):
                 raise ValidationError({'error': "{} is not a GeoTIFF (.tif)".format(f.name)})
+        cameras = imported_cameras(request.FILES.get('shots'), request.FILES.get('cameras'))
         base = os.path.splitext(os.path.basename(orthophoto.name))[0]
         name = text_field(request.data, 'name', "The dataset's name", base or "Orthophoto")[:255]
         imported = {'from': 'file', 'file': os.path.basename(orthophoto.name),
                     'dsm_file': os.path.basename(dsm.name) if dsm else None}
         files = dict({'orthophoto': orthophoto}, **({'dsm': dsm} if dsm else {}))
-        conversion = webodm_import.start(dataset, name, imported, app_unit(), files)
+        conversion = webodm_import.start(dataset, name, imported, app_unit(), files, cameras)
         return Response(conversion_detail(conversion), status=status.HTTP_201_CREATED)
+
+
+def imported_cameras(shots, cameras):
+    """A task's cameras given with its orthophoto (its shots.geojson and cameras.json, both or neither), read and
+    checked: (shots, cameras) or None"""
+    from . import webodm_cameras
+    if shots is None and cameras is None:
+        return None
+    if shots is None or cameras is None:
+        raise ValidationError({'cameras': "Choose both the task's shots.geojson and its cameras.json, or neither"})
+    read = []
+    for f in (shots, cameras):
+        try:
+            read.append(json.loads(b"".join(f.chunks()).decode('utf-8')))
+        except (UnicodeDecodeError, ValueError):
+            raise ValidationError({'cameras': "{} is not JSON".format(f.name)}) from None
+    try:
+        webodm_cameras.check(*read)
+    except webodm_cameras.CamerasError as e:
+        raise ValidationError({'cameras': str(e)}) from None
+    return tuple(read)
 
 
 class WebODMProjectTasksView(DatasetView):
@@ -2094,12 +2117,13 @@ class MosaicPointView(DatasetView):
 
 def frame_sources(conversion, path, geometry, tab=None):
     """The frames that saw a checked spot or area of a mosaic (path: its GeoTIFF), each with when it was taken and its
-    visual pair (or None): {frames, reason, kind, geometry, models}; none on WebODM's orthophoto (an imported one's
-    too), which doesn't say"""
+    visual pair (or None): {frames, reason, kind, geometry, models}. WebODM's orthophoto (an imported one's too) has
+    its task's cameras instead (webodm_cameras): none from a file imported without them (reason not_recorded), or
+    WebODM couldn't give them (no_cameras, with the error)"""
     from . import thermal_sources
 
     if tab == thermal_mosaics.WEBODM or (conversion.mosaics or {}).get('imported'):
-        return {'frames': [], 'reason': 'not_recorded', 'kind': geometry['type'], 'geometry': geometry, 'models': False}
+        return webodm_sources(conversion, path, geometry)
     models = thermal_sources.read_models(path)
     # A visual mosaic of its own: its frames from their models alone, shown as themselves (no pairs)
     alone = tab == thermal_mosaics.VISUAL
@@ -2122,6 +2146,29 @@ def frame_sources(conversion, path, geometry, tab=None):
         if f['frame'] in sizes:
             f['width'], f['height'] = sizes[f['frame']]
     out.update(kind=geometry['type'], geometry=geometry, models=models is not None)
+    return out
+
+
+def webodm_sources(conversion, path, geometry):
+    """The photos that saw a spot or area of WebODM's orthophoto, from its task's cameras: thermal frames, or the
+    visual photos themselves (a colour orthophoto imported) with their size"""
+    from . import thermal_sources, webodm_cameras
+
+    out = {'kind': geometry['type'], 'geometry': geometry, 'models': False}
+    try:
+        models = webodm_cameras.models(conversion)
+    except webodm_cameras.CamerasError as e:
+        return dict(out, frames=[], reason='no_cameras', error=str(e))
+    if models is None:
+        return dict(out, frames=[], reason='not_recorded')
+    out.update(thermal_sources.sources(path, geometry, [], models, source_bands=False), models=True)
+    times = {r['path']: r.get('time') or "" for r in ((conversion.dataset.analysis or {}).get('files') or [])}
+    photos = bool((conversion.mosaics or {}).get('visual_only'))
+    for f in out['frames']:
+        f['time'] = times.get(f['frame'], "")
+        f['visual'] = None
+        if photos:
+            f['width'], f['height'] = models.sizes[f['frame']]
     return out
 
 
@@ -2225,7 +2272,7 @@ def difference(a, a_valid, a_unit, b, b_valid, b_unit):
 def comparable(conversion):
     """The conversions whose mosaics the conversion's can be compared with (its own too): its project's first, then
     by project, dataset and name, with their temperature tabs and whether they have the visual mosaic, or are one of
-    its own (visual_only)"""
+    its own (visual_only), and whether they were imported (no frame page)"""
     out = []
     own = conversion.dataset.project_id
     found = ThermalConversion.objects.select_related('dataset__project').order_by(
@@ -2239,7 +2286,7 @@ def comparable(conversion):
             out.append({'id': c.id, 'name': c.name, 'dataset': c.dataset_id, 'dataset_name': c.dataset.name,
                         'project': c.dataset.project_id, 'project_name': c.dataset.project.name,
                         'unit': mosaic_unit(c), 'tabs': tabs, 'visual': bool((c.mosaics or {}).get('visual')),
-                        'visual_only': alone})
+                        'visual_only': alone, 'imported': bool((c.options or {}).get('imported'))})
     return out
 
 

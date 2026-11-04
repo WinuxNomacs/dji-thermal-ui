@@ -18,7 +18,7 @@ from collections import OrderedDict
 import numpy as np
 from django.utils import timezone
 
-from . import colouring, exports, jobs, thermal_mosaics, webodm, webodm_tasks
+from . import colouring, exports, jobs, thermal_mosaics, webodm, webodm_cameras, webodm_tasks
 from .thermal_analysis import clean
 
 logger = logging.getLogger(__name__)
@@ -176,17 +176,20 @@ class Stopped(Exception):
     """The import's run is no longer its own: canceled, or its dataset deleted"""
 
 
-def start(dataset, name, imported, unit, files=None):
+def start(dataset, name, imported, unit, files=None, cameras=None):
     """A dataset imported into a flight, its job queued on the uploads worker (it downloads); imported: where it
     comes from ({from: 'webodm', url, project, project_name, task, task_name, dsm, created_at, images,
     processing_ms} or {from: 'file', file, dsm_file}); files: the uploaded files of one from a file,
-    {'orthophoto': file, 'dsm': file}, kept in its IMPORT_DIR for the job"""
+    {'orthophoto': file, 'dsm': file}, kept in its IMPORT_DIR for the job; cameras: its task's cameras, given with
+    it ((shots, cameras), as webodm_cameras.check reads them)"""
     from .models import ThermalConversion
     conversion = ThermalConversion.objects.create(
         dataset=dataset, name=name, options={'imported': imported, 'unit': unit}, status='converting',
         stage={'stage': 'download' if imported['from'] == 'webodm' else 'read'}, run_id=uuid.uuid4().hex)
     folder = import_dir(conversion)
     os.makedirs(folder, exist_ok=True)
+    if cameras:
+        webodm_cameras.write(conversion, webodm_cameras.source_of(conversion)[0], *cameras)
     for asset, f in (files or {}).items():
         dst = os.path.join(folder, asset + '.tif')
         if hasattr(f, 'temporary_file_path'):
@@ -289,6 +292,13 @@ def run_import(pk, run_id):
                 current(pk, run_id, stage={'stage': 'download', 'asset': asset})
                 client.download(int(imported['project']), imported['task'], name,
                                 os.path.join(folder, asset + '.tif'), progress)
+            # Its cameras, for the photos that saw a spot; fetched when they are first needed if they can't be now
+            try:
+                cameras = webodm_cameras.fetch(client, int(imported['project']), imported['task'], folder)
+                webodm_cameras.write(conversion, webodm_cameras.source_of(conversion)[0], *cameras)
+            except (webodm.WebODMError, webodm_cameras.CamerasError) as e:
+                logger.info("The cameras of WebODM task %s didn't come with it: %s", imported['task'], e)
+            current(pk, run_id)
         orthophoto = os.path.join(folder, 'orthophoto.tif')
         dsm_part = os.path.join(folder, 'dsm.tif')
         current(pk, run_id, progress=DOWNLOAD_SHARE, stage={'stage': 'read', 'asset': 'orthophoto'})
