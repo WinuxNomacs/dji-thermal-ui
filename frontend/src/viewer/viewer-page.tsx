@@ -1023,7 +1023,6 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         {measuring && <Section name="isotherm" title="Isotherm">
                             <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
                         </Section>}
-                        <PanelGroup title="Values"/>
                         <Section name="cursor" title="Pointer info">
                             <div class="readout" id="readout">
                                 <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
@@ -1038,7 +1037,6 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                                 <Whole whole={style?.whole} unit={unit}/>
                             </Section>
                         </>}
-                        <PanelGroup title="Kept"/>
                         <Section name="saved" title={<span class="measurements-head"><span>Saved measurements</span>
                             {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}
                                                     onClick={(e) => e.stopPropagation()}><Download/> CSV</a>}

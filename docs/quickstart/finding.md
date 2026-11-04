@@ -11,7 +11,7 @@ histogram.
 
 ![A box measured on the mosaic, with its card](../assets/screenshots/viewer-measure.png)
 
-**Save measurement** keeps it as a measurement, listed in the panel under Kept. Here, keep it as a finding instead.
+**Save measurement** keeps it as a measurement, listed in the panel's Saved measurements. Here, keep it as a finding instead.
 
 ## 2. Keep it as a finding
 

@@ -11,7 +11,7 @@ its title.
 **Up next**: G2 (RGB-only flights: the compare page, the frames and measuring lengths and areas), in "RGB-only flights"
 below.
 
-G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -2496,6 +2496,20 @@ paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and 
 - **Frame page:** the visual frames of a flight with no thermal ones, with ← and →.
 - **Measuring:** lengths and areas on the viewer page's Visual tab of an RGB-only dataset, kept as findings.
 
+## Panel wording and the mosaics as a preview
+
+Requested 2026-11-04 in `new.md`:
+- The documentation makes clear that the mosaics are a preview to help the analysis, by no means a replacement for an
+  orthomosaic made by photogrammetry (ODM, WebODM).
+- The "Values" and "Kept" headings go from the side panel: they take room for little.
+- "How the image is drawn: the temperatures stay as they are." becomes "Adjustments change how the image is drawn:
+  temperatures remain unchanged."
+
+### Z1: built as asked (2026-11-04)
+
+The requests left nothing to decide. The headings went from the viewer's panel and the frame page's alike (both had
+them), leaving View and About; the Image line keeps "values" for a tab that isn't temperatures.
+
 ## Done (kept here briefly as a note, not a tracked deferral)
 
 
@@ -3306,3 +3320,9 @@ paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and 
   live on a scratch 8081 with `ignored/m4t-rgb` read in place, light and dark: the mosaic made in 448 s (151 frames,
   0.6 cm, frames agreeing to 0.3 cm median), a spot's 141 frames with the spot marked, no console errors. Checked:
   Vitest 466, lint, pytest 470, ruff, the strict docs build, and the flight tests (4) on dataset 1's paired flight.
+- **Z1: the panels' headings, the Image line, the mosaics called a preview** (2026-11-04). The `PanelGroup`s
+  Values and Kept removed from `viewer/viewer-page.tsx` and `frame/frame-page.tsx`; the Image sliders' line in
+  `viewer/panel.tsx`. A note at the top of the guide's Mosaics page, a sentence in the README and the docs home; the
+  panel's groups in Mosaics, Measuring, Findings and the finding quickstart. Test: the panel's order in
+  `viewer.test.tsx`. Checked live on a scratch 8081 (dataset 8's copy), light and dark: the viewer and frame page
+  show View and About only, the new line, no console errors; Vitest 466, lint, the strict docs build.

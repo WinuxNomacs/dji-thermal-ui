@@ -853,7 +853,6 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                         <Section name="isotherm" title="Isotherm" store={FOLDED_KEY}>
                             <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
                         </Section>
-                        <PanelGroup title="Values"/>
                         <Section name="cursor" title="Pointer info" store={FOLDED_KEY}>
                             <div class="readout" id="readout"><FrameReadout point={point} unit={unit}/></div>
                         </Section>
@@ -863,7 +862,6 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                                     error={changeError.error} field={changeError.field}
                                     onInput={(k, x) => setTyped((t) => ({...t, [k]: x}))} onApply={applyChanges} onClear={clearChanges}/>
                         </Section>
-                        <PanelGroup title="Kept"/>
                         <Section name="saved" title={<span class="measurements-head"><span>Saved on this frame</span>
                             {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}
                                                     onClick={(e) => e.stopPropagation()}><Download/> CSV</a>}</span>} store={FOLDED_KEY}>

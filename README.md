@@ -9,6 +9,9 @@ DJI Thermal Analyzer (the `dji-thermal-ui` command) is a local web app built on
 results in the browser, so neither ODM nor the DJI Thermal SDK is needed. It is the Thermal Analyzer that used to be a
 plugin of LuxODM, a WebODM fork, now standing on its own.
 
+Its mosaics are a preview to help the analysis, not a replacement for an orthomosaic made by photogrammetry, such as
+ODM's or WebODM's.
+
 - **[Projects]** hold a site's flights, with its location and findings, and export to a `.tar` that imports again
   here or on another computer.
 - **[Flights]** take DJI R-JPEGs, their visual images and the drone's videos; dji-thermal-cli's analysis lists their

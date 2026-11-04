@@ -172,7 +172,7 @@ export function ImageControls(p: ImageProps) {
             <button type="button" class="button default small" id="reset" title="The Auto range, no adjustments"
                     onClick={p.onReset}>Reset</button>
         </div>
-        <p class="message">How the image is drawn: the {p.temperature ? "temperatures" : "values"} stay as they are.</p>
+        <p class="message">Adjustments change how the image is drawn: {p.temperature ? "temperatures" : "values"} remain unchanged.</p>
     </>);
 }
 

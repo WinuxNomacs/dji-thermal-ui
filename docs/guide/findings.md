@@ -14,7 +14,7 @@ temperatures measured when it was kept, and the frames that saw it (all of them,
 ## On the viewer
 
 The viewer draws the findings on the map, outlined and tagged in their severity's colour. Click one, or its line in
-the side panel's Findings list (under Kept), to open it with its frames and change it. They can all be hidden with
+the side panel's Findings list, to open it with its frames and change it. They can all be hidden with
 one switch, or one by one, and a link keeps which are shown and which is open.
 
 ## On the compare page
