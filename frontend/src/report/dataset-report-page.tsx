@@ -19,7 +19,7 @@ import {count, formatDate, formatNumber} from "../core/format";
 import {formatTemp} from "../core/units";
 import {conversionLabel} from "../dataset/conversions";
 import {type Dataset} from "../dataset/dataset-page";
-import {FILE_COLUMNS} from "../dataset/files";
+import {FILE_COLUMNS, visualOnly} from "../dataset/files";
 import {framePlace, framesUrl, numberedFrames, pictureUrl, type SavedFrame} from "../dataset/video-frames";
 import {formatDuration} from "../dataset/videos";
 import {cell, Figures, Overview, ProblemsTab} from "../dataset/tabs";
@@ -200,14 +200,16 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
     const shots = numberedFrames(videoFrames);
     const placed = shots.filter((v) => placeOf(v));
     const visual = visualPositions(files);
-    const shownVisual = text.visual ? visual : [];
+    // A flight without thermal frames: its visual photos are its frames, always on the map
+    const alone = visualOnly(a);
+    const shownVisual = text.visual || alone ? visual : [];
 
     return (
         <div class="page report">
             <ReportBar back={publicUrl + "dataset/" + id} backLabel={d.name} saved={saved} print={print}>
                 <label><input type="checkbox" id="report-appendix" checked={text.appendix}
                               onChange={(e) => change("appendix", e.currentTarget.checked, 0)}/> Append the frames' table</label>
-                {visual.length > 0 && <label><input type="checkbox" id="report-visual" checked={text.visual}
+                {visual.length > 0 && !alone && <label><input type="checkbox" id="report-visual" checked={text.visual}
                     onChange={(e) => change("visual", e.currentTarget.checked, 0)}/> Visual photos on the map</label>}
             </ReportBar>
             {notice && <div class="notice error no-print" role="alert">{notice}</div>}
