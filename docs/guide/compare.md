@@ -9,7 +9,7 @@ project's listed first. Open it with **Compare with…** in the viewer's header 
   [flight of visual images only](datasets.md#a-flight-of-visual-images-only) is listed with its visual mosaic alone:
   its pane has no values under the cursor, a spot or an area drawn on it opens its visual photos, and it has no
   difference. An [imported dataset](mosaics.md#an-imported-dataset) is listed with its WebODM tab, or its visual
-  mosaic alone.
+  mosaic alone; a spot or an area drawn on it opens the photos found from its task's cameras.
 - **Overlay (A over B)** draws pane A's mosaic over pane B's in one pane, faded with an opacity slider and cut at a
   swipe line dragged across it: visual over thermal, or two thermal mosaics.
 - **The difference** of two mosaics, in one pane.

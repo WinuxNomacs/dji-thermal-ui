@@ -110,7 +110,10 @@ Once WebODM has completed a task, **Bring the orthophoto here** on its line down
 background (with its progress, and a cancel). It is kept as temperatures, in the dataset's unit, and shown on the
 dataset's viewer as a **WebODM** tab beside its mosaics (even without mosaics of its own): coloured, read under the
 pointer, measured and saved as findings as they are, and offered on the compare page, beside the app's own mosaics
-or as their difference. ODM blends the frames, so it doesn't say which frames a spot came from. The orthophoto has
+or as their difference. ODM blends the frames, so it doesn't say which frame a spot came from: on a dataset with
+mosaics of its own, the frames of a spot on the WebODM tab are those of its Mosaic tab; on one without, they are found
+from the task's cameras, fetched from WebODM the first time a spot's frames are asked for
+([an imported dataset's](mosaics.md#the-frames-of-a-spot) are found the same way). The orthophoto has
 to hold temperatures, which the WebODM plan's `radiometric-calibration none` keeps; one of colours is refused. A
 dataset shows one orthophoto: another task's replaces it. The card says which task it came from and can remove it;
 taking that task off the list removes it too. WebODM keeps its own copy either way.
