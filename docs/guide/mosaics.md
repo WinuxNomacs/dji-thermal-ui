@@ -48,7 +48,7 @@ A dataset [imported from WebODM](datasets.md#importing-from-webodm) is shown as 
 
 ODM doesn't record which photos each pixel of its orthophoto comes from, so a click opens no frames, and a finding keeps
 none. The header has **Open in WebODM** (the task it came from, in WebODM's dashboard, for one imported from a task),
-**Compare with…**, **Export…** (temperatures) and **Mosaic report**, with no **Frames** or **Build mosaics**; **The
+**Compare with…**, **Export…** (on the WebODM and Heights tabs) and **Mosaic report**, with no **Frames** or **Build mosaics**; **The
 mosaic** in the side panel says where it came from: the WebODM project and task, when the task was made, from how many
 images, how long WebODM took, and the DSM (or the files' names).
 
