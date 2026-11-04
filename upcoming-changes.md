@@ -14,7 +14,7 @@ below.
 Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: nothing planned yet.
+**Then**: J (WebODM datasets: Import from WebODM), to plan with the user, in "WebODM datasets" below.
 
 ## Standalone (option A)
 
@@ -2553,6 +2553,51 @@ Requested 2026-11-04 in `new.md`:
 
 The requests left nothing to decide. The headings went from the viewer's panel and the frame page's alike (both had
 them), leaving View and About; the Image line keeps "values" for a tab that isn't temperatures.
+
+## WebODM datasets
+
+Requested 2026-11-04 in `new.md`: "we need to discuss adding a webodm dataset type for when the user downloads orthos
+from webodm for analysis. They can be stored under flights just like any other dataset. Add an "Import from WebODM"
+button to the "New dataset" controls on each Flight."
+
+### What it builds on
+
+- **Today an orthophoto comes back only for a dataset sent from here:** Flight page › Datasets tab › a card's
+  **Process in WebODM** makes the task; once complete, **Bring the orthophoto here** downloads it
+  (`webodm_tasks.run_download`), kept as temperatures in the dataset's unit and shown as that dataset's **WebODM**
+  tab in the viewer (colour, Pointer info, measuring, findings, compare and difference). A colour orthophoto is
+  refused. **Bring the DSM here** adds a Heights tab and can carry the mosaics.
+- **The WebODM client** (`webodm.Client`) lists the account's projects, and reads and downloads a task's assets
+  (`task`, `download`). The account sees its own projects and those shared with it.
+- **A dataset (conversion) with no images converted** exists since G1 (`visual_only`): its card, viewer, measuring,
+  findings, compare and report work without converted frames.
+- **The New dataset controls:** Flight page › Datasets tab, the New dataset form (**Convert**/**Make mosaic**).
+
+### Proposed phases (to plan with the user)
+
+- **J1: the import.** Flight page › Datasets tab › **Import from WebODM**: choose a completed task of the account's
+  projects (or a file from disk, if decided), download its orthophoto (and DSM, if decided) in the background with
+  progress and cancel; the dataset's card says where it came from, with no conversion settings.
+- **J2: using it.** The viewer with its WebODM (and Heights) tab alone, measuring, findings, the compare page beside
+  the flight's mosaics, the mosaic report; the docs.
+
+### Open decisions
+
+- Where it comes from: a task in the user's WebODM through the API, a GeoTIFF downloaded from WebODM's page, or both.
+- What it may hold: temperatures only (as today's WebODM tab), or a colour orthophoto too (shown as a visual mosaic,
+  lengths and areas as in G2).
+- Whether the DSM comes with it.
+- Whether the frames that saw a spot are offered (ODM's orthophoto doesn't say; the flight's frames could be found by
+  their footprints).
+
+### Decisions (2026-11-04)
+
+- **Source:** both: a completed task of the WebODM account's projects (through the API), or a GeoTIFF downloaded from
+  WebODM's page, chosen from disk.
+- **Contents:** both kinds: an orthophoto of temperatures is shown as today's WebODM tab is; a colour (RGB) one as a
+  visual mosaic, with lengths and areas as in G2.
+- **DSM:** brought along when the task has one (a checkbox); from a file, an optional second file.
+- **Source frames:** not now (ODM doesn't record them).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
