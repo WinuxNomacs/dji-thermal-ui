@@ -182,7 +182,7 @@ def start(dataset, name, imported, unit, files=None):
     from .models import ThermalConversion
     conversion = ThermalConversion.objects.create(
         dataset=dataset, name=name, options={'imported': imported, 'unit': unit}, status='converting',
-        stage={'step': 'download' if imported['from'] == 'webodm' else 'read'}, run_id=uuid.uuid4().hex)
+        stage={'stage': 'download' if imported['from'] == 'webodm' else 'read'}, run_id=uuid.uuid4().hex)
     folder = import_dir(conversion)
     os.makedirs(folder, exist_ok=True)
     for asset, f in (files or {}).items():
@@ -281,15 +281,15 @@ def run_import(pk, run_id):
                     if total and now - written[0] >= PROGRESS_SECONDS:
                         written[0] = now
                         current(pk, run_id, progress=(i + done / total) / len(wanted) * DOWNLOAD_SHARE,
-                                stage={'step': 'download', 'asset': asset})
+                                stage={'stage': 'download', 'asset': asset})
                     else:
                         current(pk, run_id)
-                current(pk, run_id, stage={'step': 'download', 'asset': asset})
+                current(pk, run_id, stage={'stage': 'download', 'asset': asset})
                 client.download(int(imported['project']), imported['task'], name,
                                 os.path.join(folder, asset + '.tif'), progress)
         orthophoto = os.path.join(folder, 'orthophoto.tif')
         dsm_part = os.path.join(folder, 'dsm.tif')
-        current(pk, run_id, progress=DOWNLOAD_SHARE, stage={'step': 'read', 'asset': 'orthophoto'})
+        current(pk, run_id, progress=DOWNLOAD_SHARE, stage={'stage': 'read', 'asset': 'orthophoto'})
         kind = orthophoto_kind(orthophoto)
         fields = {'mosaics': {}, 'orthophoto': {}, 'dsm': {}}
         when = timezone.now().isoformat()
@@ -306,7 +306,7 @@ def run_import(pk, run_id):
             fields['mosaics'] = visual(orthophoto, conversion)
         current(pk, run_id)
         if os.path.exists(dsm_part):
-            current(pk, run_id, stage={'step': 'read', 'asset': 'dsm'})
+            current(pk, run_id, stage={'stage': 'read', 'asset': 'dsm'})
             fields['dsm'] = dict(read_dsm(conversion, dsm_part), **source)
     except Stopped:
         shutil.rmtree(folder, ignore_errors=True)

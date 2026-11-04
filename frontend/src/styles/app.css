@@ -399,6 +399,42 @@ details > summary h5 { display: inline; }
 .dialog-inner.wide { width: 640px; }
 .dialog-inner.wide .field { max-width: none; }
 .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+/* Import from WebODM: the projects, their tasks' cards and the task chosen side by side; stacked on a narrow screen */
+.dialog-inner.webodm-import { width: 1180px; outline: none; }
+.webodm-import .import-from { margin-bottom: 8px; }
+.webodm-import .field { max-width: none; }
+.webodm-browser {
+    display: grid; grid-template-columns: 200px minmax(0, 1fr) 300px; gap: 12px; height: min(60vh, 560px);
+}
+.webodm-browser > div { min-height: 0; overflow-y: auto; }
+.webodm-projects input[type="search"] { width: 100%; margin-bottom: 6px; }
+.webodm-project-list { list-style: none; margin: 0; padding: 0; }
+.webodm-project-list button {
+    display: block; width: 100%; padding: 4px 8px; text-align: left; border: 0; border-radius: var(--radius);
+    background: none; color: var(--text); cursor: pointer; overflow-wrap: anywhere;
+}
+.webodm-project-list button:hover { background: var(--surface-2); }
+.webodm-project-list button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.webodm-task-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+.webodm-task-card {
+    display: flex; flex-direction: column; gap: 2px; padding: 6px; text-align: left; font: inherit; font-size: 13px;
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text);
+    cursor: pointer;
+}
+.webodm-task-card:hover { background: var(--surface-2); }
+.webodm-task-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.webodm-task-card img, .webodm-chosen img {
+    width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: var(--radius); background: var(--surface-2);
+}
+.webodm-task-name { font-weight: 600; overflow-wrap: anywhere; }
+.webodm-chosen { display: flex; flex-direction: column; gap: 6px; }
+.webodm-import .import-name { margin-top: 12px; }
+.webodm-import .import-message { margin-top: 8px; }
+@media (max-width: 900px) {
+    .webodm-browser { grid-template-columns: 1fr; height: auto; }
+    .webodm-browser > div { max-height: 40vh; }
+}
 .field-error { margin-top: 4px; color: var(--danger); font-size: 13px; }
 /* A project's export: its flights to choose */
 .export-flights { margin: 0 0 12px; padding: 0; list-style: none; max-height: 40vh; overflow-y: auto; }

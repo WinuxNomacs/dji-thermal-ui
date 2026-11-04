@@ -222,7 +222,7 @@ def test_a_canceled_import_stops_at_its_next_progress_and_leaves_nothing(api, br
 
     def cancel():
         c = ThermalConversion.objects.get(dataset=d)
-        assert c.status == 'converting' and c.stage == {'step': 'download', 'asset': 'orthophoto'}
+        assert c.status == 'converting' and c.stage == {'stage': 'download', 'asset': 'orthophoto'}
         assert api.post("%s/%d/cancel" % (CONVERSIONS, c.id)).data['status'] == 'canceled'
     browse['on_download'] = cancel
     c = ThermalConversion.objects.get(pk=import_task(api, d).data['id'])

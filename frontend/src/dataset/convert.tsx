@@ -7,15 +7,16 @@ import {fileKind, formatNumber, type Maybe, mosaicLabel, stageText} from "../cor
 import {convertDelta, formatDelta, formatTemp, unitOf, unitSymbol, userUnit} from "../core/units";
 import {ask, askName} from "../components/dialog";
 import {useMenu} from "../components/menu";
-import {Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/icons";
+import {Download, Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/icons";
 import {type Analysis, visualOnly} from "./files";
-import {badgeClass, type Conversion, conversionLabel, type Detail, figures, isBusy, type Prefill, RESULTS_SHOWN,
-        skipReasons} from "./conversions";
+import {badgeClass, type Conversion, conversionLabel, type Detail, figures, importedChips, importStageText, isBusy,
+        type Prefill, RESULTS_SHOWN, skipReasons} from "./conversions";
 import {DISTANCE_MODES, defaultName, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
         UNIT_LABELS, VISUAL_HEIGHT_CELL, VISUAL_ONLY_KEYS, visualSettings} from "./settings";
 import type {Fix} from "./problems";
 import {CELL_RANGE} from "./webodm";
+import {ImportDialog} from "./webodm-import";
 import {WebODMPanel, WebODMTasks} from "./webodm-panel";
 
 // What each of dji-thermal-cli's outputs is for, its own name and description beside it
@@ -292,6 +293,8 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
     const mosaics = ready && (c.mosaic_status === "ready" || !!c.orthophoto);
     // A visual mosaic of its own: no images to open as frames, compare or send to WebODM (yet)
     const only = !!c.visual_only, them = only ? "the mosaic" : "the mosaics";
+    // Imported from WebODM: nothing converted here, so no settings, files, frames or tasks of its own
+    const imported = c.imported || null, made = !imported;
     const diffs = differences(c.settings, defaults, null, unitOf(c.settings.unit));
 
     // Unfolded results follow the conversion while it runs
@@ -320,20 +323,21 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
                 {busy ? <button type="button" class="button default small" data-action="cancel" onClick={() => act("cancel", c)}>
                     <Stop/> Cancel</button> :
                     mosaics ? <a class="button primary small" href={viewer + c.id}>{only ? "View mosaic" : "View mosaics"}</a> :
-                    ready ? <a class="button primary small" href={viewer + c.id + "/frame"}>Frames</a> :
-                    <button type="button" class="button default small" data-action="use" onClick={() => act("use", c)}>Use settings</button>}
+                    ready && made ? <a class="button primary small" href={viewer + c.id + "/frame"}>Frames</a> :
+                    made ? <button type="button" class="button default small" data-action="use" onClick={() => act("use", c)}>Use settings</button> :
+                    null}
                 <span class={"menu" + (menu ? " open" : "")} ref={ref}>
                     <button type="button" class="icon-button" title="More" aria-label="More" aria-expanded={menu}
                             onClick={() => setMenu(!menu)}><Ellipsis/></button>
                     {menu && <ul class="menu-items">
-                        {mosaics && link(viewer + c.id + "/frame", "Frames")}
-                        {mosaics && link(viewer + c.id + "/compare", "Compare with…")}
+                        {mosaics && made && link(viewer + c.id + "/frame", "Frames")}
+                        {mosaics && made && link(viewer + c.id + "/compare", "Compare with…")}
                         {(c.file_count || 0) > 0 && c.status !== "converting" && link(base + c.id + "/download", "Download all")}
-                        <li><button type="button" data-action="files" onClick={() => { setMenu(false); setShown(!shown); }}>
-                            {shown ? "Hide files" : "Files"}</button></li>
-                        {(ready || busy) && item("use", "Use settings")}
-                        {ready && c.mosaic_status !== "ready" && c.mosaic_status !== "building" && item("mosaics", only ? "Build mosaic" : "Build mosaics")}
-                        {ready && !only && <li><button type="button" data-action="webodm" onClick={() => { setMenu(false); setWebodm(true); }}>
+                        {made && <li><button type="button" data-action="files" onClick={() => { setMenu(false); setShown(!shown); }}>
+                            {shown ? "Hide files" : "Files"}</button></li>}
+                        {(ready || busy) && made && item("use", "Use settings")}
+                        {ready && made && c.mosaic_status !== "ready" && c.mosaic_status !== "building" && item("mosaics", only ? "Build mosaic" : "Build mosaics")}
+                        {ready && !only && made && <li><button type="button" data-action="webodm" onClick={() => { setMenu(false); setWebodm(true); }}>
                             Process in WebODM</button></li>}
                         {item("rename", "Rename")}
                         <li class="divider" role="separator"></li>
@@ -342,24 +346,30 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
                 </span>
             </span>
         </div>
-        {only ? <div class="chips" title={c.description}><span class="chip">Visual mosaic</span>
+        {imported ? <div class="chips imported" title={c.description}>
+            {importedChips(imported).map((t) => <span key={t} class="chip">{t}</span>)}</div> :
+            only ? <div class="chips" title={c.description}><span class="chip">Visual mosaic</span>
             {diffs.filter((d) => d.changed && VISUAL_ONLY_KEYS.includes(d.key)).map((d) => <span key={d.key} class="chip changed">{d.text}</span>)}
         </div> : <Chips diffs={diffs} title={c.description}/>}
         {busy && <div class="progress row-progress"><div class="progress-bar active" style={{width: pct + "%"}}>{pct}%</div></div>}
-        {c.status === "converting" && <div class="text-muted">{c.stage ? "Normalizing: " + stageText(c.stage) : "Starting…"}</div>}
+        {c.status === "converting" && <div class="text-muted">{imported ? importStageText(c.stage) :
+            c.stage ? "Normalizing: " + stageText(c.stage) : "Starting…"}</div>}
         {c.error && <div class="text-danger"><Warning/> {c.error}</div>}
         <div class="text-muted figures-line">{figures(c).join(" · ")}</div>
         {c.mosaic_status === "building" ? <div class="mosaic-status text-info">{mosaicLabel(c)}</div> :
             c.mosaic_status === "failed" ? <div class="mosaic-status text-danger">{only ? "The mosaic" : "The mosaics"} failed: {c.mosaic_error}</div> :
             c.mosaic_status === "canceled" ? <div class="mosaic-status text-muted">Building {them} was canceled.</div> :
-            ready && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">{only ? "No mosaic." : "No mosaics."}</div> : null}
-        {c.orthophoto && <div class="webodm-shown text-muted">
+            ready && made && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">{only ? "No mosaic." : "No mosaics."}</div> : null}
+        {imported && ready && <div class="webodm-shown text-muted">
+            {c.orthophoto ? "Its orthophoto of temperatures is the viewer's WebODM tab." :
+                "Its orthophoto of colours is the viewer's visual mosaic."}{c.dsm ? " Its DSM is the Heights tab." : ""}</div>}
+        {c.orthophoto && made && <div class="webodm-shown text-muted">
             WebODM's orthophoto{c.orthophoto.task_name ? " of " + c.orthophoto.task_name : ""} is on the viewer's
             WebODM tab.{" "}
             <button type="button" class="button default small" data-action="orthophoto-remove"
                     title="Removed here only: WebODM keeps its own" onClick={removeOrthophoto}>Remove</button>
         </div>}
-        {c.dsm && <DsmLine c={c} base={base} onChange={onChange} build={() => act("mosaics", c)}/>}
+        {c.dsm && made && <DsmLine c={c} base={base} onChange={onChange} build={() => act("mosaics", c)}/>}
         <WebODMTasks api={api} tasks={c.webodm_tasks || []} shown={c.orthophoto?.task ?? null} dsm={c.dsm?.task ?? null}
                      onChange={onChange}/>
         {webodm && <WebODMPanel api={api} publicUrl={publicUrl} conversion={c.id} onClose={() => setWebodm(false)}
@@ -392,6 +402,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
     const [name, setName] = useState("");
     const [message, setMessage] = useState<{text: ComponentChildren; cls: string} | null>(null);
     const [fresh, setFresh] = useState<number | null>(null);
+    const [importing, setImporting] = useState(false);
     const prefilled = useRef(false);
     const say = (text: ComponentChildren, cls = "text-muted") => setMessage({text, cls});
 
@@ -496,6 +507,9 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
                        title="The new dataset's name: left empty, it is named after its settings"
                        value={name} onInput={(e) => setName(e.currentTarget.value)}/>
                 <button type="button" class="button primary" id="convert-start" onClick={start}><Play/> {only ? "Make mosaic" : "Convert"}</button>
+                <button type="button" class="button default" id="import-webodm"
+                        title="An orthophoto made in WebODM, as a dataset of this flight" onClick={() => setImporting(true)}>
+                    <Download/> Import from WebODM</button>
                 {args && !only && <button type="button" class="button default" id="convert-plan"
                                  title="The outputs and options the WebODM plan recommends"
                                  onClick={() => { setPlan(planSettings(args, meta!.defaults)); fill(planSettings(args, meta!.defaults));
@@ -503,6 +517,8 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
                     <Wand/> Use the WebODM plan's settings</button>}
             </div>
             {message && <div class={"convert-message " + message.cls} role="status">{message.text}</div>}
+            {importing && <ImportDialog api={api} publicUrl={publicUrl} dataset={dataset.id} onClose={() => setImporting(false)}
+                                        onImported={(c) => { setFresh(c.id); setTimeout(() => setFresh(null), 4000); onChange(); }}/>}
             {open && <SettingsForm meta={meta!} form={form!} setForm={setForm} diffs={diffs} analysis={dataset.analysis}
                                    visualOnly={only} reset={(key) => fill({...readValues(form!), ...resetSetting(settings, meta!.defaults, key)})}/>}
             {open && !only && <div class="convert-actions">
