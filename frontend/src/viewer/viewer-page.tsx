@@ -219,8 +219,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const colouring = colouringOf(shown);
 
     // What the map's handlers (set up once) read: this render's values
-    const now = useRef({tab, visual, params, current, pinned, outlined, findings});
-    now.current = {tab, visual, params, current, pinned, outlined, findings};
+    const imported = !!v?.imported;
+    const now = useRef({tab, visual, params, current, pinned, outlined, findings, imported});
+    now.current = {tab, visual, params, current, pinned, outlined, findings, imported};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -344,7 +345,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 now.current.pinned = true;
                 clearTimeout(hover.current);
                 readout(at, true, kept).then((shown) => {
-                    if (shown && (now.current.tab === "source_frame" || now.current.visual)) {
+                    // An imported orthophoto's frames open as a visual mosaic's do: it has no Source frame tab
+                    if (shown && (now.current.tab === "source_frame" || now.current.visual || (now.current.imported && now.current.tab === "webodm"))) {
                         openSources({type: "Point", coordinates: toCoords(at)});
                     }
                 });

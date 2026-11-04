@@ -18,7 +18,7 @@ All notable changes are recorded here. The format follows
   it was made, from how many images and how long WebODM took.
 - The frames that saw a spot or an area of WebODM's orthophoto, which ODM doesn't record: found from the task's
   cameras (its `shots.geojson` and `cameras.json`, at the DSM's height), the most nadir first, in the Source frames
-  window and kept by a finding, on an imported dataset and on the WebODM tab of a dataset without mosaics of its own.
+  window (a click on an imported dataset's WebODM or Visual tab opens it) and kept by a finding, on an imported dataset and on the WebODM tab of a dataset without mosaics of its own.
   An import from a task brings them along, **From a file** takes them as two optional files, and an orthophoto
   imported or brought back before fetches them the first time. A thermal frame is measured with the settings of the
   dataset its task was sent from.

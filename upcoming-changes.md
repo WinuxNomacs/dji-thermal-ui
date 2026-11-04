@@ -3470,6 +3470,11 @@ identify and select from, preferably with a preview image" ("map" meaning the or
   panel's groups in Mosaics, Measuring, Findings and the finding quickstart. Test: the panel's order in
   `viewer.test.tsx`. Checked live on a scratch 8081 (dataset 8's copy), light and dark: the viewer and frame page
   show View and About only, the new line, no console errors; Vitest 466, lint, the strict docs build.
+- **J3's follow-up: a click on the WebODM tab, no Frames in the pane** (2026-11-04, reported by the user: an
+  imported dataset showed no source frames, since on the WebODM tab they opened only from a measured spot's card). A
+  click on an imported dataset's WebODM tab now opens them, as on its Visual tab (`viewer-page.tsx`), and the
+  navigation pane lists no Frames under an imported dataset (`nav_conversion`). Tests: Vitest `viewer`, pytest
+  `test_webodm_import`.
 - **J3: the source frames of WebODM's orthophoto, from its cameras** (2026-11-04). Server: `analyzer/webodm_cameras.py`
   (a task's `shots.geojson` and `cameras.json` checked, kept in the dataset's `webodm/cameras.json` with their task,
   fetched when missing or another task's; `Cameras`: OpenSfM's Brown or perspective lens, a point at the DSM's height

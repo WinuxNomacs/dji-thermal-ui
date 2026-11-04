@@ -55,7 +55,8 @@ images, how long WebODM took, and the DSM (or the files' names).
 
 ODM doesn't record which photo each pixel of its orthophoto comes from, so the flight's photos that saw a spot or an
 area are found from the task's cameras instead: where WebODM placed each photo and how its lens sees, with the spot
-at the height of the DSM (or, without one, of the ground under the photos). **Source frames** lists them, the most
+at the height of the DSM (or, without one, of the ground under the photos). A click on the WebODM or Visual tab opens
+them, as does a measured spot's or area's **Source frames**; the window lists them, the most
 nadir first, marked **in the mosaic** as the one most likely used, and a finding keeps them as on any mosaic. A
 thermal frame is measured with the settings of the dataset its task was sent from, or with its own parameters for a
 task made in WebODM; an orthophoto of colours shows its photos as they were taken. Frames have no **Open frame**: an
