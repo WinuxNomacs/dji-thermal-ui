@@ -8,8 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: J2 (WebODM datasets: the viewer, measuring, findings, compare and report of an imported dataset), to plan
-with the user, in "WebODM datasets" below.
+**Up next**: J2 (WebODM datasets: the viewer, measuring, findings, compare and report of an imported dataset), planned
+2026-11-04, in "WebODM datasets" below.
 
 J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
@@ -2598,6 +2598,18 @@ button to the "New dataset" controls on each Flight."
   visual mosaic, with lengths and areas as in G2.
 - **DSM:** brought along when the task has one (a checkbox); from a file, an optional second file.
 - **Source frames:** not now (ODM doesn't record them).
+
+### J2: decisions (2026-11-04)
+
+- **Built without asking (the code settles them):** Viewer page: an imported dataset shows its own tabs, **WebODM**
+  (temperatures) or **Visual** (colours), with **Heights** when it has a DSM; its header has no **Frames** nor
+  **Build mosaics**. Measuring and findings as for those tabs today; a click opens no source frames window (J1's
+  decision). The compare page and the mosaic report take it as they take any dataset's mosaics.
+- **Open in WebODM:** a link to the task it came from, on the Viewer page's header and on the Flight page ›
+  Datasets tab card (none for one imported from a file).
+- **The mosaic report:** where it came from (WebODM project › task, or the file's name, and the DSM) and the task's
+  date, images and processing time, kept at the import from J2 on (one imported before shows its source alone).
+- **The check against a real WebODM:** on the user's 8002 stack, with a login they give when the check is run.
 
 ### J1's browser (decided 2026-11-04)
 
