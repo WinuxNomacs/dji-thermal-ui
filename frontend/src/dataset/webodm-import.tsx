@@ -34,6 +34,13 @@ export function processingText(ms: number | null | undefined): string {
     return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0") + " min";
 }
 
+// A task's preview, or a placeholder saying there is none (WebODM couldn't make one)
+function Preview({src, alt}: {src: string; alt: string}) {
+    const [failed, setFailed] = useState(false);
+    return failed ? <span class="webodm-no-preview text-muted">No preview</span> :
+        <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)}/>;
+}
+
 export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Props) {
     const [mode, setMode] = useState<"webodm" | "file">("webodm");
     const [projects, setProjects] = useState<{projects: WebODMProject[]; count: number} | null>(null);
@@ -180,7 +187,7 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                     <p class="text-muted">{search ? "No project's name holds that." : "The account sees no projects."}</p> :
                     <ul class="webodm-project-list" aria-label="WebODM projects">
                         {projects.projects.map((p) => <li key={p.id}>
-                            <button type="button" aria-pressed={p.id === project?.id} data-project={p.id}
+                            <button type="button" aria-pressed={p.id === project?.id} data-webodm-project={p.id}
                                     onClick={() => setProject(p)}>{p.name || "Project " + p.id}</button></li>)}
                     </ul>}
                 {projects && projects.count > projects.projects.length && <p class="text-muted">
@@ -192,7 +199,7 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                     <div class="webodm-task-grid">
                         {tasks.tasks.map((t) => <button type="button" key={t.id} class="webodm-task-card" data-task={t.id}
                                                         aria-pressed={t.id === task?.id} onClick={() => choose(t)}>
-                            <img src={preview(t, 256)} alt="" loading="lazy"/>
+                            <Preview src={preview(t, 256)} alt=""/>
                             <span class="webodm-task-name">{t.name || "Task " + t.id.slice(0, 8)}</span>
                             <span class="text-muted">{formatDate(t.created_at)}</span>
                             <span class="chips">{t.over && <span class="chip changed">Over this flight</span>}
@@ -205,7 +212,7 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
             </div>
             <div class="webodm-chosen">
                 {task && project && <>
-                    <img src={preview(task, 640)} alt={"The orthophoto of " + task.name}/>
+                    <Preview key={task.id} src={preview(task, 640)} alt={"The orthophoto of " + task.name}/>
                     <strong>{task.name}</strong>
                     <table class="table values"><tbody>
                         <tr><th>Project</th><td>{project.name}</td></tr>

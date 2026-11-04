@@ -43,7 +43,7 @@ describe("Import from WebODM", () => {
         const {fetchFn, closed, imported} = dialog({"POST /api/datasets/7/import/webodm": MADE});
         await ticks();
         expect(all(".webodm-project-list button").map((b) => b.textContent)).toEqual(["Site A", "Shared"]);
-        expect($('[data-project="4"]')!.getAttribute("aria-pressed")).toBe("true");
+        expect($('[data-webodm-project="4"]')!.getAttribute("aria-pressed")).toBe("true");
         const cards = all(".webodm-task-card");
         expect(cards.map((c) => c.dataset.task)).toEqual(["t-over", "t-rgb"]);
         expect(cards[0].querySelector("img")!.getAttribute("src")).toBe("/api/webodm/projects/4/tasks/t-over/preview?size=256");
@@ -82,7 +82,7 @@ describe("Import from WebODM", () => {
         render(null, root());
         dialog();
         await ticks();
-        $('[data-project="3"]')!.click();
+        $('[data-webodm-project="3"]')!.click();
         await ticks();
         expect(text(".webodm-tasks")).toBe("No completed task with an orthophoto.1 other task (running, failed, or without an orthophoto) isn't listed.");
         expect($<HTMLButtonElement>("#import-start")!.disabled).toBe(true);

@@ -403,6 +403,7 @@ details > summary h5 { display: inline; }
 /* Import from WebODM: the projects, their tasks' cards and the task chosen side by side; stacked on a narrow screen */
 .dialog-inner.webodm-import { width: 1180px; outline: none; }
 .webodm-import .import-from { margin-bottom: 8px; }
+.webodm-import .import-from button { display: inline-flex; align-items: center; gap: 6px; }
 .webodm-import .field { max-width: none; }
 .webodm-browser {
     display: grid; grid-template-columns: 200px minmax(0, 1fr) 300px; gap: 12px; height: min(60vh, 560px);
@@ -424,9 +425,10 @@ details > summary h5 { display: inline; }
 }
 .webodm-task-card:hover { background: var(--surface-2); }
 .webodm-task-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.webodm-task-card img, .webodm-chosen img {
+.webodm-task-card img, .webodm-chosen img, .webodm-no-preview {
     width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: var(--radius); background: var(--surface-2);
 }
+.webodm-no-preview { display: flex; align-items: center; justify-content: center; }
 .webodm-task-name { font-weight: 600; overflow-wrap: anywhere; }
 .webodm-chosen { display: flex; flex-direction: column; gap: 6px; }
 .webodm-import .import-name { margin-top: 12px; }

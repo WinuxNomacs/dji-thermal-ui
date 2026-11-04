@@ -120,6 +120,11 @@ def test_a_colour_orthophotos_preview_is_webodms_own_and_kept_and_one_of_tempera
     assert browse['tiles'] and all(t[3] == "12.5,31.0" for t in browse['tiles'])
     assert len(browse['tiles']) <= webodm_import.PREVIEW_TILES ** 2
     assert api.get("/api/webodm/projects/1/tasks/t-hot/preview?size=99").status_code == 400
+    # Statistics WebODM couldn't make: no preview, rather than a blank one (and none kept)
+    browse['metadata']["t-nan"] = {'bounds': near(), 'statistics': {'1': {'min': None, 'max': None,
+                                                                           'percentiles': [float('nan'), 1.0]}}}
+    assert api.get("/api/webodm/projects/1/tasks/t-nan/preview").status_code == 400
+    assert not [k for k in webodm_import._previews if k[2] == "t-nan"]
 
 
 def test_the_preview_zoom_keeps_an_orthophoto_within_two_tiles_each_way():

@@ -133,7 +133,7 @@ def coloured(client, project, task, size, palette):
     if not (isinstance(bounds, list) and len(bounds) == 4 and isinstance(stats, dict)):
         raise webodm.WebODMError("WebODM gave no bounds or statistics for the task's orthophoto")
     low, high = (stats.get('percentiles') or [stats.get('min'), stats.get('max')])[:2]
-    if low is None or high is None:
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (low, high)):
         raise webodm.WebODMError("WebODM gave no statistics for the task's orthophoto")
     if high <= low:
         high = low + 1
