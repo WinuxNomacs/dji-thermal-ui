@@ -58,7 +58,7 @@ const STATUS_LABELS: Record<string, string> = {converting: "Converting", ready: 
 const BADGES: Record<string, string> = {ready: "success", failed: "danger", canceled: "", converting: "info"};
 
 export function conversionLabel(c: Conversion): string {
-    if (c.visual_only && c.status === "ready") return "Ready";      // nothing was converted
+    if (c.visual_only && !c.imported && c.status === "ready") return "Ready";      // nothing was converted
     const label = c.imported && c.status === "ready" ? "Imported" : c.imported && c.status === "converting" ? "Importing" :
         STATUS_LABELS[c.status] || c.status;
     return c.status === "converting" && c.progress ? label + " " + Math.round(c.progress * 100) + "%" : label;

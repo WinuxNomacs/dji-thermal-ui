@@ -171,6 +171,7 @@ describe("an imported dataset", () => {
         expect(conversionLabel(c)).toBe("Importing");
         expect(conversionLabel({...c, progress: 0.4})).toBe("Importing 40%");
         expect(conversionLabel({...c, status: "ready"})).toBe("Imported");
+        expect(conversionLabel({...c, status: "ready", visual_only: true})).toBe("Imported");     // one of colours
         expect(importStageText({stage: "download", asset: "dsm"})).toBe("Downloading the DSM from WebODM…");
         expect(importStageText({stage: "read"})).toBe("Reading the orthophoto…");
         expect(importedChips({...c.imported!, kind: "thermal"})).toEqual(["From WebODM", "Site A › Roof", "Temperatures", "DSM"]);
