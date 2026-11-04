@@ -87,7 +87,17 @@ export interface FormValues {
 }
 
 const NUMBER_FIELDS = ["distance", ...MEASUREMENTS.map((m) => m.key), "range_min", "range_max", ...GIMBAL.map((g) => g[0]),
-                       "replace_above", "replace_above_value", "replace_below", "replace_below_value", "max_pitch"];
+                       "replace_above", "replace_above_value", "replace_below", "replace_below_value", "max_pitch",
+                       "visual_height_cell"];
+
+// The settings of a visual mosaic of its own (a flight without thermal images): all its dataset is made from
+export const VISUAL_ONLY_KEYS = ["max_pitch", "visual_gsd", "visual_height_cell", "strip_location"];
+export const VISUAL_HEIGHT_CELL = 32;   // dji-thermal-cli's height cells for it, in its alignment's pixels
+
+// The settings sent for a visual mosaic of its own: its own only (the server fills in the rest)
+export function visualSettings(s: Settings): Settings {
+    return Object.fromEntries(VISUAL_ONLY_KEYS.map((k) => [k, s[k] ?? null]));
+}
 
 function text(v: unknown): string { return blank(v) ? "" : String(v); }
 
@@ -104,6 +114,7 @@ export function formValues(settings: Settings, products: Product[]): FormValues 
     values.palette = s.palette || "";
     values.compression = s.compression || "deflate";
     values.rjpeg_picture = s.rjpeg_picture || "palette";
+    values.visual_gsd = typeof s.visual_gsd === "number" ? String(Math.round(s.visual_gsd * 10000) / 100) : "";   // cm
     const checks: Record<string, boolean> = {
         normalize: !!s.normalize, mosaics: !!s.mosaics, visual: s.visual !== false, strip_location: !!s.strip_location,
     };
@@ -145,6 +156,9 @@ export function readValues(f: FormValues): Settings {
     s.mosaics = !!f.checks.mosaics;
     s.visual = !!f.checks.visual;
     s.max_pitch = num("max_pitch");
+    const cm = num("visual_gsd");
+    s.visual_gsd = cm === null ? null : cm / 100;
+    s.visual_height_cell = num("visual_height_cell");
     s.compression = f.values.compression;
     s.rjpeg_picture = f.values.rjpeg_picture;
     s.outputs = Object.entries(f.outputs).filter(([, o]) => o.on).map(([p, o]) => p + ":" + o.format);
@@ -185,7 +199,14 @@ export function planSettings(args: Maybe<string[]>, defaults: Maybe<Settings>): 
 }
 
 // What stops the settings from being sent, or null
-export function formProblem(s: Settings): string | null {
+export function formProblem(s: Settings, visualOnly = false): string | null {
+    if (visualOnly) {
+        const cell = s.visual_height_cell;
+        if (!blank(cell) && !(Number.isInteger(cell) && Number(cell) >= 8 && Number(cell) <= 1024)) {
+            return "The height cells are a whole number of pixels, 8 to 1024.";
+        }
+        return !blank(s.visual_gsd) && !(Number(s.visual_gsd) > 0) ? "The pixel size is more than 0 cm." : null;
+    }
     if (s.distance === "") return "Enter the distance to the target, or choose another distance.";
     if (!(s.outputs || []).length) return "Choose at least one output.";
     if ((s.range_min === null) !== (s.range_max === null)) return "Give both ends of the colour range, or neither.";
@@ -253,6 +274,12 @@ const DIFFERENCES: Difference[] = [
         }};
     }),
     {key: "strip_location", fields: ["strip_location"], text: (s) => s.strip_location ? "location stripped" : "location kept"},
+    {key: "visual_gsd", fields: ["visual_gsd"],
+     same: (a, b) => same(blank(a.visual_gsd) ? null : Math.round(Number(a.visual_gsd) * 10000),     // in cm, to 2 decimals
+                          blank(b.visual_gsd) ? null : Math.round(Number(b.visual_gsd) * 10000)),
+     text: (s) => blank(s.visual_gsd) ? "the frames' own pixels" : num(Number(s.visual_gsd) * 100) + " cm pixels"},
+    {key: "visual_height_cell", fields: ["visual_height_cell"],
+     text: (s) => "height cells " + (blank(s.visual_height_cell) ? VISUAL_HEIGHT_CELL : num(s.visual_height_cell, 0)) + " px"},
 ];
 
 // The settings fields of a difference, where they are more than its key
@@ -297,10 +324,13 @@ const NAMED = ["mosaics", "distance", ...MEASUREMENTS.map((m) => m.key), "normal
                "replace_below"];
 
 // What a dataset is called when it isn't named: those of its settings that differ from dji-thermal-cli's defaults, else
-// "Default settings", with " (2)" and on after a name the flight already has
-export function defaultName(s: Settings, defaults: Maybe<Settings>, taken: string[]): string {
-    const text = differences(s, defaults, null, userUnit()).filter((d) => NAMED.includes(d.key)).map((d) => d.text).join(" · ");
-    const base = text ? (text[0].toUpperCase() + text.slice(1)).slice(0, 245) : "Default settings";
+// "Default settings" ("Visual mosaic" before them, for a visual mosaic of its own), with " (2)" and on after a name the
+// flight already has
+export function defaultName(s: Settings, defaults: Maybe<Settings>, taken: string[], visualOnly = false): string {
+    const named = visualOnly ? VISUAL_ONLY_KEYS.filter((k) => k !== "strip_location") : NAMED;
+    const text = differences(s, defaults, null, userUnit()).filter((d) => named.includes(d.key)).map((d) => d.text).join(" · ");
+    const base = visualOnly ? ["Visual mosaic", text].filter((t) => t).join(" · ").slice(0, 245) :
+        text ? (text[0].toUpperCase() + text.slice(1)).slice(0, 245) : "Default settings";
     let name = base;
     for (let i = 2; taken.includes(name); i++) name = base + " (" + i + ")";
     return name;

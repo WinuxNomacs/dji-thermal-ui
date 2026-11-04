@@ -8,12 +8,12 @@ import {convertDelta, formatDelta, formatTemp, unitOf, unitSymbol, userUnit} fro
 import {ask, askName} from "../components/dialog";
 import {useMenu} from "../components/menu";
 import {Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/icons";
-import {type Analysis} from "./files";
+import {type Analysis, visualOnly} from "./files";
 import {badgeClass, type Conversion, conversionLabel, type Detail, figures, isBusy, type Prefill, RESULTS_SHOWN,
         skipReasons} from "./conversions";
 import {DISTANCE_MODES, defaultName, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
-        UNIT_LABELS} from "./settings";
+        UNIT_LABELS, VISUAL_HEIGHT_CELL, VISUAL_ONLY_KEYS, visualSettings} from "./settings";
 import type {Fix} from "./problems";
 import {CELL_RANGE} from "./webodm";
 import {WebODMPanel, WebODMTasks} from "./webodm-panel";
@@ -62,6 +62,7 @@ interface FormProps {
     diffs: Diff[];
     reset: (key: string) => void;
     analysis?: Analysis | null;
+    visualOnly?: boolean;           // a flight without thermal images: the visual mosaic's settings only
 }
 
 // The settings form, its fields marked where they differ from the defaults (or the plan), each with a link back
@@ -72,7 +73,7 @@ function distances(rec: {distance: Maybe<number>; lrf: Maybe<number>}): string |
     return known.length ? known.join(", ").replace(/^e/, "E") + " (medians)" : undefined;
 }
 
-function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) {
+function SettingsForm({meta, form, setForm, diffs, reset, analysis, visualOnly: only}: FormProps) {
     const u = unitSymbol(userUnit());
     const rec = recorded(analysis);
     const visual = (analysis?.files || []).filter((f) => fileKind(f) === "visual").length;
@@ -89,6 +90,19 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) 
     const check = (name: string, label: string) => (
         <label class="check"><input type="checkbox" name={name} checked={!!form.checks[name]}
                                     onChange={(e) => setCheck(name, e.currentTarget.checked)}/> {label}</label>);
+    if (only) return (<form class="settings-form" id="settings-form" onSubmit={(e) => e.preventDefault()}>
+        <fieldset><legend>Visual mosaic</legend>
+            <Field ctx={ctx} name="max_pitch" label="Only frames with a gimbal pitch at or below (°)" help="-80 keeps the nadir frames only.">
+                {num("max_pitch")}</Field>
+            <Field ctx={ctx} name="visual_gsd" label="Pixel size (cm)" help="Empty: the frames' own.">
+                {num("visual_gsd")}</Field>
+            <Field ctx={ctx} name="visual_height_cell" label="Height cells (px)"
+                   help={"Empty: " + VISUAL_HEIGHT_CELL + ", of the alignment's pixels. Smaller cells follow steps in the " +
+                         "surface, such as a roof's edge, more closely, and take longer."}>
+                {num("visual_height_cell", "1")}</Field>
+            <Field ctx={ctx} name="strip_location" label="">{check("strip_location", "Remove the location from the files")}</Field>
+        </fieldset>
+    </form>);
     const adjusted = GIMBAL.some((g) => value(g[0]) !== "") || SIDES.some((s) => value("replace_" + s) !== "") ||
         !!form.checks.strip_location;
 
@@ -167,11 +181,14 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis}: FormProps) 
 function Results({d, base, frames}: {d: Detail; base: string; frames: string | null}) {
     const r = d.results || {};
     const files = r.files || [];
+    const download = (f: string) => base + d.id + "/download?file=" + encodeURIComponent(f);
+    const mosaicFiles = (d.mosaic_files || []).length > 0 && <p class="mosaic-files">Mosaics: {d.mosaic_files!.map((f, i) => (
+        <>{i ? ", " : ""}<a href={download(f)}>{f.replace(/^mosaics\//, "")}</a></>))}</p>;
+    if (d.visual_only) return (<div class="results">{mosaicFiles || <p class="text-muted">No mosaic yet.</p>}</div>);
     if (!files.length) {
         return <p class="text-muted">{d.status === "canceled" ? "Canceled before it finished: no results were kept." : "No results."}</p>;
     }
     const n = r.normalization;
-    const download = (f: string) => base + d.id + "/download?file=" + encodeURIComponent(f);
     const reasons = skipReasons(files);
     return (<div class="results">
         {n && <p class="normalization">Normalized: ambient {formatTemp(n.ambient_c, "C", 1)}, reflected{" "}
@@ -179,8 +196,7 @@ function Results({d, base, frames}: {d: Detail; base: string; frames: string | n
             {n.offset_min !== null && n.offset_min !== undefined &&
                 ", offsets " + formatNumber(convertDelta(n.offset_min, "C"), 2) + " to " + formatDelta(n.offset_max, "C", 2)}
             {n.without_offset ? ", " + n.without_offset + " without an offset" : ""}.</p>}
-        {(d.mosaic_files || []).length > 0 && <p class="mosaic-files">Mosaics: {d.mosaic_files!.map((f, i) => (
-            <>{i ? ", " : ""}<a href={download(f)}>{f.replace(/^mosaics\//, "")}</a></>))}</p>}
+        {mosaicFiles}
         {reasons.length > 0 && <p class="skip-reasons">Skipped: {reasons.map((x) => x[0] + " (" + x[1] + ")").join(", ")}.</p>}
         <div class="table-scroll"><table class="table results-table">
             <thead><tr><th>Image</th><th>Result</th><th>Outputs</th><th>Notes</th></tr></thead>
@@ -274,6 +290,9 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
     const ready = c.status === "ready", busy = isBusy(c);
     // The viewer shows the mosaics, or WebODM's orthophoto brought back without them
     const mosaics = ready && (c.mosaic_status === "ready" || !!c.orthophoto);
+    // A visual mosaic of its own: no images to open as frames, compare or send to WebODM (yet)
+    const only = !!c.visual_only, them = only ? "the mosaic" : "the mosaics";
+    const diffs = differences(c.settings, defaults, null, unitOf(c.settings.unit));
 
     // Unfolded results follow the conversion while it runs
     useEffect(() => { if (shown) loadDetail(); }, [shown, c.status, c.converted, c.skipped, c.mosaic_status]);
@@ -300,21 +319,21 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
             <span class="conversion-actions">
                 {busy ? <button type="button" class="button default small" data-action="cancel" onClick={() => act("cancel", c)}>
                     <Stop/> Cancel</button> :
-                    mosaics ? <a class="button primary small" href={viewer + c.id}>View mosaics</a> :
-                    ready ? <a class="button primary small" href={viewer + c.id + "/frame"}>Frames</a> :
+                    mosaics ? <a class="button primary small" href={viewer + c.id}>{only ? "View mosaic" : "View mosaics"}</a> :
+                    ready && !only ? <a class="button primary small" href={viewer + c.id + "/frame"}>Frames</a> :
                     <button type="button" class="button default small" data-action="use" onClick={() => act("use", c)}>Use settings</button>}
                 <span class={"menu" + (menu ? " open" : "")} ref={ref}>
                     <button type="button" class="icon-button" title="More" aria-label="More" aria-expanded={menu}
                             onClick={() => setMenu(!menu)}><Ellipsis/></button>
                     {menu && <ul class="menu-items">
-                        {mosaics && link(viewer + c.id + "/frame", "Frames")}
-                        {mosaics && link(viewer + c.id + "/compare", "Compare with…")}
+                        {mosaics && !only && link(viewer + c.id + "/frame", "Frames")}
+                        {mosaics && !only && link(viewer + c.id + "/compare", "Compare with…")}
                         {(c.file_count || 0) > 0 && c.status !== "converting" && link(base + c.id + "/download", "Download all")}
                         <li><button type="button" data-action="files" onClick={() => { setMenu(false); setShown(!shown); }}>
                             {shown ? "Hide files" : "Files"}</button></li>
                         {(ready || busy) && item("use", "Use settings")}
-                        {ready && c.mosaic_status !== "ready" && c.mosaic_status !== "building" && item("mosaics", "Build mosaics")}
-                        {ready && <li><button type="button" data-action="webodm" onClick={() => { setMenu(false); setWebodm(true); }}>
+                        {ready && c.mosaic_status !== "ready" && c.mosaic_status !== "building" && item("mosaics", only ? "Build mosaic" : "Build mosaics")}
+                        {ready && !only && <li><button type="button" data-action="webodm" onClick={() => { setMenu(false); setWebodm(true); }}>
                             Process in WebODM</button></li>}
                         {item("rename", "Rename")}
                         <li class="divider" role="separator"></li>
@@ -323,15 +342,17 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
                 </span>
             </span>
         </div>
-        <Chips diffs={differences(c.settings, defaults, null, unitOf(c.settings.unit))} title={c.description}/>
+        {only ? <div class="chips" title={c.description}><span class="chip">Visual mosaic</span>
+            {diffs.filter((d) => d.changed && VISUAL_ONLY_KEYS.includes(d.key)).map((d) => <span key={d.key} class="chip changed">{d.text}</span>)}
+        </div> : <Chips diffs={diffs} title={c.description}/>}
         {busy && <div class="progress row-progress"><div class="progress-bar active" style={{width: pct + "%"}}>{pct}%</div></div>}
         {c.status === "converting" && <div class="text-muted">{c.stage ? "Normalizing: " + stageText(c.stage) : "Starting…"}</div>}
         {c.error && <div class="text-danger"><Warning/> {c.error}</div>}
         <div class="text-muted figures-line">{figures(c).join(" · ")}</div>
         {c.mosaic_status === "building" ? <div class="mosaic-status text-info">{mosaicLabel(c)}</div> :
-            c.mosaic_status === "failed" ? <div class="mosaic-status text-danger">The mosaics failed: {c.mosaic_error}</div> :
-            c.mosaic_status === "canceled" ? <div class="mosaic-status text-muted">Building the mosaics was canceled.</div> :
-            ready && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">No mosaics.</div> : null}
+            c.mosaic_status === "failed" ? <div class="mosaic-status text-danger">{only ? "The mosaic" : "The mosaics"} failed: {c.mosaic_error}</div> :
+            c.mosaic_status === "canceled" ? <div class="mosaic-status text-muted">Building {them} was canceled.</div> :
+            ready && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">{only ? "No mosaic." : "No mosaics."}</div> : null}
         {c.orthophoto && <div class="webodm-shown text-muted">
             WebODM's orthophoto{c.orthophoto.task_name ? " of " + c.orthophoto.task_name : ""} is on the viewer's
             WebODM tab.{" "}
@@ -420,12 +441,14 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
     if (!meta || !form) return (<div class="convert-tab">{conversionsBlock()}
         {message ? <p class={message.cls}>{message.text}</p> : <p class="text-muted">Loading…</p>}</div>);
 
-    const settings = readValues(form);
-    const diffs = differences(settings, meta.defaults, plan, userUnit());
-    const unnamed = defaultName(settings, meta.defaults, (dataset.conversions || []).map((c) => c.name));
+    // A flight without thermal images: each new dataset is its visual mosaic alone, with that mosaic's settings only
+    const only = visualOnly(dataset.analysis);
+    const settings = only ? visualSettings(readValues(form)) : readValues(form);
+    const diffs = differences(settings, meta.defaults, plan, userUnit()).filter((d) => !only || VISUAL_ONLY_KEYS.includes(d.key));
+    const unnamed = defaultName(settings, meta.defaults, (dataset.conversions || []).map((c) => c.name), only);
 
     async function start() {
-        const problem = formProblem(settings);
+        const problem = formProblem(settings, only);
         if (problem) return say(problem, "text-danger");
         const r = await readJson<Conversion>(await sendJson(api + "datasets/" + dataset.id + "/conversions", "POST",
                                                              {name: name.trim() || unnamed, settings}));
@@ -460,8 +483,10 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
     function settingsBlock() {
         return (<div class="convert-settings">
             <h2>New dataset</h2>
-            <p class="text-muted">Converts the images with dji-thermal-cli into a new dataset, kept beside the others to
-                compare settings. {meta!.saved ? "Starting from your saved defaults." : "Starting from dji-thermal-cli's defaults."}</p>
+            {only ? <p class="text-muted">The flight has visual images and no thermal ones: a new dataset is their mosaic,
+                laid out by their own overlaps with dji-thermal-cli. Nothing is converted, so it has no temperatures.</p> :
+                <p class="text-muted">Converts the images with dji-thermal-cli into a new dataset, kept beside the others to
+                    compare settings. {meta!.saved ? "Starting from your saved defaults." : "Starting from dji-thermal-cli's defaults."}</p>}
             <div class="convert-summary"><span>Settings:</span> <Chips diffs={diffs}/>
                 <button type="button" class="button default small" id="edit-settings" aria-expanded={open}
                         aria-controls="settings-form" onClick={() => setOpen(!open)}>
@@ -470,7 +495,7 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
                 <input type="text" id="convert-name" maxLength={255} placeholder={unnamed} aria-label="Name"
                        title="The new dataset's name: left empty, it is named after its settings"
                        value={name} onInput={(e) => setName(e.currentTarget.value)}/>
-                <button type="button" class="button primary" id="convert-start" onClick={start}><Play/> Convert</button>
+                <button type="button" class="button primary" id="convert-start" onClick={start}><Play/> {only ? "Make mosaic" : "Convert"}</button>
                 {args && <button type="button" class="button default" id="convert-plan"
                                  title="The outputs and options the WebODM plan recommends"
                                  onClick={() => { setPlan(planSettings(args, meta!.defaults)); fill(planSettings(args, meta!.defaults));
@@ -479,8 +504,8 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
             </div>
             {message && <div class={"convert-message " + message.cls} role="status">{message.text}</div>}
             {open && <SettingsForm meta={meta!} form={form!} setForm={setForm} diffs={diffs} analysis={dataset.analysis}
-                                   reset={(key) => fill(resetSetting(settings, meta!.defaults, key))}/>}
-            {open && <div class="convert-actions">
+                                   visualOnly={only} reset={(key) => fill({...readValues(form!), ...resetSetting(settings, meta!.defaults, key)})}/>}
+            {open && !only && <div class="convert-actions">
                 <button type="button" class="button default" id="convert-save" title="New datasets start from these settings"
                         onClick={save}><Save/> Save as defaults</button>
                 <button type="button" class="button default" id="convert-reset" onClick={resetDefaults}><Undo/> Reset to defaults</button>

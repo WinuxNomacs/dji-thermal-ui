@@ -88,6 +88,13 @@ export function overview(a: Analysis): Overview {
     return out;
 }
 
+// Whether the flight has visual images and no thermal ones: each new dataset is then its visual mosaic alone (as the
+// server's thermal_analysis.visual_only)
+export function visualOnly(a: Analysis | null | undefined): boolean {
+    const files = a?.files || [];
+    return files.some((f) => fileKind(f) === "visual") && !files.some((f) => f.kind === "thermal");
+}
+
 // The problems each file is named in: {path: [finding, ...]}
 export function flagsByFile(findings: Problem[] | undefined): Record<string, Problem[]> {
     const out: Record<string, Problem[]> = {};
