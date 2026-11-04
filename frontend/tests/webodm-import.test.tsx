@@ -1,7 +1,7 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
-import {type Conversion, conversionLabel, importedChips, importStageText} from "../src/dataset/conversions";
-import {ImportDialog, type ImportTask, MAX_FILE_BYTES, processingText} from "../src/dataset/webodm-import";
+import {type Conversion, conversionLabel, importedChips, importedRows, importStageText, processingText, webodmTaskUrl} from "../src/dataset/conversions";
+import {ImportDialog, type ImportTask, MAX_FILE_BYTES} from "../src/dataset/webodm-import";
 import {calls, jsonResponse, server, ticks} from "./helpers";
 
 const PROJECTS = {count: 2, projects: [{id: 4, name: "Site A", can_add: true}, {id: 3, name: "Shared", can_add: false}]};
@@ -156,5 +156,20 @@ describe("an imported dataset", () => {
         expect(importedChips({from: "file", file: "roof.tif", kind: "visual"})).toEqual(["From a file", "roof.tif", "Colours"]);
         expect(processingText(40000)).toBe("40 s");
         expect(processingText(null)).toBe("");
+    });
+
+    it("links to its task in WebODM's dashboard and lists where it came from, the task's details when they were kept", () => {
+        const task = {from: "webodm" as const, url: "http://w:8002/", project: 4, project_name: "Site A", task: "t 1",
+                      task_name: "Roof", dsm: true, created_at: "2026-11-01T10:00:00Z", images: 120, processing_ms: 3900000};
+        expect(webodmTaskUrl(task)).toBe("http://w:8002/dashboard/?project_task_open=4&project_task_expanded=t%201");
+        expect(webodmTaskUrl({from: "file", file: "roof.tif"})).toBe("");
+        const rows = importedRows(task);
+        expect(rows.map((r) => r[0])).toEqual(["From", "Made in WebODM", "Images", "Processed in", "DSM"]);
+        expect(rows[0][1]).toBe("WebODM: Site A › Roof");
+        expect(rows.slice(2)).toEqual([["Images", "120"], ["Processed in", "1 h 05 min"], ["DSM", "the task's"]]);
+        // Imported before the task's details were kept
+        expect(importedRows({from: "webodm", project_name: "Site A", task_name: "Roof"})).toEqual([["From", "WebODM: Site A › Roof"]]);
+        expect(importedRows({from: "file", file: "roof.tif", dsm_file: "roof-dsm.tif"}))
+            .toEqual([["From", "a file, roof.tif"], ["DSM", "a file, roof-dsm.tif"]]);
     });
 });

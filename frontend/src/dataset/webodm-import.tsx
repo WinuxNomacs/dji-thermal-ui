@@ -6,7 +6,7 @@ import {useEffect, useLayoutEffect, useRef, useState} from "preact/hooks";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
 import {count, formatBytes, formatDate} from "../core/format";
 import {Download, Upload} from "../components/icons";
-import type {Conversion} from "./conversions";
+import {type Conversion, processingText} from "./conversions";
 import type {WebODMProject} from "./webodm";
 
 export const MAX_FILE_BYTES = 1024 ** 3;        // what the server takes in one request
@@ -23,15 +23,6 @@ interface Props {
     dataset: number;
     onClose: () => void;
     onImported: (c: Conversion) => void;
-}
-
-// How long WebODM took, from its milliseconds: "1 h 05 min", "12 min", "40 s"
-export function processingText(ms: number | null | undefined): string {
-    if (!ms || ms < 0) return "";
-    const s = Math.round(ms / 1000);
-    if (s < 60) return s + " s";
-    const m = Math.round(s / 60);
-    return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0") + " min";
 }
 
 // A task's preview, or a placeholder saying there is none (WebODM couldn't make one)

@@ -10,7 +10,7 @@ import {useMenu} from "../components/menu";
 import {Download, Ellipsis, Play, Save, Stop, Undo, Wand, Warning} from "../components/icons";
 import {type Analysis, visualOnly} from "./files";
 import {badgeClass, type Conversion, conversionLabel, type Detail, figures, importedChips, importStageText, isBusy,
-        type Prefill, RESULTS_SHOWN, skipReasons} from "./conversions";
+        type Prefill, RESULTS_SHOWN, skipReasons, webodmTaskUrl} from "./conversions";
 import {DISTANCE_MODES, defaultName, type Diff, differences, formProblem, formValues, type FormValues, GIMBAL, markedField,
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
         UNIT_LABELS, VISUAL_HEIGHT_CELL, VISUAL_ONLY_KEYS, visualSettings} from "./settings";
@@ -362,7 +362,9 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
             ready && made && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">{only ? "No mosaic." : "No mosaics."}</div> : null}
         {imported && ready && <div class="webodm-shown text-muted">
             {c.orthophoto ? "Its orthophoto of temperatures is the viewer's WebODM tab." :
-                "Its orthophoto of colours is the viewer's visual mosaic."}{c.dsm ? " Its DSM is the Heights tab." : ""}</div>}
+                "Its orthophoto of colours is the viewer's visual mosaic."}{c.dsm ? " Its DSM is the Heights tab." : ""}
+            {webodmTaskUrl(imported) && <>{" "}<a href={webodmTaskUrl(imported)} target="_blank" rel="noopener noreferrer"
+                                                  class="open-webodm">Open in WebODM</a></>}</div>}
         {c.orthophoto && made && <div class="webodm-shown text-muted">
             WebODM's orthophoto{c.orthophoto.task_name ? " of " + c.orthophoto.task_name : ""} is on the viewer's
             WebODM tab.{" "}

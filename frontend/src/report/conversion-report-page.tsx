@@ -6,7 +6,7 @@
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {userUnit} from "../core/units";
-import {type Conversion} from "../dataset/conversions";
+import {type Conversion, importedRows} from "../dataset/conversions";
 import {type Analysis} from "../dataset/files";
 import {differences, type Settings} from "../dataset/settings";
 import {framesUrl, numberedFrames, pictureUrl, type SavedFrame} from "../dataset/video-frames";
@@ -29,6 +29,7 @@ import {ReportBar, ReportField, TitleBlock, type Typed, useReportText} from "./t
 const VISUAL = "visual";
 const VISUAL_TEXT = "The visual camera's images, laid out by their own overlaps, as they were taken (the flight has no " +
     "thermal images)";
+const IMPORTED_TEXT = "The colour orthophoto imported from WebODM, as it was made there";
 const COMMENT_MS = 600;         // typing a comment pauses this long before it is saved
 const MAIN = {width: 1000, height: 700}, CLOSE_UP = {width: 640, height: 420};
 
@@ -101,6 +102,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
 
     // A visual mosaic of its own: its visual mosaic, as it is, with no temperatures
     const alone = !!v?.visual_only;
+    const aloneText = c?.imported ? IMPORTED_TEXT : VISUAL_TEXT;
     const ready = loaded && !!v && v.mosaic_status === "ready" && (alone ? !!v.visual?.bounds : (v.tabs || []).length > 0);
     const {tab, style} = ready && !alone ? reportStyle(v!, c?.report?.view) : {tab: alone ? VISUAL : "", style: null as Style | null};
     const t = ready && !alone ? v!.tabs!.find((x) => x.tab === tab) : undefined;
@@ -147,7 +149,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     useEffect(() => {
         if (!ready || curve === undefined || !text) return;
         const marks = [...shownItems.filter((m) => m.target !== "frame" && m.geometry).map(mark), ...found.map(findingMark)];
-        if (alone) return void figures({values: visualTiles(), legend: null}, [{key: "main", title: VISUAL_TEXT, marks}], MAIN);
+        if (alone) return void figures({values: visualTiles(), legend: null}, [{key: "main", title: aloneText, marks}], MAIN);
         if (!style) return;
         const under = underOf(v!, tab, style), shares = under.style === style ? curve : null;
         figures({values: tiles(under.tab)!, colouring: colouringOf(v!, under.tab, under.style, shares),
@@ -212,7 +214,8 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     const unit = v.unit;
     const diffs = differences(c.settings, d.defaults, null, userUnit()).filter((x) => x.changed);
     const kind = t ? v.kinds?.[t.kind || ""] : undefined;
-    const rows = alone ? visualRows(v.visual) : reportRows(kind);
+    // An imported dataset's source first (it has no settings, nor anything of dji-thermal-cli's)
+    const rows = (c.imported ? importedRows(c.imported) : []).concat(alone ? visualRows(v.visual) : reportRows(kind));
     const taken = takenText(v.flown, v.flight_zone);
     const img = (key: string, alt: string) => images[key] ?
         <img class="report-figure" src={images[key]!} alt={alt}/> :
@@ -230,7 +233,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                 "The mosaics are not built: build them on the flight page's Datasets tab."}</p> : <>
                 <section class="report-section report-keep" id="report-mosaic">
                     <h2>The mosaic</h2>
-                    {alone ? <p class="report-caption no-print">{VISUAL_TEXT}.</p> :
+                    {alone ? <p class="report-caption no-print">{aloneText}.</p> :
                     <p class="report-caption no-print">{viewText(v, tab, style!)}. <a href={viewer}>Change the view in the
                         viewer</a>, then open the report from there.</p>}
                     {img("main", "The mosaic")}
@@ -279,10 +282,10 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                 <h2>Settings and method</h2>
                 <dl class="figures">
                     <div><dt>Dataset</dt><dd>{c.name}{c.description && " · " + c.description}</dd></div>
-                    <div><dt>Changed from the defaults</dt><dd>{diffs.length ? diffs.map((x) => x.text).join("; ") : "None"}</dd></div>
-                    {ready && <div><dt>Mosaic</dt><dd>{alone ? VISUAL_TEXT :
+                    {!c.imported && <div><dt>Changed from the defaults</dt><dd>{diffs.length ? diffs.map((x) => x.text).join("; ") : "None"}</dd></div>}
+                    {ready && <div><dt>Mosaic</dt><dd>{alone ? aloneText :
                         <>{tabLabel(tab)}{TAB_HINTS[tab] && ": " + TAB_HINTS[tab]}</>}</dd></div>}
-                    <div><dt>dji-thermal-cli</dt><dd>{c.results?.version || "Not recorded"}</dd></div>
+                    {!c.imported && <div><dt>dji-thermal-cli</dt><dd>{c.results?.version || "Not recorded"}</dd></div>}
                 </dl>
                 {rows.length > 0 && <table class="table report-mosaic-rows"><tbody>
                     {rows.map(([k, x]) => <tr key={k}><th>{k}</th><td>{x}</td></tr>)}</tbody></table>}

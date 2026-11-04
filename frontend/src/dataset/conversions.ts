@@ -35,7 +35,9 @@ export interface Conversion {
 // orthophoto holds once read: "thermal" (the viewer's WebODM tab) or "visual" (a visual mosaic)
 export interface Imported {
     from: "webodm" | "file"; kind?: "thermal" | "visual" | null; dsm?: boolean;
-    project_name?: string; task_name?: string; file?: string; dsm_file?: string | null;
+    url?: string; project?: number; project_name?: string; task?: string; task_name?: string;
+    file?: string; dsm_file?: string | null;
+    created_at?: string | null; images?: number | null; processing_ms?: number | null;     // kept since J2
 }
 
 export interface ResultFile {
@@ -115,4 +117,36 @@ export function importedChips(i: Imported): string[] {
             i.from === "webodm" ? [i.project_name, i.task_name].filter(Boolean).join(" › ") : i.file || "",
             i.kind === "thermal" ? "Temperatures" : i.kind === "visual" ? "Colours" : "",
             i.dsm || i.dsm_file ? "DSM" : ""].filter(Boolean);
+}
+
+// How long WebODM took, from its milliseconds: "1 h 05 min", "12 min", "40 s"
+export function processingText(ms: number | null | undefined): string {
+    if (!ms || ms < 0) return "";
+    const s = Math.round(ms / 1000);
+    if (s < 60) return s + " s";
+    const m = Math.round(s / 60);
+    return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0") + " min";
+}
+
+// The WebODM task an imported dataset came from, in WebODM's dashboard (as a task sent from here is linked), or ""
+// for one from a file
+export function webodmTaskUrl(i: Maybe<Imported>): string {
+    if (!i || i.from !== "webodm" || !i.url || i.project === undefined || !i.task) return "";
+    return i.url.replace(/\/+$/, "") + "/dashboard/?project_task_open=" + i.project + "&project_task_expanded=" +
+        encodeURIComponent(i.task);
+}
+
+// Where an imported dataset came from, as its report and the viewer's About list it: the task (when it was made, from
+// how many images, how long WebODM took) or the file, and its DSM
+export function importedRows(i: Imported): [string, string][] {
+    if (i.from !== "webodm") {
+        return [["From", "a file, " + (i.file || "")] as [string, string]]
+            .concat(i.dsm_file ? [["DSM", "a file, " + i.dsm_file]] : []);
+    }
+    const rows: [string, string][] = [["From", "WebODM: " + [i.project_name, i.task_name].filter(Boolean).join(" › ")]];
+    if (formatDate(i.created_at)) rows.push(["Made in WebODM", formatDate(i.created_at)]);
+    if (i.images) rows.push(["Images", String(i.images)]);
+    if (processingText(i.processing_ms)) rows.push(["Processed in", processingText(i.processing_ms)]);
+    if (i.dsm) rows.push(["DSM", "the task's"]);
+    return rows;
 }

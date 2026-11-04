@@ -176,9 +176,9 @@ class Stopped(Exception):
 
 def start(dataset, name, imported, unit, files=None):
     """A dataset imported into a flight, its job queued on the uploads worker (it downloads); imported: where it
-    comes from ({from: 'webodm', url, project, project_name, task, task_name, dsm} or {from: 'file', file,
-    dsm_file}); files: the uploaded files of one from a file, {'orthophoto': file, 'dsm': file}, kept in its
-    IMPORT_DIR for the job"""
+    comes from ({from: 'webodm', url, project, project_name, task, task_name, dsm, created_at, images,
+    processing_ms} or {from: 'file', file, dsm_file}); files: the uploaded files of one from a file,
+    {'orthophoto': file, 'dsm': file}, kept in its IMPORT_DIR for the job"""
     from .models import ThermalConversion
     conversion = ThermalConversion.objects.create(
         dataset=dataset, name=name, options={'imported': imported, 'unit': unit}, status='converting',
@@ -327,7 +327,7 @@ def run_import(pk, run_id):
     done = ThermalConversion.objects.filter(pk=pk, run_id=run_id).update(
         status='ready', run_id="", progress=1.0, stage={}, error="", finished_at=timezone.now(),
         results={'files': [], 'converted': 0, 'skipped': 0, 'imported': kind},
-        mosaic_status='ready' if kind == 'visual' else "", **fields)
+        mosaic_status='ready', **fields)
     if done:
         webodm_tasks.update_size(pk)
 

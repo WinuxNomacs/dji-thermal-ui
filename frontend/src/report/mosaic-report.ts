@@ -35,7 +35,9 @@ export function reportStyle(v: Mosaics, view: View | undefined): {tab: string; s
 // The temperatures' style, for the mosaic measurements on the other temperature tab and the frames: the report's when
 // it shows temperatures, else as the temperature tabs open
 export function temperatureStyle(v: Mosaics, tab: string, style: Style): Style {
-    return isTemperatureTab(tab) ? style : defaultStyle(v, "as_converted");
+    if (isTemperatureTab(tab)) return style;
+    // The first tab of temperatures: as converted, else (an imported orthophoto) WebODM
+    return defaultStyle(v, (v.tabs || []).find((t) => isTemperatureTab(t.tab))?.tab || "as_converted");
 }
 
 // What the report's mosaic is drawn from: the tab's own values, but on the Source frame tab the as converted

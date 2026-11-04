@@ -279,7 +279,7 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
                     <thead><tr><th>Name</th><th>Settings</th><th>Status</th><th>Mosaics</th><th>Finished</th></tr></thead>
                     <tbody>{conversions.map((c) => (<tr key={c.id}><td>{c.name}</td><td>{c.description}</td>
                         <td>{conversionLabel(c)}{c.converted ? " · " + c.converted + " converted" : ""}</td>
-                        <td>{c.mosaic_status === "ready" ? "Built" : c.mosaic_status ? c.mosaic_status : "None"}</td>
+                        <td>{c.mosaic_status === "ready" ? (c.imported ? "Imported" : "Built") : c.mosaic_status ? c.mosaic_status : "None"}</td>
                         <td>{formatDate(c.finished_at)}</td></tr>))}</tbody>
                 </table> : <p class="text-muted">None made.</p>}
             </section>

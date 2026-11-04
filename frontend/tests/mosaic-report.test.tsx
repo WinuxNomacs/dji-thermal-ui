@@ -258,3 +258,42 @@ describe("the mosaic report of a visual mosaic of its own", () => {
         expect(document.body.textContent).not.toContain("°C");
     });
 });
+
+describe("the mosaic report of an imported dataset", () => {
+    const imported = {from: "webodm", url: "http://127.0.0.1:8002", project: 4, project_name: "Site A", task: "t-1",
+                      task_name: "Roof", dsm: true, created_at: "2026-11-01T10:00:00Z", images: 120, processing_ms: 3900000};
+
+    it("says where its orthophoto of temperatures came from, with the task's images and processing time, and no settings of its own", async () => {
+        const webodm = {tab: "webodm", kind: "webodm", stats: {percentiles: [20, 30]}, bounds: BOUNDS, maxzoom: 22};
+        await page({
+            [BASE]: {...DETAIL, description: "from WebODM: Site A › Roof · DSM", settings: {imported, unit: "C"}, results: {},
+                     imported: {...imported, kind: "thermal"}},
+            [BASE + "/mosaics"]: {...MOSAICS, imported: {...imported, kind: "thermal"}, frames: [], tabs: [webodm],
+                                  kinds: {webodm: {task: null, task_name: "Roof", width: 100, height: 80, pixel_m: 0.05}}},
+            [BASE + "/measurements"]: {measurements: [{...spot, target: "webodm"}]},
+        });
+        const rows = text(".report-mosaic-rows");
+        expect(rows).toContain("FromWebODM: Site A › Roof");
+        expect(rows).toContain("Images120");
+        expect(rows).toContain("Processed in1 h 05 min");
+        expect(rows).toContain("DSMthe task's");
+        expect(rows).not.toContain("WebODM's task");
+        const method = text("#report-method dl");
+        expect(method).not.toContain("Changed from the defaults");
+        expect(method).not.toContain("dji-thermal-cli");
+        expect(asked()).toEqual(["main", "m4"]);
+    });
+
+    it("says a colour orthophoto from a file is one, by the file's name", async () => {
+        const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, frames: 0, width: 300, height: 240, gsd_m: 0.006};
+        const fromFile = {from: "file", file: "roof.tif", dsm_file: null, kind: "visual"};
+        await page({
+            [BASE]: {...DETAIL, settings: {imported: fromFile}, results: {}, imported: fromFile},
+            [BASE + "/mosaics"]: {name: "RGB", status: "ready", mosaic_status: "ready", tabs: [], visual_only: true, visual,
+                                  imported: fromFile},
+            [BASE + "/measurements"]: {measurements: []},
+        });
+        expect(text("#report-mosaic .report-caption")).toBe("The colour orthophoto imported from WebODM, as it was made there.");
+        expect(text(".report-mosaic-rows")).toBe("Froma file, roof.tifSize300 × 240 px at 0.6 cm");
+    });
+});
