@@ -32,7 +32,7 @@ dependencies = [
     "cryptography==50.0.2",
     "django==6.1.2",
     "djangorestframework==3.18.3",
-    "dji-thermal-cli==1.13.0",
+    "dji-thermal-cli==1.13.1",
     "numpy==2.5.4",
     "pillow==13.0.0",
     "platformdirs==4.13.5",

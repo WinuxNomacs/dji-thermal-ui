@@ -8,13 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: G2 (RGB-only flights: the compare page, the frames, measuring lengths and areas, the mosaic report, and the Problems tab's fix through dji-thermal-cli 1.13.1), in "RGB-only flights"
-below.
+**Up next**: J (WebODM datasets: Import from WebODM), to plan with the user, in "WebODM datasets" below.
 
-Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: J (WebODM datasets: Import from WebODM), to plan with the user, in "WebODM datasets" below.
+**Then**: nothing planned yet.
 
 ## Standalone (option A)
 
@@ -2531,14 +2530,7 @@ Both are in G2.
    measuring, comparable, the frames list and the report on a visual-only conversion; Vitest for the viewer, compare
    and frame pages); a live check on `ignored/m4t-rgb` on 8081.
 
-**G2 built on `g2-rgb-only`** (2026-11-04), not merged: it waits for dji-thermal-cli 1.13.1 to be published (merged
-into the cli's `main` with its release checks passed: 1334 passed, 11 skipped; build, check_dist and twine clean),
-then the pin (`pyproject.toml`, `uv.lock`, the CHANGELOG's Changed line), the suite again, the Done entry and the
-merge. Checked live on a scratch 8081 with `ignored/m4t-rgb` read in place and the local cli 1.13.1, light and dark:
-the analysis gave no error and the plan tab "No plan: the flight has no thermal frames to plan with"; a box on the roof
-40.42 m² (perimeter 25.70 m), saved and kept as a finding (its 151 frames outlined), a line 13.79 m; a spot's 106
-frames; the compare page's readout and no difference; the frames page (151 in the mosaic, 176 oblique) with →; the
-report's two figures; no console errors. Vitest 470, pytest 477 (4 skipped), lint, ruff, the strict docs build.
+**G2 built** (2026-11-04): see Done.
 
 ## Panel wording and the mosaics as a preview
 
@@ -3415,3 +3407,17 @@ button to the "New dataset" controls on each Flight."
   panel's groups in Mosaics, Measuring, Findings and the finding quickstart. Test: the panel's order in
   `viewer.test.tsx`. Checked live on a scratch 8081 (dataset 8's copy), light and dark: the viewer and frame page
   show View and About only, the new line, no console errors; Vitest 466, lint, the strict docs build.
+- **G2: RGB-only flights, measuring, the compare page, the frames and the report** (2026-11-04). dji-thermal-cli 1.13.1
+  (released for it: `check` makes no WebODM plan without thermal frames) pinned. Server: the `visual` measurement
+  target (`thermal_measure.visual_measure`: the shape's size in the mosaic's projection and the pixels it covers),
+  findings on it (`FINDING_TABS`), a Perimeter column in the CSV, migration 0012; `comparable` lists a visual mosaic of
+  its own (`visual_only`); its frames are its visual photos (`thermal_measure.listed_rows`, `visual_alone_frames`),
+  never measured. Front end: `viewer/visual-viewer.tsx` (the card, saved measurements, findings, Compare, Mosaic
+  report), `compare/` (`isAlone`, `readTab`), `frame/visual-frames.tsx`, the report (`figures.ts` draws a visual
+  mosaic's tiles), `sizeText`, the card, the navigation pane and the Files tab linking its frames. Docs: Datasets,
+  Mosaics, Measuring, Findings, Compare, Frames, Reports; the CHANGELOG. Tests: pytest in `tests/test_api_visual.py`,
+  Vitest in `viewer`, `compare`, `frame`, `dataset`, `mosaic-report`. Checked live on a scratch 8081 with
+  `ignored/m4t-rgb` read in place, light and dark: no analysis error and "No plan" on the plan tab, a roof box 40.42 m²
+  (perimeter 25.70 m) saved and kept as a finding, a line 13.79 m, a spot's 106 frames, the compare page, the frames
+  (151 in the mosaic, 176 oblique), the report's figures, no console errors. Checked: Vitest 470, lint, pytest 477,
+  ruff, the strict docs build, and the flight tests (4) on dataset 1 with 1.13.1.
