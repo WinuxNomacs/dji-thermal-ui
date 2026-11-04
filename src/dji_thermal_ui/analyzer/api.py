@@ -214,6 +214,8 @@ def summary(dataset):
         'thermal': files.get('thermal', 0),
         'not_thermal': sum(n for k, n in files.items() if k != 'thermal'),
         'visual': sum(1 for r in a.get('files') or [] if thermal_analysis.is_visual(r)),
+        # Visual frames and no thermal ones: a new dataset is its visual mosaic alone
+        'visual_only': thermal_analysis.visual_only(a),
         'errors': s.get('error', 0),
         'warnings': s.get('warning', 0),
         'infos': s.get('info', 0),
@@ -252,6 +254,7 @@ def detail(dataset):
 def conversion_summary(c):
     """A conversion as the flight page's Datasets tab lists it"""
     r = c.results or {}
+    m = c.mosaics or {}
     return {
         'id': c.id,
         'dataset': c.dataset_id,
@@ -267,7 +270,10 @@ def conversion_summary(c):
         'mosaic_progress': c.mosaic_progress,
         'stage': c.stage,
         'mosaic_error': c.mosaic_error,
-        'mosaic_files': sorted(f for k in (c.mosaics or {}).get('kinds', {}).values() for f in k.get('files', [])),
+        # The visual mosaic alone, of a flight without thermal frames: no images converted
+        'visual_only': bool((c.options or {}).get('visual_only')),
+        'mosaic_files': sorted(f for k in m.get('kinds', {}).values() for f in k.get('files', [])) +
+        (sorted((m.get('visual') or {}).get('files') or []) if m.get('visual_only') else []),
         'orthophoto': webodm_tasks.orthophoto_summary(c),
         'dsm': webodm_tasks.dsm_summary(c),
         # The DSM the mosaics were built on: {task_name, height_cell}, or None (their own heights)
@@ -952,6 +958,8 @@ class ConversionListCreateView(DatasetView):
         settings, errors = thermal_conversion.parse_settings(request.data.get('settings'))
         if errors:
             raise ValidationError(errors)
+        if thermal_analysis.visual_only(dataset.analysis):
+            settings.update(visual_only=True, mosaics=True)
         name = str(request.data.get('name', '') or '').strip() or \
             "Dataset {}".format(dataset.conversions.count() + 1)
         conversion = ThermalConversion.objects.create(dataset=dataset, name=name[:255], options=settings)

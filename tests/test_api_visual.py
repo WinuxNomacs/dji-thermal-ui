@@ -11,9 +11,10 @@ import numpy as np
 import pytest
 
 from dji_thermal_ui.analyzer import thermal_conversion, thermal_mosaics
-from dji_thermal_ui.analyzer.models import ThermalDataset
+from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset
 from tests.fakes import (CONVERSIONS, DATASETS, THERMAL_MODELS, VISUAL_FILES, VISUAL_MODELS, analysed, converted,
-                         fake_measure, fake_visual, frame_models, mosaic_lonlat, write_frame_models, write_mosaic)
+                         fake_make_mosaic, fake_measure, fake_visual, frame_models, mosaic_lonlat, uploaded,
+                         write_frame_models, write_mosaic)
 
 THERMAL_FILES = tuple(m[0] for m in THERMAL_MODELS)
 PAIRED = THERMAL_FILES + VISUAL_FILES
@@ -209,3 +210,97 @@ def test_the_compare_list_says_which_conversions_have_the_visual_mosaic(api, con
     without, _make = converted(api, {'visual': False}, names=PAIRED)
     listed = {c['id']: c['visual'] for c in api.get("{}/{}/comparable".format(CONVERSIONS, conversion.id)).data}
     assert listed == {conversion.id: True, without.id: False}
+
+
+# --- a flight of visual frames only: its datasets are its visual mosaic alone ---------------------------------------
+
+def visual_flight(api):
+    """A flight of two visual frames, analysed: no thermal ones"""
+    d = uploaded(api, VISUAL_FILES)
+    ThermalDataset.objects.filter(pk=d.id).update(analysis={'files': [
+        {'path': f, 'kind': 'not_thermal', 'lat': 42.1, 'lon': -88.07} for f in VISUAL_FILES]})
+    return d
+
+
+def visual_only(api, settings=None):
+    d = visual_flight(api)
+    with mock.patch('dji_thermal_cli.api.process') as process, \
+            mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=fake_make_mosaic) as make:
+        res = api.post("{}/{}/conversions".format(DATASETS, d.id), {'settings': settings or {}}, format='json')
+    assert res.status_code == 201, res.data
+    assert not process.called
+    return ThermalConversion.objects.get(pk=res.data['id']), make
+
+
+def test_a_flight_without_thermal_frames_says_its_datasets_are_its_visual_mosaic(api):
+    d = visual_flight(api)
+    assert api.get("{}/{}".format(DATASETS, d.id)).data['visual_only'] is True
+    assert api.get("{}/{}".format(DATASETS, uploaded(api).id)).data['visual_only'] is False
+
+
+def test_its_dataset_converts_no_image_and_builds_the_visual_mosaic_laid_out_by_its_own_frames(api):
+    c, make = visual_only(api)
+    assert (c.status, c.mosaic_status) == ('ready', 'ready'), c.mosaic_error
+    assert c.options['visual_only'] is True and c.results['converted'] == 0 and c.results['visual_only'] is True
+    options = make.call_args.args[3]
+    assert options.visual_only is True and options.visual_gsd is None and options.height_cell is None
+    assert c.mosaics['kinds'] == {} and c.mosaics['visual_only'] is True
+    assert c.mosaics['frames'] == list(VISUAL_FILES)
+    v = c.mosaics['visual']
+    assert v['files'] == ['mosaics/visual/mosaic_visual.json', 'mosaics/visual/mosaic_visual.tif',
+                          'mosaics/visual/mosaic_visual_preview.png']
+    assert 'pairs' not in v and v['report']['laid_out'] == "by the visual frames' own overlaps"
+    assert os.path.isfile(os.path.join(c.data_dir(), v['raster']))
+    assert not os.path.exists(os.path.join(c.data_dir(), 'viewer', 'visual_pairs.json'))
+    assert not os.path.exists(os.path.join(c.data_dir(), 'viewer', 'palettes.json'))
+
+
+def test_its_pixel_size_and_height_cells_are_the_datasets_own(api):
+    c, make = visual_only(api, {'visual_gsd': '0.01', 'visual_height_cell': 48, 'max_pitch': -70})
+    options = make.call_args.args[3]
+    assert (options.visual_gsd, options.height_cell, options.max_pitch) == (0.01, 48, -70.0)
+    assert c.mosaics['visual']['frames'] == 2
+
+
+def test_the_pixel_size_and_height_cells_are_checked():
+    _, errors = thermal_conversion.parse_settings({'visual_gsd': 0, 'visual_height_cell': 4.5})
+    assert set(errors) == {'visual_gsd', 'visual_height_cell'}
+    _, errors = thermal_conversion.parse_settings({'visual_height_cell': 2000})
+    assert errors == {'visual_height_cell': "Between 8 and 1024"}
+    settings, errors = thermal_conversion.parse_settings({'visual_gsd': '', 'visual_height_cell': '32'})
+    assert not errors and (settings['visual_gsd'], settings['visual_height_cell']) == (None, 32)
+
+
+def test_the_datasets_tab_lists_it_as_the_visual_mosaic_with_its_files(api):
+    c, _ = visual_only(api, {'visual_gsd': 0.01})
+    row = api.get("{}/{}".format(CONVERSIONS, c.id)).data
+    assert row['visual_only'] is True
+    assert row['description'] == "visual mosaic · 1 cm pixels"
+    assert row['mosaic_files'] == c.mosaics['visual']['files']
+
+
+def test_the_viewer_gets_the_visual_mosaic_and_no_temperature_tabs(api):
+    c, _ = visual_only(api)
+    data = api.get("{}/{}/mosaics".format(CONVERSIONS, c.id)).data
+    assert data['tabs'] == [] and data['visual_only'] is True
+    assert data['visual']['bounds'] and 'raster' not in data['visual']
+    z = data['visual']['maxzoom']
+    x, y = tile_of(*mosaic_lonlat(32, 32), z)
+    res = api.get("{}/{}/mosaics/visual/tiles/{}/{}/{}.png".format(CONVERSIONS, c.id, z, x, y))
+    assert res.status_code == 200 and res['Content-Type'] == 'image/png'
+
+
+def test_its_download_has_the_visual_mosaic_and_not_the_maps_copy(api):
+    c, _ = visual_only(api)
+    res = api.get("{}/{}/download".format(CONVERSIONS, c.id))
+    names = zipfile.ZipFile(io.BytesIO(b''.join(res.streaming_content))).namelist()
+    assert sorted(names) == c.mosaics['visual']['files']
+
+
+def test_building_it_again_makes_the_visual_mosaic_again(api):
+    c, _ = visual_only(api)
+    with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=fake_make_mosaic) as make:
+        res = api.post("{}/{}/mosaics".format(CONVERSIONS, c.id))
+    assert res.status_code == 200, res.data
+    c.refresh_from_db()
+    assert make.call_args.args[3].visual_only is True and c.mosaic_status == 'ready' and c.mosaics['visual_only']

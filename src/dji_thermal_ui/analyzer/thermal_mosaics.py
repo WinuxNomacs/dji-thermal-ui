@@ -12,6 +12,9 @@ Files, in the conversion's folder:
                                    asks for it and the dataset has visual frames (downloads)
     viewer/visual.tif              its copy for the map's tiles: tiled, JPEG with a mask, with overviews
     viewer/visual_pairs.json       each thermal frame's visual frame, and how a pixel of one is found in the other
+
+A conversion of a flight without thermal frames (visual_only) has the visual mosaic alone, laid out by its own frames,
+in mosaics/visual/ and viewer/visual.tif, with no thermal mosaics and no pairs.
 """
 import json
 import os
@@ -323,7 +326,8 @@ def visual_pairs(thermal_sidecar, visual_sidecar):
 
 def build_visual(report, thermal_raster, out_dir, stripped, compression):
     """The visual mosaic dji-thermal-cli wrote beside the harmonized one (report: its VisualReport), moved to its own
-    folder, copied for the map and paired with the thermal frames: what the conversion keeps of it"""
+    folder, copied for the map and paired with the thermal frames (none when thermal_raster is None: a visual mosaic
+    of its own): what the conversion keeps of it"""
     from dji_thermal_cli import visual as dji_visual
 
     folder = os.path.join(out_dir, MOSAICS_DIR, VISUAL)
@@ -336,9 +340,11 @@ def build_visual(report, thermal_raster, out_dir, stripped, compression):
                                       located=True)
         located = str(located)
     tif = map_copy(located, os.path.join(out_dir, VIEWER_DIR, VISUAL + '.tif'))
-    pairs = visual_pairs(Path(thermal_raster).with_suffix('.json'), Path(located).with_suffix('.json'))
-    with open(os.path.join(out_dir, VIEWER_DIR, VISUAL_PAIRS_FILE), 'w', encoding='utf-8') as f:
-        json.dump(pairs, f)
+    pairs = {}
+    if thermal_raster is not None:
+        pairs = visual_pairs(Path(thermal_raster).with_suffix('.json'), Path(located).with_suffix('.json'))
+        with open(os.path.join(out_dir, VIEWER_DIR, VISUAL_PAIRS_FILE), 'w', encoding='utf-8') as f:
+            json.dump(pairs, f)
     if stripped:
         for p in (located, str(Path(located).with_suffix('.json'))):
             os.remove(p)
@@ -397,10 +403,6 @@ def build(conversion, run):
         raise Exception("WebODM's DSM is missing: bring it back again, or stop using it")
     surface = dict(dsm=Path(dsm[0]), height_cell=dsm[1]) if dsm else {}
 
-    jpegs = api.scan(root).jpegs
-    with open(os.path.join(out_dir, VIEWER_DIR, PALETTES_FILE), 'w') as f:
-        json.dump(dji_palettes(jpegs), f)
-
     state = {'written': time.time(), 'value': 0.0, 'stage': None}
 
     def write_progress(value, now=False, stage=None):
@@ -422,6 +424,10 @@ def build(conversion, run):
             state['stage'] = key
 
     write_progress(0, now=True)
+    if options.get('visual_only'):
+        return build_alone(root, out_dir, settings, options, args['compression'], stripped, progress)
+    with open(os.path.join(out_dir, VIEWER_DIR, PALETTES_FILE), 'w') as f:
+        json.dump(dji_palettes(api.scan(root).jpegs), f)
     kind_dirs = {kind: os.path.join(out_dir, MOSAICS_DIR, kind) for kind, _ in KINDS}
     # The harmonized mosaic, and the as converted one from the same layout (aligned once)
     harmonized = api.make_mosaic(root, kind_dirs['harmonized'], settings,
@@ -460,6 +466,26 @@ def build(conversion, run):
     elif visual:
         out['visual_note'] = harmonized.visual_note
     return clean(out)
+
+
+def build_alone(root, out_dir, settings, options, compression, stripped, progress):
+    """The visual mosaic of a flight without thermal frames, laid out by its own frames: {'kinds': {}, 'frames':
+    [names], 'stripped', 'visual_only': True, 'visual' (see build_visual)}"""
+    from dji_thermal_cli import api
+
+    folder = os.path.join(out_dir, MOSAICS_DIR, VISUAL)
+    cell = options.get('visual_height_cell')
+    report = api.make_mosaic(root, folder, settings,
+                             api.MosaicOptions(max_pitch=max_pitch(options), visual_only=True,
+                                               visual_gsd=options.get('visual_gsd'),
+                                               height_cell=int(cell) if cell is not None else None),
+                             compression=compression, jobs=django_settings.THERMAL_PROCESSES, progress=progress)
+    m = report.visual.mosaic
+    frames = [row.get('file', '') for row in sorted(m.frames, key=lambda r: r.get('index', 0))]
+    visual = build_visual(report.visual, None, out_dir, stripped, compression)
+    for key in ('pairs', 'unpaired_thermal', 'unused_visual'):
+        visual.pop(key)
+    return clean({'kinds': {}, 'frames': frames, 'stripped': stripped, 'visual_only': True, VISUAL: visual})
 
 
 def build_mosaics(conversion_id, run_id):
