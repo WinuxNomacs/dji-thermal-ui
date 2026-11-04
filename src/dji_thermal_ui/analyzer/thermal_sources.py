@@ -33,11 +33,13 @@ def angle(value):
     return None if value is None or not np.isfinite(value) else round(float(value), 1)
 
 
-def sources(path, geometry, names, models):
+def sources(path, geometry, names, models, source_bands=True):
     """
     The frames that saw a geometry (a checked Point or Polygon, lon/lat) on a mosaic (path: its GeoTIFF, with the
     source frame band and, since dji-thermal-cli 1.4.0, the frame pixel bands; names: its frames, as its source band
-    numbers them; models: its frame models or None): {frames, reason}, the frames the mosaic used first. Each is
+    numbers them; models: its frame models or None): {frames, reason}, the frames the mosaic used first. Without
+    source_bands (a visual mosaic of its own, which has its models) the frame used is the most nadir that saw it, as
+    its composite takes. Each is
     {frame, used, view_angle} and, for a spot, its pixel (or None where it is not known); for an area, the share of
     it the frame saw (None without models), the share the mosaic took from it and its outline in the frame's pixels
     (rings, none without models).
@@ -49,23 +51,30 @@ def sources(path, geometry, names, models):
         to_crs = Transformer.from_crs("EPSG:4326", ds.crs, always_xy=True)
         to_lonlat = Transformer.from_crs(ds.crs, "EPSG:4326", always_xy=True)
         if geometry['type'] == 'Point':
-            return spot(ds, to_crs, geometry['coordinates'], names, models)
-        return area(ds, to_crs, to_lonlat, geometry, names, models)
+            return spot(ds, to_crs, geometry['coordinates'], names, models, source_bands)
+        return area(ds, to_crs, to_lonlat, geometry, names, models, source_bands)
 
 
-def spot(ds, to_crs, lonlat, names, models):
+def spot(ds, to_crs, lonlat, names, models, source_bands=True):
     from rasterio.windows import Window
 
     x, y = to_crs.transform(*lonlat)
     col, row = ~ds.transform @ (x, y)
     if not (0 <= row < ds.height and 0 <= col < ds.width):     # NaN, far from the mosaic's zone, too
         return {'frames': [], 'reason': 'outside_raster'}
-    window = Window(int(math.floor(col)), int(math.floor(row)), 1, 1)
-    bands = [b for b in (2, 3, 4, 5) if b <= ds.count]
-    values = [float(v) for v in ds.read(bands, window=window)[:, 0, 0]]
-    index = int(round(values[0])) if np.isfinite(values[0]) else None
-    used = names[index] if index is not None and 0 <= index < len(names) else None
-    used_pixel = values[2:4] if len(values) == 4 and all(np.isfinite(values[2:4])) else None
+    used, used_pixel, values = None, None, [math.nan, None]
+    if source_bands:
+        window = Window(int(math.floor(col)), int(math.floor(row)), 1, 1)
+        bands = [b for b in (2, 3, 4, 5) if b <= ds.count]
+        values = [float(v) for v in ds.read(bands, window=window)[:, 0, 0]]
+        index = int(round(values[0])) if np.isfinite(values[0]) else None
+        used = names[index] if index is not None and 0 <= index < len(names) else None
+        used_pixel = values[2:4] if len(values) == 4 and all(np.isfinite(values[2:4])) else None
+    elif models is not None:
+        angles = models.view_angles(*lonlat)[:, 0]
+        seen = np.isfinite(models.pixels(*lonlat)[:, 0, 0]) & np.isfinite(angles)
+        if seen.any():
+            used = models.files[int(np.argmin(np.where(seen, angles, np.inf)))]
 
     frames = []
     if models is not None:
@@ -82,7 +91,7 @@ def spot(ds, to_crs, lonlat, names, models):
     return {'frames': frames, 'reason': None if frames else 'nodata'}
 
 
-def area(ds, to_crs, to_lonlat, geometry, names, models):
+def area(ds, to_crs, to_lonlat, geometry, names, models, source_bands=True):
     from rasterio.windows import Window, from_bounds
 
     x, y = to_crs.transform(*zip(*geometry['coordinates'][0]))
@@ -103,11 +112,12 @@ def area(ds, to_crs, to_lonlat, geometry, names, models):
         return {'frames': [], 'reason': 'outside_raster'}
 
     # The frames the mosaic took the area's pixels from, and how many from each
-    source = ds.read(2, window=window)[mask]
-    source = np.where(np.isfinite(source), source, -1).round().astype(int)
-    used_angles = ds.read(3, window=window)[mask]
     frames = {}
-    for i, name in enumerate(names):
+    if source_bands:
+        source = ds.read(2, window=window)[mask]
+        source = np.where(np.isfinite(source), source, -1).round().astype(int)
+        used_angles = ds.read(3, window=window)[mask]
+    for i, name in enumerate(names if source_bands else []):
         taken = source == i
         if taken.any():
             picked = used_angles[taken & np.isfinite(used_angles)]
@@ -123,11 +133,18 @@ def area(ds, to_crs, to_lonlat, geometry, names, models):
         seen = np.isfinite(models.pixels(lon, lat)[:, :, 0])
         angles = models.view_angles(lon, lat)
         share = seen.mean(axis=1)
+        if not source_bands:
+            # The most nadir frame that saw each point, as the composite takes it
+            nadir = np.where(seen & np.isfinite(angles), angles, np.inf)
+            taken = np.argmin(nadir, axis=0)[np.isfinite(nadir.min(axis=0))]
+            counts = np.bincount(taken, minlength=len(models.files)) / max(1, seen.shape[1])
         for k in np.flatnonzero(share > 0):
             name = models.files[k]
             f = frames.setdefault(name, {'frame': name, 'used': False, 'used_share': 0.0, 'outline': []})
             f['share'] = round(float(share[k]), 4)
             f['view_angle'] = angle(np.nanmean(angles[k][seen[k]]))
+            if not source_bands and counts[k] > 0:
+                f.update(used=True, used_share=round(float(counts[k]), 4))
         outlines(frames, models, inside, to_crs, to_lonlat, abs(ds.transform.a))
 
     ordered = sorted(frames.values(), key=lambda f: (not f['used'], -f['used_share'], -(f['share'] or 0)))

@@ -239,6 +239,14 @@ describe("the dataset report", () => {
         expect(patches.map((c) => JSON.parse(c[1]!.body as string))).toEqual([{report: {visual: true}}]);
     });
 
+    it("puts a flight's visual photos on the map without asking when it has no thermal frames", async () => {
+        const files = [{path: "rgb/a_V.JPG", kind: "not_thermal", lat: 42.1, lon: -88.1},
+                       {path: "rgb/b_V.JPG", kind: "not_thermal", lat: 42.1, lon: -88.2}];
+        await page({...DATASET, analysis: {...DATASET.analysis, files}});
+        expect($("#report-visual")).toBeNull();
+        expect(text("#report-where")).toContain("2 visual photos (orange squares)");
+    });
+
     it("offers no visual photos' layer when none has a position", async () => {
         await page();
         expect($("#report-visual")).toBeNull();

@@ -5,7 +5,8 @@ conversion and as the user's saved preferences), and the conversion itself, run 
 
 Settings are kept as JSON: dji-thermal-cli's Settings fields (None keeps each image's own embedded value), plus the
 outputs, the compression, normalization, the nadir-only pitch limit and whether to build the mosaics
-(thermal_mosaics).
+(thermal_mosaics). A flight with visual frames and no thermal ones is not converted: its conversion is its visual
+mosaic alone (visual_only, set when the conversion is made), with the visual_gsd and visual_height_cell settings.
 """
 import math
 import os
@@ -46,6 +47,8 @@ DEFAULTS = {
     'rjpeg_picture': 'palette',     # an R-JPEG output's picture: the palette's colours, or DJI's own ('original')
     'mosaics': True,        # the app's own: build the mosaics after the images
     'visual': True,         # the app's own: and the visual mosaic with them, when the dataset has visual frames
+    'visual_gsd': None,     # a visual mosaic of its own's pixel size, in metres (None: the frames' own)
+    'visual_height_cell': None,     # and its height cells, in its alignment's pixels (None: dji-thermal-cli's)
 }
 
 # (low, high) of the numbers; the camera's own limits are narrower and are checked per image when converting
@@ -57,6 +60,8 @@ LIMITS = {
     'gimbal_pitch': (-180.0, 180.0),
     'gimbal_roll': (-180.0, 180.0),
     'max_pitch': (-90.0, 90.0),
+    'visual_gsd': (0.001, 1.0),
+    'visual_height_cell': (8, 1024),
 }
 # In the chosen unit: checked by dji-thermal-cli's Settings (above absolute zero, ranges in order)
 TEMPERATURES = ('reflected_temp', 'ambient_temp', 'range_min', 'range_max', 'replace_above', 'replace_below')
@@ -120,7 +125,8 @@ def parse_settings(raw):
     else:
         errors['unit'] = "The unit is C, F or K"
 
-    for field in ('humidity', 'emissivity', 'gimbal_yaw', 'gimbal_pitch', 'gimbal_roll', 'max_pitch') + TEMPERATURES:
+    for field in ('humidity', 'emissivity', 'gimbal_yaw', 'gimbal_pitch', 'gimbal_roll', 'max_pitch',
+                  'visual_gsd') + TEMPERATURES:
         value = get(field)
         if blank(value):
             out[field] = None
@@ -130,9 +136,20 @@ def parse_settings(raw):
         except (TypeError, ValueError):
             errors[field] = "Not a number"
 
+    cell = get('visual_height_cell')
+    if blank(cell):
+        out['visual_height_cell'] = None
+    else:
+        try:
+            out['visual_height_cell'] = int(cell) if number(cell) == int(cell) else None
+        except (TypeError, ValueError, OverflowError):
+            out['visual_height_cell'] = None
+        if out['visual_height_cell'] is None:
+            errors['visual_height_cell'] = "A whole number of pixels"
+
     for field, (low, high) in LIMITS.items():
         value = out.get(field)
-        if isinstance(value, float) and field not in errors and not (low <= value <= high):
+        if isinstance(value, (int, float)) and field not in errors and not (low <= value <= high):
             errors[field] = "Between {:g} and {:g}".format(low, high)
 
     for side in ('above', 'below'):
@@ -204,6 +221,15 @@ def parse_settings(raw):
 
 def summary_text(s):
     """A short description of a conversion's settings, for its default name and the list"""
+    if s.get('visual_only'):
+        parts = ['visual mosaic']
+        if s.get('max_pitch') is not None:
+            parts.append('pitch ≤ {:g}°'.format(s['max_pitch']))
+        if s.get('visual_gsd') is not None:
+            parts.append('{:g} cm pixels'.format(s['visual_gsd'] * 100))
+        if s.get('visual_height_cell') is not None:
+            parts.append('height cells {} px'.format(s['visual_height_cell']))
+        return ' · '.join(parts)
     parts = [', '.join(o.replace(':', ' ') for o in s.get('outputs') or [])]
     if s.get('normalize'):
         parts.append('normalized')
@@ -307,6 +333,8 @@ def convert(conversion_id, run_id):
         if not os.path.isdir(root):
             raise Exception("The folder {} does not exist".format(root)
                             if dataset.source == 'folder' else "The flight has no images")
+        if (conversion.options or {}).get('visual_only'):
+            return visual_only(conversion, run)
         args = api_arguments(conversion.options)
         # Each image is reported once when it is written. Normalizing first compares the frames' overlaps, stage by
         # stage: the page shows the stage while the progress is 0
@@ -355,3 +383,18 @@ def convert(conversion_id, run_id):
         from . import thermal_mosaics
         out.update(thermal_mosaics.finish(conversion, run))
     return out
+
+
+def visual_only(conversion, run):
+    """A conversion of a flight without thermal frames: no images converted, its visual mosaic built at once (the
+    conversion is ready, with its mosaic building, as a converted one is while its mosaics are built)"""
+    try:
+        from dji_thermal_cli import __version__ as version
+    except ImportError:
+        version = ""
+    if not run.update(status='ready', error="", progress=1.0, stage={}, finished_at=timezone.now(),
+                      results={'files': [], 'converted': 0, 'skipped': 0, 'visual_only': True, 'version': version},
+                      mosaic_status='building', mosaic_progress=0, mosaic_error=""):
+        return {'canceled': True}
+    from . import thermal_mosaics
+    return thermal_mosaics.finish(conversion, run)

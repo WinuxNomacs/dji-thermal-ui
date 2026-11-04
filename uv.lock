@@ -322,15 +322,15 @@ wheels = [
 
 [[package]]
 name = "dji-thermal-cli"
-version = "1.11.0"
+version = "1.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pillow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6e/6b/ca3b51205cd7351a01b6455984401138581b2d4c22401f9d2d4b308fd9ed/dji_thermal_cli-1.11.0.tar.gz", hash = "sha256:26e665c5d0eb8144341ba6630377826b23905caa9a6f8e5ec4b0d32f3f863147", size = 332472, upload-time = "2026-10-31T15:27:05.653Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/d9/25e961e0fc9b7b8365ef7f26207bdec2a601d6b12ec1a36580274abb719b/dji_thermal_cli-1.13.0.tar.gz", hash = "sha256:f95370e878841972e8ac448917aa3c2784c13c012ded5b5edb9f60f2c498ed8c", size = 344794, upload-time = "2026-11-03T23:53:49.928Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/7e/ba14bcdddaace70ec01e89a6e308350f7858b3440c27e8d7bac5e4682735/dji_thermal_cli-1.11.0-py3-none-any.whl", hash = "sha256:131e8b6ddad37aaf79fc8405d552ce3b8e1912f818de5df961ea03f49e06d4af", size = 339326, upload-time = "2026-10-31T15:27:03.988Z" },
+    { url = "https://files.pythonhosted.org/packages/19/a6/400e0ce8f73c0a35f13e433342411dab36c631a2e9d4cdc2a64fac1c4ea8/dji_thermal_cli-1.13.0-py3-none-any.whl", hash = "sha256:7fcb8a304584cf1a27b403498289bfcdc8ffd433f6c0626ac22ef75916d10163", size = 350962, upload-time = "2026-11-03T23:53:48.105Z" },
 ]
 
 [[package]]
@@ -370,7 +370,7 @@ requires-dist = [
     { name = "cryptography", specifier = "==50.0.2" },
     { name = "django", specifier = "==6.1.2" },
     { name = "djangorestframework", specifier = "==3.18.3" },
-    { name = "dji-thermal-cli", specifier = "==1.11.0" },
+    { name = "dji-thermal-cli", specifier = "==1.13.0" },
     { name = "numpy", specifier = "==2.5.4" },
     { name = "pillow", specifier = "==13.0.0" },
     { name = "platformdirs", specifier = "==4.13.5" },

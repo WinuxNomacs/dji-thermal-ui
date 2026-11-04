@@ -29,6 +29,24 @@ You can keep several datasets side by side, cancel one while it converts, or dow
   so DJI's own tools measure it as this app does. Its picture, what photo viewers show, is coloured with the dataset's
   palette or kept as DJI's.
 
+## A flight of visual images only
+
+A flight with visual images and no thermal ones has nothing to convert: each of its datasets is the mosaic of its
+visual images, which dji-thermal-cli lays out by their own overlaps (matching them to each other, estimating the
+camera's lens distortion and the surface's heights), at the camera's full resolution. On the 327-photo test flight it
+took about 7 minutes. The New dataset form says so, its button is **Make mosaic**, and **Change settings** shows only
+what applies:
+
+- **Only frames with a gimbal pitch at or below (°)**: -80 keeps the nadir frames only.
+- **Pixel size (cm)**: empty for the frames' own.
+- **Height cells (px)**: empty for 32, in the pixels the frames are aligned at. Smaller cells follow steps in the
+  surface, such as a roof's edge, more closely, and take longer.
+- **Remove the location from the files.**
+
+An unnamed one is named "Visual mosaic", followed by whichever of these settings are changed. Its card says
+**Ready** and **View mosaic**, and its files are the mosaic, its sidecar and its preview. It has no temperatures, so
+it has no frames explorer, compare page or WebODM processing yet.
+
 ## A dataset's card
 
 Each dataset on the tab has a card with its settings and progress. Its button is **View mosaics** once the mosaics

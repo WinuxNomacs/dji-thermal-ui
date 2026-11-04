@@ -205,9 +205,17 @@ def mosaic_events(normalize=False, written=True, frames=2):
 def fake_make_mosaic(path, output_dir, settings=None, options=None, compression='deflate', jobs=None, progress=None,
                      as_converted_dir=None):
     """dji-thermal-cli's make_mosaic: its stages, then the GeoTIFF, its sidecar and preview, and its report; with
-    as_converted_dir, the mosaic as converted there too (its report's as_converted)"""
+    as_converted_dir, the mosaic as converted there too (its report's as_converted); with visual_only, the visual
+    mosaic alone (laid out by its own frames)"""
     for event in mosaic_events(options.normalize) if progress else ():
         progress(event)
+    if options.visual_only:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        visual = fake_visual(Path(output_dir))
+        visual.mosaic.report = {'laid_out': "by the visual frames' own overlaps", 'frames_used': 2,
+                                'misalignment': {'pairs': 1, 'median_m': 0.003, 'p90_m': 0.012}}
+        return SimpleNamespace(mosaic=None, files=[], preview=None, visual=visual, visual_note="", frames=0,
+                               oblique=0, unusable=0, not_thermal=2)
     result = fake_mosaic(Path(output_dir), options.units[0], options.normalize)
     if as_converted_dir is not None:
         result.as_converted = fake_mosaic(Path(as_converted_dir), options.units[0], False)

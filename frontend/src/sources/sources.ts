@@ -26,6 +26,8 @@ export interface SourceFrame {
     used_share?: number;
     outline?: [number, number][][];
     visual?: Maybe<VisualPair>;
+    width?: number;             // a visual mosaic of its own's frame: its size, as it is shown itself
+    height?: number;
 }
 
 // models: the mosaic knows every frame that saw it, else it lists only those it used (built before dji-thermal-cli 1.5.0)

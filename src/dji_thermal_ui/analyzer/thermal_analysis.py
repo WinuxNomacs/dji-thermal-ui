@@ -61,6 +61,13 @@ def is_visual(row):
     return row.get('kind') == 'not_thermal' and bool(VISUAL_NAME.search(row.get('path') or ""))
 
 
+def visual_only(analysis):
+    """Whether a flight's images, as analyzed, are visual frames and no thermal ones: each of its datasets is then its
+    visual mosaic alone"""
+    rows = (analysis or {}).get('files') or []
+    return any(is_visual(r) for r in rows) and not any(r.get('kind') == 'thermal' for r in rows)
+
+
 def file_row(report, root):
     """One file of the dataset: what it is and, for a thermal image or a drone's visual photo (dji-thermal-cli 1.11's
     `visual`: no temperatures or measurement parameters), what the Files table shows"""

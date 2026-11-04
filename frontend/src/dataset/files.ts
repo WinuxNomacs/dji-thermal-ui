@@ -88,6 +88,13 @@ export function overview(a: Analysis): Overview {
     return out;
 }
 
+// Whether the flight has visual images and no thermal ones: each new dataset is then its visual mosaic alone (as the
+// server's thermal_analysis.visual_only)
+export function visualOnly(a: Analysis | null | undefined): boolean {
+    const files = a?.files || [];
+    return files.some((f) => fileKind(f) === "visual") && !files.some((f) => f.kind === "thermal");
+}
+
 // The problems each file is named in: {path: [finding, ...]}
 export function flagsByFile(findings: Problem[] | undefined): Record<string, Problem[]> {
     const out: Record<string, Problem[]> = {};
@@ -120,9 +127,10 @@ export function sortRows<T extends Record<string, unknown>>(rows: T[], key: stri
     });
 }
 
-// The conversion a file row opens its frame in: the ready one finished last
-export function newestReady<T extends {status: string; finished_at?: string | null}>(conversions: T[] | undefined): T | null {
-    return (conversions || []).filter((c) => c.status === "ready")
+// The conversion a file row opens its frame in: the ready one finished last (a visual mosaic of its own has no frames)
+export function newestReady<T extends {status: string; finished_at?: string | null; visual_only?: boolean}>(
+    conversions: T[] | undefined): T | null {
+    return (conversions || []).filter((c) => c.status === "ready" && !c.visual_only)
         .sort((a, b) => String(b.finished_at || "").localeCompare(String(a.finished_at || "")))[0] || null;
 }
 

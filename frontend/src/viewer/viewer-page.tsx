@@ -36,6 +36,7 @@ import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPe
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
 import {MosaicExport} from "./export";
+import {VisualViewer} from "./visual-viewer";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         PanelGroup, Readout, Report, Section, Whole} from "./panel";
 import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
@@ -70,6 +71,7 @@ export interface Mosaics {
     flight_zone?: FlightZone | null;
     visual?: VisualMosaic | null;
     visual_note?: string;
+    visual_only?: boolean;      // the visual mosaic alone (a flight without thermal frames): VisualViewer shows it
 }
 
 // What is measured: the shape drawn (or a saved measurement shown), on which mosaic, and what came back; res undefined
@@ -928,6 +930,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         return (<div class="page viewer">
             {notice ? <div class="notice error" role="alert">{notice}</div> : <div class="message">Loading…</div>}
         </div>);
+    }
+    if (v.visual_only) {
+        return (<>{notice && <div class="notice error" role="alert">{notice}</div>}
+            <VisualViewer api={api} publicUrl={publicUrl} id={id} datasetId={datasetId} datasetName={datasetName}
+                          basemaps={basemaps} v={v} onAction={action}/></>);
     }
 
     const kind = t?.kind ? (v.kinds || {})[t.kind] : undefined;

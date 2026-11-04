@@ -13,7 +13,7 @@ Opened with the flight page's **Flight report** button, it holds:
 
 - the flight's figures;
 - a map of where its frames were taken, with its findings and saved video frames numbered (V1, V2…), and the visual
-  photos when they are put on it;
+  photos when they are put on it (always, on a flight with no thermal images);
 - the coverage, and the problems found;
 - the frames' settings and temperatures summed up, and the datasets;
 - the findings, with thumbnails of their kept frames, and the video frames saved;

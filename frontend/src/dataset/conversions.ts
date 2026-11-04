@@ -27,6 +27,7 @@ export interface Conversion {
     dsm?: Dsm | null;
     mosaics_dsm?: {task_name: string; height_cell: number} | null;    // the DSM the mosaics were built on
     mosaics_gsd_m?: number | null;
+    visual_only?: boolean;      // a flight without thermal images: no images converted, its visual mosaic alone
 }
 
 export interface ResultFile {
@@ -47,6 +48,7 @@ const STATUS_LABELS: Record<string, string> = {converting: "Converting", ready: 
 const BADGES: Record<string, string> = {ready: "success", failed: "danger", canceled: "", converting: "info"};
 
 export function conversionLabel(c: Conversion): string {
+    if (c.visual_only && c.status === "ready") return "Ready";      // nothing was converted
     const label = STATUS_LABELS[c.status] || c.status;
     return c.status === "converting" && c.progress ? label + " " + Math.round(c.progress * 100) + "%" : label;
 }

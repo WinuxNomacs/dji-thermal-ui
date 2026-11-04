@@ -214,6 +214,8 @@ def summary(dataset):
         'thermal': files.get('thermal', 0),
         'not_thermal': sum(n for k, n in files.items() if k != 'thermal'),
         'visual': sum(1 for r in a.get('files') or [] if thermal_analysis.is_visual(r)),
+        # Visual frames and no thermal ones: a new dataset is its visual mosaic alone
+        'visual_only': thermal_analysis.visual_only(a),
         'errors': s.get('error', 0),
         'warnings': s.get('warning', 0),
         'infos': s.get('info', 0),
@@ -252,6 +254,7 @@ def detail(dataset):
 def conversion_summary(c):
     """A conversion as the flight page's Datasets tab lists it"""
     r = c.results or {}
+    m = c.mosaics or {}
     return {
         'id': c.id,
         'dataset': c.dataset_id,
@@ -267,7 +270,10 @@ def conversion_summary(c):
         'mosaic_progress': c.mosaic_progress,
         'stage': c.stage,
         'mosaic_error': c.mosaic_error,
-        'mosaic_files': sorted(f for k in (c.mosaics or {}).get('kinds', {}).values() for f in k.get('files', [])),
+        # The visual mosaic alone, of a flight without thermal frames: no images converted
+        'visual_only': bool((c.options or {}).get('visual_only')),
+        'mosaic_files': sorted(f for k in m.get('kinds', {}).values() for f in k.get('files', [])) +
+        (sorted((m.get('visual') or {}).get('files') or []) if m.get('visual_only') else []),
         'orthophoto': webodm_tasks.orthophoto_summary(c),
         'dsm': webodm_tasks.dsm_summary(c),
         # The DSM the mosaics were built on: {task_name, height_cell}, or None (their own heights)
@@ -656,8 +662,9 @@ class NavigationView(DatasetView):
 
 
 def nav_conversion(c):
-    """A conversion as the pane lists it: whether it has frames (once converted) and mosaics (once built) to open"""
-    return {'id': c.id, 'name': c.name, 'frames': c.status == 'ready',
+    """A conversion as the pane lists it: whether it has frames (once converted; none in a visual mosaic of its own)
+    and mosaics (once built) to open"""
+    return {'id': c.id, 'name': c.name, 'frames': c.status == 'ready' and not (c.options or {}).get('visual_only'),
             'mosaics': c.status == 'ready' and (c.mosaic_status == 'ready' or bool((c.orthophoto or {}).get('raster')))}
 
 
@@ -952,6 +959,8 @@ class ConversionListCreateView(DatasetView):
         settings, errors = thermal_conversion.parse_settings(request.data.get('settings'))
         if errors:
             raise ValidationError(errors)
+        if thermal_analysis.visual_only(dataset.analysis):
+            settings.update(visual_only=True, mosaics=True)
         name = str(request.data.get('name', '') or '').strip() or \
             "Dataset {}".format(dataset.conversions.count() + 1)
         conversion = ThermalConversion.objects.create(dataset=dataset, name=name[:255], options=settings)
@@ -1992,12 +2001,26 @@ def frame_sources(conversion, path, geometry, tab=None):
     if tab == thermal_mosaics.WEBODM:
         return {'frames': [], 'reason': 'not_recorded', 'kind': geometry['type'], 'geometry': geometry, 'models': False}
     models = thermal_sources.read_models(path)
-    out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models)
-    times = {r['path']: r.get('time') or "" for r in thermal_measure.frame_rows(conversion)}
-    pairs = thermal_mosaics.read_visual_pairs(conversion.data_dir())
+    # A visual mosaic of its own: its frames from their models alone, shown as themselves (no pairs)
+    alone = tab == thermal_mosaics.VISUAL
+    out = thermal_sources.sources(path, geometry, (conversion.mosaics or {}).get('frames') or [], models,
+                                  source_bands=not alone)
+    times = {r['path']: r.get('time') or "" for r in ((conversion.dataset.analysis or {}).get('files') or [])}
+    pairs = {} if alone else thermal_mosaics.read_visual_pairs(conversion.data_dir())
+    sizes = {}
+    if alone:
+        # Each frame's size, for the window to mark the spot or area on the frame shown as itself
+        try:
+            with open(os.path.splitext(path)[0] + '.json', encoding='utf-8') as fh:
+                sizes = {m['file']: (m['width'], m['height'])
+                         for m in (json.load(fh).get('frame_models') or {}).get('frames') or []}
+        except (OSError, ValueError, KeyError, TypeError):
+            sizes = {}
     for f in out['frames']:
         f['time'] = times.get(f['frame'], "")
         f['visual'] = pairs.get(f['frame'])
+        if f['frame'] in sizes:
+            f['width'], f['height'] = sizes[f['frame']]
     out.update(kind=geometry['type'], geometry=geometry, models=models is not None)
     return out
 
@@ -2011,7 +2034,14 @@ class MosaicSourcesView(DatasetView):
         A spot also gets the mosaic's values there (point, as MosaicPointView's).
         """
         conversion = get_conversion(pk)
-        path, _band = mosaic_raster(conversion, tab)
+        alone = tab == thermal_mosaics.VISUAL
+        if alone:
+            # The visual mosaic of a flight without thermal frames (the paired one's are its thermal frames')
+            path = thermal_mosaics.visual_raster(conversion.data_dir(), conversion.mosaics or {})
+            if not (conversion.mosaics or {}).get('visual_only') or not path or not os.path.isfile(path):
+                raise NotFound()
+        else:
+            path, _band = mosaic_raster(conversion, tab)
         try:
             geometry = thermal_measure.check_geometry(request.data.get('geometry'))
         except thermal_measure.MeasureError as e:
@@ -2019,7 +2049,7 @@ class MosaicSourcesView(DatasetView):
         if geometry['type'] not in ('Point', 'Polygon'):
             raise ValidationError({'error': "The geometry is a spot or an area"})
         out = frame_sources(conversion, path, geometry, tab)
-        if geometry['type'] == 'Point':
+        if geometry['type'] == 'Point' and not alone:
             out['point'] = mosaic_point(request, conversion, tab, *geometry['coordinates'])
         return Response(out)
 
@@ -2828,11 +2858,16 @@ class FrameDataView(DatasetView):
 class FrameVisualView(DatasetView):
     def get(self, request, pk):
         """A thermal frame's visual pair (?frame=, the thermal frame) as a JPEG, at most ?size= pixels across (default:
-        its own size), without its metadata"""
+        its own size), without its metadata; in a visual mosaic of its own, the visual frame itself"""
         from PIL import Image
         from django.http import HttpResponse
         conversion = get_conversion(pk)
-        pair = thermal_mosaics.read_visual_pairs(conversion.data_dir()).get(request.query_params.get('frame') or "")
+        frame = request.query_params.get('frame') or ""
+        if (conversion.mosaics or {}).get('visual_only'):
+            rows = (conversion.dataset.analysis or {}).get('files') or []
+            pair = {'frame': frame} if any(r.get('path') == frame and thermal_analysis.is_visual(r) for r in rows) else None
+        else:
+            pair = thermal_mosaics.read_visual_pairs(conversion.data_dir()).get(frame)
         if not pair:
             raise NotFound({'error': "The frame has no visual pair"})
         try:

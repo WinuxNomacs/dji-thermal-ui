@@ -48,7 +48,7 @@ const DEFAULTS: Settings = {
     range_max: null, palette: null, gimbal_yaw: null, gimbal_pitch: null, gimbal_roll: null, replace_above: null,
     replace_above_value: null, replace_below: null, replace_below_value: null, strip_location: false, normalize: false,
     max_pitch: null, outputs: ["temp_c:tiff", "pseudo:png"], compression: "deflate", rjpeg_picture: "palette",
-    mosaics: true, visual: true,
+    mosaics: true, visual: true, visual_gsd: null, visual_height_cell: null,
 };
 const PREFERENCES = {
     settings: DEFAULTS, saved: false, defaults: DEFAULTS, palettes: ["whitehot", "ironred"],
@@ -279,9 +279,10 @@ describe("the dataset's files and conversions", () => {
         expect(sortRows([{v: 2}, {v: null}, {v: 1}], "v", true).map((r) => r.v)).toEqual([2, 1, null]);
     });
 
-    it("opens the frames in the newest ready conversion", () => {
+    it("opens the frames in the newest ready conversion, never a visual mosaic of its own", () => {
         expect(newestReady([CONVERSION])!.id).toBe(9);
         expect(newestReady([{...CONVERSION, status: "failed"}])).toBeNull();
+        expect(newestReady([{...CONVERSION, visual_only: true}])).toBeNull();
     });
 
     it("counts why images were skipped, the most common first", () => {
@@ -1328,6 +1329,55 @@ describe("the Datasets tab", () => {
         await ticks();
         await openMenu();
         expect(menuItem("Process in WebODM")).toBeUndefined();
+    });
+
+    it("makes a flight of visual images only into datasets that are its visual mosaic, with that mosaic's settings only", async () => {
+        const rgb = {...DETAIL, thermal: 0, analysis: {...ANALYSIS, files: [ANALYSIS.files![2]]}, conversions: []};
+        const fetchFn = routes(rgb, {["POST " + URL + "/conversions"]: {...CONVERSION, id: 12, visual_only: true}});
+        page(fetchFn);
+        await ticks();
+        expect($(".convert-settings")!.textContent).toContain("a new dataset is their mosaic");
+        expect(byId("convert-start").textContent).toContain("Make mosaic");
+        expect(byId<HTMLInputElement>("convert-name").placeholder).toBe("Visual mosaic");
+        expect(byId("convert-plan")).toBeNull();
+        await openSettings();
+        expect($$(".settings-form [data-field]").map((f) => f.dataset.field)).toEqual(
+            ["max_pitch", "visual_gsd", "visual_height_cell", "strip_location"]);
+        expect(byId("convert-save")).toBeNull();
+        type(field("visual_gsd"), "0.5");
+        await ticks();
+        type(field("visual_height_cell"), "4");
+        await ticks();
+        click(byId("convert-start"));
+        await ticks();
+        expect($(".convert-message")!.textContent).toBe("The height cells are a whole number of pixels, 8 to 1024.");
+        expect(calls(fetchFn)).not.toContain("POST " + URL + "/conversions");
+        type(field("visual_height_cell"), "16");
+        await ticks();
+        expect($(".convert-summary .chips")!.textContent).toBe("0.5 cm pixelsheight cells 16 px");
+        expect(byId<HTMLInputElement>("convert-name").placeholder).toBe("Visual mosaic · 0.5 cm pixels · height cells 16 px");
+        click(byId("convert-start"));
+        await ticks();
+        const post = fetchFn.mock.calls.find((c) => c[0] === URL + "/conversions")!;
+        expect(body(post[1])).toEqual({name: "Visual mosaic · 0.5 cm pixels · height cells 16 px",
+                                       settings: {max_pitch: null, visual_gsd: 0.005, visual_height_cell: 16, strip_location: false}});
+    });
+
+    it("lists a visual mosaic of its own as ready, with its mosaic's files, and no frames, compare or WebODM", async () => {
+        const files = ["mosaics/visual/mosaic_visual.json", "mosaics/visual/mosaic_visual.tif"];
+        const visual = {...CONVERSION, visual_only: true, converted: 0, skipped: 0, mosaic_files: files,
+                        settings: {...DEFAULTS, visual_only: true, visual_gsd: 0.005}};
+        page(routes({...DETAIL, conversions: [visual]}, {[API + "conversions/9"]: {...visual, results: {files: []}}}));
+        await ticks();
+        expect(card().querySelector(".badge")!.textContent).toBe("Ready");
+        expect(card().querySelector(".conversion-actions a.primary")!.textContent).toBe("View mosaic");
+        expect([...card().querySelectorAll(".chip")].map((c) => c.textContent)).toEqual(["Visual mosaic", "0.5 cm pixels"]);
+        expect(card().querySelector(".figures-line")!.textContent).not.toContain("converted");
+        await openMenu();
+        ["Frames", "Compare with…", "Process in WebODM"].forEach((label) => expect(menuItem(label)).toBeUndefined());
+        click(menuItem("Files")!);
+        await ticks();
+        expect(card().querySelector(".results")!.textContent).toBe("Mosaics: visual/mosaic_visual.json, visual/mosaic_visual.tif");
     });
 
     it("unfolds what a conversion wrote per image", async () => {
