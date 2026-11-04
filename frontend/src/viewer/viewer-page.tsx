@@ -934,7 +934,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     if (v.visual_only) {
         return (<>{notice && <div class="notice error" role="alert">{notice}</div>}
             <VisualViewer api={api} publicUrl={publicUrl} id={id} datasetId={datasetId} datasetName={datasetName}
-                          basemaps={basemaps} v={v} onAction={action}/></>);
+                          basemaps={basemaps} v={v} finding={wanted.finding} onAction={action}/></>);
     }
 
     const kind = t?.kind ? (v.kinds || {})[t.kind] : undefined;

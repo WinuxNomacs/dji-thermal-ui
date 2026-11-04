@@ -13,7 +13,7 @@ const SHAPE_LABELS: Record<string, string> = {Point: "Spot", LineString: "Line",
 // An area drawn by dragging (values.shape.kind)
 const DRAWN_LABELS: Record<string, string> = {box: "Box", circle: "Circle"};
 const TARGET_LABELS: Record<string, string> = {as_converted: "Mosaic", harmonized: "Harmonized", webodm: "WebODM",
-                                               frame: "Frame"};
+                                               frame: "Frame", visual: "Visual"};
 export const HINTS: Record<Tool, string> = {
     point: "Click a spot: its temperature is the mean of a small disc around it.",
     line: "Click the line's points; double-click the last one (or Finish) to end.",
@@ -47,6 +47,7 @@ export interface Result {
     delta_t?: number | null;
     length?: number | null;
     area?: number | null;
+    perimeter?: number | null;
     isotherm?: {share?: number | null} | null;
     profile?: Profile | null;
     histogram?: Histogram | null;
@@ -144,9 +145,9 @@ type Key = "value" | "mean" | "min" | "max" | "std" | "surroundings" | "delta_t"
 export function resultRows(results: Result[], unit: unknown, pixels?: boolean): Row[] {
     const a = results[0];
     const rows: Row[] = [];
-    const units = pixels ? {length: " px", area: " px²"} : {length: " m", area: " m²"};
+    const units = pixels ? {length: " px", area: " px²", perimeter: " px"} : {length: " m", area: " m²", perimeter: " m"};
     // A size once when the results share it (the same shape), else each result's own (two compared)
-    function size(label: string, key: "length" | "area") {
+    function size(label: string, key: "length" | "area" | "perimeter") {
         let vs = results.map((r) => r[key] === undefined ? null : r[key]);
         if (vs.every((v) => v === null)) return;
         if (vs.every((v) => v === vs[0])) vs = [vs[0]];
@@ -154,6 +155,8 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
     }
     size("Length", "length");
     size("Area", "area");
+    // A visual mosaic's shape has its size alone: its perimeter too
+    if (results.every((r) => !isPresent(r.mean) && !isPresent(r.value))) size("Perimeter", "perimeter");
     function figure(label: string, key: Key, fmt: (v: Maybe<number>) => string, diffFmt: (v: number) => string) {
         const vs = results.map((r) => r[key]);
         if (vs.every((v) => v === null || v === undefined)) return;
@@ -201,6 +204,13 @@ export function shapeLabel(result: Maybe<Result>, shape?: Maybe<Shape>): string 
     return (shape && DRAWN_LABELS[shape.kind]) || SHAPE_LABELS[(result || {}).kind || ""] || "";
 }
 
+// A shape's size on a mosaic: a line's length, an area's area and perimeter ("" for a spot)
+export function sizeText(r: {length?: Maybe<number>; area?: Maybe<number>; perimeter?: Maybe<number>}): string {
+    if (isPresent(r.length)) return formatNumber(r.length, 2, " m");
+    if (!isPresent(r.area)) return "";
+    return formatNumber(r.area, 2, " m²") + (isPresent(r.perimeter) ? ", perimeter " + formatNumber(r.perimeter, 2, " m") : "");
+}
+
 // The sample of a profile nearest a point
 export function nearestIndex(points: Maybe<Coords[]>, coords: Coords, pixels?: boolean): number {
     const k = pixels ? 1 : Math.cos(coords[1] * Math.PI / 180);
@@ -224,10 +234,11 @@ export function paramsText(parameters: Maybe<Record<string, number | null>>, fie
         f[1].toLowerCase() + " " + (f[3] ? shownTemp(p[f[0]]!, unit) + " " + symbol() : String(p[f[0]]))).join(", ");
 }
 
-// A saved measurement's main figure: a spot's temperature, else the mean and ΔT. A frame's measurement measured again
-// keeps the frame as converted in result, its own in changed.
+// A saved measurement's main figure: a spot's temperature, else the mean and ΔT; on a visual mosaic, its size. A frame's
+// measurement measured again keeps the frame as converted in result, its own in changed.
 export function measurementFigure(m: Measurement, unit: unknown): string {
     const r = m.values?.changed || m.values?.result || {};
+    if (m.target === "visual") return sizeText(r);
     if (r.kind === "Point") return temp(isPresent(r.value) ? r.value : r.mean, unit, 1);
     return temp(r.mean, unit, 1) + (isPresent(r.delta_t) ? ", ΔT " + signed(r.delta_t, unit, 1) : "");
 }

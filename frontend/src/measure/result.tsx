@@ -18,11 +18,13 @@ interface ToolbarProps {
     tools?: [Tool, string][];           // the tools offered: all of them unless given
     label?: string;
     compact?: boolean;                  // the hint only as a tooltip, where there is no room to write it
+    hints?: Record<Tool, string>;       // what each tool does: the temperatures' unless given
 }
 
 // The tools, on the map along its top edge: an icon each, named in its tooltip; while one is on, its hint, Finish
 // for a line or an area, and Cancel
-export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "Drawing tools", compact = false}: ToolbarProps) {
+export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "Drawing tools", compact = false,
+                         hints = HINTS}: ToolbarProps) {
     return (<div class="measure-toolbar map-tools">
         <div class="button-group tools" role="group" aria-label={label}>
             {tools.map(([t, name]) => {
@@ -32,8 +34,8 @@ export function Toolbar({tool, count, onTool, onFinish, tools = TOOLS, label = "
                                 onClick={() => onTool(tool === t ? null : t)}><ToolIcon/></button>);
             })}
         </div>
-        {tool && <div class="tool-hint" title={compact ? HINTS[tool] : undefined}>
-            {!compact && <span>{HINTS[tool]}</span>}
+        {tool && <div class="tool-hint" title={compact ? hints[tool] : undefined}>
+            {!compact && <span>{hints[tool]}</span>}
             {(tool === "line" || tool === "area") &&
                 <button type="button" class="button primary small" disabled={count < (tool === "line" ? 2 : 3)}
                         onClick={onFinish}>Finish</button>}
@@ -79,7 +81,7 @@ export function MeasureCard(p: CardProps) {
                 </>}
             {valid && (p.onKeep || p.onSources) && <div class="inline measure-card-actions">
                 {p.onKeep && <button type="button" class="button primary small" name="keep-finding" onClick={p.onKeep}
-                                     title="Keep this spot or area, its temperatures and frames, as a finding of the flight">
+                                     title="Keep this spot or area, its figures and frames, as a finding of the flight">
                     <Flag/> Keep as finding</button>}
                 {p.onSources && <button type="button" class="button default small" name="sources" onClick={p.onSources}
                                         title="The frames that saw it, in a window"><Images/> Source frames</button>}

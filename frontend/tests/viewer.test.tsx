@@ -256,6 +256,70 @@ describe("the viewer page", () => {
         added.mockRestore();
     });
 
+    it("measures a line or an area drawn on a visual mosaic of its own, saves it and keeps it as a finding", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
+        const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, files: [], frames: 2, width: 300, height: 240, gsd_m: 0.006,
+                        report: {laid_out: "by the visual frames' own overlaps"}};
+        const result = {kind: "Polygon", reason: null, valid_pixels: 40, area: 12.5, perimeter: 14.2};
+        const kept = {id: 3, name: "Roof", target: "visual", geometry: AREA, values: {result, unit: "C"}};
+        const made = {...FOUND, id: 8, name: "Crack", geometry: AREA, tab: "visual",
+                      temperatures: {area: 12.5, perimeter: 14.2, valid_pixels: 40, unit: "C"}};
+        const fetchFn = server({
+            [BASE + "/mosaics"]: {name: "Visual mosaic", dataset_name: "RGB", status: "ready", mosaic_status: "ready", tabs: [],
+                                  visual, visual_only: true},
+            ["POST " + BASE + "/measure"]: {result, unit: "C", approximate: false},
+            [BASE + "/measurements"]: [{measurements: []}, {measurements: [kept]}],
+            ["POST " + BASE + "/measurements"]: kept,
+            [FINDINGS]: [{findings: []}, {findings: [made]}],
+            ["POST " + BASE + "/mosaics/visual/sources"]: {kind: "Polygon", geometry: AREA, models: true, reason: null,
+                                                           frames: FOUND.frames},
+            ["POST " + FINDINGS]: made,
+        });
+        await open(fetchFn);
+        expect([...document.querySelectorAll(".map-tools [data-tool]")].map((b) => b.getAttribute("data-tool")))
+            .toEqual(["point", "line", "area", "box", "circle"]);
+        click($(".map-tools [data-tool=point]")!);
+        await ticks();
+        expect($(".map-tools .tool-hint")!.textContent).toContain("the frames that saw it open");
+        click($(".map-tools [data-tool=area]")!);
+        drawn(start, AREA);
+        await ticks(40);
+        expect(measured(fetchFn).at(-1)).toEqual({target: "visual", geometry: AREA});
+        const card = byId("result").textContent;
+        expect(card).toContain("12.50 m²");
+        expect(card).toContain("Perimeter14.20 m");
+        expect(card).not.toContain("°");
+        expect([...document.querySelectorAll("#measure-card button")].map((b) => b.getAttribute("name")))
+            .toEqual(["close", "keep-finding", "sources", "save"]);
+        const name = $("#measure-card [name=name]") as HTMLInputElement;
+        name.value = "Roof";
+        name.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        click($("#measure-card [name=save]")!);
+        await ticks(40);
+        expect(fetchFn.mock.calls.filter((c) => c[0] === BASE + "/measurements" && c[1]?.method === "POST")
+            .map((c) => JSON.parse(String(c[1]!.body)))).toEqual([{name: "Roof", target: "visual", geometry: AREA}]);
+        expect($("[data-measurement='3'] .measurement-figure")!.textContent).toBe("12.50 m², perimeter 14.20 m");
+        expect(byId("csv").getAttribute("href")).toBe(BASE + "/measurements.csv");
+
+        click($("#measure-card [name=keep-finding]")!);
+        await ticks(40);
+        expect($(".sources-window")).not.toBeNull();
+        (byId("finding-name") as HTMLInputElement).value = "Crack";
+        byId("finding-name").dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        submit();
+        await ticks(40);
+        const posted = fetchFn.mock.calls.filter((c) => c[0] === FINDINGS && c[1]?.method === "POST")
+            .map((c) => JSON.parse(String(c[1]!.body)));
+        expect(posted).toMatchObject([{name: "Crack", measurement: 3}]);
+        expect($("[data-finding='8'] .measurement-figure")!.textContent).toBe("12.50 m², perimeter 14.20 m");
+        expect($(".sources-window .finding-about")!.textContent).toContain("Crack");
+        key(document.body, "Escape");
+        await ticks();
+        expect($("#measure-card")).toBeNull();
+    });
+
     it("has no Visual tab without a visual mosaic", async () => {
         history.replaceState(null, "", "/conversion/9?tab=visual");
         await open(server(routes()));
