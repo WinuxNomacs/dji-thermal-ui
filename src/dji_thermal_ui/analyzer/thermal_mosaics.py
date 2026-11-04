@@ -214,8 +214,9 @@ def read_visual_pairs(conversion_dir):
 
 
 def map_copy(src_path, path):
-    """The visual mosaic (4 bands, the 4th its alpha) copied for the map's tiles: tiled, JPEG in YCbCr with the alpha
-    as its mask, and overviews averaged down to about VISUAL_OVERVIEW_PX across, so that zoomed out tiles read little"""
+    """The visual mosaic (4 bands, the 4th its alpha; or a colour orthophoto of 3, its mask GDAL's) copied for the
+    map's tiles: tiled, JPEG in YCbCr with the alpha as its mask, and overviews averaged down to about
+    VISUAL_OVERVIEW_PX across, so that zoomed out tiles read little"""
     import rasterio
     from rasterio.enums import Resampling
     env = dict(GDAL_TIFF_INTERNAL_MASK=True, COMPRESS_OVERVIEW='JPEG', PHOTOMETRIC_OVERVIEW='YCBCR',
@@ -228,7 +229,7 @@ def map_copy(src_path, path):
             for _, window in dst.block_windows(1):
                 rgba = src.read(window=window)
                 dst.write(rgba[:3], window=window)
-                dst.write_mask(rgba[3], window=window)
+                dst.write_mask(rgba[3] if src.count >= 4 else src.dataset_mask(window=window), window=window)
             factors, f = [], 2
             while max(src.width, src.height) / f >= VISUAL_OVERVIEW_PX:
                 factors.append(f)

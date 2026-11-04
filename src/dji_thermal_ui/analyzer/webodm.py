@@ -217,11 +217,15 @@ class Client:
     def request(self, method, path, data=None, timeout=TIMEOUT, body=None, content_type=None):
         """WebODM's answer (JSON) to a call to its API (path from /api/, data sent as JSON, or a body of its own
         content type); a token it refuses is asked for again once"""
-        token, fresh = self._token()
         if data is not None:
             body, content_type = json.dumps(data).encode(), 'application/json'
+        return _json(self.raw(method, path, timeout, body, content_type, 'application/json'))
+
+    def raw(self, method, path, timeout=TIMEOUT, body=None, content_type=None, accept='*/*'):
+        """The body of WebODM's answer as it comes (an image), as request gets it"""
+        token, fresh = self._token()
         while True:
-            headers = {'Authorization': 'JWT ' + token, 'Accept': 'application/json'}
+            headers = {'Authorization': 'JWT ' + token, 'Accept': accept}
             if body is not None:
                 headers['Content-Type'] = content_type
             status, raw = _send(self.url + path, method, body, headers, timeout)
@@ -230,8 +234,8 @@ class Client:
                 continue
             break
         if 200 <= status < 300:
-            return _json(raw)
-        raise _refused(status, raw, path)
+            return raw
+        raise _refused(status, raw if accept == 'application/json' else b'', path)
 
     def download(self, project, task, asset, path, progress=None):
         """Writes one of a task's results (asset: its name, as orthophoto.tif) to a file as it comes; progress(bytes
@@ -343,6 +347,28 @@ class Client:
 
     def remove_task(self, project, task):
         self.request('POST', '/api/projects/%d/tasks/%s/remove/' % (project, task), {})
+
+    def tasks(self, project):
+        """A project's tasks, the newest first, as WebODM gives them"""
+        return self._list('/api/projects/%d/tasks/?ordering=-created_at' % project)
+
+    def thumbnail(self, project, task, size):
+        """WebODM's picture of a task's orthophoto, at most size pixels across (JPEG); a 404 WebODMError for an
+        orthophoto of fewer than three bands, or none"""
+        return self.raw('GET', '/api/projects/%d/tasks/%s/thumbnail?size=%d' % (project, task, size))
+
+    def metadata(self, project, task, asset='orthophoto'):
+        """WebODM's tiler's metadata of a task's orthophoto or DSM: its bands, data type, bounds and statistics"""
+        found = self.request('GET', '/api/projects/%d/tasks/%s/%s/metadata' % (project, task, asset))
+        if not isinstance(found, dict):
+            raise WebODMError("That address answered, but not as WebODM does: is it WebODM's?")
+        return found
+
+    def tile(self, project, task, z, x, y, rescale, asset='orthophoto'):
+        """One of WebODM's tiles of a task's orthophoto or DSM, its first band stretched over rescale (low, high) to
+        grey (PNG, its alpha the no-data)"""
+        return self.raw('GET', '/api/projects/%d/tasks/%s/%s/tiles/%d/%d/%d.png?rescale=%s,%s'
+                        % (project, task, asset, z, x, y, rescale[0], rescale[1]))
 
     def task(self, project, task):
         """WebODM's task: {status (TASK_STATUSES), progress, error, pending}"""

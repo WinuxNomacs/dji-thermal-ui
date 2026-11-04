@@ -2607,7 +2607,7 @@ identify and select from, preferably with a preview image" ("map" meaning the or
 - **Previews:** WebODM's own `tasks/<id>/thumbnail?size=` for a colour orthophoto; for one of temperatures (fewer
   than 3 bands, which WebODM's thumbnail refuses) the app colours one from WebODM's tiler with the value range of
   its `orthophoto/metadata`, in the app's default palette. Both go through the app's server (the login stays there)
-  and are cached in the data folder.
+  and are kept in memory a while (the browser keeps them for an hour).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
