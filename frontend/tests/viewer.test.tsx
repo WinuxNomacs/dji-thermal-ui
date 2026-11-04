@@ -803,6 +803,7 @@ describe("an imported dataset in the viewer", () => {
             baselines: {webodm: {emissivity: 0.95, reflected_temp: 20}}}}));
         await openWith(fetchFn);
         expect(tabs()).toEqual(["WebODM", "Heights"]);
+        expect($(".viewer-panel .hint")!.textContent).toContain("WebODM's orthophoto of temperatures, imported:");
         expect($("#frames")).toBeNull();
         expect($("#build")).toBeNull();
         expect(byId("open-webodm").getAttribute("href")).toBe("http://127.0.0.1:8002/dashboard/?project_task_open=4&project_task_expanded=t-1");

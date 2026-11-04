@@ -22,6 +22,14 @@ export const TAB_HINTS: Record<string, string> = {
     video: "Each pixel's level (0 to 255) in the camera's Ironbow, recoloured. Relative, not temperatures: the camera " +
         "re-ranges each frame, so a level is not the same heat from one frame to the next.",
 };
+// An imported dataset's tabs (webodm_import): its orthophoto and DSM came from WebODM, not from this dataset's images
+const IMPORTED_HINTS: Record<string, string> = {
+    webodm: "WebODM's orthophoto of temperatures, imported: ODM placed and blended the frames, so it doesn't say which " +
+        "frame each pixel comes from.",
+    heights: "WebODM's DSM, imported with the orthophoto: the height of the ground, roofs and trees in metres above " +
+        "its lowest ground.",
+};
+export const tabHint = (tab: string, imported = false) => (imported && IMPORTED_HINTS[tab]) || TAB_HINTS[tab] || "";
 // Each tab's tooltip: what it shows, in a few words
 export const TAB_TIPS: Record<string, string> = {
     as_converted: "Each frame as converted, with its own temperatures",

@@ -281,6 +281,7 @@ describe("the mosaic report of an imported dataset", () => {
         const method = text("#report-method dl");
         expect(method).not.toContain("Changed from the defaults");
         expect(method).not.toContain("dji-thermal-cli");
+        expect(method).toContain("MosaicWebODM: WebODM's orthophoto of temperatures, imported:");
         expect(asked()).toEqual(["main", "m4"]);
     });
 

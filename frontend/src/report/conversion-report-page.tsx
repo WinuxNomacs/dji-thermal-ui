@@ -16,7 +16,7 @@ import {DATA_GUTTER, rasterPixel, type Values} from "../map/map";
 import {type Measured, type Measurement, measurementFigure, shapeLabel, targetLabel} from "../measure/measure";
 import {ResultView} from "../measure/result";
 import {valuesUrl} from "../frame/frame";
-import {adjustQuery, dataUrl, reportRows, type Style, TAB_HINTS, tabLabel, takenText, TEMPERATURE_TABS,
+import {adjustQuery, dataUrl, reportRows, type Style, tabHint, tabLabel, takenText, TEMPERATURE_TABS,
         viewQuery, visualRows} from "../viewer/view";
 import {type Mosaics} from "../viewer/viewer-page";
 import {type Ask, drawFigures, type Mark, type Source, type VisualTiles} from "./figures";
@@ -284,7 +284,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                     <div><dt>Dataset</dt><dd>{c.name}{c.description && " · " + c.description}</dd></div>
                     {!c.imported && <div><dt>Changed from the defaults</dt><dd>{diffs.length ? diffs.map((x) => x.text).join("; ") : "None"}</dd></div>}
                     {ready && <div><dt>Mosaic</dt><dd>{alone ? aloneText :
-                        <>{tabLabel(tab)}{TAB_HINTS[tab] && ": " + TAB_HINTS[tab]}</>}</dd></div>}
+                        <>{tabLabel(tab)}{tabHint(tab, !!c.imported) && ": " + tabHint(tab, !!c.imported)}</>}</dd></div>}
                     {!c.imported && <div><dt>dji-thermal-cli</dt><dd>{c.results?.version || "Not recorded"}</dd></div>}
                 </dl>
                 {rows.length > 0 && <table class="table report-mosaic-rows"><tbody>

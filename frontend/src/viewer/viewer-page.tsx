@@ -1027,7 +1027,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         {visual ? <p class="hint" id="visual-hint">{TAB_HINTS[VISUAL]}</p> :
                             <Controls tab={t} palette={shown.palette} palettes={v.palettes || []} scale={scale} unit={unit}
                                       range={rangeText || rangeFields(shown.range)} rangeError={rangeError}
-                                      frames={(v.frames || []).length}
+                                      frames={(v.frames || []).length} imported={!!v.imported}
                                       onPalette={(palette) => setStyle({palette})} onRange={typedRange} onAuto={() => auto()}/>}
                         {tab !== "source_frame" && !visual && <Section name="image" title="Image" folded>
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
