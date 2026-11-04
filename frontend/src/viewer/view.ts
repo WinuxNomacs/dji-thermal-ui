@@ -22,6 +22,14 @@ export const TAB_HINTS: Record<string, string> = {
     video: "Each pixel's level (0 to 255) in the camera's Ironbow, recoloured. Relative, not temperatures: the camera " +
         "re-ranges each frame, so a level is not the same heat from one frame to the next.",
 };
+// An imported dataset's tabs (webodm_import): its orthophoto and DSM came from WebODM, not from this dataset's images
+const IMPORTED_HINTS: Record<string, string> = {
+    webodm: "WebODM's orthophoto of temperatures, imported: ODM placed and blended the frames, so it doesn't say which " +
+        "frame each pixel comes from.",
+    heights: "WebODM's DSM, imported with the orthophoto: the height of the ground, roofs and trees in metres above " +
+        "its lowest ground.",
+};
+export const tabHint = (tab: string, imported = false) => (imported && IMPORTED_HINTS[tab]) || TAB_HINTS[tab] || "";
 // Each tab's tooltip: what it shows, in a few words
 export const TAB_TIPS: Record<string, string> = {
     as_converted: "Each frame as converted, with its own temperatures",
@@ -316,8 +324,9 @@ interface Report {
 export interface Kind {
     frames?: number; oblique?: number; unusable?: number; width?: number; height?: number; gsd_m?: number;
     report?: Report | null; normalization?: number[] | null; files?: string[];
-    // brought back from WebODM: the task's name; the DSM's pixel size, lowest ground and heights above it
-    task_name?: string; pixel_m?: number; base_m?: number; heights?: Stats | null;
+    // brought back from WebODM: the task's name (and its id: null when imported); the DSM's pixel size, lowest ground
+    // and heights above it
+    task?: string | null; task_name?: string; pixel_m?: number; base_m?: number; heights?: Stats | null;
 }
 
 // The visual mosaic, as the server keeps it (thermal_mosaics.build_visual) and dji-thermal-cli reports it
@@ -345,6 +354,10 @@ export function visualRows(v: Maybe<VisualMosaic>): [string, string][] {
     if (!v) return [];
     const r = v.report || {}, rows: [string, string][] = [];
     if (r.laid_out) return laidOutRows(v);
+    // An orthophoto imported: its size alone (its source is the dataset's, importedRows)
+    if (!v.report && !v.pairs) {
+        return v.width ? [["Size", v.width + " × " + v.height + " px" + (v.gsd_m ? " at " + formatNumber(v.gsd_m * 100, 1, " cm") : "")]] : [];
+    }
     rows.push(["Frames", [(r.frames_used ?? v.pairs) + " placed as their thermal frames",
         v.unused_visual ? v.unused_visual + " visual not used (their thermal frames are not in the mosaic)" : "",
         v.unpaired_thermal ? v.unpaired_thermal + " thermal without a visual frame" : ""].filter(Boolean).join(", ")]);
@@ -389,7 +402,8 @@ function laidOutRows(v: VisualMosaic): [string, string][] {
 // What dji-thermal-cli reports about a mosaic: how many frames, how well they agree and line up
 // What WebODM's orthophoto or DSM says of itself: the task it came from; the DSM's size and heights
 function webodmRows(kind: Kind): [string, string][] {
-    const rows: [string, string][] = [["From", "WebODM's task " + kind.task_name]];
+    // An imported one's source is the dataset's (importedRows)
+    const rows: [string, string][] = kind.task === null ? [] : [["From", "WebODM's task " + kind.task_name]];
     if (kind.width && kind.pixel_m) {
         rows.push(["Size", kind.width + " × " + kind.height + " px at " + formatNumber(kind.pixel_m * 100, 1, " cm")]);
     }

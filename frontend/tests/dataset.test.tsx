@@ -1280,6 +1280,24 @@ describe("the Datasets tab", () => {
         expect(calls(fetchFn)).toContain("DELETE " + API + "conversions/9/orthophoto");
     });
 
+    it("describes an imported dataset by where it came from and what it holds, with a link to its task in WebODM", async () => {
+        const imported = {from: "webodm", url: "http://w:8002", project: 2, project_name: "Site", task: "t-9", task_name: "Roof",
+                          dsm: true, kind: "thermal"};
+        const orthophoto = {task: null, task_name: "Roof", downloaded_at: "2026-11-04T10:00:00Z"};
+        const dsm = {task: null, task_name: "Roof", downloaded_at: "2026-11-04T10:00:00Z", use: false, height_cell: 16};
+        page(routes({...DETAIL, conversions: [{...CONVERSION, settings: {imported, unit: "C"}, imported, orthophoto, dsm,
+                                                converted: 0, skipped: 0}]}));
+        await ticks();
+        expect([...card().querySelectorAll(".chips.imported .chip")].map((c) => c.textContent))
+            .toEqual(["From WebODM", "Site › Roof", "Temperatures", "DSM"]);
+        expect(card().querySelector(".webodm-shown")!.textContent!.replace(/\s+/g, " ").trim())
+            .toBe("Its orthophoto of temperatures is the viewer's WebODM tab. Its DSM is the Heights tab. Open in WebODM");
+        expect(card().querySelector<HTMLAnchorElement>(".open-webodm")!.href)
+            .toBe("http://w:8002/dashboard/?project_task_open=2&project_task_expanded=t-9");
+        expect(card().querySelector<HTMLAnchorElement>(".conversion-actions a.primary")!.textContent).toBe("View mosaics");
+        expect(card().querySelector(".webodm-dsm-line")).toBeNull();
+    });
+
     it("says WebODM's DSM is here, projects the mosaics onto it on the cell typed, offers them again, and removes it", async () => {
         const dsm = {task: 4, task_name: "Roof - Nadir", downloaded_at: "2026-10-30T10:00:00Z", use: true, height_cell: 16,
                      pixel_m: 0.05};

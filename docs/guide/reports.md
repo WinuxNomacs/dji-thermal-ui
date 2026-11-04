@@ -39,6 +39,10 @@ The mosaic report of a [flight of visual images only](datasets.md#a-flight-of-vi
 visual mosaic as it is, with no colour scale, each measurement's close-up with its length, or area and perimeter, its
 findings, and how the mosaic was laid out.
 
+The mosaic report of an [imported dataset](mosaics.md#an-imported-dataset) says where its orthophoto came from instead
+of settings: the WebODM project and task, when the task was made, from how many images and how long WebODM took (for
+one imported since this was recorded), and its DSM, or the files' names.
+
 ## Printing
 
 **Print / Save as PDF** opens the browser's print dialog, where the paper size is chosen and "Save as PDF" makes the

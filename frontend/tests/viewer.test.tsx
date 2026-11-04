@@ -782,3 +782,80 @@ describe("the findings in the viewer", () => {
         expect($("[data-section=findings]")!.textContent).toContain("No findings yet");
     });
 });
+
+describe("an imported dataset in the viewer", () => {
+    const IMPORTED = {from: "webodm" as const, url: "http://127.0.0.1:8002/", project: 4, project_name: "Site A", task: "t-1",
+                      task_name: "Roof", dsm: true, created_at: "2026-11-01T10:00:00Z", images: 120, processing_ms: 600000};
+    const HEIGHTS = {tab: "heights", kind: "dsm", stats: {percentiles: [0.4, 9.86], min: 0, max: 12.3}, bounds: BOUNDS, maxzoom: 22};
+    const nav = vi.fn();
+    const openWith = async (fetchFn: ReturnType<typeof server>) => {
+        vi.stubGlobal("fetch", fetchFn);
+        render(<ViewerPage api={API} publicUrl="/" id={9} datasetId={5} datasetName="Roof" basemaps={[]} nav={nav}/>, byId("root"));
+        await ticks(40);
+    };
+    const tabs = () => [...document.querySelectorAll("[role=tab]")].map((t) => t.textContent);
+    beforeEach(() => nav.mockClear());
+
+    it("shows an orthophoto of temperatures on its WebODM and Heights tabs, with where it came from and a link to the task, and no frames or mosaics to build", async () => {
+        const fetchFn = server(routes({[BASE + "/mosaics"]: {...MOSAICS, imported: {...IMPORTED, kind: "thermal"}, frames: [],
+            tabs: [{tab: "webodm", kind: "webodm", stats: {percentiles: [20, 30], min: 15, max: 40}, bounds: BOUNDS, maxzoom: 22}, HEIGHTS],
+            kinds: {webodm: {task: null, task_name: "Roof", width: 100, height: 80, pixel_m: 0.05}, dsm: {task: null, task_name: "Roof"}},
+            baselines: {webodm: {emissivity: 0.95, reflected_temp: 20}}}}));
+        await openWith(fetchFn);
+        expect(tabs()).toEqual(["WebODM", "Heights"]);
+        expect($(".viewer-panel .hint")!.textContent).toContain("WebODM's orthophoto of temperatures, imported:");
+        expect($("#frames")).toBeNull();
+        expect($("#build")).toBeNull();
+        expect(byId("open-webodm").getAttribute("href")).toBe("http://127.0.0.1:8002/dashboard/?project_task_open=4&project_task_expanded=t-1");
+        const about = $("[data-section=report]")!.textContent;
+        expect(about).toContain("FromWebODM: Site A › Roof");
+        expect(about).toContain("Images120");
+        expect(about).toContain("Processed in10 min");
+        expect(about).toContain("Size100 × 80 px at 5.0 cm");
+        expect(about).not.toContain("WebODM's task");
+        expect(measured(fetchFn)[0].target).toBe("webodm");
+    });
+
+    it("shows a colour orthophoto as a visual mosaic, a spot kept as a finding with no frames, and its DSM on the thermal viewer's Heights tab", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
+        const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, files: ["mosaics/visual/orthophoto.tif"], frames: 0,
+                        width: 300, height: 240, gsd_m: 0.006};
+        const shown = {...MOSAICS, imported: {...IMPORTED, kind: "visual"}, visual, visual_only: true, frames: [], tabs: [HEIGHTS],
+                       kinds: {dsm: {task: null, task_name: "Roof"}}, baselines: {}};
+        const map = viewerMap();
+        const fetchFn = server(routes({[BASE + "/mosaics"]: shown,
+            ["POST " + BASE + "/mosaics/visual/sources"]: {kind: "Point", geometry: {type: "Point", coordinates: WEST},
+                                                           models: false, reason: "not_recorded", frames: []}}));
+        await openWith(fetchFn);
+        expect(tabs()).toEqual(["Visual", "Heights"]);
+        expect(byId("visual-hint").textContent).toContain("The colour orthophoto imported from WebODM");
+        expect($("#build")).toBeNull();
+        expect(byId("open-webodm").getAttribute("href")).toContain("project_task_expanded=t-1");
+        const about = $("[data-section=report]")!.textContent;
+        expect(about).toContain("FromWebODM: Site A › Roof");
+        expect(about).toContain("Size300 × 240 px at 0.6 cm");
+        expect(about).not.toContain("thermal frames");
+        // A click opens no frames: the spot tool keeps one as a finding
+        clickMap(map(), WEST);
+        await ticks(10);
+        expect(calls(fetchFn)).not.toContain("POST " + BASE + "/mosaics/visual/sources");
+        click($(".map-tools [data-tool=point]")!);
+        await ticks();
+        expect($(".map-tools .tool-hint")!.textContent).toContain("Click a spot to keep it as a finding.");
+        drawn(start, {type: "Point", coordinates: WEST as [number, number]});
+        await ticks(10);
+        expect($(".sources-window")!.textContent).toContain("WebODM's orthophoto doesn't record which frames each pixel comes from.");
+        expect($(".sources-window [name=save-finding]")).not.toBeNull();
+        // Its Heights tab is the thermal viewer's, and its Visual tab this one
+        click($("[data-tab=heights]")!);
+        expect(nav).toHaveBeenCalledWith("/conversion/9?tab=heights");
+        render(null, byId("root"));
+        history.replaceState(null, "", "/conversion/9?tab=heights");
+        await openWith(server(routes({[BASE + "/mosaics"]: shown})));
+        expect(tabs()).toEqual(["Visual", "Heights"]);
+        expect($("[data-tab=heights]")!.getAttribute("aria-selected")).toBe("true");
+        expect($("#palette")).not.toBeNull();
+        click($("[data-tab=visual]")!);
+        expect(nav).toHaveBeenLastCalledWith("/conversion/9?tab=visual");
+    });
+});

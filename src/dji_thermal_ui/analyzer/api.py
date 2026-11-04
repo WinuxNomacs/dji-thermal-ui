@@ -270,8 +270,8 @@ def conversion_summary(c):
         'mosaic_progress': c.mosaic_progress,
         'stage': c.stage,
         'mosaic_error': c.mosaic_error,
-        # The visual mosaic alone, of a flight without thermal frames: no images converted
-        'visual_only': bool((c.options or {}).get('visual_only')),
+        # The visual mosaic alone, of a flight without thermal frames or imported: no images converted
+        'visual_only': bool((c.options or {}).get('visual_only') or m.get('visual_only')),
         # Imported from WebODM (webodm_import): where from, and what its orthophoto holds once read ('thermal' or
         # 'visual'); None for a dataset converted here
         'imported': dict((c.options or {})['imported'], kind=r.get('imported'))
@@ -1433,7 +1433,8 @@ class DatasetImportWebODMView(DatasetView):
         name = text_field(data, 'name', "The dataset's name", found['name'] or "WebODM task")[:255]
         conversion = webodm_import.start(dataset, name, {
             'from': 'webodm', 'url': client.url, 'project': project, 'project_name': project_name, 'task': task,
-            'task_name': found['name'], 'dsm': dsm}, app_unit())
+            'task_name': found['name'], 'dsm': dsm, 'created_at': found['created_at'], 'images': found['images'],
+            'processing_ms': found['processing_ms']}, app_unit())
         return Response(conversion_detail(conversion), status=status.HTTP_201_CREATED)
 
 
@@ -2093,10 +2094,11 @@ class MosaicPointView(DatasetView):
 
 def frame_sources(conversion, path, geometry, tab=None):
     """The frames that saw a checked spot or area of a mosaic (path: its GeoTIFF), each with when it was taken and its
-    visual pair (or None): {frames, reason, kind, geometry, models}; none on WebODM's orthophoto, which doesn't say"""
+    visual pair (or None): {frames, reason, kind, geometry, models}; none on WebODM's orthophoto (an imported one's
+    too), which doesn't say"""
     from . import thermal_sources
 
-    if tab == thermal_mosaics.WEBODM:
+    if tab == thermal_mosaics.WEBODM or (conversion.mosaics or {}).get('imported'):
         return {'frames': [], 'reason': 'not_recorded', 'kind': geometry['type'], 'geometry': geometry, 'models': False}
     models = thermal_sources.read_models(path)
     # A visual mosaic of its own: its frames from their models alone, shown as themselves (no pairs)

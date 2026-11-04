@@ -12,7 +12,10 @@ All notable changes are recorded here. The format follows
   the flight, with its DSM if wanted. The dialog browses the WebODM account's projects and their completed tasks as
   cards with a preview of each orthophoto (WebODM's own for colours, coloured here from its tiles for temperatures),
   those over the flight first; or it takes a GeoTIFF downloaded from WebODM's page. An orthophoto of temperatures is
-  the viewer's WebODM tab, one of colours a visual mosaic, the DSM the Heights tab.
+  the viewer's WebODM tab, one of colours a visual mosaic, the DSM the Heights tab, beside either. The viewer, the
+  compare page and the mosaic report take it as any dataset's mosaic, with no frames to open (ODM doesn't record
+  them); its card and the viewer link to the task in WebODM (**Open in WebODM**), and its report and the viewer's
+  panel say where it came from: the project and task, when it was made, from how many images and how long WebODM took.
 - Flights of visual images only (no thermal ones): each dataset is the mosaic of the visual images, laid out by their
   own overlaps with dji-thermal-cli 1.13.0, made with **Make mosaic** from the New dataset form, which shows only its
   settings (the pitch limit, the pixel size, the height cells and removing the location). The viewer shows it on its

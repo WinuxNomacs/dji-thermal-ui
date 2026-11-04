@@ -20,7 +20,8 @@ import {viewAsked} from "../core/exports";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {convertTemp, formatDelta} from "../core/units";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, FileText, Grid, Image, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, FileText, Grid, Image, Link, Stop} from "../components/icons";
+import {type Imported, importedRows, webodmTaskUrl} from "../dataset/conversions";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, type Measured, type Measurement, nearestIndex,
         type Shape, toggleCompared, TOOLS, typedTemp} from "../measure/measure";
@@ -72,6 +73,7 @@ export interface Mosaics {
     visual?: VisualMosaic | null;
     visual_note?: string;
     visual_only?: boolean;      // the visual mosaic alone (a flight without thermal frames): VisualViewer shows it
+    imported?: Imported | null; // an orthophoto imported from WebODM: no frames, nothing to build
 }
 
 // What is measured: the shape drawn (or a saved measurement shown), on which mosaic, and what came back; res undefined
@@ -98,6 +100,12 @@ export const SOURCES_SHAPE = new OlStyle({stroke: new Stroke({color: "#ffea00", 
 const VISUAL = "visual";
 // The tabs whose spots and areas open their source frames, and the tools that draw them where nothing is measured
 const SOURCES_TABS = ["as_converted", "harmonized", "source_frame"];
+// The tab a spot's frames are asked of, and a finding read on, where the tab shown has none: the as converted
+// mosaic, else (an imported orthophoto) WebODM's
+const framesTab = (v: Maybe<Mosaics>) => (v?.tabs || []).some((x) => x.tab === "as_converted") ? "as_converted" : "webodm";
+// A visual mosaic of its own shows its Heights tab here (it has a DSM, imported with it), asked for in the address, and
+// its Visual tab in VisualViewer
+const onHeights = (v: Mosaics, tab: Maybe<string>) => tab === "heights" && (v.tabs || []).some((x) => x.tab === "heights");
 const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
 // A tab whose shapes are measured: a temperature mosaic, not under the visual one
 const measures = (tab: Maybe<string>, visual: boolean) => !!tab && isTemperatureTab(tab) && !visual;
@@ -136,6 +144,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const frameUrl = publicUrl + "conversion/" + id + "/frame?frame=";
     const [wanted] = useState(() => readView(location.search));
     const [v, setV] = useState<Mosaics | null>(null);
+    const otherTab = framesTab(v);
     const [notice, setNotice] = useState("");
     const [tab, setTab] = useState<string | null>(null);
     // Opened on Harmonized for the frames' offsets (°C), which the notice above the tabs gives, until it is closed
@@ -348,7 +357,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The visual mosaic's tiles (made again when it is built again), shown instead of the values on the Visual tab
     function makeVisual() {
-        const m = map.current, vis = v?.visual, key = JSON.stringify(vis || null);
+        const m = map.current, vis = v?.visual_only ? null : v?.visual, key = JSON.stringify(vis || null);
         if (!m || key === visualKey.current) return;
         visualKey.current = key;
         if (visualTiles.current) m.removeLayer(visualTiles.current);
@@ -499,7 +508,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     // a saved measurement's on its own mosaic)
     async function openSources(geometry: Geometry, more: {shape?: Maybe<Shape>; measurement?: Measurement} = {}) {
         const n = ++asked.current.sources;
-        const at = more.measurement ? more.measurement.target : SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : "as_converted";
+        const at = more.measurement ? more.measurement.target : SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : otherTab;
         const asking: Asked = {geometry, tab: at, ...more};
         setSources(asking);
         // The spot's temperature corrected as the mosaic is
@@ -538,7 +547,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     // A finding in the window with its kept frames (centre: the map moves to it)
     function openFinding(f: Finding, centre = false) {
         asked.current.sources++;
-        setSources({geometry: f.geometry, tab: SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : "as_converted",
+        setSources({geometry: f.geometry, tab: SOURCES_TABS.includes(now.current.tab || "") ? now.current.tab! : otherTab,
                     res: findingSources(f), finding: f.id});
         const m = map.current;
         if (centre && m) m.getView().animate({center: centreOf(f), duration: 250});
@@ -563,7 +572,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 {...fieldsBody(v, d.edit.frames), kept: v.kept || d.edit.frames.map((x) => x.frame)}));
         } else {
             if (!s) return;
-            const read = isTemperatureTab(s.tab) ? s.tab : "as_converted";
+            const read = isTemperatureTab(s.tab) ? s.tab : otherTab;
             const from = s.measurement ? {measurement: s.measurement.id} :
                 {conversion: id, tab: read, geometry: s.geometry, shape: s.shape,
                  parameters: isTemperatureTab(now.current.tab || "") ? now.current.params : {}};
@@ -931,10 +940,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             {notice ? <div class="notice error" role="alert">{notice}</div> : <div class="message">Loading…</div>}
         </div>);
     }
-    if (v.visual_only) {
+    if (v.visual_only && !onHeights(v, wanted.tab)) {
         return (<>{notice && <div class="notice error" role="alert">{notice}</div>}
             <VisualViewer api={api} publicUrl={publicUrl} id={id} datasetId={datasetId} datasetName={datasetName}
-                          basemaps={basemaps} v={v} finding={wanted.finding} onAction={action}/></>);
+                          basemaps={basemaps} v={v} finding={wanted.finding} onAction={action} nav={nav}/></>);
     }
 
     const kind = t?.kind ? (v.kinds || {})[t.kind] : undefined;
@@ -954,7 +963,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     <div class="subtitle">{(v.description || "") + (v.stripped ? " · location stripped from the downloads" : "")}</div>
                 </div>
                 <div class="page-actions">
-                    {v.status === "ready" && <a class="button default" id="frames" href={frameUrl.replace(/\?frame=$/, "")}>
+                    {webodmTaskUrl(v.imported) && <a class="button default" id="open-webodm" href={webodmTaskUrl(v.imported)}
+                        target="_blank" rel="noopener noreferrer" title="The task this orthophoto was imported from, in WebODM">
+                        <Link/> Open in WebODM</a>}
+                    {v.status === "ready" && !v.imported && <a class="button default" id="frames" href={frameUrl.replace(/\?frame=$/, "")}>
                         <Image/> Frames</a>}
                     {ready && <a class="button default" id="compare" href={publicUrl + "conversion/" + id + "/compare"}
                                  title="This mosaic beside another mosaic, or their difference"><Columns/> Compare with…</a>}
@@ -964,7 +976,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     {ready && <button type="button" class="button default" id="report" onClick={openReport}
                                       title="A report of this mosaic as shown, its measurements and findings, to print or save as PDF">
                         <FileText/> Mosaic report</button>}
-                    {v.status === "ready" && v.mosaic_status !== "building" &&
+                    {v.status === "ready" && v.mosaic_status !== "building" && !v.imported &&
                         <button type="button" class="button default" id="build"
                                 onClick={() => action("/mosaics", "Could not build the mosaics.")}>
                             <Grid/> {v.mosaic_status === "ready" ? "Rebuild mosaics" : "Build mosaics"}</button>}
@@ -987,10 +999,14 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     <button type="button" class="close" title="Close" aria-label="Close" onClick={() => setEvened(null)}>×</button>
                 </div>}
                 {ready && <div class="tabs" role="tablist">
-                    {v.tabs!.map((x) => x.tab).concat(v.visual ? [VISUAL] : []).map((x) => {
+                    {(v.visual_only ? [VISUAL] : []).concat(v.tabs!.map((x) => x.tab), v.visual && !v.visual_only ? [VISUAL] : []).map((x) => {
                         const on = visual ? x === VISUAL : tab === x;
                         return (<a key={x} href={"#" + x} role="tab" aria-selected={on} class={on ? "active" : ""}
-                                   data-tab={x} title={TAB_TIPS[x]} onClick={(e) => { e.preventDefault(); chooseTab(x); }}>{tabLabel(x)}</a>);
+                                   data-tab={x} title={TAB_TIPS[x]} onClick={(e) => {
+                                       e.preventDefault();
+                                       if (x === VISUAL && v.visual_only) nav(location.pathname + viewQuery({tab: VISUAL}));
+                                       else chooseTab(x);
+                                   }}>{tabLabel(x)}</a>);
                     })}
                 </div>}
                 <div class="viewer-body">
@@ -1011,7 +1027,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         {visual ? <p class="hint" id="visual-hint">{TAB_HINTS[VISUAL]}</p> :
                             <Controls tab={t} palette={shown.palette} palettes={v.palettes || []} scale={scale} unit={unit}
                                       range={rangeText || rangeFields(shown.range)} rangeError={rangeError}
-                                      frames={(v.frames || []).length}
+                                      frames={(v.frames || []).length} imported={!!v.imported}
                                       onPalette={(palette) => setStyle({palette})} onRange={typedRange} onAuto={() => auto()}/>}
                         {tab !== "source_frame" && !visual && <Section name="image" title="Image" folded>
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
@@ -1061,7 +1077,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         <PanelGroup title="About"/>
                         <Section name="report" title="The mosaic" folded>
                             {visual ? <Report rows={visualRows(v.visual)} files={v.visual?.files} base={base}/> :
-                                <Report rows={reportRows(kind)} files={kind?.files} base={base}/>}
+                                <Report rows={(v.imported ? importedRows(v.imported) : []).concat(reportRows(kind))}
+                                        files={kind?.files} base={base}/>}
                         </Section>
                     </div>}
                 </div>

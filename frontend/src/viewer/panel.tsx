@@ -9,7 +9,7 @@ import {Histogram} from "../measure/charts";
 import {type Measured, symbol, temp} from "../measure/measure";
 import {gradientCss, type Scale} from "./canvas";
 import {type Adjust, EMISSIVITY_RANGE, gammaSlider, inTemperatures, type MosaicTab, reflectedRange, scaleTicks,
-        SLIDERS, SPAN_STEPS, type SpanStep, stepRange, TAB_HINTS, valueUnit} from "./view";
+        SLIDERS, SPAN_STEPS, type SpanStep, stepRange, tabHint, valueUnit} from "./view";
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
 
@@ -71,14 +71,14 @@ export interface Palette {key: string; label: string; color_map?: number[]}
 
 interface ControlsProps {
     tab: MosaicTab; palette: string; palettes: Palette[]; scale: Maybe<Scale>; unit: unknown;
-    range: [string, string]; rangeError?: string; frames?: number;
+    range: [string, string]; rangeError?: string; frames?: number; imported?: boolean;
     onPalette: (key: string) => void; onRange: (min: string, max: string) => void; onAuto: () => void;
 }
 
 // What the tab shows, its palette and its range
 export function Controls(p: ControlsProps) {
     const t = p.tab.tab, temperature = inTemperatures(t), s = p.tab.stats, u = valueUnit(t);
-    const hint = <p class="hint">{TAB_HINTS[t] || ""}</p>;
+    const hint = <p class="hint">{tabHint(t, p.imported)}</p>;
     if (t === "source_frame") {
         return (<>{hint}<ScaleView scale={p.scale}/><p class="message">{p.frames || 0} frames. The mosaic is in the Mosaic
             tab's palette and range. The cursor names the frame under it; a click keeps it, outlines it and opens the frames

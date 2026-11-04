@@ -110,7 +110,9 @@ def test_a_colour_orthophotos_preview_is_webodms_own_and_kept_and_one_of_tempera
     api.get("/api/webodm/projects/1/tasks/t-rgb/preview?size=640")
     assert [c for c in browse['calls'] if 'thumbnail' in c[1]] == [('GET', "/api/projects/1/tasks/t-rgb/thumbnail?size=640")]
     # Temperatures: WebODM refuses its thumbnail; its grey tiles over the 2nd to 98th percentiles, coloured
-    browse['metadata']["t-hot"] = {'bounds': near(), 'statistics': {'1': {'min': 5, 'max': 40, 'percentiles': [12.5, 31.0]}}}
+    # (its bounds as WebODM gives them: with their CRS)
+    browse['metadata']["t-hot"] = {'bounds': {'value': near(), 'crs': 'EPSG:32616'},
+                                   'statistics': {'1': {'min': 5, 'max': 40, 'percentiles': [12.5, 31.0]}}}
     res = api.get("/api/webodm/projects/1/tasks/t-hot/preview")
     assert res.status_code == 200
     with Image.open(io.BytesIO(res.content)) as im:
@@ -156,7 +158,8 @@ def test_a_tasks_orthophoto_of_temperatures_is_imported_with_its_dsm_as_a_datase
     assert c.dataset_id == d.id and c.name == "Over the roof" and c.status == 'ready' and c.error == ""
     assert c.options['imported'] == {'from': 'webodm', 'url': "http://127.0.0.1:8001", 'project': 1,
                                      'project_name': "Roof survey", 'task': "t-over", 'task_name': "Over the roof",
-                                     'dsm': True}
+                                     'dsm': True, 'created_at': "2026-11-01T10:00:00Z", 'images': 120,
+                                     'processing_ms': 600000}
     # The orthophoto as the WebODM tab's temperatures, in the app's unit; the DSM as its Heights tab
     assert c.orthophoto['raster'] == "webodm/orthophoto.tif" and c.orthophoto['unit'] == 'F'
     assert c.orthophoto['temperature']['min'] == pytest.approx(50.0, abs=0.01)
@@ -168,7 +171,10 @@ def test_a_tasks_orthophoto_of_temperatures_is_imported_with_its_dsm_as_a_datase
     assert summary['imported']['kind'] == 'thermal' and summary['orthophoto']['task_name'] == "Over the roof"
     assert summary['description'] == "from WebODM: Roof survey › Over the roof · DSM"
     assert summary['size'] > 0
-    assert [t['tab'] for t in api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data['tabs']] == ['webodm', 'heights']
+    # The viewer's mosaics: the WebODM and Heights tabs, the frames of none
+    shown = api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data
+    assert c.mosaic_status == 'ready' and not shown['visual_only'] and shown['frames'] == []
+    assert [t['tab'] for t in shown['tabs']] == ['webodm', 'heights']
 
 
 def test_a_colour_orthophoto_is_imported_as_a_visual_mosaic_of_its_own(api, browse, tmp_path):
@@ -184,7 +190,12 @@ def test_a_colour_orthophoto_is_imported_as_a_visual_mosaic_of_its_own(api, brow
     assert v['gsd_m'] == pytest.approx(0.05) and v['width'] == 64
     with rasterio.open(os.path.join(c.data_dir(), v['raster'])) as src:
         assert src.count == 3 and src.dataset_mask().min() == 255
-    assert api.get("%s/%d" % (CONVERSIONS, c.id)).data['imported']['kind'] == 'visual'
+    summary = api.get("%s/%d" % (CONVERSIONS, c.id)).data
+    assert summary['imported']['kind'] == 'visual' and summary['visual_only'] is True
+    # No frames to find: WebODM's orthophoto doesn't say which photos it was made of
+    spot = {'type': 'Point', 'coordinates': [(v['bounds'][0] + v['bounds'][2]) / 2, (v['bounds'][1] + v['bounds'][3]) / 2]}
+    found = api.post("%s/%d/mosaics/visual/sources" % (CONVERSIONS, c.id), {'geometry': spot}, format='json').data
+    assert found['frames'] == [] and found['reason'] == 'not_recorded'
     assert not os.path.exists(os.path.join(c.data_dir(), webodm_import.IMPORT_DIR))
 
 

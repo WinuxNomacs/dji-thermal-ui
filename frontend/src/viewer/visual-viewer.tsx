@@ -2,7 +2,8 @@
 // the mosaic on a map, with no temperatures to colour or read. A click on a spot opens the visual frames that saw it; a
 // line or an area drawn is measured (its length, or its area and perimeter), saved as a measurement or kept as a finding
 // of the flight, and the panel says how the mosaic was made. The thermal viewer (viewer-page) shows it instead of its
-// own once the mosaics are loaded.
+// own once the mosaics are loaded. A colour orthophoto imported from WebODM is shown as one, with no frames to open
+// (a spot is kept as a finding), and its DSM's Heights tab in the thermal viewer.
 import GeoJSON from "ol/format/GeoJSON";
 import type OlMap from "ol/Map";
 import type VectorSource from "ol/source/Vector";
@@ -11,7 +12,8 @@ import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, FileText, Grid, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, FileText, Grid, Link, Stop} from "../components/icons";
+import {type Imported, importedRows, webodmTaskUrl} from "../dataset/conversions";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, HINTS, type Measured, type Measurement, type Shape, toggleCompared, type Tool,
         TOOLS} from "../measure/measure";
@@ -24,12 +26,14 @@ import {centreOf, drawFindings, findingAt} from "../findings/layer";
 import {FindingAbout, FindingForm, Findings, SaveFinding} from "../findings/panel";
 import {type Basemap, fitBounds, lonLatToMap, mapToLonLat, mosaicMap, vectorLayer, visualLayer} from "../map/map";
 import {MosaicStatus, PanelGroup, Report, Section} from "./panel";
-import {TAB_TIPS, tabLabel, type VisualMosaic, visualRows} from "./view";
+import {TAB_TIPS, tabLabel, type VisualMosaic, viewQuery, visualRows} from "./view";
 import {SOURCES_SHAPE} from "./viewer-page";
 
 export const VISUAL_ALONE_HINT = "The visual camera's images, laid out by their own overlaps. The flight has no " +
     "thermal images, so nothing here has a temperature: click a spot to see the frames that saw it, or draw a line " +
     "or an area to measure it.";
+export const IMPORTED_HINT = "The colour orthophoto imported from WebODM. Nothing here has a temperature: draw a line " +
+    "or an area to measure it, or keep a spot as a finding.";
 const WINDOW_PX = 1600;     // a frame in the source frames window, at most this many pixels across
 const TARGET = "visual";    // what its measurements and findings are measured on
 const HINTS_HERE: Record<Tool, string> = {
@@ -38,6 +42,7 @@ const HINTS_HERE: Record<Tool, string> = {
     box: "Drag from one corner to the opposite one: its area and perimeter.",
     circle: "Drag from the centre outwards: its area and perimeter.",
 };
+const HINTS_IMPORTED: Record<Tool, string> = {...HINTS_HERE, point: "Click a spot to keep it as a finding."};
 
 export interface VisualAlone {
     name: string;
@@ -49,6 +54,8 @@ export interface VisualAlone {
     mosaic_progress?: number | null;
     stage?: Maybe<Stage>;
     visual?: VisualMosaic | null;
+    imported?: Imported | null;         // an orthophoto imported from WebODM: no frames, nothing to build
+    tabs?: {tab: string}[];             // its Heights tab, where it was imported with a DSM
 }
 
 interface Props {
@@ -61,6 +68,7 @@ interface Props {
     v: VisualAlone;
     finding?: Maybe<number>;                                // the finding a link asked to open
     onAction: (path: string, failure: string) => void;      // build again, cancel (the viewer then loads it again)
+    nav?: (url: string) => void;                            // to the Heights tab (the thermal viewer's)
 }
 
 // The line or area drawn (or the saved measurement shown), measured
@@ -74,11 +82,13 @@ interface Draft {title: string; fields: FindingFields; edit?: Finding; error?: s
 
 const toCoords = (at: number[]): Coords => mapToLonLat(at) as Coords;
 
-export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basemaps, v, finding, onAction}: Props) {
+export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basemaps, v, finding, onAction,
+                              nav = (url) => { location.href = url; }}: Props) {
     const base = api + "conversions/" + id;
     const vis = v.visual;
     const ready = v.mosaic_status === "ready" && !!vis?.bounds;
     const busy = v.status === "converting" || v.mosaic_status === "building";
+    const imported = !!v.imported, heights = (v.tabs || []).some((x) => x.tab === "heights");
     const [tools, setTools] = useState<{tool: ReturnType<Drawing["tool"]>; count: number}>({tool: null, count: 0});
     const [sources, setSources] = useState<Asked | null>(null);
     const [current, setCurrent] = useState<Current | null>(null);
@@ -123,12 +133,12 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                 syncTools();
             },
             onChange: syncTools,
-            // A click with no tool on opens the finding there, else the frames that saw the spot
+            // A click with no tool on opens the finding there, else the frames that saw the spot (none imported)
             onClick: (at) => {
                 const hit = findingsShown.current && findingAt(m, m.getPixelFromCoordinate(at), findingsShown.current);
                 const f = hit !== null && now.current.findings.find((x) => x.id === hit);
                 if (f) openFinding(f);
-                else openSources({type: "Point", coordinates: toCoords(at)});
+                else if (!imported) openSources({type: "Point", coordinates: toCoords(at)});
             },
         });
         // Esc ends the drawing, else closes the card
@@ -336,7 +346,8 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
     function sourcesAbout() {
         const f = sources?.finding ? findings.find((x) => x.id === sources.finding) : null;
         if (f) return <FindingAbout f={f} onEdit={() => setDraft({title: "Change finding", fields: fieldsOf(f), edit: f})}/>;
-        if (!sources?.res || sources.res.reason === "outside_raster" || !sources.res.frames?.length) return null;
+        if (!sources?.res || sources.res.reason === "outside_raster") return null;
+        if (!sources.res.frames?.length && sources.res.reason !== "not_recorded") return null;
         return <SaveFinding onSave={() => newFinding()}/>;
     }
 
@@ -349,11 +360,14 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                     <div class="subtitle">{(v.description || "") + (v.stripped ? " · location stripped from the downloads" : "")}</div>
                 </div>
                 <div class="page-actions">
+                    {webodmTaskUrl(v.imported) && <a class="button default" id="open-webodm" href={webodmTaskUrl(v.imported)}
+                        target="_blank" rel="noopener noreferrer" title="The task this orthophoto was imported from, in WebODM">
+                        <Link/> Open in WebODM</a>}
                     {ready && <a class="button default" id="compare" href={publicUrl + "conversion/" + id + "/compare"}
                                  title="This mosaic beside another mosaic, or over it"><Columns/> Compare with…</a>}
                     {ready && <a class="button default" id="report" href={publicUrl + "conversion/" + id + "/report"}
                                  title="The mosaic with its measurements and findings, to print or save as PDF"><FileText/> Mosaic report</a>}
-                    {v.status === "ready" && v.mosaic_status !== "building" &&
+                    {v.status === "ready" && v.mosaic_status !== "building" && !imported &&
                         <button type="button" class="button default" id="build"
                                 onClick={() => onAction("/mosaics", "Could not build the mosaic.")}>
                             <Grid/> {v.mosaic_status === "ready" ? "Rebuild mosaic" : "Build mosaic"}</button>}
@@ -366,12 +380,16 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                 {ready && <div class="tabs" role="tablist">
                     <a href="#visual" role="tab" aria-selected={true} class="active" data-tab="visual" title={TAB_TIPS.visual}
                        onClick={(e) => e.preventDefault()}>{tabLabel("visual")}</a>
+                    {heights && <a href="#heights" role="tab" aria-selected={false} data-tab="heights" title={TAB_TIPS.heights}
+                                   onClick={(e) => { e.preventDefault(); nav(location.pathname + viewQuery({tab: "heights"})); }}>
+                        {tabLabel("heights")}</a>}
                 </div>}
                 <div class="viewer-body">
                     <div class="map-stage">
                         <div class="viewer-map" id="map" ref={mapEl}/>
-                        {ready && <Toolbar tool={tools.tool} count={tools.count} tools={TOOLS} hints={HINTS_HERE}
-                                           label="Drawing tools: the frames that saw a spot, the length of a line or the size of an area"
+                        {ready && <Toolbar tool={tools.tool} count={tools.count} tools={TOOLS} hints={imported ? HINTS_IMPORTED : HINTS_HERE}
+                                           label={imported ? "Drawing tools: a spot kept as a finding, the length of a line or the size of an area" :
+                                               "Drawing tools: the frames that saw a spot, the length of a line or the size of an area"}
                                            onTool={pickTool} onFinish={() => { drawing.current?.finish(); syncTools(); }}/>}
                         {ready && current && <MeasureCard m={current} unit={undefined} name={saveName} error={measureError}
                             onName={setSaveName} onSave={save} onClose={closeCard}
@@ -381,7 +399,7 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                     </div>
                     {ready && <div class="viewer-panel">
                         <PanelGroup title="View"/>
-                        <p class="hint" id="visual-hint">{VISUAL_ALONE_HINT}</p>
+                        <p class="hint" id="visual-hint">{imported ? IMPORTED_HINT : VISUAL_ALONE_HINT}</p>
                         <Section name="saved" title={<span class="measurements-head"><span>Saved measurements</span>
                             {saved.length > 0 && <a class="button default small" id="csv" href={base + "/measurements.csv"}
                                                     onClick={(e) => e.stopPropagation()}><Download/> CSV</a>}
@@ -406,7 +424,7 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                         </Section>
                         <PanelGroup title="About"/>
                         <Section name="report" title="The mosaic">
-                            <Report rows={visualRows(vis)} files={vis?.files} base={base}/>
+                            <Report rows={(v.imported ? importedRows(v.imported) : []).concat(visualRows(vis))} files={vis?.files} base={base}/>
                         </Section>
                     </div>}
                 </div>
