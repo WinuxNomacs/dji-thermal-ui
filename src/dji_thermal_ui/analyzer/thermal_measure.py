@@ -655,6 +655,19 @@ def frame_settings(conversion, changes=None):
     return settings
 
 
+def measured_as(conversion):
+    """The dataset whose settings measure a frame of this one: an orthophoto imported from a task sent to WebODM from
+    one of the flight's datasets, that dataset (while it is there); any other, itself (one imported otherwise has no
+    settings: each frame's own parameters)"""
+    from .models import WebODMTask
+    imported = (conversion.options or {}).get('imported') or {}
+    if imported.get('from') != 'webodm' or not imported.get('task'):
+        return conversion
+    task = WebODMTask.objects.select_related('conversion').filter(
+        task_id=imported['task'], conversion__dataset_id=conversion.dataset_id).first()
+    return task.conversion if task else conversion
+
+
 def frame_offset(conversion, rel):
     """The offset (in the unit) a normalized conversion subtracted from a frame: (offset, known)"""
     if not (conversion.options or {}).get('normalize'):
@@ -682,6 +695,7 @@ def measure_frame(conversion, rel, changes=None):
     distance_source, notes, offset, offset_known, settings}. Raises MeasureError for a frame it can't measure.
     """
     path = frame_file(conversion, rel)
+    conversion = measured_as(conversion)
     settings = frame_settings(conversion, changes)
     items = tuple(sorted((k, tuple(v) if isinstance(v, list) else v) for k, v in settings.items()))
     try:
