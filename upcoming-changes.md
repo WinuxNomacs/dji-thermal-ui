@@ -8,10 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: J2 (WebODM datasets: the viewer, measuring, findings, compare and report of an imported dataset), planned
-2026-11-04, in "WebODM datasets" below.
+**Up next**: nothing planned yet.
 
-J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+J2 (WebODM datasets: an imported dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -2579,7 +2578,8 @@ button to the "New dataset" controls on each Flight."
     temperatures, and an imported colour one is stored as a visual-only conversion's mosaics are (`mosaics`:
     `visual_only`, `imported`, `visual`, with no frames). The guide's Datasets page and the card already say what J2
     makes true ("the viewer's WebODM tab", "the dataset's visual mosaic").
-  - **Owed from J1:** a check against a real WebODM (J1's was against a stand-in serving real rasters).
+  - **Owed from J1:** a check against a real WebODM (J1's was against a stand-in serving real rasters). Done in J2
+    (the user's 8002 stack).
 
 ### Open decisions
 
@@ -3445,6 +3445,24 @@ identify and select from, preferably with a preview image" ("map" meaning the or
   panel's groups in Mosaics, Measuring, Findings and the finding quickstart. Test: the panel's order in
   `viewer.test.tsx`. Checked live on a scratch 8081 (dataset 8's copy), light and dark: the viewer and frame page
   show View and About only, the new line, no console errors; Vitest 466, lint, the strict docs build.
+- **J2: an imported dataset in the viewer, compare and report** (2026-11-04). Server: the import ends with
+  `mosaic_status` ready and keeps the task's `created_at`, `images`, `processing_ms` (`DatasetImportWebODMView`); an
+  imported colour orthophoto is `visual_only` to the pages (`conversion_summary`); its sources say `not_recorded`
+  (`frame_sources`); a preview reads WebODM's `{value, crs}` bounds. Front end: `viewer-page.tsx` (no Frames or Build
+  for one imported, Open in WebODM, the frames' and findings' tab WebODM's without an as converted mosaic, the
+  Heights tab of a visual mosaic of its own, switched with Visual by the address), `visual-viewer.tsx` (the Heights
+  tab, the imported hint, a spot tool that keeps a finding, no click to frames), `conversions.ts` (`importedRows`,
+  `webodmTaskUrl`, `processingText` moved there), the card's link (`convert.tsx`), the report's source rows
+  (`conversion-report-page.tsx`, `mosaic-report.ts`'s `temperatureStyle`), `view.ts` (`tabHint`, the imported rows),
+  the flight report's "Imported"; the dialog shows a project's cards only once its tasks come (`webodm-import.tsx`).
+  Tests: pytest (`test_webodm_import.py`), Vitest (`viewer`, `mosaic-report`, `dataset`, `webodm-import`). Checked
+  live on a scratch 8081, light and dark: against the stand-in (both kinds with a DSM: card, viewer, tabs, spot
+  finding, compare, report), then against the user's real WebODM on 8002 (recreated with `dev/webodm.sh up`; its data
+  volumes had survived; admin/admin): the dialog's projects and previews, a thermal task (Thermal - 9/18/2026) and an
+  RGB one (South Whitehall Drive) imported with their DSMs, their viewer, Heights, report and compare. The real check
+  found J1's bounds shape (thermal previews were "No preview"), the last project's cards shown for a moment under a
+  new one, and J2's imported colour card saying Ready; all fixed with tests. Checked: pytest 486, Vitest 483, ruff,
+  lint, the strict docs build.
 - **J1: Import from WebODM, with the browser** (2026-11-04). Server: `analyzer/webodm_import.py` (the ready tasks
   of a project, those over the flight first by WebODM's `extent`; previews: WebODM's `tasks/<id>/thumbnail`, else
   its grey tiles over the 2nd–98th percentiles coloured with the map pages' palette, kept in memory; the import job
