@@ -129,6 +129,8 @@ def coloured(client, project, task, size, palette):
     from PIL import Image
     meta = client.metadata(project, task)
     bounds = meta.get('bounds')
+    if isinstance(bounds, dict):        # {value: [west, south, east, north], crs} as WebODM gives them
+        bounds = bounds.get('value')
     stats = next(iter((meta.get('statistics') or {}).values()), None)
     if not (isinstance(bounds, list) and len(bounds) == 4 and isinstance(stats, dict)):
         raise webodm.WebODMError("WebODM gave no bounds or statistics for the task's orthophoto")

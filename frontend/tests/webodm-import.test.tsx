@@ -88,6 +88,27 @@ describe("Import from WebODM", () => {
         expect($<HTMLButtonElement>("#import-start")!.disabled).toBe(true);
     });
 
+    it("shows another project's tasks only once they come, never the last project's with its previews", async () => {
+        let answer: (r: unknown) => void = () => undefined;
+        dialog({"/api/webodm/projects/3/tasks?dataset=7": () => new Promise((r) => { answer = r; })});
+        await ticks();
+        // Every preview put on the page, even for a moment
+        const asked: string[] = [];
+        const seen = new MutationObserver(() => all("img").forEach((i) => asked.push(i.getAttribute("src")!)));
+        seen.observe(root(), {childList: true, subtree: true, attributes: true});
+        $('[data-webodm-project="3"]')!.click();
+        await ticks();
+        expect(asked.filter((u) => u.includes("/projects/3/"))).toEqual([]);
+        expect(all(".webodm-task-card")).toEqual([]);
+        expect($(".webodm-chosen img")).toBeNull();
+        expect(text(".webodm-tasks")).toBe("Asking WebODM…");
+        expect($<HTMLButtonElement>("#import-start")!.disabled).toBe(true);
+        answer(jsonResponse({tasks: [TASKS.tasks[1]], others: 0}));
+        await ticks();
+        expect(all(".webodm-task-card img").map((i) => i.getAttribute("src"))).toEqual(["/api/webodm/projects/3/tasks/t-rgb/preview?size=256"]);
+        seen.disconnect();
+    });
+
     it("says why WebODM can't be asked and where to set it up, and what refused the import", async () => {
         dialog({"/api/webodm/projects": () => jsonResponse({error: "WebODM is not set up: give its address"}, false)});
         await ticks();

@@ -37,7 +37,7 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
     const [projects, setProjects] = useState<{projects: WebODMProject[]; count: number} | null>(null);
     const [search, setSearch] = useState("");
     const [project, setProject] = useState<WebODMProject | null>(null);
-    const [tasks, setTasks] = useState<{tasks: ImportTask[]; others: number} | null>(null);
+    const [tasks, setTasks] = useState<{tasks: ImportTask[]; others: number; project: number} | null>(null);
     const [task, setTask] = useState<ImportTask | null>(null);
     const [dsm, setDsm] = useState(true);
     const [name, setName] = useState("");
@@ -86,7 +86,7 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                 api + "webodm/projects/" + project.id + "/tasks?dataset=" + dataset);
             if (!live) return;
             if (!r.ok) return setMessage({text: errorText(r.data, "WebODM could not be asked for the project's tasks."), cls: "text-danger"});
-            setTasks(r.data);
+            setTasks({...r.data, project: project.id});
             choose(r.data.tasks[0] || null);
         })();
         return () => { live = false; };
@@ -98,6 +98,9 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
         setMessage(null);
     }
 
+    // The tasks shown are the project's chosen: another's stay off until its own come (their previews are the project's)
+    const listed = tasks && tasks.project === project?.id ? tasks : null;
+    const chosen = task && listed?.tasks.includes(task) ? task : null;
     const preview = (t: ImportTask, size: number) =>
         api + "webodm/projects/" + project!.id + "/tasks/" + encodeURIComponent(t.id) + "/preview?size=" + size;
 
@@ -105,10 +108,10 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
         setMessage(null);
         let res: Response;
         if (mode === "webodm") {
-            if (!task || !project) return setMessage({text: "Choose a task.", cls: "text-danger"});
+            if (!chosen || !project) return setMessage({text: "Choose a task.", cls: "text-danger"});
             setBusy(true);
             res = await sendJson(api + "datasets/" + dataset + "/import/webodm", "POST",
-                                 {project: project.id, task: task.id, dsm: dsm && task.dsm, name: name.trim()});
+                                 {project: project.id, task: chosen.id, dsm: dsm && chosen.dsm, name: name.trim()});
         } else {
             if (!orthophoto) return setMessage({text: "Choose the orthophoto's GeoTIFF.", cls: "text-danger"});
             const big = [orthophoto, dsmFile].find((f) => f && f.size > MAX_FILE_BYTES);
@@ -156,13 +159,13 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                 <div class="field import-name">
                     <label for="import-name">Name</label>
                     <input type="text" id="import-name" maxLength={255} value={name} disabled={busy}
-                           placeholder={mode === "webodm" ? task?.name || "The task's name" : orthophoto?.name.replace(/\.tiff?$/i, "") || "The file's name"}
+                           placeholder={mode === "webodm" ? chosen?.name || "The task's name" : orthophoto?.name.replace(/\.tiff?$/i, "") || "The file's name"}
                            onInput={(e) => setName(e.currentTarget.value)}/>
                 </div>
                 {message && <div class={"import-message " + message.cls} role="status">{message.text}</div>}
                 <div class="dialog-actions">
                     <button type="button" class="button default" disabled={busy} onClick={onClose}>Cancel</button>
-                    <button type="button" class="button primary" id="import-start" disabled={busy || (mode === "webodm" && !task)}
+                    <button type="button" class="button primary" id="import-start" disabled={busy || (mode === "webodm" && !chosen)}
                             onClick={start}>Import</button>
                 </div>
             </div>
@@ -185,11 +188,11 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                     {projects.count - projects.projects.length} more: search to find them.</p>}
             </div>
             <div class="webodm-tasks" aria-label="Its tasks">
-                {!project ? null : !tasks ? <p class="text-muted">Asking WebODM…</p> : <>
-                    {!tasks.tasks.length && <p class="text-muted">No completed task with an orthophoto.</p>}
+                {!project ? null : !listed ? <p class="text-muted">Asking WebODM…</p> : <>
+                    {!listed.tasks.length && <p class="text-muted">No completed task with an orthophoto.</p>}
                     <div class="webodm-task-grid">
-                        {tasks.tasks.map((t) => <button type="button" key={t.id} class="webodm-task-card" data-task={t.id}
-                                                        aria-pressed={t.id === task?.id} onClick={() => choose(t)}>
+                        {listed.tasks.map((t) => <button type="button" key={t.id} class="webodm-task-card" data-task={t.id}
+                                                        aria-pressed={t.id === chosen?.id} onClick={() => choose(t)}>
                             <Preview src={preview(t, 256)} alt=""/>
                             <span class="webodm-task-name">{t.name || "Task " + t.id.slice(0, 8)}</span>
                             <span class="text-muted">{formatDate(t.created_at)}</span>
@@ -197,22 +200,22 @@ export function ImportDialog({api, publicUrl, dataset, onClose, onImported}: Pro
                                 <span class="chip">Orthophoto</span>{t.dsm && <span class="chip">DSM</span>}</span>
                         </button>)}
                     </div>
-                    {tasks.others > 0 && <p class="text-muted">{count(tasks.others, "other task", "other tasks")} (running,
-                        failed, or without an orthophoto) {tasks.others === 1 ? "isn't" : "aren't"} listed.</p>}
+                    {listed.others > 0 && <p class="text-muted">{count(listed.others, "other task", "other tasks")} (running,
+                        failed, or without an orthophoto) {listed.others === 1 ? "isn't" : "aren't"} listed.</p>}
                 </>}
             </div>
             <div class="webodm-chosen">
-                {task && project && <>
-                    <Preview key={task.id} src={preview(task, 640)} alt={"The orthophoto of " + task.name}/>
-                    <strong>{task.name}</strong>
+                {chosen && project && <>
+                    <Preview key={chosen.id} src={preview(chosen, 640)} alt={"The orthophoto of " + chosen.name}/>
+                    <strong>{chosen.name}</strong>
                     <table class="table values"><tbody>
                         <tr><th>Project</th><td>{project.name}</td></tr>
-                        <tr><th>Made</th><td>{formatDate(task.created_at)}</td></tr>
-                        <tr><th>Images</th><td>{task.images}</td></tr>
-                        {processingText(task.processing_ms) && <tr><th>Processed in</th><td>{processingText(task.processing_ms)}</td></tr>}
-                        <tr><th>Over this flight</th><td>{task.over ? "yes" : task.extent ? "no" : "unknown"}</td></tr>
+                        <tr><th>Made</th><td>{formatDate(chosen.created_at)}</td></tr>
+                        <tr><th>Images</th><td>{chosen.images}</td></tr>
+                        {processingText(chosen.processing_ms) && <tr><th>Processed in</th><td>{processingText(chosen.processing_ms)}</td></tr>}
+                        <tr><th>Over this flight</th><td>{chosen.over ? "yes" : chosen.extent ? "no" : "unknown"}</td></tr>
                     </tbody></table>
-                    {task.dsm && <label class="check"><input type="checkbox" id="import-dsm" checked={dsm} disabled={busy}
+                    {chosen.dsm && <label class="check"><input type="checkbox" id="import-dsm" checked={dsm} disabled={busy}
                                                              onChange={(e) => setDsm(e.currentTarget.checked)}/> Its DSM too (the Heights tab)</label>}
                 </>}
             </div>

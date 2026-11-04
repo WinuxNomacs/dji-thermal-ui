@@ -110,7 +110,9 @@ def test_a_colour_orthophotos_preview_is_webodms_own_and_kept_and_one_of_tempera
     api.get("/api/webodm/projects/1/tasks/t-rgb/preview?size=640")
     assert [c for c in browse['calls'] if 'thumbnail' in c[1]] == [('GET', "/api/projects/1/tasks/t-rgb/thumbnail?size=640")]
     # Temperatures: WebODM refuses its thumbnail; its grey tiles over the 2nd to 98th percentiles, coloured
-    browse['metadata']["t-hot"] = {'bounds': near(), 'statistics': {'1': {'min': 5, 'max': 40, 'percentiles': [12.5, 31.0]}}}
+    # (its bounds as WebODM gives them: with their CRS)
+    browse['metadata']["t-hot"] = {'bounds': {'value': near(), 'crs': 'EPSG:32616'},
+                                   'statistics': {'1': {'min': 5, 'max': 40, 'percentiles': [12.5, 31.0]}}}
     res = api.get("/api/webodm/projects/1/tasks/t-hot/preview")
     assert res.status_code == 200
     with Image.open(io.BytesIO(res.content)) as im:
