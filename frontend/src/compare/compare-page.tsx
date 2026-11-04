@@ -83,6 +83,12 @@ interface LayerSpec {key: string; values?: Values; colouring?: Colouring; visual
 const other = (name: PaneName): PaneName => name === "a" ? "b" : "a";
 const tabEntry = (p: PaneState): MosaicTab | undefined => (p.info.tabs || []).find((t) => t.tab === dataTab(p.tab));
 const isVisual = (p: PaneState) => p.tab === VISUAL;
+// A visual mosaic of its own: no values to read, its frames the visual ones
+const isAlone = (p: PaneState) => !!p.info.visual_only;
+const readTab = (p: PaneState) => dataTab(p.tab, isAlone(p));
+const boundsOf = (p: PaneState) => isAlone(p) ? p.info.visual?.bounds : tabEntry(p)?.bounds;
+// What a pane of a visual mosaic of its own reads at the cursor
+const NO_VALUES: Point = {valid: false, reason: "visual"};
 // The panes whose mosaics a pane draws, bottom first: its own, B's under A's for the overlay, none for the difference
 const drawsOf = (n: PaneName, p: PaneState): PaneName[] => p.diff ? [] : p.overlay ? ["b", "a"] : [n];
 // Whose source frames and findings a pane shows: A's and B's for the difference and the overlay
@@ -243,7 +249,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         if (!panes || maps.current.a || !mapEls.a.current || !mapEls.b.current) return;
         setupMap("a", mapEls.a.current);
         setupMap("b", mapEls.b.current, now.current.linked ? maps.current.a!.map.getView() : undefined);
-        fitBounds(maps.current.a!.map, tabEntry(panes.a)?.bounds || WORLD);
+        fitBounds(maps.current.a!.map, boundsOf(panes.a) || WORLD);
         setMapsMade(true);
     }, [panes]);
 
@@ -308,6 +314,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     }
 
     function pointOf(p: PaneState, at: Coordinate): Promise<Point | null> {
+        if (isAlone(p)) return Promise.resolve(NO_VALUES);
         const [lon, lat] = mapToLonLat(at);
         return get<Point>(api + "conversions/" + p.conv + "/mosaics/" + dataTab(p.tab) + "/point?lon=" + lon + "&lat=" + lat)
             .then((r) => r.ok ? r.data : null, () => null);
@@ -323,7 +330,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     }
 
     function sourcesOf(p: PaneState, geometry: Geometry): Promise<{res: Sources | null; error?: string}> {
-        return sendJson(sourcesUrl(api, p.conv, dataTab(p.tab)), "POST", {geometry}).then((res) => readJson<Sources>(res))
+        return sendJson(sourcesUrl(api, p.conv, readTab(p)), "POST", {geometry}).then((res) => readJson<Sources>(res))
             .then((r) => r.ok ? {res: r.data} : {res: null, error: errorText(r.data, "Could not find the frames.")},
                   () => ({res: null}));
     }
@@ -348,7 +355,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     function openSources(n: PaneName, geometry: Geometry, shape?: Maybe<Shape>) {
         const p = now.current.panes;
         if (!p) return;
-        const reads = (x: PaneName) => p[x].conv + ":" + dataTab(p[x].tab);
+        const reads = (x: PaneName) => p[x].conv + ":" + readTab(p[x]);
         const which = readsOf(n, p[n]).filter((x, i, all) => all.findIndex((y) => reads(y) === reads(x)) === i);
         const asking_ = ++asked.current[n];
         showShape(n, geometry);
@@ -425,7 +432,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             dataset = m && datasetOf(m.conv);
             if (!pick || !m || dataset === undefined) return;
             r = await readJson<Finding>(await sendJson(findingsUrl(api, dataset), "POST", {...fieldsBody(v, m.res?.frames),
-                conversion: m.conv, tab: dataTab(p[m.pane].tab), geometry: pick.geometry, shape: pick.shape, parameters: {}}));
+                conversion: m.conv, tab: readTab(p[m.pane]), geometry: pick.geometry, shape: pick.shape, parameters: {}}));
         }
         if (!r.ok) return setDraft({...d, fields: v, error: errorText(r.data, "Could not save the finding.")});
         setDraft(null);
@@ -713,11 +720,17 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         return pick.mosaics.map((m, i) => {
             const c = conversion(m.conv), s = styleOf(m.pane);
             const savable = pick.finding === undefined && m.res && m.res.reason !== "outside_raster";
+            const about = savable ? <SaveFinding onSave={() => setDraft({title: "Save as finding", fields: blankFields(),
+                                                                         pane: n, mosaic: i})}/> : null;
+            const title = (panes![n].diff ? m.pane.toUpperCase() + " · " : "") + (c ? c.name + " · " : "") + tabLabel(panes![m.pane].tab);
+            // A visual mosaic of its own: its visual frames, as photos
+            if (isAlone(panes![m.pane])) {
+                return {title, res: m.res, error: m.error, unit: undefined, about,
+                        photo: (f) => api + "conversions/" + m.conv + "/frame/visual?frame=" + encodeURIComponent(f) +
+                            "&size=" + WINDOW_VISUAL_PX};
+            }
             // As the pane's mosaic is named: its conversion and tab
-            return {title: (panes![n].diff ? m.pane.toUpperCase() + " · " : "") + (c ? c.name + " · " : "") + tabLabel(panes![m.pane].tab),
-                    res: m.res, error: m.error, unit: m.unit, href: (f) => frameUrl(m.conv) + encodeURIComponent(f),
-                    about: savable ? <SaveFinding onSave={() => setDraft({title: "Save as finding", fields: blankFields(),
-                                                                          pane: n, mosaic: i})}/> : null,
+            return {title, res: m.res, error: m.error, unit: m.unit, href: (f) => frameUrl(m.conv) + encodeURIComponent(f), about,
                     values: (f) => frameDataUrl(api, m.conv, f),
                     visual: panes![m.pane].info.visual ? (f) => api + "conversions/" + m.conv + "/frame/visual?frame=" +
                         encodeURIComponent(f) + "&size=" + WINDOW_VISUAL_PX : undefined,
@@ -801,6 +814,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 {under === undefined ? <span class="message">Move the cursor over a mosaic.</span> :
                     p.diff || p.overlay ? <DifferenceReadout a={under.a} b={under.b} aUnit={panes!.a.info.unit}
                                                              bUnit={panes!.b.info.unit} difference={p.diff}/> :
+                    isAlone(p) ? <span class="message">A visual mosaic, with no values to read.</span> :
                     <Readout point={under[n]} unit={p.info.unit} frameUrl={frameUrl(p.conv)} pinned={false} onFollow={() => undefined}/>}
             </div>}
             {p && picks[n] && <SourcesWindow name={"compare-" + n} anchor={mapEls[n].current} groups={pickedGroups(n)}

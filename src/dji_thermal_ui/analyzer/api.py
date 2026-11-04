@@ -2137,7 +2137,8 @@ def difference(a, a_valid, a_unit, b, b_valid, b_unit):
 
 def comparable(conversion):
     """The conversions whose mosaics the conversion's can be compared with (its own too): its project's first, then
-    by project, dataset and name, with their temperature tabs and whether they have the visual mosaic"""
+    by project, dataset and name, with their temperature tabs and whether they have the visual mosaic, or are one of
+    its own (visual_only)"""
     out = []
     own = conversion.dataset.project_id
     found = ThermalConversion.objects.select_related('dataset__project').order_by(
@@ -2145,10 +2146,13 @@ def comparable(conversion):
     for c in sorted(found, key=lambda c: c.dataset.project_id != own):
         kinds = thermal_mosaics.kinds(c)
         tabs = [tab for tab, kind, band in thermal_mosaics.TABS if thermal_mosaics.temperatures(tab, band) and kinds.get(kind)]
-        if tabs:
+        # A visual mosaic of its own has no temperature tab: its visual mosaic alone
+        alone = visual_alone(c) and c.mosaic_status == 'ready' and bool((c.mosaics or {}).get('visual'))
+        if tabs or alone:
             out.append({'id': c.id, 'name': c.name, 'dataset': c.dataset_id, 'dataset_name': c.dataset.name,
                         'project': c.dataset.project_id, 'project_name': c.dataset.project.name,
-                        'unit': mosaic_unit(c), 'tabs': tabs, 'visual': bool((c.mosaics or {}).get('visual'))})
+                        'unit': mosaic_unit(c), 'tabs': tabs, 'visual': bool((c.mosaics or {}).get('visual')),
+                        'visual_only': alone})
     return out
 
 

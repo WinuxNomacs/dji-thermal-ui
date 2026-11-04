@@ -80,7 +80,7 @@ const has = (p: Maybe<Point>): boolean => !!p && !!p.valid && p.temperature !== 
 export function DifferenceReadout({a, b, aUnit, bUnit, difference = true}: {a: Maybe<Point>; b: Maybe<Point>; aUnit: unknown;
                                                                            bUnit: unknown; difference?: boolean}) {
     const value = (p: Maybe<Point>, unit: unknown) => has(p) ? temp(p!.temperature, unit) :
-        p?.reason === "outside_raster" ? "outside the mosaic" : "no data";
+        p?.reason === "outside_raster" ? "outside the mosaic" : p?.reason === "visual" ? "a visual mosaic" : "no data";
     const rows: [string, string][] = [
         ["A", value(a, aUnit)], ["B", value(b, bUnit)],
         ...(!difference ? [] : [["A − B", has(a) && has(b) ? signed((convertTemp(a!.temperature, aUnit) as number) - (convertTemp(b!.temperature, bUnit) as number),

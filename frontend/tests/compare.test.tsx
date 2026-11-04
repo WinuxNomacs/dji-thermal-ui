@@ -12,7 +12,7 @@ import {autoRange, autoReach, type Comparable, comparedTabs, compareQuery, dataT
 import {ComparePage} from "../src/compare/compare-page";
 import {DifferenceReadout} from "../src/compare/pane";
 import type {Finding} from "../src/findings/findings";
-import {type Mosaics} from "../src/viewer/viewer-page";
+import {type Mosaics, WINDOW_VISUAL_PX} from "../src/viewer/viewer-page";
 import {calls, click, jsonResponse, key, server, ticks, valuesResponse} from "./helpers";
 
 const API = "/api/";
@@ -133,6 +133,9 @@ describe("the compare helpers", () => {
         expect(firstTab({...LIST[0], visual: true}, "visual")).toBe("visual");
         expect(firstTab(LIST[0], "visual")).toBe("as_converted");
         expect([dataTab("visual"), dataTab("harmonized")]).toEqual(["as_converted", "harmonized"]);
+        // A visual mosaic of its own: its visual mosaic alone, read as itself
+        const alone = {...LIST[0], tabs: [], visual: true, visual_only: true};
+        expect([comparedTabs(alone), firstTab(alone, "harmonized"), dataTab("visual", true)]).toEqual([["visual"], "visual", "visual"]);
     });
 
     it("group the mosaics by dataset (another project's named) and start a pane on the tab wanted, else another than the other pane's", () => {
@@ -377,6 +380,52 @@ describe("visual mosaics on the compare page", () => {
         expect(calls(fetchFn)).toContain("POST " + API + "conversions/9/mosaics/as_converted/sources");
         expect($("[data-window=compare-a] .sources-groups")?.textContent ?? $("[data-window=compare-a]")!.textContent).toContain("Visual");
         expect($("[data-window=compare-a] .sources-camera")).not.toBeNull();
+    });
+
+    it("shows a visual mosaic of its own in a pane, read as itself: no values, its visual frames, its findings on it", async () => {
+        const alone: Comparable = {id: 14, name: "RGB", dataset: 7, dataset_name: "Roof RGB", tabs: [], visual: true, visual_only: true};
+        const visualFrames = FOUND.frames.map((f) => ({...f, frame: f.frame.replace("_T", "_V"), width: 4032, height: 3024, visual: null}));
+        const saved = {...FOUND, id: 8, dataset: 7, name: "Crack", tab: "visual", conversion: 14,
+                       temperatures: {valid_pixels: 1, unit: "C"}};
+        const fetchFn = server(routes({
+            [API + "conversions/9/comparable"]: [[...LIST, alone]],
+            [API + "conversions/14/mosaics"]: {name: "RGB", status: "ready", mosaic_status: "ready", tabs: [], visual_only: true,
+                                               visual: {bounds: BOUNDS, minzoom: 16, maxzoom: 22}},
+            [FINDINGS(7)]: [{findings: []}, {findings: [saved]}],
+            ["POST " + API + "conversions/14/mosaics/visual/sources"]: {...SOURCES, frames: visualFrames, point: undefined},
+            ["POST " + FINDINGS(7)]: saved,
+        }));
+        const maps = panesMaps();
+        await open(fetchFn, 14);
+        expect(location.search).toContain("b_tab=visual");
+        expect(Array.from(document.querySelectorAll("#pane-b select[name=mosaic] option")).map((o) => (o as HTMLOptionElement).value))
+            .toContain("14:visual");
+        expect(tiles(maps[1]).map((l) => l.getSource()!.getUrls()![0])).toEqual([API + "conversions/14/mosaics/visual/tiles/{z}/{x}/{y}.png"]);
+        expect(values(maps[1])).toEqual([]);
+        expect(($("#pane-a select[name=show] option[value=diff]") as unknown as HTMLOptionElement).disabled).toBe(true);
+        maps[1].dispatchEvent(Object.assign(new MapBrowserEvent("pointermove", maps[1], new MouseEvent("pointermove") as PointerEvent),
+                                            {coordinate: fromLonLat([10.005, 50.005])}));
+        await new Promise((r) => setTimeout(r, 200));
+        await ticks(20);
+        expect(byId("pane-b").querySelector(".compare-readout")!.textContent).toBe("A visual mosaic, with no values to read.");
+        expect(calls(fetchFn).some((c) => c.includes("conversions/14/mosaics/") && c.includes("/point"))).toBe(false);
+
+        click($("#pane-b [data-tool=point]")!);
+        await ticks();
+        clickMap(maps[1], [10.005, 50.005]);
+        await ticks(40);
+        expect(calls(fetchFn)).toContain("POST " + API + "conversions/14/mosaics/visual/sources");
+        expect(($("[data-window=compare-b] img") as unknown as HTMLImageElement).getAttribute("src"))
+            .toBe(API + "conversions/14/frame/visual?frame=a_V.JPG&size=" + WINDOW_VISUAL_PX);
+        click($("[data-window=compare-b] [name=save-finding]")!);
+        await ticks();
+        const name = $("#finding-name")!;
+        name.value = "Crack";
+        name.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        submit();
+        await ticks(40);
+        expect(sent(fetchFn, "POST", FINDINGS(7))[0]).toMatchObject({name: "Crack", conversion: 14, tab: "visual"});
     });
 
     it("draws A over B in one pane, faded and swiped as asked, with both values under the cursor", async () => {

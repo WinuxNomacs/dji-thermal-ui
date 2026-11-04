@@ -428,3 +428,10 @@ def test_a_finding_on_it_keeps_its_area_and_the_visual_frames_that_saw_it(api):
     outside = api.post(url, {'name': 'X', 'conversion': c.id, 'tab': 'visual',
                              'geometry': {'type': 'Point', 'coordinates': mosaic_lonlat(2, 2)}}, format='json')
     assert outside.status_code == 400
+
+
+def test_the_compare_list_has_a_visual_mosaic_of_its_own_with_no_temperature_tabs(api, conversion):
+    c, _ = visual_only(api)
+    listed = {x['id']: x for x in api.get("{}/{}/comparable".format(CONVERSIONS, conversion.id)).data}
+    assert (listed[c.id]['tabs'], listed[c.id]['visual'], listed[c.id]['visual_only']) == ([], True, True)
+    assert listed[conversion.id]['visual_only'] is False
