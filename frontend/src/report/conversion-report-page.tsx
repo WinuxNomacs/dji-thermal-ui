@@ -17,15 +17,18 @@ import {type Measured, type Measurement, measurementFigure, shapeLabel, targetLa
 import {ResultView} from "../measure/result";
 import {valuesUrl} from "../frame/frame";
 import {adjustQuery, dataUrl, reportRows, type Style, TAB_HINTS, tabLabel, takenText, TEMPERATURE_TABS,
-        viewQuery} from "../viewer/view";
+        viewQuery, visualRows} from "../viewer/view";
 import {type Mosaics} from "../viewer/viewer-page";
-import {type Ask, drawFigures, type Mark, type Source} from "./figures";
+import {type Ask, drawFigures, type Mark, type Source, type VisualTiles} from "./figures";
 import {FindingsSection} from "./findings";
 import {closeUpExtent, colouringOf, findingMark, included, legendOf, type MosaicReportText, onMosaic, reportStyle,
         temperatureStyle, underOf, viewText} from "./mosaic-report";
 import {numbered, todayText} from "./report";
 import {ReportBar, ReportField, TitleBlock, type Typed, useReportText} from "./text";
 
+const VISUAL = "visual";
+const VISUAL_TEXT = "The visual camera's images, laid out by their own overlaps, as they were taken (the flight has no " +
+    "thermal images)";
 const COMMENT_MS = 600;         // typing a comment pauses this long before it is saved
 const MAIN = {width: 1000, height: 700}, CLOSE_UP = {width: 640, height: 420};
 
@@ -96,12 +99,17 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
         return () => Object.values(commentTimers.current).forEach(clearTimeout);
     }, []);
 
-    const ready = loaded && !!v && v.mosaic_status === "ready" && (v.tabs || []).length > 0;
-    const {tab, style} = ready ? reportStyle(v!, c?.report?.view) : {tab: "", style: null as Style | null};
-    const t = ready ? v!.tabs!.find((x) => x.tab === tab) : undefined;
+    // A visual mosaic of its own: its visual mosaic, as it is, with no temperatures
+    const alone = !!v?.visual_only;
+    const ready = loaded && !!v && v.mosaic_status === "ready" && (alone ? !!v.visual?.bounds : (v.tabs || []).length > 0);
+    const {tab, style} = ready && !alone ? reportStyle(v!, c?.report?.view) : {tab: alone ? VISUAL : "", style: null as Style | null};
+    const t = ready && !alone ? v!.tabs!.find((x) => x.tab === tab) : undefined;
+    const visualTiles = (): VisualTiles => ({kind: "visual", url: base + "/mosaics/visual/tiles/{z}/{x}/{y}.png",
+                                             bounds: v!.visual!.bounds!, maxZoom: (v!.visual!.maxzoom || 20) + 1});
 
     // The equalization's curve, asked of the server as the viewer asks it (none needed without)
     useEffect(() => {
+        if (ready && alone) return setCurve(null);
         if (!ready || !style) return;
         if (!style.adjust.equalize) return setCurve(null);
         (async () => {
@@ -113,7 +121,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
 
     const shownItems = text ? included(items, text.left_out) : [];
     const numberOf = (m: Measurement) => shownItems.indexOf(m) + 1;
-    const found = numbered(onMosaic(findings, t?.bounds));
+    const found = numbered(onMosaic(findings, alone ? v?.visual?.bounds || undefined : t?.bounds));
 
     const tiles = (tabName: string): Values | null => {
         const x = v?.tabs?.find((y) => y.tab === tabName);
@@ -137,8 +145,10 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     // The mosaic with what is on it, drawn again when a measurement is left out or put back
     const marksKey = JSON.stringify([text?.left_out, found.map((f) => f.id)]);
     useEffect(() => {
-        if (!ready || !style || curve === undefined || !text) return;
+        if (!ready || curve === undefined || !text) return;
         const marks = [...shownItems.filter((m) => m.target !== "frame" && m.geometry).map(mark), ...found.map(findingMark)];
+        if (alone) return void figures({values: visualTiles(), legend: null}, [{key: "main", title: VISUAL_TEXT, marks}], MAIN);
+        if (!style) return;
         const under = underOf(v!, tab, style), shares = under.style === style ? curve : null;
         figures({values: tiles(under.tab)!, colouring: colouringOf(v!, under.tab, under.style, shares),
                  legend: legendOf(v!, under.tab, under.style, shares),
@@ -148,10 +158,17 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
 
     // Each measurement's close-up, once: on its own mosaic, or its frame, coloured as the temperatures are shown
     useEffect(() => {
-        if (!ready || !style || curve === undefined || !items.length) return;
+        if (!ready || curve === undefined || !items.length) return;
+        const named = (m: Measurement): Mark => ({geometry: m.geometry!, name: m.name});
+        if (alone) {
+            const on = items.filter((m) => m.target === VISUAL && m.geometry);
+            return void figures({values: visualTiles(), legend: null},
+                                on.map((m) => ({key: "m" + m.id, title: m.name + " · " + tabLabel(VISUAL), extent: closeUpExtent(m.geometry!),
+                                                marks: [named(m)]})), CLOSE_UP);
+        }
+        if (!style) return;
         const temps = temperatureStyle(v!, tab, style), shares = temps === style ? curve : null;
         const colouring = colouringOf(v!, "as_converted", temps, shares), legend = legendOf(v!, "as_converted", temps, shares);
-        const named = (m: Measurement): Mark => ({geometry: m.geometry!, name: m.name});
         for (const target of TEMPERATURE_TABS) {
             const on = items.filter((m) => m.target === target && m.geometry);
             figures(tiles(target) && {values: tiles(target)!, colouring, legend},
@@ -195,6 +212,7 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     const unit = v.unit;
     const diffs = differences(c.settings, d.defaults, null, userUnit()).filter((x) => x.changed);
     const kind = t ? v.kinds?.[t.kind || ""] : undefined;
+    const rows = alone ? visualRows(v.visual) : reportRows(kind);
     const taken = takenText(v.flown, v.flight_zone);
     const img = (key: string, alt: string) => images[key] ?
         <img class="report-figure" src={images[key]!} alt={alt}/> :
@@ -208,11 +226,13 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             <TitleBlock text={text} change={change}>{projectName}{place && <> · {place}</>} · flight {datasetName} ·
                 dataset {c.name}{taken && <> · flown {taken}</>}</TitleBlock>
 
-            {!ready ? <p class="text-muted">The mosaics are not built: build them on the flight page's Datasets tab.</p> : <>
+            {!ready ? <p class="text-muted">{alone ? "The mosaic is not built: build it in the viewer." :
+                "The mosaics are not built: build them on the flight page's Datasets tab."}</p> : <>
                 <section class="report-section report-keep" id="report-mosaic">
                     <h2>The mosaic</h2>
+                    {alone ? <p class="report-caption no-print">{VISUAL_TEXT}.</p> :
                     <p class="report-caption no-print">{viewText(v, tab, style!)}. <a href={viewer}>Change the view in the
-                        viewer</a>, then open the report from there.</p>
+                        viewer</a>, then open the report from there.</p>}
                     {img("main", "The mosaic")}
                 </section>
 
@@ -260,11 +280,12 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                 <dl class="figures">
                     <div><dt>Dataset</dt><dd>{c.name}{c.description && " · " + c.description}</dd></div>
                     <div><dt>Changed from the defaults</dt><dd>{diffs.length ? diffs.map((x) => x.text).join("; ") : "None"}</dd></div>
-                    {ready && <div><dt>Mosaic</dt><dd>{tabLabel(tab)}{TAB_HINTS[tab] && ": " + TAB_HINTS[tab]}</dd></div>}
+                    {ready && <div><dt>Mosaic</dt><dd>{alone ? VISUAL_TEXT :
+                        <>{tabLabel(tab)}{TAB_HINTS[tab] && ": " + TAB_HINTS[tab]}</>}</dd></div>}
                     <div><dt>dji-thermal-cli</dt><dd>{c.results?.version || "Not recorded"}</dd></div>
                 </dl>
-                {reportRows(kind).length > 0 && <table class="table report-mosaic-rows"><tbody>
-                    {reportRows(kind).map(([k, x]) => <tr key={k}><th>{k}</th><td>{x}</td></tr>)}</tbody></table>}
+                {rows.length > 0 && <table class="table report-mosaic-rows"><tbody>
+                    {rows.map(([k, x]) => <tr key={k}><th>{k}</th><td>{x}</td></tr>)}</tbody></table>}
             </section>
 
             <section class={"report-section" + (text.notes ? "" : " empty")} id="report-notes-section">

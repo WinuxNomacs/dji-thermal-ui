@@ -11,7 +11,7 @@ import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {type Maybe, mosaicLabel, type Stage} from "../core/format";
 import {ask, askName} from "../components/dialog";
-import {ArrowLeft, Columns, Download, Grid, Stop} from "../components/icons";
+import {ArrowLeft, Columns, Download, FileText, Grid, Stop} from "../components/icons";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, HINTS, type Measured, type Measurement, type Shape, toggleCompared, type Tool,
         TOOLS} from "../measure/measure";
@@ -351,6 +351,8 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                 <div class="page-actions">
                     {ready && <a class="button default" id="compare" href={publicUrl + "conversion/" + id + "/compare"}
                                  title="This mosaic beside another mosaic, or over it"><Columns/> Compare with…</a>}
+                    {ready && <a class="button default" id="report" href={publicUrl + "conversion/" + id + "/report"}
+                                 title="The mosaic with its measurements and findings, to print or save as PDF"><FileText/> Mosaic report</a>}
                     {v.status === "ready" && v.mosaic_status !== "building" &&
                         <button type="button" class="button default" id="build"
                                 onClick={() => onAction("/mosaics", "Could not build the mosaic.")}>

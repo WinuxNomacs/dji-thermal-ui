@@ -238,8 +238,9 @@ describe("the viewer page", () => {
         expect(tiles.getVisible()).toBe(true);
         expect([...document.querySelectorAll("[role=tab]")].map((t) => t.textContent)).toEqual(["Visual"]);
         expect(byId("visual-hint").textContent).toContain("nothing here has a temperature");
-        ["#palette", "#readout", "#frames", "#export", "#report"].forEach((sel) => expect($(sel)).toBeNull());
+        ["#palette", "#readout", "#frames", "#export"].forEach((sel) => expect($(sel)).toBeNull());
         expect(byId("compare").getAttribute("href")).toBe("/conversion/9/compare");
+        expect(byId("report").getAttribute("href")).toBe("/conversion/9/report");
         expect(byId("build").textContent).toContain("Rebuild mosaic");
         const mosaic = $("[data-section=report]")!.textContent;
         expect(mosaic).toContain("2 laid out by their own overlaps");
