@@ -828,6 +828,18 @@ describe("an imported dataset in the viewer", () => {
         expect($(".sources-window a[href*='/frame?frame=']")).toBeNull();
     });
 
+    it("opens the frames that saw a spot clicked on an imported orthophoto's WebODM tab", async () => {
+        const map = viewerMap();
+        const fetchFn = pointing(server(routes({[BASE + "/mosaics"]: {...MOSAICS, imported: {...IMPORTED, kind: "thermal"},
+            frames: [], tabs: [{tab: "webodm", kind: "webodm", stats: {percentiles: [20, 30], min: 15, max: 40}, bounds: BOUNDS, maxzoom: 22}],
+            kinds: {webodm: {task: null, task_name: "Roof"}}, baselines: {}}})));
+        await openWith(fetchFn);
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(calls(fetchFn)).toContain("POST " + BASE + "/mosaics/webodm/sources");
+        expect($(".sources-window")).not.toBeNull();
+    });
+
     it("shows a colour orthophoto as a visual mosaic, the photos that saw a spot from its task's cameras, and its DSM on the thermal viewer's Heights tab", async () => {
         const start = vi.spyOn(Drawing.prototype, "start");
         const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, files: ["mosaics/visual/orthophoto.tif"], frames: 0,

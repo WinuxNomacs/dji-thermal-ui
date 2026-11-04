@@ -175,6 +175,9 @@ def test_a_tasks_orthophoto_of_temperatures_is_imported_with_its_dsm_as_a_datase
     shown = api.get("%s/%d/mosaics" % (CONVERSIONS, c.id)).data
     assert c.mosaic_status == 'ready' and not shown['visual_only'] and shown['frames'] == []
     assert [t['tab'] for t in shown['tabs']] == ['webodm', 'heights']
+    # The pane lists its mosaics, and no Frames: an imported dataset has no frames page
+    nav = api.get("/api/navigation").data['projects'][0]['datasets'][0]['conversions'][0]
+    assert (nav['frames'], nav['mosaics']) == (False, True)
 
 
 def test_a_colour_orthophoto_is_imported_as_a_visual_mosaic_of_its_own(api, browse, tmp_path):
