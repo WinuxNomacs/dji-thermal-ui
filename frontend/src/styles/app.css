@@ -848,6 +848,12 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .frame-panes { flex: 1 1 auto; min-width: 0; display: flex; gap: 8px; }
 .frame-pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
 .frame-pane-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+/* A visual photo shown as it was taken (a visual mosaic of its own's frames), fitted to the pane */
+.frame-photo {
+    flex: 1 1 auto; height: calc(100vh - 270px); display: flex; align-items: center; justify-content: center;
+    background: var(--frame-bg); border-radius: var(--radius); overflow: hidden;
+}
+.frame-photo img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .app-main .frame-map { flex: 1 1 auto; height: calc(100vh - 270px); background: var(--frame-bg); }
 .frame .viewer-panel { flex-basis: 340px; }
 .frame-locator { height: 180px; border-radius: var(--radius); background: var(--map-bg); }
@@ -951,7 +957,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     .viewer-panel { flex-basis: auto; max-height: none; padding-right: 0; }
     .frame-panes { flex-direction: column; }
     .frame-list { flex-basis: auto; max-height: 30vh; min-height: 0; }
-    .app-main .frame-map { height: 50vh; }
+    .app-main .frame-map, .frame-photo { height: 50vh; }
     .compare-body { flex-direction: column; }
     .compare-pane { flex: 0 0 auto !important; }
     .compare-split { display: none; }

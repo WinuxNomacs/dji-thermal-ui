@@ -662,9 +662,9 @@ class NavigationView(DatasetView):
 
 
 def nav_conversion(c):
-    """A conversion as the pane lists it: whether it has frames (once converted; none in a visual mosaic of its own)
+    """A conversion as the pane lists it: whether it has frames (once converted; a visual mosaic of its own's visual ones)
     and mosaics (once built) to open"""
-    return {'id': c.id, 'name': c.name, 'frames': c.status == 'ready' and not (c.options or {}).get('visual_only'),
+    return {'id': c.id, 'name': c.name, 'frames': c.status == 'ready',
             'mosaics': c.status == 'ready' and (c.mosaic_status == 'ready' or bool((c.orthophoto or {}).get('raster')))}
 
 
@@ -2836,7 +2836,7 @@ class FramesView(DatasetView):
         """The frames of the conversion's dataset, and what the frame page needs to show them"""
         conversion = get_conversion(pk)
         palettes = viewer_palettes(conversion)
-        rows = {r['path']: r for r in thermal_measure.frame_rows(conversion)}
+        rows = {r['path']: r for r in thermal_measure.listed_rows(conversion)}
         recorded = ('emissivity', 'humidity', 'distance', 'lrf', 'reflection', 'ambient', 'alt', 'pitch', 'time')
         return Response(dict(conversion_summary(conversion), **{
             'dataset_name': conversion.dataset.name,

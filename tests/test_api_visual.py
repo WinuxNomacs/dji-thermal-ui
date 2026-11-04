@@ -363,11 +363,22 @@ def test_its_visual_frames_are_served_as_themselves(api):
     assert api.get(url, {'frame': THERMAL_FILES[0]}).status_code == 404
 
 
-def test_the_navigation_pane_gives_it_no_frames(api):
+def test_the_navigation_pane_gives_it_its_frames_and_mosaic(api):
     c, _ = visual_only(api)
     listed = api.get("/api/navigation").data['projects']
     nav = next(x for p in listed for d in p['datasets'] for x in d['conversions'] if x['id'] == c.id)
-    assert (nav['frames'], nav['mosaics']) == (False, True)
+    assert (nav['frames'], nav['mosaics']) == (True, True)
+
+
+def test_its_frames_are_the_flights_visual_photos_with_the_ones_the_mosaic_placed(api):
+    c, _ = visual_only(api)
+    res = api.get("{}/{}/frames".format(CONVERSIONS, c.id))
+    assert res.status_code == 200 and res.data['visual_only'] is True
+    frames = res.data['frames']
+    assert [f['path'] for f in frames] == list(VISUAL_FILES)
+    assert [(f['converted'], f['mosaic']) for f in frames] == [(True, 0), (True, 1)]
+    # Never measured as a thermal frame
+    assert api.get("{}/{}/frame".format(CONVERSIONS, c.id), {'frame': VISUAL_FILES[0]}).status_code in (400, 404)
 
 
 def measure(api, c, geometry, target='visual', **more):

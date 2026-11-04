@@ -37,6 +37,7 @@ import {captureOrder, type Changes, changeStarts, changesIn, changesQuery, FRAME
         inMosaics, listFrames, listTitle, newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
 import {FrameExport} from "./export";
 import {FrameList} from "./frame-list";
+import {VisualFrames} from "./visual-frames";
 import {FrameReadout, type FramePoint, Info, Params} from "./panel";
 
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
@@ -64,6 +65,7 @@ export interface Frames {
     frames?: FrameEntry[];
     visual_photos?: {path: string; lat: number; lon: number}[];
     flight_zone?: FlightZone | null;
+    visual_only?: boolean;      // a visual mosaic of its own: its frames are visual photos, VisualFrames shows them
 }
 
 // What is measured: the shape drawn (or a saved measurement shown) and what came back; res undefined while it is
@@ -229,6 +231,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         try {
             const r = await readJson<Frames>(await fetch(base + "/frames", {credentials: "same-origin"}));
             if (!r.ok) return setNotice("Could not load the frames.");
+            if (r.data.visual_only) return setMeta(r.data);        // VisualFrames shows them
             // All of them for a list without frames, or before the mosaics placed any (a link from before they were
             // built again)
             const ordered = captureOrder(r.data.frames || []);
@@ -752,6 +755,10 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         return (<div class="page frame">
             {notice ? <div class="notice error" role="alert">{notice}</div> : <div class="message">Loading…</div>}
         </div>);
+    }
+
+    if (meta.visual_only) {
+        return <VisualFrames api={api} publicUrl={publicUrl} id={id} datasetId={datasetId} datasetName={datasetName} meta={meta}/>;
     }
 
     const frames = meta.frames || [];

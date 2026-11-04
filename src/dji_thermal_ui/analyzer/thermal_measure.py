@@ -572,14 +572,35 @@ def frame_rows(conversion):
     return [r for r in ((conversion.dataset.analysis or {}).get('files') or []) if r.get('kind') == 'thermal']
 
 
+def listed_rows(conversion):
+    """The frames the frame page lists: the thermal frames (frame_rows), or a visual mosaic of its own's visual frames,
+    shown as they are and never measured: [row]"""
+    from .thermal_analysis import is_visual
+    if (conversion.mosaics or {}).get('visual_only'):
+        return [r for r in ((conversion.dataset.analysis or {}).get('files') or []) if is_visual(r)]
+    return frame_rows(conversion)
+
+
+def visual_alone_frames(conversion):
+    """The visual frames a visual mosaic of its own placed, in its order (its sidecar's), [] before it is built"""
+    try:
+        with open(os.path.join(conversion.data_dir(), thermal_mosaics.VIEWER_DIR, 'visual.json'), encoding='utf-8') as f:
+            return [x['file'] for x in json.load(f).get('frames') or []]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
 def frame_list(conversion):
-    """The frames a conversion's frame page offers: [{path, pitch, time, lat, lon, converted, mosaic (index or None)}]"""
+    """The frames a conversion's frame page offers: [{path, pitch, time, lat, lon, converted, mosaic (index or None)}];
+    a visual mosaic of its own's visual frames, each converted (shown as it is)"""
+    alone = bool((conversion.mosaics or {}).get('visual_only'))
     converted = {f['path']: f for f in ((conversion.results or {}).get('files') or [])}
-    in_mosaic = {name: i for i, name in enumerate((conversion.mosaics or {}).get('frames') or [])}
+    placed = visual_alone_frames(conversion) if alone else (conversion.mosaics or {}).get('frames') or []
+    in_mosaic = {name: i for i, name in enumerate(placed)}
     return [{'path': r['path'], 'pitch': r.get('pitch'), 'time': r.get('time') or "",
              'lat': r.get('lat'), 'lon': r.get('lon'),
-             'converted': bool((converted.get(r['path']) or {}).get('ok')),
-             'mosaic': in_mosaic.get(r['path'])} for r in frame_rows(conversion)]
+             'converted': alone or bool((converted.get(r['path']) or {}).get('ok')),
+             'mosaic': in_mosaic.get(r['path'])} for r in listed_rows(conversion)]
 
 
 def frame_file(conversion, rel):

@@ -13,7 +13,7 @@ import {describeProblem, type Fix, shortName} from "./problems";
 import {CaretDown, CaretUp, Check, ChevronDown, Copy, Download, Filter, Info, Lightbulb, Plus, Star, Trash, Wand} from "../components/icons";
 import {active, type Analysis, columnType, type Condition, type Favourite, type FileColumn, FILES_TAB_COLUMNS, type FileRow,
         fileRows, type FilesView, filterQuery, filtersFrom, flagsByFile, newCondition, type Op, OPS, overview, type PlanOption, type Problem,
-        shownAs, SHOWS} from "./files";
+        shownAs, SHOWS, visualOnly} from "./files";
 
 const FILES_SHOWN = 12;     // files listed under a problem before "and N more"
 const THUMBS_KEY = "thermalAnalyzer.thumbnails";     // the Files tab's Thumbnails box, remembered per browser
@@ -271,7 +271,9 @@ export function FilesTab({api, onExport, analysis, view, setView, frames, thumbs
 
     const detail = selected ?? (hoverDetail && hovered !== closedOn ? hovered : null);
     const detailRow = detail ? rows.find((r) => r.path === detail) : undefined;
-    const frameOf = (r: FileRow) => frames && r.kind === "thermal" ? frames + "?frame=" + encodeURIComponent(r.path) : null;
+    // A flight of visual photos only: its datasets' frames are the photos
+    const framed = (r: FileRow) => r.kind === "thermal" || visualOnly(analysis) && fileKind(r) === "visual";
+    const frameOf = (r: FileRow) => frames && framed(r) ? frames + "?frame=" + encodeURIComponent(r.path) : null;
     // A row's picture (a thermal frame's in the preferred palette), at the size asked (the thumbnail's without one)
     const pictureOf = (r: FileRow, size?: "preview" | "full") => thumbs + encodeURIComponent(r.path) +
         (palette && r.kind === "thermal" ? "&palette=" + encodeURIComponent(palette) : "") + (size ? "&size=" + size : "");
