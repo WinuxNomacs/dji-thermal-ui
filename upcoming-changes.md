@@ -8,12 +8,13 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: G1 (RGB-only flights: the dataset and the viewer), in "RGB-only flights" below.
+**Up next**: G2 (RGB-only flights: the compare page, the frames and measuring lengths and areas), in "RGB-only flights"
+below.
 
-Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: G2 (RGB-only flights: the compare page, the frames and measuring lengths and areas).
+**Then**: nothing planned yet.
 
 ## Standalone (option A)
 
@@ -2482,6 +2483,12 @@ paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and 
 - **Tests:** pytest for the job and the API on a flight of visual frames (a small fake, as F2's tests do); Vitest for
   the form and the viewer; a live check on `ignored/m4t-rgb` (on 8081).
 
+**G1 built** (2026-11-04): see Done. Found in its live check, for G2 or later:
+- **The Problems tab** of an RGB-only flight gives dji-thermal-cli's error "Only 0 nadir frame(s) with a position: ODM
+  needs at least 5 overlapping images", and the WebODM plan tab plans from thermal frames: both are dji-thermal-cli's
+  `check`, which counts thermal frames only. A change there (and a release) first.
+- **The mosaic report** of a visual-only dataset isn't offered (the viewer has no Mosaic report button for it).
+
 ### G2: the compare page, the frames and measuring
 
 - **Compare page:** an RGB-only dataset's mosaic in either pane beside any mosaic, and as an overlay, with no
@@ -3284,3 +3291,18 @@ paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and 
   with a copy of the data, light and dark, on the viewer and the frame page: each arrow and a name step the range,
   Auto restores it, no console errors; no flight there has videos, so the Video tab was not seen live. Checked: Vitest
   462, lint, pytest 456, ruff, the strict docs build.
+- **G1: RGB-only flights, the dataset and the viewer** (2026-11-04). dji-thermal-cli pinned at 1.13.0. A flight with
+  visual images and no thermal ones (`thermal_analysis.visual_only`) makes datasets that convert nothing: the
+  conversion's job builds `make_mosaic(visual_only=True)` at once (`thermal_conversion.visual_only`,
+  `thermal_mosaics.build_visual` without pairs, keeping the located sidecar as `viewer/visual.json`), with the
+  settings `visual_gsd` and `visual_height_cell`. The New dataset form shows only its settings (`visual-only` branch of
+  `SettingsForm`, `VISUAL_ONLY_KEYS`, `visualSettings`) and **Make mosaic**; the card says Ready and View mosaic, with
+  no Frames, Compare or WebODM, and the navigation pane and the Files tab give it no frames. The viewer page shows
+  `viewer/visual-viewer.tsx` instead: the Visual tab alone, a click or a shape opening the visual frames that saw it as
+  photos (`thermal_sources.sources(source_bands=False)`: the most nadir frame counted as the one used;
+  `FrameVisualView` serving the frame itself), and the panel's `laidOutRows`. The flight report always maps such a
+  flight's photos. Docs: Datasets (A flight of visual images only), Mosaics, Reports; the CHANGELOG. Tests: pytest in
+  `tests/test_api_visual.py` (15 for it), Vitest in `dataset.test.tsx`, `viewer.test.tsx`, `report.test.tsx`. Checked
+  live on a scratch 8081 with `ignored/m4t-rgb` read in place, light and dark: the mosaic made in 448 s (151 frames,
+  0.6 cm, frames agreeing to 0.3 cm median), a spot's 141 frames with the spot marked, no console errors. Checked:
+  Vitest 466, lint, pytest 470, ruff, the strict docs build, and the flight tests (4) on dataset 1's paired flight.
