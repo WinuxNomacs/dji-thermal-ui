@@ -2006,9 +2006,20 @@ def frame_sources(conversion, path, geometry, tab=None):
                                   source_bands=not alone)
     times = {r['path']: r.get('time') or "" for r in ((conversion.dataset.analysis or {}).get('files') or [])}
     pairs = {} if alone else thermal_mosaics.read_visual_pairs(conversion.data_dir())
+    sizes = {}
+    if alone:
+        # Each frame's size, for the window to mark the spot or area on the frame shown as itself
+        try:
+            with open(os.path.splitext(path)[0] + '.json', encoding='utf-8') as fh:
+                sizes = {m['file']: (m['width'], m['height'])
+                         for m in (json.load(fh).get('frame_models') or {}).get('frames') or []}
+        except (OSError, ValueError, KeyError, TypeError):
+            sizes = {}
     for f in out['frames']:
         f['time'] = times.get(f['frame'], "")
         f['visual'] = pairs.get(f['frame'])
+        if f['frame'] in sizes:
+            f['width'], f['height'] = sizes[f['frame']]
     out.update(kind=geometry['type'], geometry=geometry, models=models is not None)
     return out
 

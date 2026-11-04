@@ -317,7 +317,7 @@ def test_a_spot_on_it_gives_the_visual_frames_that_saw_it_the_most_nadir_the_one
     frames = res.data['frames']
     # The first frame's camera is nearer above the spot
     assert [f['frame'] for f in frames] == list(VISUAL_FILES) and [f['used'] for f in frames] == [True, False]
-    assert all(f['pixel'] and f['visual'] is None for f in frames)
+    assert all(f['pixel'] and f['visual'] is None and (f['width'], f['height']) == (4032, 3024) for f in frames)
     assert res.data['models'] is True and 'point' not in res.data
 
 

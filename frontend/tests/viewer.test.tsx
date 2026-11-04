@@ -216,6 +216,46 @@ describe("the viewer page", () => {
         added.mockRestore();
     });
 
+    it("shows a visual mosaic of its own alone, with no temperatures, and the frames that saw a spot as photos", async () => {
+        const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, files: ["mosaics/visual/mosaic_visual.tif"], frames: 2,
+                        width: 300, height: 240, gsd_m: 0.006,
+                        report: {laid_out: "by the visual frames' own overlaps", frames_used: 2, frames_contributing: 2,
+                                 alignment: {boresight_deg: {pitch: 0.1, yaw: -0.2}, distortion_k1: 0.047},
+                                 heights: {cell_m: 0.2, range_m: [-0.5, 5.2]}, misalignment: {pairs: 12, median_m: 0.003, p90_m: 0.012}}};
+        const frame = (name: string, used: boolean) => ({frame: name, used, view_angle: used ? 3 : 9, time: "2026:10:12 18:29:50",
+                                                         pixel: [2000, 1500], width: 4032, height: 3024, visual: null});
+        const added = vi.spyOn(OlMap.prototype, "addLayer");
+        const map = viewerMap();
+        const fetchFn = server({
+            [BASE + "/mosaics"]: {name: "Visual mosaic", dataset_name: "RGB", description: "visual mosaic", status: "ready",
+                                  mosaic_status: "ready", tabs: [], visual, visual_only: true},
+            ["POST " + BASE + "/mosaics/visual/sources"]: {kind: "Point", geometry: {type: "Point", coordinates: WEST}, models: true,
+                                                           reason: null, frames: [frame("a_V.JPG", true), frame("b_V.JPG", false)]},
+        });
+        await open(fetchFn);
+        const tiles = added.mock.calls.map((c) => c[0]).find((l) => l instanceof TileLayer) as TileLayer<XYZ>;
+        expect(tiles.getSource()!.getUrls()).toEqual([BASE + "/mosaics/visual/tiles/{z}/{x}/{y}.png"]);
+        expect(tiles.getVisible()).toBe(true);
+        expect([...document.querySelectorAll("[role=tab]")].map((t) => t.textContent)).toEqual(["Visual"]);
+        expect(byId("visual-hint").textContent).toContain("nothing here has a temperature");
+        ["#palette", "#readout", "#frames", "#compare", "#export", "#report"].forEach((sel) => expect($(sel)).toBeNull());
+        expect(byId("build").textContent).toContain("Rebuild mosaic");
+        const mosaic = $("[data-section=report]")!.textContent;
+        expect(mosaic).toContain("2 laid out by their own overlaps");
+        expect(mosaic).toContain("boresight pitch +0.10°, yaw -0.20°; lens distortion k1 +0.047");
+        expect(mosaic).toContain("20 cm cells, -0.5 to +5.2 m above the ground plane");
+        expect(mosaic).toContain("to 0.3 cm (median), 1.2 cm (p90), over 12 pairs");
+        clickMap(map(), WEST);
+        await ticks(10);
+        expect(calls(fetchFn)).toContain("POST " + BASE + "/mosaics/visual/sources");
+        const shown = $(".sources-window img") as HTMLImageElement;
+        expect(shown.getAttribute("src")).toBe(BASE + "/frame/visual?frame=a_V.JPG&size=1600");
+        expect($(".sources-window .frame-mark")).not.toBeNull();
+        expect($(".sources-window .chip")!.textContent).toBe("in the mosaic");
+        expect([...document.querySelectorAll(".sources-window a")].some((a) => a.textContent!.includes("Open frame"))).toBe(false);
+        added.mockRestore();
+    });
+
     it("has no Visual tab without a visual mosaic", async () => {
         history.replaceState(null, "", "/conversion/9?tab=visual");
         await open(server(routes()));

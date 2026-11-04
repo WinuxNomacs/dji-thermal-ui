@@ -325,7 +325,12 @@ export interface VisualMosaic {
     bounds?: number[]; minzoom?: number; maxzoom?: number; files?: string[];
     frames?: number; skipped?: number; pairs?: number; width?: number; height?: number; gsd_m?: number;
     unpaired_thermal?: number; unused_visual?: number;
-    report?: {frames_used?: number;
+    report?: {frames_used?: number; frames_contributing?: number;
+              // a visual mosaic of its own (a flight without thermal frames), laid out by its frames' overlaps
+              laid_out?: string; frames_oblique?: string[] | null; max_pitch?: number;
+              alignment?: {boresight_deg?: {pitch?: number; yaw?: number}; distortion_k1?: number} | null;
+              heights?: {cell_m?: number; range_m?: number[]; method?: string} | null;
+              misalignment?: {pairs?: number; median_m?: number; p90_m?: number} | null;
               camera_offset?: {applied?: boolean; reason?: string; pairs_used?: number;
                                boresight_deg?: {pitch?: number; yaw?: number};
                                offset_before_m?: {median?: number}; residual_m?: {median?: number; p90?: number}}} | null;
@@ -339,6 +344,7 @@ const cm = (m: Maybe<number>) => formatNumber((m || 0) * 100, 1, " cm");
 export function visualRows(v: Maybe<VisualMosaic>): [string, string][] {
     if (!v) return [];
     const r = v.report || {}, rows: [string, string][] = [];
+    if (r.laid_out) return laidOutRows(v);
     rows.push(["Frames", [(r.frames_used ?? v.pairs) + " placed as their thermal frames",
         v.unused_visual ? v.unused_visual + " visual not used (their thermal frames are not in the mosaic)" : "",
         v.unpaired_thermal ? v.unpaired_thermal + " thermal without a visual frame" : ""].filter(Boolean).join(", ")]);
@@ -351,6 +357,32 @@ export function visualRows(v: Maybe<VisualMosaic>): [string, string][] {
     } else if (off) {
         rows.push(["Cameras' offset", "not corrected" + (off.reason ? " (" + off.reason + ")" : "")]);
     }
+    return rows;
+}
+
+// What dji-thermal-cli reports about a visual mosaic of its own: its frames, its size, how they were aligned (the
+// boresight and the lens's distortion), the surface's heights and how well overlapping frames agree
+function laidOutRows(v: VisualMosaic): [string, string][] {
+    const r = v.report!, rows: [string, string][] = [];
+    const oblique = r.frames_oblique?.length;
+    rows.push(["Frames", [r.frames_used + " laid out by their own overlaps",
+        r.frames_contributing !== undefined && r.frames_contributing !== r.frames_used ? r.frames_contributing + " seen in it" : "",
+        oblique ? oblique + " oblique left out (pitch above " + r.max_pitch + "°)" : ""].filter(Boolean).join(", ")]);
+    rows.push(["Size", v.width + " × " + v.height + " px at " + formatNumber((v.gsd_m || 0) * 100, 1, " cm")]);
+    const a = r.alignment;
+    if (a) {
+        rows.push(["Alignment", "boresight pitch " + signed(a.boresight_deg?.pitch, 2) + "°, yaw " + signed(a.boresight_deg?.yaw, 2) +
+            "°" + (a.distortion_k1 !== undefined ? "; lens distortion k1 " + signed(a.distortion_k1, 3) : "")]);
+    }
+    const h = r.heights;
+    if (h && h.range_m) {
+        rows.push(["Heights", formatNumber((h.cell_m || 0) * 100, 0, " cm") + " cells, " + signed(h.range_m[0], 1) + " to " +
+            signed(h.range_m[1], 1) + " m above the ground plane"]);
+    } else if (h?.method) {
+        rows.push(["Heights", h.method]);
+    }
+    const m = r.misalignment;
+    if (m && m.pairs) rows.push(["Frames agree", "to " + cm(m.median_m) + " (median), " + cm(m.p90_m) + " (p90), over " + m.pairs + " pairs"]);
     return rows;
 }
 

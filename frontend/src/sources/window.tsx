@@ -1,7 +1,7 @@
 // The source frames pop-out: a window on the page, moved by its title and closed, showing the whole frame that saw a
 // spot or an area of a mosaic (coloured as the mosaic is, the spot marked or the area outlined), or its visual pair
-// (the spot or area marked where the visual camera saw it), and the list of every frame that saw it, the one the
-// mosaic used first; ← and → step through them. On the compare page a difference has a list for each of its mosaics.
+// (the spot or area marked where the visual camera saw it), or a visual mosaic's own frame as it was taken, and the list
+// of every frame that saw it, the one the mosaic used first; ← and → step through them. On the compare page a difference has a list for each of its mosaics.
 import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {ChevronLeft, ChevronRight, Image} from "../components/icons";
@@ -19,11 +19,12 @@ export interface SourceGroup {
     res: Sources | null | undefined;        // undefined while it is asked, null when it could not be
     error?: string;
     unit: unknown;
-    values: (frame: string) => string;      // a frame's values
-    curve: (frame: string) => string;       // its tone curve with equalization, "" without
-    colouring: Colouring;
-    href: (frame: string) => string;        // its frame page
+    values?: (frame: string) => string;     // a frame's values (none for photos)
+    curve?: (frame: string) => string;      // its tone curve with equalization, "" without
+    colouring?: Colouring;
+    href?: (frame: string) => string;       // its frame page, where it has one
     visual?: (frame: string) => string;     // a thermal frame's visual pair as an image, where the frames have them
+    photo?: (frame: string) => string;      // the frame itself as an image (a visual mosaic of its own: no values)
     about?: ComponentChildren;              // above its frame, while it is shown (after the window's own)
 }
 
@@ -113,6 +114,16 @@ export function VisualImage({src, pair, alt, pixel, outline}: {
     </div>);
 }
 
+// A frame shown as it was taken (src: its image, of any size), with the spot or area marked on it
+export function PhotoImage({src, alt, pixel, outline, width, height}: {
+    src: string; alt: string; pixel?: Maybe<[number, number]>; outline?: [number, number][][]; width?: number; height?: number;
+}) {
+    return (<div class="frame-image visual">
+        <img src={src} alt={alt} width={width} height={height}/>
+        {width && height && <Marks size={[width, height]} pixel={pixel} outline={outline}/>}
+    </div>);
+}
+
 function FrameRow({f, current, onPick}: {f: SourceFrame; current: boolean; onPick: () => void}) {
     const details = [formatCapture(f.time, "time"), f.view_angle !== null && f.view_angle !== undefined ?
         f.view_angle + "° off nadir" : "", shareText(f)].filter(Boolean);
@@ -181,16 +192,18 @@ export function SourcesWindow({groups, name, anchor, about, visual: startVisual 
                         disabled={!pair} title={pair ? "Its visual image, " + frameName(pair.frame) : "No visual image paired with this frame"}
                         onClick={() => setVisual(true)}>Visual</button>
             </div>}
-            {visual && pair ? <VisualImage src={group.visual!(f.frame)} pair={pair} alt={pair.frame} pixel={pixel} outline={outline}/> :
-                <FrameImage values={group.values(f.frame)} curve={group.curve(f.frame)} colouring={group.colouring} alt={f.frame}
-                            pixel={pixel} outline={outline}/>}
+            {group.photo ?
+                <PhotoImage src={group.photo(f.frame)} alt={f.frame} pixel={pixel} outline={outline} width={f.width} height={f.height}/> :
+                visual && pair ? <VisualImage src={group.visual!(f.frame)} pair={pair} alt={pair.frame} pixel={pixel} outline={outline}/> :
+                group.values && group.colouring && <FrameImage values={group.values(f.frame)} curve={group.curve?.(f.frame) || ""}
+                                            colouring={group.colouring} alt={f.frame} pixel={pixel} outline={outline}/>}
             <div class="sources-nav">
                 <button type="button" class="button default small" name="previous" title="The previous frame (←)"
                         aria-label="Previous frame" disabled={i === 0} onClick={() => setIndex(i - 1)}><ChevronLeft/></button>
                 <span class="sources-count">{i + 1} of {frames.length}</span>
                 <button type="button" class="button default small" name="next" title="The next frame (→)"
                         aria-label="Next frame" disabled={i === frames.length - 1} onClick={() => setIndex(i + 1)}><ChevronRight/></button>
-                <a class="button default small" href={group.href(f.frame)}><Image/> Open frame</a>
+                {group.href && <a class="button default small" href={group.href(f.frame)}><Image/> Open frame</a>}
             </div>
             {res.kind === "Point" && !f.pixel && <p class="message">The spot is not marked: build the mosaics again to know where it is.</p>}
             {res.kind === "Polygon" && !res.models && <p class="message">The area is not outlined without the frames' models.</p>}
