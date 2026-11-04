@@ -2531,6 +2531,15 @@ Both are in G2.
    measuring, comparable, the frames list and the report on a visual-only conversion; Vitest for the viewer, compare
    and frame pages); a live check on `ignored/m4t-rgb` on 8081.
 
+**G2 built on `g2-rgb-only`** (2026-11-04), not merged: it waits for dji-thermal-cli 1.13.1 to be published (merged
+into the cli's `main` with its release checks passed: 1334 passed, 11 skipped; build, check_dist and twine clean),
+then the pin (`pyproject.toml`, `uv.lock`, the CHANGELOG's Changed line), the suite again, the Done entry and the
+merge. Checked live on a scratch 8081 with `ignored/m4t-rgb` read in place and the local cli 1.13.1, light and dark:
+the analysis gave no error and the plan tab "No plan: the flight has no thermal frames to plan with"; a box on the roof
+40.42 m² (perimeter 25.70 m), saved and kept as a finding (its 151 frames outlined), a line 13.79 m; a spot's 106
+frames; the compare page's readout and no difference; the frames page (151 in the mosaic, 176 oblique) with →; the
+report's two figures; no console errors. Vitest 470, pytest 477 (4 skipped), lint, ruff, the strict docs build.
+
 ## Panel wording and the mosaics as a preview
 
 Requested 2026-11-04 in `new.md`:
