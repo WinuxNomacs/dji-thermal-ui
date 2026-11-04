@@ -44,8 +44,17 @@ what applies:
 - **Remove the location from the files.**
 
 An unnamed one is named "Visual mosaic", followed by whichever of these settings are changed. Its card says
-**Ready** and **View mosaic**, and its files are the mosaic, its sidecar and its preview. It has no temperatures, so
-it has no frames explorer, compare page or WebODM processing yet.
+**Ready** and **View mosaic**, and its files are the mosaic, its sidecar and its preview. It has no temperatures:
+
+- In the [viewer](mosaics.md), a spot opens the frames that saw it, and a line or an area is
+  [measured](measuring.md#on-a-visual-mosaic) for its length, or its area and perimeter, saved as a measurement or
+  kept as a [finding](findings.md).
+- Its [frames](frames.md#the-photos-of-a-flight-of-visual-images-only) are the flight's photos, shown as they were
+  taken.
+- On the [compare page](compare.md) it can be shown beside any mosaic, or over one.
+- Its [mosaic report](reports.md#mosaic-report) shows the mosaic with its measurements and findings.
+
+It has no WebODM processing, and the flight's WebODM plan tab says there is nothing to plan.
 
 ## A dataset's card
 

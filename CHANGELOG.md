@@ -13,6 +13,11 @@ All notable changes are recorded here. The format follows
   settings (the pitch limit, the pixel size, the height cells and removing the location). The viewer shows it on its
   Visual tab alone, with no temperatures: a click or a shape drawn opens the visual frames that saw it, and the panel
   says how it was laid out. The flight report puts such a flight's photos on its map.
+- On such a dataset's mosaic, a line drawn in the viewer gives its length, and an area, box or circle its area and
+  perimeter, with **Save measurement** (exported as CSV and GeoJSON, with a new Perimeter column) and **Keep as
+  finding** (which keeps the area and the visual photos that saw it). The compare page shows it beside or over any
+  mosaic, its frames page shows the flight's photos as taken with ← and →, and the viewer offers its **Mosaic
+  report**.
 
 - The navigation pane lists **Frames** under each dataset with frames, opening its frames explorer (marked there):
   datasets fold now, as projects and flights do.

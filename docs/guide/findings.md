@@ -1,7 +1,9 @@
 # Findings
 
 A finding is a spot or an area of a mosaic kept on its flight, with a name, notes, a severity and a status, the
-temperatures measured when it was kept, and the frames that saw it (all of them, or those you pick).
+temperatures measured when it was kept, and the frames that saw it (all of them, or those you pick). On the visual
+mosaic of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only), an area's finding keeps its
+area and perimeter instead, and its frames are the visual photos.
 
 ![A finding open on the viewer, with the frames that saw it](../assets/screenshots/viewer-finding.png)
 

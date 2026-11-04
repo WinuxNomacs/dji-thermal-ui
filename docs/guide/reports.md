@@ -35,6 +35,10 @@ pressed (that view is saved with the report), with:
 
 A measurement's comment is also shown in the viewer's list and exported in the CSV and GeoJSON.
 
+The mosaic report of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only)'s dataset shows its
+visual mosaic as it is, with no colour scale, each measurement's close-up with its length, or area and perimeter, its
+findings, and how the mosaic was laid out.
+
 ## Printing
 
 **Print / Save as PDF** opens the browser's print dialog, where the paper size is chosen and "Save as PDF" makes the
