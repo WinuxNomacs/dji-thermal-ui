@@ -81,8 +81,9 @@ reading (**Importing**, with **Cancel**), then says **Imported**, where it came 
 - **DSM**: its surface model, the viewer's **Heights** tab.
 
 An orthophoto of anything else (several bands of values, or none georeferenced) isn't imported, and its card says
-why. An imported dataset has no settings, frames or WebODM tasks of its own: its menu has **Download all**,
-**Rename** and **Delete**.
+why. One imported from a task has **Open in WebODM**, the task in WebODM's dashboard. **View mosaics** opens it in the
+[viewer](mosaics.md#an-imported-dataset). An imported dataset has no settings, frames or WebODM tasks of its own: its
+menu has **Download all**, **Rename** and **Delete**.
 
 ## A dataset's card
 

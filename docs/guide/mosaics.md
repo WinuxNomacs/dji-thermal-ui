@@ -35,6 +35,23 @@ lists the saved measurements and the flight's findings, and **The mosaic** says 
 the camera's boresight and lens distortion, the surface's heights and how closely overlapping frames agree. Its header
 has **Compare with…**, **Mosaic report** and **Rebuild mosaic**.
 
+## An imported dataset
+
+A dataset [imported from WebODM](datasets.md#importing-from-webodm) is shown as it holds:
+
+- **An orthophoto of temperatures** on the **WebODM** tab, with its palette, range, Pointer info, measuring and
+  findings as for any mosaic of temperatures.
+- **An orthophoto of colours** on the **Visual** tab, as the visual mosaic of a flight of visual images only is: a line
+  or an area is measured for its size, and the spot tool keeps a spot as a finding.
+- **Its DSM** on the **Heights** tab, beside either. Beside a Visual tab, Heights loads the page again on the
+  temperatures' viewer, and Visual brings it back.
+
+ODM doesn't record which photos each pixel of its orthophoto comes from, so a click opens no frames, and a finding keeps
+none. The header has **Open in WebODM** (the task it came from, in WebODM's dashboard, for one imported from a task),
+**Compare with…**, **Export…** (temperatures) and **Mosaic report**, with no **Frames** or **Build mosaics**; **The
+mosaic** in the side panel says where it came from: the WebODM project and task, when the task was made, from how many
+images, how long WebODM took, and the DSM (or the files' names).
+
 The viewer opens on Mosaic, or on Harmonized when the frames disagree (their offsets against their neighbours
 spanning more than 3 °C over the middle 90% of them), with a notice saying so. A link that names a tab opens that one.
 
