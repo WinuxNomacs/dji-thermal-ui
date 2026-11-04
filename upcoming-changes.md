@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: J (WebODM datasets: Import from WebODM), to plan with the user, in "WebODM datasets" below.
+**Up next**: J1 (WebODM datasets: Import from WebODM, with the browser), planned, in "WebODM datasets" below; then J2.
 
 G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
@@ -2590,6 +2590,24 @@ button to the "New dataset" controls on each Flight."
   visual mosaic, with lengths and areas as in G2.
 - **DSM:** brought along when the task has one (a checkbox); from a file, an optional second file.
 - **Source frames:** not now (ODM doesn't record them).
+
+### J1's browser (decided 2026-11-04)
+
+Requested in the conversation: "a webodm project/task/map browser control that makes it easier for the user to
+identify and select from, preferably with a preview image" ("map" meaning the orthophoto, not a map of footprints).
+
+- **Where:** Flight page › Datasets tab › **Import from WebODM** (beside the New dataset form's buttons) opens a large
+  dialog (`components/dialog.tsx`), with two ways in: **From WebODM** (the browser) and **From a file**.
+- **The browser:** the account's projects on the left, with the search and count of **Process in WebODM**'s project
+  list; the chosen project's tasks as cards in the middle (preview, name, date, number of images, badges for
+  Orthophoto and DSM, and "Over this flight" when the task's footprint, WebODM's `extent`, meets the flight's
+  area: those cards first); the chosen task on the right, larger preview, its details, a **DSM** checkbox when it
+  has one, and **Import**.
+- **Tasks listed:** only completed ones with an orthophoto; the project says how many others it has.
+- **Previews:** WebODM's own `tasks/<id>/thumbnail?size=` for a colour orthophoto; for one of temperatures (fewer
+  than 3 bands, which WebODM's thumbnail refuses) the app colours one from WebODM's tiler with the value range of
+  its `orthophoto/metadata`, in the app's default palette. Both go through the app's server (the login stays there)
+  and are cached in the data folder.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
