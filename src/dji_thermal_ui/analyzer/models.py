@@ -229,6 +229,7 @@ MEASUREMENT_TARGETS = (
     ('harmonized', _("Harmonized mosaic")),
     ('webodm', _("WebODM orthophoto")),
     ('frame', _("Frame")),
+    ('visual', _("Visual mosaic")),
 )
 
 

@@ -23,6 +23,7 @@ from . import thermal_conversion, thermal_mosaics
 PERCENTILES = (2, 98)
 HISTOGRAM_BINS = 64
 MAX_VERTICES = 1000
+VISUAL_COVER_PX = 1024      # a visual mosaic's coverage of a shape: its mask read at most this many pixels across
 MAX_SAMPLES = 1000          # a line's profile: sampled at the grid's pixel spacing, at most this many times
 SHAPE_KINDS = ('box', 'circle')     # areas drawn by dragging, measured as their polygon
 ISOTHERM_MODES = ('above', 'below', 'between')
@@ -498,6 +499,45 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
             out['profile']['frames'] = source_frames(frames, x, y, np.isfinite(temperatures))
     if out['valid_pixels'] == 0:
         out['reason'] = 'nodata'
+    return out
+
+
+def visual_measure(path, geometry):
+    """
+    What a geometry (lon/lat) measures on a visual mosaic of its own (path: its copy for the map, with a mask): the
+    shape's size in the mosaic's projection (length; area and perimeter) and the mosaic's pixels it covers, read at
+    most VISUAL_COVER_PX across (valid_pixels, 0 with a reason outside the mosaic), with no temperatures
+    """
+    import rasterio
+    from pyproj import Transformer
+    from rasterio.errors import WindowError
+    from rasterio.windows import Window, from_bounds
+
+    with rasterio.open(path) as ds:
+        to_crs = Transformer.from_crs("EPSG:4326", ds.crs, always_xy=True)
+        out = {'kind': geometry['type'], 'reason': None}
+        flat = np.asarray(geometry['coordinates'], dtype=float).reshape(-1, 2)
+        if not np.all(np.isfinite(to_crs.transform(flat[:, 0], flat[:, 1]))):     # far from the mosaic's zone
+            return dict(out, valid_pixels=0, reason='outside_raster')
+        shape, inside, _ring = shapes(geometry, to_crs)
+        out.update(shape_size(geometry['type'], shape))
+        # A spot: its own pixel (what it measures is a few pixels around it)
+        reach = shape.buffer(abs(ds.transform.a) / 4) if geometry['type'] == 'Point' else inside
+        try:
+            window = from_bounds(*reach.bounds, transform=ds.transform).round_offsets().round_lengths() \
+                .intersection(Window(0, 0, ds.width, ds.height))
+        except WindowError:         # not over the mosaic
+            window = None
+        covered = 0
+        if window is not None and window.width > 0 and window.height > 0:
+            scale = max(1.0, max(window.width, window.height) / VISUAL_COVER_PX)
+            size = (max(1, int(round(window.height / scale))), max(1, int(round(window.width / scale))))
+            mask = ds.dataset_mask(window=window, out_shape=size) > 0
+            transform = ds.window_transform(window) @ rasterio.Affine.scale(window.width / size[1], window.height / size[0])
+            covered = int((mask & region_mask(reach, size, transform)).sum())
+    out['valid_pixels'] = covered
+    if not covered:
+        out['reason'] = 'outside_raster'
     return out
 
 

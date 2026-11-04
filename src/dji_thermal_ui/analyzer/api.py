@@ -1839,6 +1839,19 @@ def mosaic_values(conversion, tab, band, data, valid, correction):
     return data, valid & np.isfinite(data)
 
 
+def visual_alone(conversion):
+    """Whether the conversion is a visual mosaic of its own (a flight without thermal frames)"""
+    return bool((conversion.mosaics or {}).get('visual_only'))
+
+
+def visual_alone_raster(conversion):
+    """The copy for the map of a visual mosaic of its own, or 404"""
+    path = thermal_mosaics.visual_raster(conversion.data_dir(), conversion.mosaics or {})
+    if not visual_alone(conversion) or not path or not os.path.isfile(path):
+        raise NotFound()
+    return path
+
+
 def mosaic_raster(conversion, tab):
     """(path, band) a tab reads, or 404"""
     found = thermal_mosaics.tab_raster(conversion, tab)
@@ -2037,9 +2050,7 @@ class MosaicSourcesView(DatasetView):
         alone = tab == thermal_mosaics.VISUAL
         if alone:
             # The visual mosaic of a flight without thermal frames (the paired one's are its thermal frames')
-            path = thermal_mosaics.visual_raster(conversion.data_dir(), conversion.mosaics or {})
-            if not (conversion.mosaics or {}).get('visual_only') or not path or not os.path.isfile(path):
-                raise NotFound()
+            path = visual_alone_raster(conversion)
         else:
             path, _band = mosaic_raster(conversion, tab)
         try:
@@ -2221,7 +2232,7 @@ class MosaicDifferenceView(DatasetView):
 
 # --- radiometric analysis -----------------------------------------------------------------------------------------
 
-MEASUREMENT_TARGETS = ('as_converted', 'harmonized', 'webodm', 'frame')
+MEASUREMENT_TARGETS = ('as_converted', 'harmonized', 'webodm', 'frame', 'visual')
 
 
 def changes_of(params):
@@ -2245,13 +2256,19 @@ def analysis_request(conversion, data):
     target = data.get('target')
     if target not in MEASUREMENT_TARGETS:
         raise ValidationError({'error': "The target is a mosaic (as_converted, harmonized, webodm) or a frame"})
+    if (target == thermal_mosaics.VISUAL) != visual_alone(conversion):
+        raise ValidationError({'error': "A visual mosaic of its own is measured as visual, and only it"})
     frame = data.get('frame') or "" if target == 'frame' else ""
     parameters = data.get('parameters') if isinstance(data.get('parameters'), dict) else {}
     try:
         geometry = data.get('geometry')
         geometry = None if geometry is None else thermal_measure.check_geometry(geometry, lonlat=target != 'frame')
         isotherm = thermal_measure.parse_isotherm(data.get('isotherm'))
-        if target == 'frame':
+        if target == thermal_mosaics.VISUAL:
+            parameters, isotherm = {}, None      # no temperatures
+            if geometry is None:
+                raise thermal_measure.MeasureError("Draw a spot, a line or an area to measure")
+        elif target == 'frame':
             parameters = thermal_measure.parse_changes(parameters)
         else:
             parameters = {f: parameters[f] for f in thermal_measure.CORRECTIONS
@@ -2270,7 +2287,9 @@ def analysis(conversion, target, frame, geometry, parameters, isotherm):
     from .thermal_analysis import clean
     unit = (conversion.options or {}).get('unit') or 'C'
     out = {'unit': unit, 'approximate': False}
-    if target == 'frame':
+    if target == thermal_mosaics.VISUAL:
+        out['result'] = thermal_measure.visual_measure(visual_alone_raster(conversion), geometry)
+    elif target == 'frame':
         base = frame_measured(conversion, frame)
         out['result'] = thermal_measure.frame_measure(base['values'], geometry, isotherm)
         if parameters:
@@ -2402,9 +2421,9 @@ class MeasurementDetailView(DatasetView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-FINDING_TABS = ('as_converted', 'harmonized', 'webodm')
+FINDING_TABS = ('as_converted', 'harmonized', 'webodm', 'visual')
 # What a finding keeps of what its spot or area measured
-FINDING_TEMPERATURES = ('min', 'max', 'mean', 'surroundings', 'delta_t', 'value', 'valid_pixels', 'area')
+FINDING_TEMPERATURES = ('min', 'max', 'mean', 'surroundings', 'delta_t', 'value', 'valid_pixels', 'area', 'perimeter')
 
 
 def get_finding(pk, fid):
@@ -2486,7 +2505,8 @@ def finding_drawn(dataset, data):
         raise ValidationError({'conversion': "That dataset does not exist"}) from None
     tab = data.get('tab')
     if tab not in FINDING_TABS:
-        raise ValidationError({'tab': "The temperatures are read on a mosaic (as_converted, harmonized, webodm)"})
+        raise ValidationError({'tab': "The temperatures are read on a mosaic (as_converted, harmonized, webodm, "
+                                      "or visual for a visual mosaic of its own)"})
     asked = {'target': tab, 'geometry': data.get('geometry'), 'parameters': data.get('parameters')}
     _t, _f, geometry, parameters, _i = analysis_request(conversion, asked)
     if geometry is None or geometry['type'] not in ('Point', 'Polygon'):
@@ -2522,7 +2542,7 @@ class FindingsView(DatasetView):
             conversion, tab, geometry, shape, temperatures = finding_drawn(dataset, request.data)
         if not temperatures.get('valid_pixels'):
             raise ValidationError({'error': "The finding is outside the mosaic"})
-        path, _band = mosaic_raster(conversion, tab)
+        path = visual_alone_raster(conversion) if tab == thermal_mosaics.VISUAL else mosaic_raster(conversion, tab)[0]
         found = frame_sources(conversion, path, geometry, tab)
         f = Finding.objects.create(dataset=dataset, conversion=conversion, tab=tab, geometry=geometry, shape=shape,
                                    temperatures=temperatures, frames=kept_frames(found['frames'], request.data.get('kept')),
@@ -2686,7 +2706,7 @@ class VideoFramePictureView(DatasetView):
 CSV_COLUMNS = (('name', "Name"), ('target', "Measured on"), ('frame', "Frame"), ('kind', "Shape"),
                ('min', "Min"), ('max', "Max"), ('mean', "Mean"), ('median', "Median"), ('std', "Std dev"),
                ('surroundings', "Surroundings"), ('delta_t', "ΔT"), ('unit', "Unit"), ('isotherm', "Isotherm"),
-               ('isotherm_share', "Isotherm share"), ('length', "Length"), ('area', "Area"),
+               ('isotherm_share', "Isotherm share"), ('length', "Length"), ('area', "Area"), ('perimeter', "Perimeter"),
                ('size_unit', "Length / area unit"), ('valid_pixels', "Pixels"), ('distance', "Distance"),
                ('temperature', "Temperature"), ('source_frame', "Source frame"), ('parameters', "Parameters changed"),
                ('approximate', "Approximate"), ('comment', "Comment"), ('geometry', "Geometry"), ('created_at', "Saved at"))
@@ -2733,9 +2753,11 @@ def csv_rows(m, unit='C', profile=True):
         rows.append({
             'name': name, 'target': target, 'frame': m.frame, 'kind': (v.get('shape') or {}).get('kind') or r.get('kind'),
             'min': t('min'), 'max': t('max'), 'mean': t('mean'), 'median': t('median'), 'std': d('std'),
-            'surroundings': t('surroundings'), 'delta_t': d('delta_t'), 'unit': unit,
+            'surroundings': t('surroundings'), 'delta_t': d('delta_t'),
+            'unit': "" if m.target == thermal_mosaics.VISUAL else unit,        # no temperatures
             'isotherm': isotherm(v.get('isotherm')), 'isotherm_share': csv_number(iso.get('share'), 4),
             'length': csv_number(r.get('length'), 2), 'area': csv_number(r.get('area'), 2),
+            'perimeter': csv_number(r.get('perimeter'), 2),
             'size_unit': ("px" if m.target == 'frame' else "m") if (r.get('length') or r.get('area')) else "",
             'valid_pixels': r.get('valid_pixels'), 'distance': None, 'temperature': None, 'source_frame': None,
             'parameters': json.dumps(parameters(m.parameters)) if m.parameters and (which == 'changed' or m.target != 'frame') else "",
