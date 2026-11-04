@@ -8,12 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned yet.
+**Up next**: G1 (RGB-only flights: the dataset and the viewer), in "RGB-only flights" below.
 
 Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: nothing planned yet.
+**Then**: G2 (RGB-only flights: the compare page, the frames and measuring lengths and areas).
 
 ## Standalone (option A)
 
@@ -2434,6 +2434,60 @@ tab alike:
 - **Auto only in the D-pad's centre:** it leaves the row of the range's fields.
 - **Arrows with their names beside them:** "Raise" by ▲, "Narrow" by ◀, "Widen" by ▶, "Lower" by ▼ (tooltips as now).
 - **Order:** Y2 first, then Q1.
+
+## RGB-only flights
+
+Requested 2026-11-03 (in dji-thermal-cli's planning): mosaics of flights with only visual photos, for comparison and
+analysis here. dji-thermal-cli 1.13.0 makes them (`MosaicOptions(visual_only=True)`, or `make_mosaic` on a flight
+with visual frames and no thermal ones): the visual frames laid out by their own overlaps, with the wide camera's
+lens distortion (`lens_k1` in the frame models), written as `mosaic_visual.tif`, its sidecar and its preview, as the
+paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and `visual` set.
+
+### What it builds on
+
+- **Today, on a flight with only visual photos:** the Flight page's Files tab lists them as visual; the Plan tab says
+  "No plan: the flight has no thermal frames to plan with"; the New dataset form on the Datasets tab converts and the
+  dataset fails with "No image could be converted"; the frame page says "The flight has no thermal frames to show";
+  the compare page's menu (`comparable` in `api.py`) lists only datasets with temperature tabs.
+- **The paired visual mosaic (F2, F3):** `thermal_mosaics.build_visual` keeps it in `mosaics/visual/` with a copy for
+  the map (`map_copy`, `viewer/visual.tif`); the viewer page's Visual tab draws it as PNG tiles (`VisualTileView`);
+  the compare page shows it in a pane and as an overlay; its downloads are the mosaic, its sidecar and its preview.
+- **Measuring:** `thermal_measure` already gives a shape's length, area and perimeter beside its temperatures.
+- **Test data:** `ignored/m4t-rgb`, 327 `_V` images (the RGB-only mosaic used 151 of them in about 7 minutes).
+
+### Decisions (2026-11-03)
+
+- **Where:** a dataset. On a flight with no thermal frames, the New dataset form makes a dataset whose only product
+  is the visual mosaic laid out by its own frames, with only the settings that apply: the pitch limit, the pixel
+  size, the height cell and removing the location. It runs as a dataset's job does (progress, cancel, downloads,
+  delete).
+- **Measuring:** lengths and areas. On an RGB-only mosaic the line, area, box and circle tools give length, area and
+  perimeter, without temperatures, profiles, histograms or isotherms; findings keep them. (G2.)
+- **Flights with both kinds:** not now. They keep the paired visual mosaic; an RGB-only mosaic is made only for a
+  flight with no thermal frames.
+- **Phases:** two, G1 and G2.
+
+### G1: the dataset and the viewer
+
+- **Pin** dji-thermal-cli 1.13.0 (from 1.11.0; 1.12.0's saved alignment comes with it).
+- **New dataset form:** on a flight with visual frames and no thermal ones, it says the dataset will be the visual
+  mosaic and shows only the settings above; the conversion's job calls `make_mosaic` alone (no conversion of
+  images) and keeps the result as the paired one is kept (`mosaics.visual`, a located copy for the map when the
+  location is removed), recorded as visual only.
+- **Viewer page:** the Visual tab only, with no colour scale, palette or temperature readout; a click opens the source
+  frames window on the visual frames (their frame models).
+- **Elsewhere:** the Datasets tab's card, the dataset's downloads (the mosaic, its sidecar and its preview), and the
+  reports say what it is, with no temperatures.
+- **Docs:** the guide's Flight, Datasets and Viewer pages; the changelog.
+- **Tests:** pytest for the job and the API on a flight of visual frames (a small fake, as F2's tests do); Vitest for
+  the form and the viewer; a live check on `ignored/m4t-rgb` (on 8081).
+
+### G2: the compare page, the frames and measuring
+
+- **Compare page:** an RGB-only dataset's mosaic in either pane beside any mosaic, and as an overlay, with no
+  readout of its own; "Difference" not offered with it.
+- **Frame page:** the visual frames of a flight with no thermal ones, with ← and →.
+- **Measuring:** lengths and areas on the viewer page's Visual tab of an RGB-only dataset, kept as findings.
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
