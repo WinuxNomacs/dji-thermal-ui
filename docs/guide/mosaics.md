@@ -20,6 +20,13 @@ Each tab's tooltip says what it shows.
 - **WebODM** and **Heights:** an orthophoto and a surface model brought back from
   [WebODM](webodm.md#bringing-the-results-here).
 
+The dataset of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only) has the Visual tab alone,
+with no palette, temperatures or measuring tools. A click on a spot, or a spot, area, box or circle drawn, opens the
+visual frames that saw it, each shown as it was taken with the spot or area marked, the one the mosaic took it from
+first (the frame that saw it closest to straight down). **The mosaic** in the panel says how it was laid out: the
+frames used, the camera's boresight and lens distortion, the surface's heights and how closely overlapping frames
+agree. **Rebuild mosaic** builds it again.
+
 The viewer opens on Mosaic, or on Harmonized when the frames disagree (their offsets against their neighbours
 spanning more than 3 °C over the middle 90% of them), with a notice saying so. A link that names a tab opens that one.
 

@@ -8,6 +8,12 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- Flights of visual images only (no thermal ones): each dataset is the mosaic of the visual images, laid out by their
+  own overlaps with dji-thermal-cli 1.13.0, made with **Make mosaic** from the New dataset form, which shows only its
+  settings (the pitch limit, the pixel size, the height cells and removing the location). The viewer shows it on its
+  Visual tab alone, with no temperatures: a click or a shape drawn opens the visual frames that saw it, and the panel
+  says how it was laid out. The flight report puts such a flight's photos on its map.
+
 - The navigation pane lists **Frames** under each dataset with frames, opening its frames explorer (marked there):
   datasets fold now, as projects and flights do.
 - A cross of buttons under the colour range, in the viewer's panel, the frame page's and the Video tab's, with
@@ -80,6 +86,8 @@ All notable changes are recorded here. The format follows
 
 ### Changed
 
+- dji-thermal-cli 1.13.0 (from 1.11.0): mosaics are faster, the frames' overlaps matched in worker processes (the
+  thermal test flight's mosaic in 35 s instead of 96 s on 8 workers), and unchanged to the pixel.
 - The line giving the mosaic's (or frame's) own lowest and highest values is straight under the colour scale, above
   the range's fields.
 - The viewer's and the frame page's **Export PNG** button is now the Export dialog's first format, **PNG as shown**,
