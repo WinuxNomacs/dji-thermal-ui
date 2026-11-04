@@ -8,10 +8,9 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: G2 (RGB-only flights: the compare page, the frames and measuring lengths and areas), in "RGB-only flights"
-below.
+**Up next**: J (WebODM datasets: Import from WebODM), to plan with the user, in "WebODM datasets" below.
 
-Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
+G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
@@ -2489,12 +2488,49 @@ paired visual mosaic is. Its `MosaicReport` has `mosaic` and `preview` None and 
   `check`, which counts thermal frames only. A change there (and a release) first.
 - **The mosaic report** of a visual-only dataset isn't offered (the viewer has no Mosaic report button for it).
 
+Both are in G2.
+
 ### G2: the compare page, the frames and measuring
 
 - **Compare page:** an RGB-only dataset's mosaic in either pane beside any mosaic, and as an overlay, with no
   readout of its own; "Difference" not offered with it.
 - **Frame page:** the visual frames of a flight with no thermal ones, with ← and →.
 - **Measuring:** lengths and areas on the viewer page's Visual tab of an RGB-only dataset, kept as findings.
+
+### G2: decisions (2026-11-04)
+
+- **Measurements:** both, as on the thermal viewer: the card's **Save measurement** with the side panel's Saved
+  measurements list (CSV, GeoJSON), and **Keep as finding**.
+- **Frame page:** view only: each visual photo as taken, with ← and →, its metadata and the frames explorer listing
+  them; no measuring on a single photo (it has no ground scale).
+- **Also in G2:** the mosaic report of a visual-only dataset, and the Problems tab's fix (dji-thermal-cli first).
+
+### G2: the design (2026-11-04)
+
+1. **dji-thermal-cli 1.13.1** (its own repo, `release/1.13.1`): `check(..., webodm=True)` makes no WebODM plan for a
+   flight with no thermal files (`api.py`: `plan` stays None), so no "Only 0 nadir frame(s)…" error. The user pushes
+   and tags it; then it is pinned here, and the Flight page's Problems tab of an RGB-only flight lists only what
+   applies, its Plan tab saying "No plan: the flight has no thermal frames to plan with".
+2. **Measuring on the viewer page of a visual-only dataset** (`viewer/visual-viewer.tsx`): the line, area, box and
+   circle tools join the spot; `/measure` on such a conversion gives the shape's length, or area and perimeter,
+   measured in the visual mosaic's map projection (`thermal_measure.shape_size`), with no temperatures. The card
+   shows them, with **Source frames**, **Save measurement** and **Keep as finding**; the side panel gets Saved
+   measurements (CSV, GeoJSON) and the flight's Findings, as the thermal viewer's.
+3. **Findings** of a visual-only dataset keep the size in place of temperatures; the findings panel, the compare
+   page and the flight report show it.
+4. **Compare page:** `comparable` lists visual-only datasets, with the Visual tab alone; such a pane has no readout
+   or colour scale of its own, a click opens its visual frames, and Difference isn't offered with it. Overlay works
+   either way round.
+5. **Frame page and frames explorer:** for a visual-only dataset, the flight's visual photos (from the analysis),
+   each shown as taken, with ← and → and its metadata; the navigation pane and the Datasets tab's card link to them
+   again (G1 hid them).
+6. **Mosaic report:** offered for a visual-only dataset (the viewer's Mosaic report button): the mosaic's picture,
+   how it was laid out (frames, alignment, heights, frames agreeing) and its findings, with no temperatures.
+7. **Docs** (Datasets, Mosaics, Measuring, Findings, Compare, Frames, Reports; the CHANGELOG) and tests (pytest for
+   measuring, comparable, the frames list and the report on a visual-only conversion; Vitest for the viewer, compare
+   and frame pages); a live check on `ignored/m4t-rgb` on 8081.
+
+**G2 built** (2026-11-04): see Done.
 
 ## Panel wording and the mosaics as a preview
 
@@ -2509,6 +2545,51 @@ Requested 2026-11-04 in `new.md`:
 
 The requests left nothing to decide. The headings went from the viewer's panel and the frame page's alike (both had
 them), leaving View and About; the Image line keeps "values" for a tab that isn't temperatures.
+
+## WebODM datasets
+
+Requested 2026-11-04 in `new.md`: "we need to discuss adding a webodm dataset type for when the user downloads orthos
+from webodm for analysis. They can be stored under flights just like any other dataset. Add an "Import from WebODM"
+button to the "New dataset" controls on each Flight."
+
+### What it builds on
+
+- **Today an orthophoto comes back only for a dataset sent from here:** Flight page › Datasets tab › a card's
+  **Process in WebODM** makes the task; once complete, **Bring the orthophoto here** downloads it
+  (`webodm_tasks.run_download`), kept as temperatures in the dataset's unit and shown as that dataset's **WebODM**
+  tab in the viewer (colour, Pointer info, measuring, findings, compare and difference). A colour orthophoto is
+  refused. **Bring the DSM here** adds a Heights tab and can carry the mosaics.
+- **The WebODM client** (`webodm.Client`) lists the account's projects, and reads and downloads a task's assets
+  (`task`, `download`). The account sees its own projects and those shared with it.
+- **A dataset (conversion) with no images converted** exists since G1 (`visual_only`): its card, viewer, measuring,
+  findings, compare and report work without converted frames.
+- **The New dataset controls:** Flight page › Datasets tab, the New dataset form (**Convert**/**Make mosaic**).
+
+### Proposed phases (to plan with the user)
+
+- **J1: the import.** Flight page › Datasets tab › **Import from WebODM**: choose a completed task of the account's
+  projects (or a file from disk, if decided), download its orthophoto (and DSM, if decided) in the background with
+  progress and cancel; the dataset's card says where it came from, with no conversion settings.
+- **J2: using it.** The viewer with its WebODM (and Heights) tab alone, measuring, findings, the compare page beside
+  the flight's mosaics, the mosaic report; the docs.
+
+### Open decisions
+
+- Where it comes from: a task in the user's WebODM through the API, a GeoTIFF downloaded from WebODM's page, or both.
+- What it may hold: temperatures only (as today's WebODM tab), or a colour orthophoto too (shown as a visual mosaic,
+  lengths and areas as in G2).
+- Whether the DSM comes with it.
+- Whether the frames that saw a spot are offered (ODM's orthophoto doesn't say; the flight's frames could be found by
+  their footprints).
+
+### Decisions (2026-11-04)
+
+- **Source:** both: a completed task of the WebODM account's projects (through the API), or a GeoTIFF downloaded from
+  WebODM's page, chosen from disk.
+- **Contents:** both kinds: an orthophoto of temperatures is shown as today's WebODM tab is; a colour (RGB) one as a
+  visual mosaic, with lengths and areas as in G2.
+- **DSM:** brought along when the task has one (a checkbox); from a file, an optional second file.
+- **Source frames:** not now (ODM doesn't record them).
 
 ## Done (kept here briefly as a note, not a tracked deferral)
 
@@ -3326,3 +3407,17 @@ them), leaving View and About; the Image line keeps "values" for a tab that isn'
   panel's groups in Mosaics, Measuring, Findings and the finding quickstart. Test: the panel's order in
   `viewer.test.tsx`. Checked live on a scratch 8081 (dataset 8's copy), light and dark: the viewer and frame page
   show View and About only, the new line, no console errors; Vitest 466, lint, the strict docs build.
+- **G2: RGB-only flights, measuring, the compare page, the frames and the report** (2026-11-04). dji-thermal-cli 1.13.1
+  (released for it: `check` makes no WebODM plan without thermal frames) pinned. Server: the `visual` measurement
+  target (`thermal_measure.visual_measure`: the shape's size in the mosaic's projection and the pixels it covers),
+  findings on it (`FINDING_TABS`), a Perimeter column in the CSV, migration 0012; `comparable` lists a visual mosaic of
+  its own (`visual_only`); its frames are its visual photos (`thermal_measure.listed_rows`, `visual_alone_frames`),
+  never measured. Front end: `viewer/visual-viewer.tsx` (the card, saved measurements, findings, Compare, Mosaic
+  report), `compare/` (`isAlone`, `readTab`), `frame/visual-frames.tsx`, the report (`figures.ts` draws a visual
+  mosaic's tiles), `sizeText`, the card, the navigation pane and the Files tab linking its frames. Docs: Datasets,
+  Mosaics, Measuring, Findings, Compare, Frames, Reports; the CHANGELOG. Tests: pytest in `tests/test_api_visual.py`,
+  Vitest in `viewer`, `compare`, `frame`, `dataset`, `mosaic-report`. Checked live on a scratch 8081 with
+  `ignored/m4t-rgb` read in place, light and dark: no analysis error and "No plan" on the plan tab, a roof box 40.42 m²
+  (perimeter 25.70 m) saved and kept as a finding, a line 13.79 m, a spot's 106 frames, the compare page, the frames
+  (151 in the mosaic, 176 oblique), the report's figures, no console errors. Checked: Vitest 470, lint, pytest 477,
+  ruff, the strict docs build, and the flight tests (4) on dataset 1 with 1.13.1.

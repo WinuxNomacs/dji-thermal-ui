@@ -188,7 +188,7 @@ describe("the mosaic report", () => {
         expect(text("#report-mosaic .report-caption")).toContain("Harmonized · Viridis palette · 18.0 to 32.0 °C · equalized");
         expect(fetchFn.mock.calls.map((c) => c[0])).toContain(BASE + "/mosaics/harmonized/curve?rescale=18,32&equalize=1");
         const main = vi.mocked(drawFigures).mock.calls.find((c) => c[1][0].key === "main")!;
-        expect(main[0].colouring.shares).toEqual([0, 0.2, 1]);
+        expect(main[0].colouring!.shares).toEqual([0, 0.2, 1]);
         expect($(".report-bar a")!.getAttribute("href")).toBe("/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&equalize=1");
     });
 
@@ -228,5 +228,33 @@ describe("the mosaic report", () => {
         expect($("#print")!.hasAttribute("disabled")).toBe(false);
         click($("#print")!);
         expect(print).toHaveBeenCalledOnce();
+    });
+});
+
+describe("the mosaic report of a visual mosaic of its own", () => {
+    it("draws the visual mosaic as it is, its measurements' sizes, its findings and how it was laid out", async () => {
+        const area = {id: 7, name: "Roof", target: "visual",
+                      geometry: {type: "Polygon", coordinates: [[[10.0002, 50.0002], [10.0008, 50.0002], [10.0008, 50.0008], [10.0002, 50.0002]]]},
+                      values: {result: {kind: "Polygon", valid_pixels: 40, area: 12.5, perimeter: 14.2}}};
+        const crack = {...finding(8, 10.0005), tab: "visual", temperatures: {area: 3.2, perimeter: 7.4, valid_pixels: 9, unit: "C"}};
+        const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, frames: 2, gsd_m: 0.006,
+                        report: {laid_out: "by the visual frames' own overlaps", frames_used: 2, frames_contributing: 2}};
+        const {fetchFn} = await page({
+            [BASE]: {...DETAIL, settings: {visual_only: true}}, [BASE + "/mosaics"]: {name: "RGB", status: "ready", mosaic_status: "ready",
+                                                                                     tabs: [], visual_only: true, visual},
+            [BASE + "/measurements"]: {measurements: [area]}, [API + "datasets/5/findings"]: {findings: [crack]},
+        });
+        const main = vi.mocked(drawFigures).mock.calls.find((c) => c[1][0].key === "main")!;
+        expect(main[0]).toEqual({values: {kind: "visual", url: BASE + "/mosaics/visual/tiles/{z}/{x}/{y}.png", bounds: BOUNDS, maxZoom: 24},
+                                 legend: null});
+        expect(main[1][0].marks.map((m) => m.name)).toEqual(["M1", "#1"]);
+        expect(asked()).toEqual(["main", "m7"]);
+        expect(text("#report-mosaic .report-caption")).toContain("laid out by their own overlaps");
+        expect(text(".report-measurements-table")).toContain("12.50 m², perimeter 14.20 m");
+        expect(text("[data-measurement='7']")).toContain("Perimeter14.20 m");
+        expect(text("#report-findings")).toContain("3.20 m², perimeter 7.40 m");
+        expect(text(".report-mosaic-rows")).toContain("2 laid out by their own overlaps");
+        expect(fetchFn.mock.calls.some((c) => String(c[0]).includes("/curve"))).toBe(false);
+        expect(document.body.textContent).not.toContain("°C");
     });
 });

@@ -127,10 +127,10 @@ export function sortRows<T extends Record<string, unknown>>(rows: T[], key: stri
     });
 }
 
-// The conversion a file row opens its frame in: the ready one finished last (a visual mosaic of its own has no frames)
-export function newestReady<T extends {status: string; finished_at?: string | null; visual_only?: boolean}>(
-    conversions: T[] | undefined): T | null {
-    return (conversions || []).filter((c) => c.status === "ready" && !c.visual_only)
+// The conversion a file row opens its frame in: the ready one finished last (a visual mosaic of its own's frames are its
+// visual photos)
+export function newestReady<T extends {status: string; finished_at?: string | null}>(conversions: T[] | undefined): T | null {
+    return (conversions || []).filter((c) => c.status === "ready")
         .sort((a, b) => String(b.finished_at || "").localeCompare(String(a.finished_at || "")))[0] || null;
 }
 

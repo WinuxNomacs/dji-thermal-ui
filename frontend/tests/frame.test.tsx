@@ -478,3 +478,38 @@ describe("the frame page", () => {
         expect(byId("status").textContent).toBe("The flight has no thermal frames to show.");
     });
 });
+
+describe("the frames of a visual mosaic of its own", () => {
+    const V1 = "rgb/a_V.JPG", V2 = "rgb/b_V.JPG", V3 = "rgb/c_V.JPG";
+    const VISUAL: Frames = {
+        name: "Visual mosaic", dataset_name: "RGB", mosaic_status: "ready", max_pitch: -80, flight_zone: {offset: -300},
+        visual_only: true,
+        frames: [{path: V2, pitch: -90, time: "2026:10:12 18:30:10", lat: 42.1, lon: -88.07, converted: true, mosaic: 1,
+                  recorded: {alt: 30.5}},
+                 {path: V1, pitch: -90, time: "2026:10:12 18:29:50", lat: 42.1, lon: -88.07, converted: true, mosaic: 0,
+                  recorded: {alt: 30.4}},
+                 {path: V3, pitch: -30, time: "2026:10:12 18:30:30", converted: true, mosaic: null, recorded: {}}],
+    };
+
+    it("shows each visual photo as taken, in the order they were taken, stepped with ← and →, with no temperatures", async () => {
+        const fetchFn = server({[BASE + "/frames"]: VISUAL});
+        await open(fetchFn);
+        expect(byId("photo").getAttribute("src")).toBe(BASE + "/frame/visual?frame=" + enc(V1) + "&size=1600");
+        expect(listed()).toEqual([V1, V2, V3]);
+        expect(byId("name").textContent).toBe("Visual mosaic: frames");
+        const recorded = byId("recorded").textContent;
+        expect(recorded).toContain("Height above take-off30.4 m");
+        expect(recorded).toContain("In the mosaicframe 1");
+        expect(byId("full-size").getAttribute("href")).toBe(BASE + "/frame/visual?frame=" + enc(V1));
+        expect(calls(fetchFn).some((c) => c.includes("/frame?frame=") || c.includes("/frame/data"))).toBe(false);
+        key(document.body, "ArrowRight");
+        await ticks();
+        expect(byId("photo").getAttribute("src")).toContain(enc(V2));
+        expect(location.search).toBe("?frame=" + enc(V2));
+        click(byId("next"));
+        await ticks();
+        expect(byId("recorded").textContent).toContain("In the mosaicno");
+        expect((byId("next") as HTMLButtonElement).disabled).toBe(true);
+        expect($("#palette")).toBeNull();
+    });
+});

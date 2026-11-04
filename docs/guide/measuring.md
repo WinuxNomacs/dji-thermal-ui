@@ -21,6 +21,15 @@ On the card:
 On a frame page, the Thermal/Visual/Both switch shows the frame's visual image in its place or beside it, with the
 same shapes and the cursor on it, and measures the thermal frame under them.
 
+## On a visual mosaic
+
+The dataset of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only) has no temperatures. In
+its viewer, the card of a line gives its length, and that of an area, box or circle its area and perimeter, in
+metres on the mosaic. They are measured on the mosaic, so they are only as exact as it is (see
+[Mosaics](mosaics.md)). The card has **Save measurement**, **Keep as finding** and **Source frames**, as on a thermal
+mosaic, and its saved measurements export as CSV and GeoJSON with their length, area and perimeter. A spot opens the
+frames that saw it.
+
 ## Saved measurements
 
 Saved measurements can be compared, measured again with other settings, and exported as CSV and GeoJSON. Each can

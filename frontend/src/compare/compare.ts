@@ -16,10 +16,10 @@ export const OPACITY_STEP = 5, SWIPE_LIMITS = [0, 100];
 export type PaneName = "a" | "b";
 
 // A conversion whose mosaics can be compared (/comparable), with its temperature tabs and whether it has the visual
-// mosaic
+// mosaic, or is one of its own (visual_only: no temperature tabs)
 export interface Comparable {
     id: number; name: string; dataset: number; dataset_name: string; project?: number; project_name?: string;
-    unit?: string; tabs: string[]; visual?: boolean;
+    unit?: string; tabs: string[]; visual?: boolean; visual_only?: boolean;
 }
 
 // A temperature mosaic's palette, range (in the user's unit) and adjustments
@@ -51,12 +51,12 @@ export function clampShare(share: number): number {
     return Math.round(Math.max(SWIPE_LIMITS[0], Math.min(SWIPE_LIMITS[1], share)));
 }
 
-// The tab whose values a pane's tab reads
-export const dataTab = (tab: string): string => tab === VISUAL ? VISUAL_DATA : tab;
+// The tab whose values a pane's tab reads (alone: a visual mosaic of its own, read as itself)
+export const dataTab = (tab: string, alone = false): string => tab === VISUAL && !alone ? VISUAL_DATA : tab;
 
 // A conversion's tabs to compare: its temperature tabs, and its visual mosaic where it has one
 export const comparedTabs = (c: Comparable): string[] =>
-    c.tabs.concat(c.visual && c.tabs.includes(VISUAL_DATA) ? [VISUAL] : []);
+    c.visual_only ? [VISUAL] : c.tabs.concat(c.visual && c.tabs.includes(VISUAL_DATA) ? [VISUAL] : []);
 
 // What the URL gave: the conversions, tabs and difference given, the split between its limits, the findings
 export function readCompare(search: string): CompareView {
@@ -118,6 +118,7 @@ export function mosaicGroups(list: Comparable[], project?: number): {name: strin
 // The tab a pane starts on: the one wanted if the conversion has it, else its first (avoid: not that one, if it can)
 export function firstTab(c: Comparable, wanted?: string, avoid?: string): string {
     if (wanted && comparedTabs(c).includes(wanted)) return wanted;
+    if (c.visual_only) return VISUAL;
     const others = c.tabs.filter((t) => t !== avoid);
     return (others.length ? others : c.tabs)[0];
 }

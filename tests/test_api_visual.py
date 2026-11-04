@@ -13,7 +13,8 @@ import pytest
 from dji_thermal_ui.analyzer import thermal_conversion, thermal_mosaics
 from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset
 from tests.fakes import (CONVERSIONS, DATASETS, THERMAL_MODELS, VISUAL_FILES, VISUAL_MODELS, analysed, converted,
-                         fake_make_mosaic, fake_measure, fake_visual, frame_models, mosaic_lonlat, uploaded,
+                         fake_make_mosaic, fake_measure, fake_visual, frame_models, mosaic_lonlat, mosaic_square,
+                         uploaded,
                          write_frame_models, write_mosaic)
 
 THERMAL_FILES = tuple(m[0] for m in THERMAL_MODELS)
@@ -362,8 +363,86 @@ def test_its_visual_frames_are_served_as_themselves(api):
     assert api.get(url, {'frame': THERMAL_FILES[0]}).status_code == 404
 
 
-def test_the_navigation_pane_gives_it_no_frames(api):
+def test_the_navigation_pane_gives_it_its_frames_and_mosaic(api):
     c, _ = visual_only(api)
     listed = api.get("/api/navigation").data['projects']
     nav = next(x for p in listed for d in p['datasets'] for x in d['conversions'] if x['id'] == c.id)
-    assert (nav['frames'], nav['mosaics']) == (False, True)
+    assert (nav['frames'], nav['mosaics']) == (True, True)
+
+
+def test_its_frames_are_the_flights_visual_photos_with_the_ones_the_mosaic_placed(api):
+    c, _ = visual_only(api)
+    res = api.get("{}/{}/frames".format(CONVERSIONS, c.id))
+    assert res.status_code == 200 and res.data['visual_only'] is True
+    frames = res.data['frames']
+    assert [f['path'] for f in frames] == list(VISUAL_FILES)
+    assert [(f['converted'], f['mosaic']) for f in frames] == [(True, 0), (True, 1)]
+    # Never measured as a thermal frame
+    assert api.get("{}/{}/frame".format(CONVERSIONS, c.id), {'frame': VISUAL_FILES[0]}).status_code in (400, 404)
+
+
+def measure(api, c, geometry, target='visual', **more):
+    return api.post("{}/{}/measure".format(CONVERSIONS, c.id), dict({'target': target, 'geometry': geometry}, **more),
+                    format='json')
+
+
+def test_a_line_on_it_measures_its_length_and_an_area_its_area_and_perimeter_with_no_temperatures(api):
+    c, _ = visual_only(api)
+    line = measure(api, c, {'type': 'LineString', 'coordinates': [mosaic_lonlat(16, 32), mosaic_lonlat(48, 32)]})
+    assert line.status_code == 200, line.data
+    assert line.data['result']['length'] == pytest.approx(1.6, abs=0.01) and line.data['result']['valid_pixels'] > 0
+    area = measure(api, c, mosaic_square(24, 24, 40, 40)).data['result']
+    assert area['area'] == pytest.approx(0.78 ** 2, abs=0.01) and area['perimeter'] == pytest.approx(4 * 0.78, abs=0.01)
+    assert not {'mean', 'min', 'max', 'value', 'histogram'} & set(area)
+
+
+def test_a_spot_where_no_frame_is_is_outside_it(api):
+    c, _ = visual_only(api)
+    res = measure(api, c, {'type': 'Point', 'coordinates': mosaic_lonlat(2, 2)}).data['result']
+    assert (res['valid_pixels'], res['reason']) == (0, 'outside_raster')
+    assert measure(api, c, {'type': 'Point', 'coordinates': mosaic_lonlat(32, 32)}).data['result']['valid_pixels'] == 1
+
+
+def test_only_a_visual_mosaic_of_its_own_is_measured_as_visual_and_never_as_temperatures(api, conversion):
+    c, _ = visual_only(api)
+    spot = {'type': 'Point', 'coordinates': mosaic_lonlat(32, 32)}
+    assert measure(api, c, spot, target='as_converted').status_code == 400
+    assert measure(api, conversion, spot).status_code == 400
+    assert measure(api, c, None).status_code == 400          # all of it: no temperatures to sum up
+
+
+def test_its_measurements_are_saved_and_exported_with_their_sizes(api):
+    c, _ = visual_only(api)
+    res = api.post("{}/{}/measurements".format(CONVERSIONS, c.id),
+                   {'name': 'Roof', 'target': 'visual', 'geometry': mosaic_square(24, 24, 40, 40)}, format='json')
+    assert res.status_code == 201, res.data
+    assert res.data['values']['result']['area'] == pytest.approx(0.78 ** 2, abs=0.01)
+    lines = api.get("{}/{}/measurements.csv".format(CONVERSIONS, c.id)).content.decode('utf-8-sig').splitlines()
+    head, row = lines[0].split(','), lines[1].split(',')
+    assert row[head.index('Measured on')] == 'Visual mosaic' and row[head.index('Unit')] == ''
+    assert float(row[head.index('Perimeter')]) == pytest.approx(3.12, abs=0.01) and row[head.index('Length / area unit')] == 'm'
+
+
+def test_a_finding_on_it_keeps_its_area_and_the_visual_frames_that_saw_it(api):
+    c, _ = visual_only(api)
+    url = "{}/{}/findings".format(DATASETS, c.dataset_id)
+    res = api.post(url, {'name': 'Crack', 'conversion': c.id, 'tab': 'visual', 'geometry': mosaic_square(24, 24, 40, 40)},
+                   format='json')
+    assert res.status_code == 201, res.data
+    assert res.data['tab'] == 'visual' and res.data['temperatures']['area'] == pytest.approx(0.78 ** 2, abs=0.01)
+    assert 'mean' not in res.data['temperatures'] and {f['frame'] for f in res.data['frames']} == set(VISUAL_FILES)
+    saved = api.post("{}/{}/measurements".format(CONVERSIONS, c.id),
+                     {'name': 'Spot', 'target': 'visual', 'geometry': {'type': 'Point', 'coordinates': mosaic_lonlat(32, 32)}},
+                     format='json').data
+    res = api.post(url, {'name': 'From it', 'measurement': saved['id']}, format='json')
+    assert res.status_code == 201 and res.data['frames'][0]['frame'] == VISUAL_FILES[0]
+    outside = api.post(url, {'name': 'X', 'conversion': c.id, 'tab': 'visual',
+                             'geometry': {'type': 'Point', 'coordinates': mosaic_lonlat(2, 2)}}, format='json')
+    assert outside.status_code == 400
+
+
+def test_the_compare_list_has_a_visual_mosaic_of_its_own_with_no_temperature_tabs(api, conversion):
+    c, _ = visual_only(api)
+    listed = {x['id']: x for x in api.get("{}/{}/comparable".format(CONVERSIONS, conversion.id)).data}
+    assert (listed[c.id]['tabs'], listed[c.id]['visual'], listed[c.id]['visual_only']) == ([], True, True)
+    assert listed[conversion.id]['visual_only'] is False

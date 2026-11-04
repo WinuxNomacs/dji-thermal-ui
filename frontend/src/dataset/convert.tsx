@@ -320,14 +320,14 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
                 {busy ? <button type="button" class="button default small" data-action="cancel" onClick={() => act("cancel", c)}>
                     <Stop/> Cancel</button> :
                     mosaics ? <a class="button primary small" href={viewer + c.id}>{only ? "View mosaic" : "View mosaics"}</a> :
-                    ready && !only ? <a class="button primary small" href={viewer + c.id + "/frame"}>Frames</a> :
+                    ready ? <a class="button primary small" href={viewer + c.id + "/frame"}>Frames</a> :
                     <button type="button" class="button default small" data-action="use" onClick={() => act("use", c)}>Use settings</button>}
                 <span class={"menu" + (menu ? " open" : "")} ref={ref}>
                     <button type="button" class="icon-button" title="More" aria-label="More" aria-expanded={menu}
                             onClick={() => setMenu(!menu)}><Ellipsis/></button>
                     {menu && <ul class="menu-items">
-                        {mosaics && !only && link(viewer + c.id + "/frame", "Frames")}
-                        {mosaics && !only && link(viewer + c.id + "/compare", "Compare with…")}
+                        {mosaics && link(viewer + c.id + "/frame", "Frames")}
+                        {mosaics && link(viewer + c.id + "/compare", "Compare with…")}
                         {(c.file_count || 0) > 0 && c.status !== "converting" && link(base + c.id + "/download", "Download all")}
                         <li><button type="button" data-action="files" onClick={() => { setMenu(false); setShown(!shown); }}>
                             {shown ? "Hide files" : "Files"}</button></li>

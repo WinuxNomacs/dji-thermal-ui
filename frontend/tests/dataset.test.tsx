@@ -279,10 +279,10 @@ describe("the dataset's files and conversions", () => {
         expect(sortRows([{v: 2}, {v: null}, {v: 1}], "v", true).map((r) => r.v)).toEqual([2, 1, null]);
     });
 
-    it("opens the frames in the newest ready conversion, never a visual mosaic of its own", () => {
+    it("opens the frames in the newest ready conversion, a visual mosaic of its own's its visual photos", () => {
         expect(newestReady([CONVERSION])!.id).toBe(9);
         expect(newestReady([{...CONVERSION, status: "failed"}])).toBeNull();
-        expect(newestReady([{...CONVERSION, visual_only: true}])).toBeNull();
+        expect(newestReady([{...CONVERSION, visual_only: true}])!.id).toBe(9);
     });
 
     it("counts why images were skipped, the most common first", () => {
@@ -1363,7 +1363,7 @@ describe("the Datasets tab", () => {
                                        settings: {max_pitch: null, visual_gsd: 0.005, visual_height_cell: 16, strip_location: false}});
     });
 
-    it("lists a visual mosaic of its own as ready, with its mosaic's files, and no frames, compare or WebODM", async () => {
+    it("lists a visual mosaic of its own as ready, with its mosaic's files, its frames and compare, and no WebODM", async () => {
         const files = ["mosaics/visual/mosaic_visual.json", "mosaics/visual/mosaic_visual.tif"];
         const visual = {...CONVERSION, visual_only: true, converted: 0, skipped: 0, mosaic_files: files,
                         settings: {...DEFAULTS, visual_only: true, visual_gsd: 0.005}};
@@ -1374,7 +1374,9 @@ describe("the Datasets tab", () => {
         expect([...card().querySelectorAll(".chip")].map((c) => c.textContent)).toEqual(["Visual mosaic", "0.5 cm pixels"]);
         expect(card().querySelector(".figures-line")!.textContent).not.toContain("converted");
         await openMenu();
-        ["Frames", "Compare with…", "Process in WebODM"].forEach((label) => expect(menuItem(label)).toBeUndefined());
+        expect(menuItem("Frames")!.getAttribute("href")).toBe("/conversion/9/frame");
+        expect(menuItem("Compare with…")).not.toBeUndefined();
+        expect(menuItem("Process in WebODM")).toBeUndefined();
         click(menuItem("Files")!);
         await ticks();
         expect(card().querySelector(".results")!.textContent).toBe("Mosaics: visual/mosaic_visual.json, visual/mosaic_visual.tif");

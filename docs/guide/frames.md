@@ -24,6 +24,14 @@ temperatures), image sliders, Pointer info and [measuring](measuring.md). Its **
 shows the frame's visual image in its place or beside it, with the same shapes and the cursor on it, and measures the
 thermal frame under them. A frame can be measured again with other parameters.
 
+## The photos of a flight of visual images only
+
+The frames of the dataset of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only) are the
+flight's photos, listed in the same way (those **In the mosaic**, the **Oblique** ones). Each is shown as it was
+taken, with when and where, its height above the take-off point, its gimbal pitch and whether the mosaic placed it,
+and **Full size** opens it at its own size. It has no temperatures to read or measure. The Files tab's photos open
+here too.
+
 ## The map
 
 Its small map shows where the frames were taken. It can show the flight's visual photos too (orange squares), a

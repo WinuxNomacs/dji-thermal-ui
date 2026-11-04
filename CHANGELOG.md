@@ -13,6 +13,11 @@ All notable changes are recorded here. The format follows
   settings (the pitch limit, the pixel size, the height cells and removing the location). The viewer shows it on its
   Visual tab alone, with no temperatures: a click or a shape drawn opens the visual frames that saw it, and the panel
   says how it was laid out. The flight report puts such a flight's photos on its map.
+- On such a dataset's mosaic, a line drawn in the viewer gives its length, and an area, box or circle its area and
+  perimeter, with **Save measurement** (exported as CSV and GeoJSON, with a new Perimeter column) and **Keep as
+  finding** (which keeps the area and the visual photos that saw it). The compare page shows it beside or over any
+  mosaic, its frames page shows the flight's photos as taken with ← and →, and the viewer offers its **Mosaic
+  report**.
 
 - The navigation pane lists **Frames** under each dataset with frames, opening its frames explorer (marked there):
   datasets fold now, as projects and flights do.
@@ -90,8 +95,10 @@ All notable changes are recorded here. The format follows
   under the Image sliders reads "Adjustments change how the image is drawn: temperatures remain unchanged."
 - The guide, the README and the documentation's home page say the mosaics are a preview to help the analysis, not a
   replacement for an orthomosaic made by photogrammetry (ODM's or WebODM's).
-- dji-thermal-cli 1.13.0 (from 1.11.0): mosaics are faster, the frames' overlaps matched in worker processes (the
+- dji-thermal-cli 1.13.1 (from 1.11.0): mosaics are faster, the frames' overlaps matched in worker processes (the
   thermal test flight's mosaic in 35 s instead of 96 s on 8 workers), and unchanged to the pixel.
+  With 1.13.1, a flight of visual images only gets no WebODM plan, and no "only 0 nadir frame(s)" error on its
+  Problems tab.
 - The line giving the mosaic's (or frame's) own lowest and highest values is straight under the colour scale, above
   the range's fields.
 - The viewer's and the frame page's **Export PNG** button is now the Export dialog's first format, **PNG as shown**,

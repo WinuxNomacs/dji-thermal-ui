@@ -5,7 +5,10 @@ project's listed first. Open it with **Compare with…** in the viewer's header 
 
 ![The compare page: the visual mosaic over the thermal one in pane A, the thermal mosaic in pane B](../assets/screenshots/compare-overlay.png)
 
-- **A pane** shows a dataset's mosaic, or its visual mosaic.
+- **A pane** shows a dataset's mosaic, or its visual mosaic. The dataset of a
+  [flight of visual images only](datasets.md#a-flight-of-visual-images-only) is listed with its visual mosaic alone:
+  its pane has no values under the cursor, a spot or an area drawn on it opens its visual photos, and it has no
+  difference.
 - **Overlay (A over B)** draws pane A's mosaic over pane B's in one pane, faded with an opacity slider and cut at a
   swipe line dragged across it: visual over thermal, or two thermal mosaics.
 - **The difference** of two mosaics, in one pane.
