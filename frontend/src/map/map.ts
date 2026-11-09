@@ -209,6 +209,11 @@ export class ThermalLayer {
         this.layer.setStyle(this.style());
     }
 
+    // The values were made again under the same address (a mosaic rebuilt): the next setValues asks for them anew
+    forget() {
+        this.key = "";
+    }
+
     // Coloured otherwise: the style compiled again only when its expression is not the same, else its variables set
     // (as a slider dragged changes the range or the sharpening, quickly enough to follow it)
     setColouring(colouring: Colouring) {

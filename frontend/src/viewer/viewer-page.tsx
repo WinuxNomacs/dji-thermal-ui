@@ -197,6 +197,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const findingsShown = useRef<VectorSource | null>(null);
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0});
+    const readyShown = useRef(false);
 
     const ready = isReady(v);
     const unit = v?.unit;
@@ -225,7 +226,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
-        const wasReady = isReady(v);
+        // Kept apart from v: the polling goes on from the render that started it, whose v is by then an old one
+        const wasReady = readyShown.current;
+        readyShown.current = isReady(data);
         setV(data);
         document.title = data.name + " · DJI Thermal Analyzer";
         if (isReady(data)) {
@@ -377,7 +380,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     // The mosaic drawn again as the tab, palette, range, adjustments, isotherm and correction now are: its values
     // asked again only for another tab or correction
     useEffect(() => {
-        if (values) layer.current?.setValues(values);
+        // No values while the mosaics are built again: what comes back has the same address but other tiles
+        if (!values) layer.current?.forget();
+        else layer.current?.setValues(values);
         if (colouring) layer.current?.setColouring(colouring);
     }, [JSON.stringify(values), JSON.stringify(colouring)]);
 
@@ -881,11 +886,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     // A saved measurement shown on its mosaic, with its figures as saved
     function showSaved(m: Measurement) {
         if (!m.geometry) return;
-        if (isTemperatureTab(m.target) && m.target !== tab) {
-            drawing.current?.stop();
-            syncTools();
-            setTab(m.target);
-        }
+        if (isTemperatureTab(m.target) && (m.target !== tab || visual)) chooseTab(m.target);
+        asked.current.measure++;
         setIndex(null);
         setCurrent({geometry: m.geometry, target: m.target, saved: m, res: m.values || null, shape: m.values?.shape});
     }
