@@ -314,3 +314,22 @@ def _saved(tmp_path, data):
     path = tmp_path / "copy.jpg"
     path.write_bytes(data)
     return path
+
+
+def test_an_imported_orthophotos_curve_and_png_read_it_in_its_own_unit(api, monkeypatch):
+    from dji_thermal_ui.analyzer import api as api_module
+    from dji_thermal_ui.analyzer.raster.tiler import colormap_entries
+    c, _ = converted(api)
+    path, _band = mosaics.tab_raster(c, 'as_converted')
+    # As an import leaves it: no mosaics of its own, its temperatures in the unit it was imported in
+    c.orthophoto, c.mosaics = {'raster': os.path.relpath(path, c.data_dir()), 'unit': 'F'}, {}
+    units = []
+    monkeypatch.setattr(api_module.thermal_measure, 'mosaic_histogram', lambda _p, unit, _k: units.append(unit))
+    api_module.mosaic_curve(c, 'webodm', path, 1, None, 10, 30, {'gamma': 1.0, 'equalize': True, 'sharpen': 0.0})
+    shown = exports.mosaic_band_values
+    monkeypatch.setattr(exports, 'mosaic_band_values',
+                        lambda v, t, unit, correction: units.append(unit) or shown(v, t, unit, correction))
+    adjust = {'gamma': 1.0, 'equalize': False, 'sharpen': 0.0}
+    list(exports.mosaic_png(c, path, 1, {'view': {'adjust': adjust, 'isotherm': None}, 'correction': None, 'tab': 'webodm'},
+                            colormap_entries(['gray'])[0]['color_map'], (10, 30), None))
+    assert set(units) == {'F'}

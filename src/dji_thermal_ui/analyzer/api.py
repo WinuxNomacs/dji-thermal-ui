@@ -1889,7 +1889,7 @@ def mosaic_curve(conversion, tab, path, band, correction, low, high, adjust):
     or None when not asked for (or not temperatures)"""
     if not adjust['equalize'] or not thermal_mosaics.temperatures(tab, band):
         return None
-    unit = (conversion.mosaics or {}).get('unit') or 'C'
+    unit = mosaic_unit(conversion)
     kept = os.path.join(conversion.data_dir(), thermal_mosaics.VIEWER_DIR, HISTOGRAM_FILE.format(tab))
     histogram = thermal_measure.mosaic_histogram(path, unit, kept)
     return thermal_measure.equalization(thermal_measure.corrected_histogram(histogram, unit, correction), low, high)
