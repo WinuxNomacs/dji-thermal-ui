@@ -8,7 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned yet.
+**Up next**: the bug review (requested in `new.md`, 2026-11-09): review the code for bugs that hurt the user
+experience, correct what is simple or blatant, and note the rest to go over with the user. Details in "Bug review" below.
 
 J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
