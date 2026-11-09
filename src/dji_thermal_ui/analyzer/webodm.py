@@ -7,6 +7,7 @@ The client logs in when it needs a token (WebODM's JWT lasts 6 hours and is kept
 token expires or is refused. Every call has a timeout; what goes wrong is said in plain words (WebODMError)."""
 
 import base64
+import http.client
 import json
 import mimetypes
 import re
@@ -41,6 +42,9 @@ DOWNLOAD_CHUNK = 1024 * 1024
 TASK_STATUSES = {10: 'queued', 20: 'running', 30: 'failed', 40: 'completed', 50: 'canceled'}
 
 UNREADABLE = "The saved password can't be read: type it again under System Settings › WebODM"
+
+# What a call raises when the other end can't be reached, or doesn't answer in HTTP (an https port asked in http)
+UNREACHABLE = (urllib.error.URLError, OSError, http.client.HTTPException)
 
 _tokens = {}            # (url, username, password) -> (token, when it expires)
 _lock = threading.Lock()
@@ -135,7 +139,7 @@ def _send(url, method='GET', data=None, headers=None, timeout=TIMEOUT):
                 raise WebODMError("WebODM's address sends to %s instead: use that address"
                                   % (e.headers.get('Location') or "another")) from None
             return e.code, e.read()
-    except (urllib.error.URLError, OSError) as e:
+    except UNREACHABLE as e:
         reason = getattr(e, 'reason', e)
         raise WebODMError("WebODM could not be reached at %s (%s): is it running?"
                           % (url.split('/api/')[0], reason)) from None
@@ -161,7 +165,10 @@ def _detail(data):
 
 def _refused(status, raw, path):
     """The WebODMError for an answer that isn't a success"""
-    detail = _detail(_json(raw)) if raw else ""
+    try:
+        detail = _detail(_json(raw)) if raw else ""
+    except WebODMError:                         # an error page of HTML (its web server's, or a crash) says nothing more
+        detail = ""
     if status in (401, 403):
         return WebODMError("WebODM refused: the account lacks a permission this needs (see System Settings › "
                            "WebODM)" + (": " + detail if detail else ""))
@@ -252,7 +259,7 @@ class Client:
                         token, fresh = self.login(), True
                         continue
                     raise _refused(e.code, e.read(), url[len(self.url):]) from None
-            except (urllib.error.URLError, OSError) as e:
+            except UNREACHABLE as e:
                 raise WebODMError("WebODM could not be reached at %s (%s): is it running?"
                                   % (self.url, getattr(e, 'reason', e))) from None
             break
@@ -269,7 +276,7 @@ class Client:
                         done += len(chunk)
                         if progress:
                             progress(done, total)
-            except (urllib.error.URLError, OSError) as e:
+            except UNREACHABLE as e:
                 raise WebODMError("The download from WebODM stopped part way (%s): try again"
                                   % getattr(e, 'reason', e)) from None
         if total and done != total:

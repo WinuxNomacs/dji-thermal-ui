@@ -2,6 +2,7 @@
 masked, the password never sent back and kept encrypted, its key in the database; and the client that logs in when it needs a token"""
 
 import base64
+import http.client
 import io
 import json
 import os
@@ -378,6 +379,24 @@ def test_an_answer_that_is_not_webodms_is_said_so(server):
     server['routes']['GET /api/processingnodes/'] = (200, {'not': "a list"})
     with pytest.raises(webodm.WebODMError, match="not as WebODM does"):
         webodm.Client(URL, "admin", PASSWORD).nodes()
+
+
+@pytest.mark.parametrize("status", [400, 404, 500, 502])
+def test_an_error_page_of_html_is_said_as_webodms_answer_not_as_another_server(status):
+    error = webodm._refused(status, b"<html><h1>Bad Gateway</h1></html>", "/api/projects/")
+    assert "not as WebODM does" not in str(error) and (status in (400, 404) or str(status) in str(error))
+
+
+def test_an_address_that_does_not_speak_http_is_said_to_be_unreachable(monkeypatch):
+    def garbled(_req, timeout):
+        raise http.client.BadStatusLine("\x15\x03\x01")
+    monkeypatch.setattr(webodm._opener, 'open', garbled)
+    with pytest.raises(webodm.WebODMError, match="could not be reached"):
+        webodm._send(URL + "/api/token-auth/")
+    with pytest.raises(webodm.WebODMError, match="could not be reached"):
+        webodm._tokens[(URL, "admin", PASSWORD)] = ("token", time.time() + 6 * 3600)
+        webodm.Client(URL, "admin", PASSWORD).download(1, "t", "orthophoto.tif", "/nowhere")
+    webodm._tokens.clear()
 
 
 @pytest.mark.parametrize("value", ["plain-value_1.2:/@+=~%", "with space", "has#hash", "it's", "both ' and \"", " edge "])
