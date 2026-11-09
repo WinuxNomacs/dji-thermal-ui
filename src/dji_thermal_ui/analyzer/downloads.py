@@ -4,6 +4,7 @@
 import mimetypes
 import os
 import re
+from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 from django.http import FileResponse, HttpResponse, StreamingHttpResponse
@@ -34,6 +35,14 @@ class RangeFileWrapper:
         return data
 
 
+def disposition(kind, name):
+    """A Content-Disposition header: a name beyond ASCII as RFC 6266 has it (else Django encodes the whole header, and
+    the browser finds no name in it)"""
+    if name.isascii():
+        return "{}; filename={}".format(kind, name)
+    return "{}; filename*=UTF-8''{}".format(kind, quote(name, safe=''))
+
+
 def download_file_response(request, filePath, content_disposition, download_filename=None, accept_ranges=False):
     filename = os.path.basename(filePath)
     if download_filename is None:
@@ -61,7 +70,7 @@ def download_file_response(request, filePath, content_disposition, download_file
 
             response = StreamingHttpResponse(RangeFileWrapper(file, length), status=206, content_type=content_type)
             response['Content-Range'] = 'bytes {}-{}/{}'.format(start, end, filesize)
-            response['Content-Disposition'] = "{}; filename={}".format(content_disposition, download_filename)
+            response['Content-Disposition'] = disposition(content_disposition, download_filename)
             response['Content-Length'] = length
             response['Accept-Ranges'] = 'bytes'
             return response
@@ -76,7 +85,7 @@ def download_file_response(request, filePath, content_disposition, download_file
                                 content_type=content_type)
 
     response['Content-Type'] = content_type
-    response['Content-Disposition'] = "{}; filename={}".format(content_disposition, download_filename)
+    response['Content-Disposition'] = disposition(content_disposition, download_filename)
     response['Content-Length'] = filesize
 
     if accept_ranges:
@@ -97,7 +106,7 @@ def download_file_stream(request, stream, content_disposition, download_filename
     response = StreamingHttpResponse(stream, content_type=(mimetypes.guess_type(download_filename)[0] or "application/zip"))
 
     response['Content-Type'] = mimetypes.guess_type(download_filename)[0] or "application/zip"
-    response['Content-Disposition'] = "{}; filename={}".format(content_disposition, download_filename)
+    response['Content-Disposition'] = disposition(content_disposition, download_filename)
     response['Content-Length'] = len(stream)
 
     # For testing

@@ -35,7 +35,7 @@ from zipstream.ng import ZipStream
 
 from . import backup, basemaps, colouring, envfile, exports, restore, jobs, places, storage, thermal_analysis, thermal_conversion, thermal_measure, thermal_mosaics, video, webodm, webodm_import, webodm_tasks
 from .. import move
-from .downloads import download_file_response, download_file_stream
+from .downloads import disposition, download_file_response, download_file_stream
 from .models import (FINDING_SEVERITIES, FINDING_STATUSES, Finding, Preferences, Project, ThermalConversion,
                      ThermalDataset, ThermalMeasurement, VideoFrame, WebODMTask)
 from .raster.security import path_traversal_check
@@ -578,7 +578,7 @@ class ProjectArchiveView(DatasetView):
                             status=status.HTTP_409_CONFLICT)
         archive = backup.Archive(project, datasets)
         response = StreamingHttpResponse(archive, content_type='application/x-tar')
-        response['Content-Disposition'] = 'attachment; filename={}.tar'.format(download_name(project.name))
+        response['Content-Disposition'] = disposition('attachment', download_name(project.name) + '.tar')
         response['Content-Length'] = len(archive)
         return response
 
@@ -1138,7 +1138,7 @@ class ExportDownloadView(DatasetView):
             return download_file_response(request, data, 'attachment', filename)
         else:
             res = StreamingHttpResponse(data, content_type=mimetypes_of(filename))
-        res['Content-Disposition'] = 'attachment; filename={}'.format(filename)
+        res['Content-Disposition'] = disposition('attachment', filename)
         return res
 
 
@@ -2933,7 +2933,7 @@ class MeasurementsCsvView(DatasetView):
                 writer.writerow(["" if row[k] is None else row[k] for k, _l in CSV_COLUMNS])
         response = HttpResponse(buf.getvalue(), content_type='text/csv; charset=utf-8')
         name = download_name("{}-{}-measurements".format(conversion.dataset.name, conversion.name)) + ".csv"
-        response['Content-Disposition'] = 'attachment; filename="{}"'.format(name)
+        response['Content-Disposition'] = disposition('attachment', name)
         return response
 
 
@@ -2951,7 +2951,7 @@ class MeasurementsGeoJsonView(DatasetView):
         response = HttpResponse(json.dumps({'type': 'FeatureCollection', 'features': features}, ensure_ascii=False),
                                 content_type='application/geo+json; charset=utf-8')
         name = download_name("{}-{}-measurements".format(conversion.dataset.name, conversion.name)) + ".geojson"
-        response['Content-Disposition'] = 'attachment; filename="{}"'.format(name)
+        response['Content-Disposition'] = disposition('attachment', name)
         return response
 
 
