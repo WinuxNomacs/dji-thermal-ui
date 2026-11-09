@@ -11,12 +11,13 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management import call_command
-from django.db import connections
+from django.db import Error as DatabaseError, connections
+from django.db.models import Q
 
 from .. import move
 from ..move import folder_size
 from . import backup, restore
-from .models import Project, ThermalConversion, ThermalDataset
+from .models import Project, ThermalConversion, ThermalDataset, WebODMTask
 
 DATABASE_FILES = ('db.sqlite3', 'db.sqlite3-wal', 'db.sqlite3-shm')
 REPLACED = 'replaced'           # a set-aside data folder's database while importing from it: this thread's own alias
@@ -73,7 +74,9 @@ def busy():
     """Whether a job runs or an import is under way: the data folder cannot move meanwhile"""
     return (ThermalDataset.objects.filter(status='analyzing').exists() or
             ThermalConversion.objects.filter(status='converting').exists() or
-            ThermalConversion.objects.filter(mosaic_status='building').exists() or bool(restore.IMPORTS))
+            ThermalConversion.objects.filter(mosaic_status='building').exists() or
+            WebODMTask.objects.filter(Q(status='uploading') | Q(orthophoto_status='downloading') |
+                                      Q(dsm_status='downloading')).exists() or bool(restore.IMPORTS))
 
 
 def check(path):
@@ -113,7 +116,7 @@ def import_replaced(replaced, ids):
             restore.check_manifest(m)
             made = restore.make_project(m, replaced, restore.free_name(project.name), keep_folders=True)
             out['imported'].append({'name': made.name, 'flights': len(m['flights'])})
-    except (restore.RestoreError, sqlite3.Error, OSError) as e:
+    except (restore.RestoreError, sqlite3.Error, DatabaseError, OSError) as e:
         out['error'] = str(e)
     finally:
         if hasattr(connections._connections, REPLACED):

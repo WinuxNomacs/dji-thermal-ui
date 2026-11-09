@@ -226,7 +226,7 @@ def perform(plan):
     then the pointer written. A move that fails is undone. Returns the result the Storage page shows."""
     source, target = Path(plan['from']), Path(plan['to'])
     result = {'state': 'failed', 'from': str(source), 'to': str(target), 'replaced': None, 'at': time.time(),
-              'imported': [], 'error': None}
+              'imported': [], 'error': None, 'left_behind': None}
     info = inspect(target, source)
     if info['problems']:
         result['error'] = " ".join(info['problems'])
@@ -253,6 +253,7 @@ def perform(plan):
             for e in entries:
                 copied.append(target / e.name)
                 copy(e, target / e.name)
+        datadir.set_pointer(target)
     except OSError as e:
         for p in reversed(copied):
             if p.exists() or p.is_symlink():
@@ -266,9 +267,11 @@ def perform(plan):
         result.update(replaced=None, error="Could not move the files: {}".format(e))
         return result
     if not info['same_drive']:
-        for e in entries:                       # copied whole: the originals go
-            remove(e)
-    datadir.set_pointer(target)
+        for e in entries:                       # copied whole, and in use from there: the originals go
+            try:
+                remove(e)
+            except OSError as err:
+                result['left_behind'] = "Could not remove all of the old folder: {}".format(err)
     try:
         source.rmdir()
     except OSError:
