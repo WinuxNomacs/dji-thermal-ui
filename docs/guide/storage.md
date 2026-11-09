@@ -13,10 +13,11 @@ The data folder can be moved from this page to another folder:
 
 1. **Type the new folder's full path and check it.** It may be a new folder, an empty one, or another data folder of
    this app. A folder holding other files is refused, as is one without room (on another drive, the whole data folder
-   is copied there, then removed here). Nothing moves while a job runs or a project is being imported.
+   is copied there, then removed here). Nothing moves while a job runs, a transfer with WebODM is under way or a project is being imported.
 2. **Moving restarts the server.** The database cannot change under a running server, so the server stops, moves the
    files as they are (same ids and links; a flight read in place is still read there) before it opens the database
-   again, and starts again on the same port. The page reloads when it is back and says how the move went.
+   again, and starts again on the same port. The page reloads when it is back and says how the move went. When something of the old folder could not be removed
+   (a file another program has open), the move still counts: the page says so, and what is left there can be deleted.
 
 **Another data folder there** offers its projects, all chosen at first. Its database and files are set aside in
 `replaced-<date>/` in it, nothing deleted; the projects chosen are then imported from them as an export would bring

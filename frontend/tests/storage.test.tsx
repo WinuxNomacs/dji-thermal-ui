@@ -195,6 +195,9 @@ describe("the move helpers", () => {
         expect(lastMoveText({...m, imported: [], error: "disk gone"})).toEqual(["The data folder was moved from /a to /b.",
             "Not all the projects chosen could be imported: disk gone",
             "What the folder held before is set aside in /b/replaced-2026-10-28."]);
+        expect(lastMoveText({...m, imported: [], replaced: null, left_behind: "Could not remove all of the old folder: in use"}))
+            .toEqual(["The data folder was moved from /a to /b.",
+                      "Could not remove all of the old folder: in use. What is left of /a is no longer used: it can be deleted."]);
         expect(lastMoveText({...m, state: "failed", error: "Permission denied"}))
             .toEqual(["The data folder was not moved to /b: Permission denied"]);
     });

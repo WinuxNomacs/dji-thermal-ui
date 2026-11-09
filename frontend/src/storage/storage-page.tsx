@@ -27,7 +27,7 @@ export interface MoveCheck {
 // How the last move went, as the server wrote it once restarted
 export interface LastMove {
     state: "moved" | "failed"; from: string; to: string; replaced: string | null; at: number;
-    imported: {name: string; flights: number}[]; error: string | null;
+    imported: {name: string; flights: number}[]; error: string | null; left_behind?: string | null;
 }
 
 // A line of the table: a project, one of its flights, or a part of the folder that is no project's
@@ -83,6 +83,7 @@ export function lastMoveText(m: LastMove): string[] {
     if (m.imported.length) out.push("Imported: " + m.imported.map((p) =>
         p.name + " (" + count(p.flights, "flight", "flights") + ")").join(", ") + ".");
     if (m.error) out.push("Not all the projects chosen could be imported: " + m.error);
+    if (m.left_behind) out.push(m.left_behind + ". What is left of " + m.from + " is no longer used: it can be deleted.");
     if (m.replaced) out.push("What the folder held before is set aside in " + m.replaced +
         (m.imported.length ? ", but for the files of the projects imported." : "."));
     return out;

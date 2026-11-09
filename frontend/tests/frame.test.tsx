@@ -11,7 +11,8 @@ import {captureOrder, changesIn, type FrameInfo, frameTag, listFrames, listTitle
 import {shortName} from "../src/frame/frame-list";
 import {FramePage, type Frames} from "../src/frame/frame-page";
 import {FrameReadout, Info} from "../src/frame/panel";
-import {calls, click, key, server, ticks, valuesResponse} from "./helpers";
+import {Drawing} from "../src/measure/drawing";
+import {calls, click, jsonResponse, key, server, ticks, valuesResponse} from "./helpers";
 
 const API = "/api/";
 const BASE = API + "conversions/9";
@@ -372,6 +373,25 @@ describe("the frame page", () => {
         render(null, byId("root"));
         await open(fetchFn);
         expect($("#frames.thumbs img")).not.toBeNull();
+    });
+
+    it("does not put a measurement answered late on the frame moved to", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
+        let answer: (r: Response) => void = () => undefined;
+        const fetchFn = server(routes({["POST " + BASE + "/measure"]: () => new Promise<Response>((r) => { answer = r; })}));
+        await open(fetchFn);
+        click($(".map-tools [data-tool=point]")!);
+        await ticks();
+        const d = start.mock.contexts.at(-1) as unknown as Drawing;
+        d.stop();
+        (d as unknown as {opts: {onDone: (g: unknown) => void}}).opts.onDone({type: "Point", coordinates: [1, 2]});
+        await ticks(40);
+        key(document.body, "ArrowRight");
+        await ticks(40);
+        expect(shownFrame()).toBe(B);
+        answer(await jsonResponse({result: {kind: "Point", valid_pixels: 1, value: 30, mean: 30}}));
+        await ticks(40);
+        expect($("#measure-card")).toBeNull();
     });
 
     it("measures the frame again with the parameters changed, beside it as converted", async () => {

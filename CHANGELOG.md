@@ -203,6 +203,19 @@ All notable changes are recorded here. The format follows
   corner: the page now loads OpenLayers' styles. Printing was not affected.
 - On Windows, the tabs of the viewer and of a flight's page (Mosaic, Harmonized…; Datasets, Files…) showed a small
   vertical scrollbar at their right end: their line is drawn inside the strip now, so nothing scrolls.
+- Moving the data folder to another drive: an original that could not be removed stopped the app on a half-removed
+  folder. The move now counts, the Storage page says what was left behind, and a new folder that can't be remembered
+  undoes the move. A transfer with WebODM now stops a move, as a job does.
+- A database error while importing the projects of a folder set aside no longer stops the app from starting.
+- WebODM: an error page from WebODM itself is no longer called another server's answer, and an address that doesn't
+  speak HTTP is said to be unreachable, instead of a server error.
+- Downloads named with letters beyond ASCII (a project's archive, an export, measurements) keep their name.
+- An orthophoto imported from WebODM in Fahrenheit or Kelvin: its equalization and PNG export no longer read it as
+  Celsius.
+- The viewer after **Rebuild** shows the new mosaic and its range, without reloading the page.
+- A saved measurement chosen on the viewer's Visual tab now goes to its mosaic's tab and shows its card.
+- The frame page: a measurement answered after moving to the next frame no longer appears on that frame.
+- The project import dialog no longer sticks when the app stops answering: it says so and can be used again.
 
 ## [0.9.0] - 2026-10-29
 

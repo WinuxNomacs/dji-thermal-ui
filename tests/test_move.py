@@ -11,11 +11,11 @@ import time
 from pathlib import Path
 
 import pytest
-from django.db import connection, connections
+from django.db import OperationalError, connection, connections
 
 from dji_thermal_ui import cli, datadir, move
 from dji_thermal_ui.analyzer import storage
-from dji_thermal_ui.analyzer.models import Project, ThermalConversion, ThermalDataset
+from dji_thermal_ui.analyzer.models import Project, ThermalConversion, ThermalDataset, WebODMTask
 from tests.fakes import dataset
 from tests.test_api_import import flight, tree
 
@@ -189,6 +189,35 @@ def test_a_move_that_fails_is_undone_and_the_pointer_left_as_it_was(tmp_path, mo
     assert datadir.pointer() is None
 
 
+def test_originals_that_cannot_be_removed_leave_the_move_made_and_remembered(tmp_path, monkeypatch):
+    source = current(tmp_path / "data")
+    inspected = move.inspect
+    monkeypatch.setattr(move, "inspect", lambda t, s: dict(inspected(t, s), same_drive=False))
+    removing = move.remove
+
+    def remove(path):
+        if path.name == "secret_key":
+            raise PermissionError(13, "Permission denied")
+        return removing(path)
+    monkeypatch.setattr(move, "remove", remove)
+    result = move.perform({'from': str(source), 'to': str(tmp_path / "new"), 'projects': []})
+    assert result['state'] == 'moved' and "Permission denied" in result['left_behind']
+    assert datadir.pointer() == tmp_path / "new" and (tmp_path / "new" / "db.sqlite3").read_bytes() == b"db"
+    assert tree(source) == {"secret_key": b"mine"}
+
+
+def test_a_new_folder_that_cannot_be_remembered_undoes_the_move(tmp_path, monkeypatch):
+    source = current(tmp_path / "data")
+    before = tree(source)
+
+    def refused(_path):
+        raise PermissionError(13, "Permission denied")
+    monkeypatch.setattr(datadir, "set_pointer", refused)
+    result = move.perform({'from': str(source), 'to': str(tmp_path / "new"), 'projects': []})
+    assert result['state'] == 'failed' and "Permission denied" in result['error']
+    assert tree(source) == before and not (tmp_path / "new").exists()
+
+
 def test_a_move_whose_target_changed_since_it_was_asked_is_not_made(tmp_path):
     source = current(tmp_path / "data")
     write(tmp_path / "new" / "notes.txt")
@@ -260,6 +289,20 @@ def test_an_import_that_fails_leaves_the_set_aside_files_where_they_were(api, tm
     assert ThermalDataset.objects.count() == 1
 
 
+@pytest.mark.django_db(transaction=True)
+def test_a_database_that_cannot_be_brought_up_to_date_is_said_not_raised(api, tmp_path, monkeypatch):
+    c = flight(api)
+    replaced = tmp_path / "replaced"
+    replaced.mkdir()
+    copy_database(connection.settings_dict['NAME'], replaced / "db.sqlite3")
+
+    def broken(*_args, **_kwargs):
+        raise OperationalError("no such table: django_migrations")
+    monkeypatch.setattr(storage, "call_command", broken)
+    out = storage.import_replaced(replaced, [c.dataset.project_id])
+    assert out['imported'] == [] and "no such table" in out['error']
+
+
 @pytest.fixture
 def movable(settings, tmp_path):
     """The data folder is one the page may move (not set by --data-dir or the environment)"""
@@ -293,6 +336,15 @@ def test_a_folder_set_by_the_command_or_a_job_running_stops_a_move(api, movable,
     res = api.post(STORAGE + "/move", {'path': str(tmp_path / "new")}, format='json')
     assert res.status_code == 409 and "job is running" in res.data['problems'][0]
     assert move.read_json(move.PLAN) is None and not move.RESTART.is_set()
+
+
+@pytest.mark.parametrize("fields", [{'status': 'uploading'}, {'status': 'completed', 'orthophoto_status': 'downloading'},
+                                    {'status': 'completed', 'dsm_status': 'downloading'}])
+def test_a_transfer_with_webodm_stops_a_move_as_a_job_does(api, movable, tmp_path, fields):
+    c = ThermalConversion.objects.create(dataset=dataset(name="Busy"), name="Dataset", status='ready')
+    WebODMTask.objects.create(conversion=c, url="http://odm", project_name="P", name="T", **fields)
+    res = api.post(STORAGE + "/move", {'path': str(tmp_path / "new")}, format='json')
+    assert res.status_code == 409 and "job is running" in res.data['problems'][0]
 
 
 def test_a_move_asked_is_planned_and_the_server_restarted(api, movable, tmp_path):

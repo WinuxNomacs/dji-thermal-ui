@@ -9,6 +9,7 @@ import {Upload} from "../components/icons";
 
 export const PIECE = 16 * 1024 * 1024;  // bytes a request (the server takes 1 GB at most)
 const RETRIES = 2;                      // a piece that fails is sent again this many times
+const UNANSWERED = "The app did not answer: is it still running?";
 
 // The archive's project as the server read it from the manifest
 export interface ArchiveProject {
@@ -108,7 +109,13 @@ export function ImportDialog({api, taken, onClose, onImported}: Props) {
         setFile(f);
         setError("");
         setStage("sending");
-        const r = await readJson<{id?: string}>(await sendJson(api + "imports", "POST", {size: f.size}));
+        let r;
+        try {
+            r = await readJson<{id?: string}>(await sendJson(api + "imports", "POST", {size: f.size}));
+        } catch {
+            setStage("choose");
+            return setError(UNANSWERED);
+        }
         if (!r.ok || !r.data.id) {
             setStage("choose");
             return setError(errorText(r.data, "Could not start the import."));
@@ -116,7 +123,8 @@ export function ImportDialog({api, taken, onClose, onImported}: Props) {
         id.current = r.data.id;
         controller.current = new AbortController();
         try {
-            await sendArchive((u, i) => fetch(u, i), api + "imports/" + r.data.id, csrfToken(), f, (n, p) => {
+            const importId = r.data.id;
+            await sendArchive((u, i) => fetch(u, i), api + "imports/" + importId, csrfToken(), f, (n, p) => {
                 setReceived(n);
                 if (p && !named.current) {
                     named.current = true;
@@ -140,7 +148,13 @@ export function ImportDialog({api, taken, onClose, onImported}: Props) {
         if (stage !== "received" || !trimmed || inUse) return;
         setStage("importing");
         setError("");
-        const r = await readJson<{id?: number}>(await sendJson(api + "imports/" + id.current, "POST", {name: trimmed}));
+        let r;
+        try {
+            r = await readJson<{id?: number}>(await sendJson(api + "imports/" + id.current, "POST", {name: trimmed}));
+        } catch {
+            setStage("received");
+            return setError(UNANSWERED);
+        }
         if (r.ok && r.data.id) {
             id.current = "";
             navigationChanged();

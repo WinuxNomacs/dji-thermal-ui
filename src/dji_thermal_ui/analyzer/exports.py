@@ -128,10 +128,11 @@ def check_frames(dataset, conversion, raw, unit):
 
 def check_mosaic(conversion, tab, raw, correction):
     """A mosaic export as asked ({format, view}): the request to keep, or ExportError"""
+    from .api import mosaic_unit
     fmt = raw.get('format')
     if fmt not in MOSAIC_FORMATS:
         raise ExportError("The format is one of " + ", ".join(MOSAIC_FORMATS))
-    unit = (conversion.mosaics or {}).get('unit') or 'C'
+    unit = mosaic_unit(conversion)
     return {'kind': 'mosaic', 'conversion': conversion.id, 'tab': tab, 'format': fmt,
             'view': check_view(raw.get('view'), unit), 'correction': correction}
 
@@ -441,8 +442,9 @@ def mosaic_png(conversion, path, band, request, colors, value_range, curve):
     """A mosaic tab coloured at full resolution, as a PNG streamed strip by strip (clear where it has no data)"""
     import rasterio
     from rasterio.windows import Window
+    from .api import mosaic_unit
     view, correction = request['view'], request['correction']
-    unit = (conversion.mosaics or {}).get('unit') or 'C'
+    unit = mosaic_unit(conversion)
     with rasterio.open(path) as src:
         width, height = src.width, src.height
     index = request['tab'] == 'source_frame'

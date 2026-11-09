@@ -260,6 +260,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         drawings.current.forEach((d) => { d.stop(); d.clear(); });
         syncTools();
         fit.current = true;
+        asked.current.measure++;
         setFrame(path);
         setCurrent(null);
         setIndex(null);

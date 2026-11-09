@@ -17,7 +17,7 @@ from dji_thermal_ui.analyzer import thermal_measure as measuring
 from dji_thermal_ui.analyzer import thermal_mosaics as mosaics
 from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset, ThermalMeasurement
 from dji_thermal_ui.analyzer.raster.thermal_correction import corrected_array
-from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, analysed, converted, fake_measure, fake_process,
+from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, analysed, converted, dataset, fake_measure, fake_process,
                          mosaic_lonlat, mosaic_square, mosaic_temperature, mosaic_tile, uploaded)
 
 
@@ -470,3 +470,10 @@ def test_a_spot_or_area_far_from_the_mosaic_measures_nothing(api):
         res = api.post(url, {'target': 'as_converted', 'geometry': geometry}, format='json')
         assert res.status_code == 200, res.data
         assert (res.data['result']['valid_pixels'], res.data['result']['reason']) == (0, 'outside_raster')
+
+
+def test_a_download_named_with_letters_beyond_ascii_keeps_them(api):
+    d = dataset(name="Žilina")
+    c = ThermalConversion.objects.create(dataset=d, name="Krov")
+    res = api.get("{}/{}/measurements.csv".format(CONVERSIONS, c.id))
+    assert res['Content-Disposition'] == "attachment; filename*=UTF-8''%C5%BDilina-Krov-measurements.csv"

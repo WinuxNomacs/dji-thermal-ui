@@ -586,6 +586,18 @@ describe("the viewer page", () => {
         expect($("#measure-card [name=save]")).not.toBeNull();
     });
 
+    it("leaves the Visual tab for the mosaic of a saved measurement chosen there, with its card", async () => {
+        const fetchFn = server(routes({[BASE + "/mosaics"]: {...MOSAICS, visual: {bounds: BOUNDS, maxzoom: 22, files: []}},
+                                       [BASE + "/measurements"]: {measurements: [{...SAVED, target: "as_converted"}]}}));
+        await open(fetchFn);
+        click($("[data-tab=visual]")!);
+        await ticks();
+        click($("[data-measurement='4'] a")!);
+        await ticks();
+        expect($("[role=tab][aria-selected=true]")!.textContent).toBe("Mosaic");
+        expect($(".map-stage #measure-card .measure-card-head")!.textContent).toContain("Hot spot");
+    });
+
     it("draws with one set of tools on the map, measures the shape in a card there, and closes it with × or Esc", async () => {
         const start = vi.spyOn(Drawing.prototype, "start");
         const fetchFn = server(routes());
@@ -678,6 +690,24 @@ describe("the viewer page", () => {
         expect(document.getElementById("status")).toBeNull();
         expect(byId("build").textContent).toContain("Rebuild mosaics");
         expect(($(".viewer-main") as HTMLElement).hidden).toBe(false);
+    });
+
+    it("asks for the tiles again and starts from the new ranges once the mosaics are rebuilt", async () => {
+        vi.useFakeTimers();
+        const setSource = vi.spyOn(WebGLTileLayer.prototype, "setSource");
+        const building = {...MOSAICS, mosaic_status: "building", tabs: [], kinds: {}};
+        const rebuilt = {...MOSAICS, tabs: MOSAICS.tabs!.map((t) => t.tab === "as_converted" ?
+            {...t, stats: {percentiles: [5, 9], min: 1, max: 12}} : t)};
+        const fetchFn = server(routes({[BASE + "/mosaics"]: [MOSAICS, building, rebuilt], ["POST " + BASE + "/mosaics"]: building}));
+        await open(fetchFn);
+        expect(location.search).toContain("min=20");
+        click(byId("build"));
+        await ticks(40);
+        setSource.mockClear();
+        vi.advanceTimersByTime(2000);
+        await ticks(40);
+        expect(setSource).toHaveBeenCalled();
+        expect(location.search).toContain("min=5&max=9");
     });
 
     it("builds the mosaics again, and says why when it cannot", async () => {
