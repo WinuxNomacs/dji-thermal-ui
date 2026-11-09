@@ -346,6 +346,31 @@ describe("a project's import", () => {
         expect(nav).toHaveBeenCalledWith("/project/9");
     });
 
+    it("stays usable when the app stops answering, starting an import or finishing it", async () => {
+        const down = () => Promise.reject(new Error("Failed to fetch"));
+        const fetchFn = server({
+            [API + "projects"]: {projects: [EMPTY]},
+            [`POST ${API}imports`]: [down, {id: "ab"}],
+            [`PUT ${API}imports/ab?offset=0`]: {received: 4, project: ARCHIVE},
+            [`POST ${API}imports/ab`]: down,
+        });
+        projectsPage(fetchFn);
+        await ticks();
+        click(byId("import-project-button"));
+        await ticks();
+        choose(new File(["0123"], "Silos.tar"));
+        await ticks();
+        expect(byId("import-error").textContent).toContain("did not answer");
+        expect(byId<HTMLInputElement>("import-file").disabled).toBe(false);
+        choose(new File(["0123"], "Silos.tar"));
+        await ticks();
+        click(byId("import-save"));
+        await ticks();
+        expect(byId("import-error").textContent).toContain("did not answer");
+        expect(byId<HTMLButtonElement>("import-cancel").disabled).toBe(false);
+        expect(byId<HTMLButtonElement>("import-save").disabled).toBe(false);
+    });
+
     it("says why an archive is refused, and another can be chosen", async () => {
         const fetchFn = server({
             [API + "projects"]: {projects: [EMPTY]},
