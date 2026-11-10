@@ -8,9 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: the bug review (requested in `new.md`, 2026-11-09): review the code for bugs that hurt the user
-experience, correct what is simple or blatant, and note the rest to go over with the user. The blatant ones are fixed;
-the list BR1–BR9 in "Bug review" below waits on going through it with the user.
+**Up next**: nothing planned. The bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is built.
 
 J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
@@ -21,85 +19,23 @@ documentation) are built.
 ## Bug review
 
 Requested in `new.md` on 2026-11-09: review the code for bugs that hurt the user experience, correct what is simple or
-blatant, and note the rest to go over with the user. The fixes are in the commits of branch `bug-review` and in the
-changelog's Fixed list. Below is what is left, most severe first, each waiting on the decision it names.
+blatant, and go over the rest with the user. The first fixes are on branch `bug-review`, BR1–BR9 on
+`bug-review-decisions`; the changelog's Fixed list says what changed.
 
-**How deep it went.** Read in full: the jobs, the API, data safety (move, backup, restore, storage), WebODM's server side,
-the viewer, `thermal_sources.py`, most of `video.py`. Only searched for known patterns (unguarded requests, polling, late
-answers): `places.py`, `basemaps.py`, `colouring.py`, and on the pages `tabs.tsx`, `video-tab.tsx`, `webodm-import.tsx`,
-`visual-viewer.tsx`, the report pages, preferences, settings, the navigation pane, and the rest of `frame-page.tsx`,
-`compare-page.tsx`, `convert.tsx` and `datasets-page.tsx`. Each entry was confirmed by following its path through the
-code; none was reproduced on a running instance.
+The user's decisions (2026-11-09):
 
-### BR1: Rebuild removes the old mosaics before making the new ones
+- **BR1, Rebuild:** built beside the last mosaics and swapped in (`build`, `swap` and `stopped` in
+  `analyzer/thermal_mosaics.py`; the folder `.mosaics-building`). A failed or canceled rebuild goes back to `ready` with the
+  last mosaics, `mosaic_error` saying why. The viewer shows them during the rebuild, and the tiles' addresses carry
+  `mosaics_built`, since the new ones have the same address otherwise.
+- **BR2, Export:** warns and lets the export go on (`images_missing` in `backup.flight_sizes`, the project's export dialog).
+- **BR3 and BR4, the app not answering:** one line under the header for the whole app (`core/answer.ts`,
+  `components/no-answer.tsx`), and following a job keeps asking.
+- **BR6, the measurements CSV:** starts with a byte order mark.
 
-- **Where:** the flight page's dataset card, **Rebuild** (`start_mosaics`, `build()` and `remove()` in
-  `analyzer/thermal_mosaics.py`).
-- **What the user sees:** a rebuild that fails or is canceled leaves the dataset with no mosaics, and any findings or
-  comparisons on them have nothing to show until a rebuild succeeds.
-- **How likely, how bad:** only on a failure or a cancel, but it can cost many minutes of rebuilding.
-- **Proposed:** build beside the old files, then swap when done. Medium to large.
-- **Decision:** worth doing, or say on the Rebuild button that the old mosaics go first?
-
-### BR2: A flight whose images folder is gone exports without its images, silently
-
-- **Where:** the project's **Export** (`image_files` in `analyzer/backup.py`, which answers `[]` for a missing folder).
-- **What the user sees:** a flight read in place from a drive that isn't connected exports normally, and the archive
-  looks complete but holds no images.
-- **How likely, how bad:** needs a flight read in place and its drive gone, but the loss is discovered only at restore.
-- **Proposed:** the export dialog warns and names the flights. Small.
-- **Decision:** warn and let the export go on, or refuse until the drive is back?
-
-### BR3: A write whose request fails shows nothing
-
-- **Where:** some 60 `readJson(await sendJson(...))` calls across the pages with no `catch` (`visual-viewer.tsx` holds 7,
-  `savePreset` in `webodm-panel.tsx` one). The import dialog's are fixed.
-- **What the user sees:** when the app has stopped, a click on Save, Delete or Rename does nothing at all; the error goes
-  only to the browser's console.
-- **How likely, how bad:** only while the app isn't answering (it runs on the same computer), but the user is left
-  thinking the change was made.
-- **Proposed:** one handler in `core/api.ts` that shows "The app did not answer: is it still running?" on any page. Small
-  to medium, and new UI.
-- **Decision:** one banner for the whole app, or a message in each panel?
-
-### BR4: Following a job stops for good after one failed request
-
-- **Where:** the polling in `load` of `dataset/dataset-page.tsx`, `viewer/viewer-page.tsx` and
-  `datasets/datasets-page.tsx`.
-- **What the user sees:** after one failed request (a restart, say) progress stands still until the page is reloaded,
-  and the notice never clears.
-- **How likely, how bad:** occasional, and a reload cures it.
-- **Proposed:** keep polling after a failure and clear the notice on the next good answer. Small, but that notice also
-  carries the errors of actions, so clearing it needs care.
-- **Decision:** a separate line for "the app did not answer", or share the notice?
-
-### BR5: A full disk during an upload is a bare server error
-
-- **Where:** `Reader.data` in `analyzer/restore.py` (importing a project), `DatasetUploadView` and `VideoFramesView` in
-  `analyzer/api.py`: an `OSError` is not caught.
-- **What the user sees:** "The app ran into an error", with nothing about the disk.
-- **How likely, how bad:** uncommon, and the cause is hidden.
-- **Proposed:** catch it and say the disk is full, removing the partial file. Small.
-- **Decision:** none, beyond the wording.
-
-### BR6: The measurements CSV opens garbled in Excel
-
-- **Where:** the measurements export in `analyzer/api.py`, which writes UTF-8 with no byte order mark.
-- **What the user sees:** "ΔT" and comments with letters beyond ASCII are garbled in Excel when the file is opened by
-  double-click.
-- **How likely, how bad:** every time in Excel on Windows, but only cosmetic.
-- **Proposed:** start the file with a byte order mark. One line, though some other tools then read it as part of the
-  first column's name.
-- **Decision:** add the mark, or leave it for the tools that dislike it?
-
-### Smaller ones
-
-- **BR7, a canceled or deleted job keeps writing until its next progress write:** partial files of a canceled mosaic
-  stay, and can show under Left behind on the Storage page. Low. Proposed: remove them when the job stops.
-- **BR8, the Storage page waits forever if the server doesn't come back after a move** (`waitForMove` in
-  `storage-page.tsx`). Low. Proposed: after a minute or two, say to look at the command's log.
-- **BR9, the Flights list doesn't check its answer** (`load` in `datasets-page.tsx`): an error answer leaves the list
-  empty with no message. Low. Proposed: show the error as the other pages do.
+BR5 (a full disk), BR7 (a canceled or deleted build's files, handled by building apart), BR8 (`waitForMove`'s slow line)
+and BR9 (the Flights list) needed no decision. How deep the review went: the jobs, API, data safety, WebODM's server side
+and the viewer read in full; `places.py`, `basemaps.py`, `colouring.py` and the smaller pages searched for known patterns.
 
 ## Standalone (option A)
 

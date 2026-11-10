@@ -3,6 +3,7 @@
 // folder) anywhere on the page; a dataset moved to another project
 import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
+import {answered, noAnswer} from "../core/answer";
 import {errorText, readJson, sendJson} from "../core/api";
 import {count, deleteText, formatBytes, formatDate, statusLabel} from "../core/format";
 import {matchesSearch} from "../core/search";
@@ -123,13 +124,16 @@ export function DatasetsPage({api, publicUrl, project, top, onChange, nav = (url
     async function load() {
         clearTimeout(timer.current);
         try {
-            const res = await fetch(api + "datasets?project=" + project, {credentials: "same-origin"});
-            const list: Dataset[] = (await res.json()).datasets;
+            const r = await readJson<{datasets: Dataset[]}>(await fetch(api + "datasets?project=" + project, {credentials: "same-origin"}));
+            answered();
+            if (!r.ok) return setNotice(errorText(r.data, "Could not load the flights."));
+            const list = r.data.datasets;
             setDatasets(list);
             onChange?.();
             if (list.some((d) => d.status === "analyzing" || d.busy)) timer.current = setTimeout(load, POLL_MS);
         } catch {
-            setNotice("Could not load the flights.");
+            noAnswer();
+            timer.current = setTimeout(load, POLL_MS);
         }
     }
 

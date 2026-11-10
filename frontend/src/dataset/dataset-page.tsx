@@ -2,6 +2,7 @@
 // WebODM plan and its conversions, the datasets), with adding images and analyzing again; kept up to date while it is analyzed or
 // converted
 import {useEffect, useRef, useState} from "preact/hooks";
+import {answered, noAnswer} from "../core/answer";
 import {csrfToken, errorText, readJson, sendJson} from "../core/api";
 import {count, deleteText, failedText, fileKind, type FlightZone, formatDate} from "../core/format";
 import {FLIGHT_FILES_ACCEPT, isFlightFile, type Progress, uploadFiles} from "../core/upload";
@@ -119,10 +120,12 @@ export function DatasetPage({api, publicUrl, id, projectId, projectName, palette
         clearTimeout(timer.current);
         try {
             const r = await readJson<Dataset>(await fetch(url, {credentials: "same-origin"}));
+            answered();
             if (!r.ok) return setNotice("Could not load the flight.");
             show(r.data);
         } catch {
-            setNotice("Could not load the flight.");
+            noAnswer();
+            timer.current = setTimeout(load, POLL_MS);
         }
     }
 

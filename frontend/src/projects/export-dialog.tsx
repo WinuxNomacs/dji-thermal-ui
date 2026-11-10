@@ -4,7 +4,7 @@ import {useEffect, useLayoutEffect, useState} from "preact/hooks";
 import {formatBytes} from "../core/format";
 import {Download} from "../components/icons";
 
-export interface ExportFlight {id: number; name: string; busy: boolean; bytes: number | null}
+export interface ExportFlight {id: number; name: string; busy: boolean; bytes: number | null; images_missing?: boolean}
 
 interface Props {
     api: string;
@@ -58,6 +58,7 @@ export function ExportDialog({api, project, onClose}: Props) {
     const offered = (flights || []).filter((f) => !f.busy);
     const total = offered.filter((f) => chosen.has(f.id)).reduce((n, f) => n + (f.bytes || 0), 0);
     const ready = flights !== null && !error;
+    const missing = offered.filter((f) => chosen.has(f.id) && f.images_missing).map((f) => f.name);
     return (
         <div class="dialog" id="export-project" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div class="dialog-inner" role="dialog" aria-modal="true" aria-labelledby="export-title">
@@ -84,6 +85,9 @@ export function ExportDialog({api, project, onClose}: Props) {
                 {ready && offered.length > 0 && <p id="export-total">{chosen.size === 0
                     ? "No flight chosen: only the project itself is exported."
                     : "About " + formatBytes(total) + "."}</p>}
+                {missing.length > 0 && <p class="notice warning" id="export-missing">The images of {missing.join(", ")} can't
+                    be found, so the archive won't have them. If they are on a drive that isn't connected, connect it
+                    before exporting.</p>}
                 <div class="error" role="alert">{error}</div>
                 <div class="dialog-actions">
                     <button type="button" class="button default" id="export-cancel" onClick={onClose}>Cancel</button>

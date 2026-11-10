@@ -99,7 +99,7 @@ def test_each_flight_s_size_is_what_it_adds_to_the_archive(api):
     res = api.get("{}/{}/export".format(PROJECTS, c.dataset.project_id))
     assert res.status_code == 200
     sizes = {f['id']: f for f in res.data['flights']}
-    assert sizes[empty.id] == {'id': empty.id, 'name': "Wall", 'busy': False, 'bytes': 0}
+    assert sizes[empty.id] == {'id': empty.id, 'name': "Wall", 'busy': False, 'bytes': 0, 'images_missing': False}
     tar = archive(api.get("{}/{}/export.tar".format(PROJECTS, c.dataset.project_id)))
     added = sum(m.offset_data - m.offset + -(-m.size // 512) * 512 for m in tar.getmembers() if m.name != 'manifest.json')
     assert sizes[c.dataset_id]['bytes'] == added > 0
@@ -119,3 +119,11 @@ def test_a_flight_still_analyzed_or_converted_is_not_offered_and_not_exported(ap
         ThermalDataset.objects.filter(pk=c.dataset_id).update(status='ready')
         ThermalConversion.objects.filter(pk=c.id).update(status='ready', mosaic_status='ready')
     assert archive(api.get("{}/{}/export.tar".format(PROJECTS, project), {'flights': ''})).getnames() == ['manifest.json']
+
+
+def test_a_flight_whose_images_cannot_be_found_is_flagged_and_can_still_be_exported(api, tmp_path):
+    d = flight(api).dataset
+    ThermalDataset.objects.filter(pk=d.pk).update(source='folder', folder=str(tmp_path / 'not-connected'))
+    [f] = api.get("{}/{}/export".format(PROJECTS, d.project_id)).data['flights']
+    assert f['images_missing'] is True
+    assert api.get("{}/{}/export.tar".format(PROJECTS, d.project_id)).status_code == 200

@@ -672,7 +672,7 @@ def test_another_tasks_dsm_replaces_it_keeping_its_choices_and_removing_it_or_it
     with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=fake_make_mosaic):
         api.post("%s/%d/mosaics" % (CONVERSIONS, c.id))
     c.refresh_from_db()
-    assert c.mosaic_status == 'failed' and "WebODM's DSM is missing" in c.mosaic_error
+    assert c.mosaic_status == 'ready' and "WebODM's DSM is missing" in c.mosaic_error      # the last ones are kept
     res = api.delete(url)
     assert res.status_code == 200 and res.data['dsm'] is None
 

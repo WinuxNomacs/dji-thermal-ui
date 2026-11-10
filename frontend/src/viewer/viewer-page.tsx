@@ -15,6 +15,7 @@ import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
 import {getDistance} from "ol/sphere";
 import {useEffect, useRef, useState} from "preact/hooks";
+import {answered, noAnswer} from "../core/answer";
 import {errorText, readJson, sendJson} from "../core/api";
 import {viewAsked} from "../core/exports";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
@@ -270,10 +271,12 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         clearTimeout(timer.current);
         try {
             const r = await readJson<Mosaics>(await fetch(base + "/mosaics", {credentials: "same-origin"}));
+            answered();
             if (!r.ok) return setNotice("Could not load the mosaics.");
             show(r.data);
         } catch {
-            setNotice("Could not load the mosaics.");
+            noAnswer();
+            timer.current = setTimeout(load, POLL_MS);
         }
     }
 

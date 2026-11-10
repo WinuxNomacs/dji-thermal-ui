@@ -202,6 +202,21 @@ describe("the move helpers", () => {
             .toEqual(["The data folder was not moved to /b: Permission denied"]);
     });
 
+    it("says once when a move is taking long, and goes on waiting", async () => {
+        vi.useFakeTimers();
+        try {
+            const slow = vi.fn();
+            vi.stubGlobal("fetch", server({"/api/storage": {...STORAGE, last_move: {at: 10}}}));
+            waitForMove("/api/", 20, vi.fn(), 1000, slow);
+            await vi.advanceTimersByTimeAsync(119000);
+            expect(slow).not.toHaveBeenCalled();
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(slow).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("wait for a move newer than when it was asked, not the last one before", async () => {
         vi.useFakeTimers();
         try {

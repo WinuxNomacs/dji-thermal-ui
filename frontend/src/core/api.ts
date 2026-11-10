@@ -1,4 +1,5 @@
 // Talking to the app's API: the CSRF token, a response's JSON, a DRF error's message
+import {answered, noAnswer} from "./answer";
 import {navigationChanged} from "./navigation";
 
 // The writes that change what the navigation pane lists: a project, a dataset or a conversion made, changed (renamed,
@@ -47,11 +48,18 @@ export function errorText(data: unknown, fallback: string): string {
 // Sends JSON with the CSRF token: PUT, POST, PATCH or DELETE; the navigation pane lists again after a write that
 // changes what it lists
 export async function sendJson(url: string, method: string, body?: unknown): Promise<Response> {
-    const res = await fetch(url, {
-        method, credentials: "same-origin",
-        headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken()},
-        body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+        res = await fetch(url, {
+            method, credentials: "same-origin",
+            headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken()},
+            body: body === undefined ? undefined : JSON.stringify(body),
+        });
+    } catch (e) {
+        noAnswer();
+        throw e;
+    }
+    answered();
     if (res.ok && LISTED.test(url.split("?")[0])) navigationChanged();
     return res;
 }

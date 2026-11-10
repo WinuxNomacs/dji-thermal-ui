@@ -381,3 +381,21 @@ def test_the_author_last_typed_on_a_report_is_kept_and_not_forgotten_by_a_blank_
     assert analyzer_api.report_author() == "A. Inspector"
     api.patch(url, {'report': {'author': ""}}, format='json')
     assert analyzer_api.report_author() == "A. Inspector"
+
+
+def test_an_upload_to_a_full_disk_says_so_and_keeps_no_partial_file(api):
+    import errno
+    d = ThermalDataset.objects.create(name="Full", project=dataset().project)
+    real = open
+
+    def full(path, mode='r', *args, **kw):
+        if 'wb' in mode and str(path).endswith('a.JPG'):
+            real(path, mode).close()
+            raise OSError(errno.ENOSPC, "No space left on device")
+        return real(path, mode, *args, **kw)
+
+    with mock.patch('builtins.open', side_effect=full):
+        res = api.post("{}/{}/upload".format(DATASETS, d.id), {'images': [image('a.JPG')]}, format='multipart')
+    assert res.status_code == 400
+    assert res.data['error'] == "The disk is full: free some space and try again"
+    assert not os.path.exists(os.path.join(d.images_dir(), 'a.JPG'))

@@ -9,6 +9,7 @@ is the one user's.
 """
 import colorsys
 import datetime
+import errno
 import hashlib
 import io
 import json
@@ -783,14 +784,21 @@ class DatasetUploadView(DatasetView):
                 skipped.append(name)
                 continue
             dst = path_traversal_check(os.path.join(images_dir, rel), images_dir)
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            if isinstance(f, InMemoryUploadedFile):
-                with open(dst, 'wb') as out:
-                    for chunk in f.chunks():
-                        out.write(chunk)
-            else:
-                # A large upload is a temporary file already: copied by path
-                shutil.copyfile(f.temporary_file_path(), dst)
+            try:
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                if isinstance(f, InMemoryUploadedFile):
+                    with open(dst, 'wb') as out:
+                        for chunk in f.chunks():
+                            out.write(chunk)
+                else:
+                    # A large upload is a temporary file already: copied by path
+                    shutil.copyfile(f.temporary_file_path(), dst)
+            except OSError as e:
+                if e.errno != errno.ENOSPC:
+                    raise
+                if os.path.isfile(dst):
+                    os.remove(dst)
+                raise ValidationError({'error': restore.DISK_FULL}) from None
             saved += 1
 
         with transaction.atomic():
@@ -2808,9 +2816,18 @@ class VideoFramesView(DatasetView):
         v = VideoFrame(dataset=dataset, video=rel, time=t, frame=number, point=point, look=look,
                        key=secrets.token_hex(8), **fields)
         os.makedirs(os.path.dirname(v.picture_path()), exist_ok=True)
-        for data, where in ((picture, v.picture_path()), (original, v.picture_path(original=True))):
-            with open(where, 'wb') as out:
-                out.write(data)
+        written = (v.picture_path(), v.picture_path(original=True))
+        try:
+            for data, where in zip((picture, original), written):
+                with open(where, 'wb') as out:
+                    out.write(data)
+        except OSError as e:
+            if e.errno != errno.ENOSPC:
+                raise
+            for where in written:
+                if os.path.isfile(where):
+                    os.remove(where)
+            raise ValidationError({'error': restore.DISK_FULL}) from None
         v.save()
         return Response(video_frame_json(v), status=status.HTTP_201_CREATED)
 
@@ -2935,7 +2952,8 @@ class MeasurementsCsvView(DatasetView):
         for m in conversion.measurements.all():
             for row in csv_rows(m, app_unit()):
                 writer.writerow(["" if row[k] is None else row[k] for k, _l in CSV_COLUMNS])
-        response = HttpResponse(buf.getvalue(), content_type='text/csv; charset=utf-8')
+        # The byte order mark tells Excel it is UTF-8
+        response = HttpResponse('\ufeff' + buf.getvalue(), content_type='text/csv; charset=utf-8')
         name = download_name("{}-{}-measurements".format(conversion.dataset.name, conversion.name)) + ".csv"
         response['Content-Disposition'] = disposition('attachment', name)
         return response

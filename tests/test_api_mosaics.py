@@ -600,3 +600,17 @@ def test_a_swap_that_cannot_finish_puts_the_last_mosaics_back(api):
     assert (c.mosaic_status, c.mosaic_error) == ('ready', "in use")
     assert mosaic_files(c) == before
     assert os.path.isdir(os.path.join(c.data_dir(), 'viewer'))
+
+
+def test_a_flight_deleted_while_its_mosaics_are_built_leaves_no_folder_behind(api):
+    c, _make = converted(api)
+    folder = c.data_dir()
+
+    def make(path, output_dir, *args, **kw):
+        c.dataset.delete()
+        out = fake_make_mosaic(path, output_dir, *args, **kw)
+        return out
+
+    with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=make):
+        assert mosaics.finish(c, ThermalConversion.objects.filter(pk=c.pk)) == {'canceled': True}
+    assert not os.path.exists(folder)

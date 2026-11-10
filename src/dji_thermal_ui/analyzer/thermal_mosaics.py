@@ -573,6 +573,10 @@ def finish(conversion, run):
     try:
         mosaics = build(conversion, run)
     except Canceled:
+        if not type(conversion).objects.filter(pk=conversion.pk).exists():
+            # Deleted while it was being built: what the build had made of its folder goes too
+            shutil.rmtree(conversion.data_dir(), ignore_errors=True)
+            return {'canceled': True}
         # The cancel counted the files while the build was still writing them
         conversion.update_size()
         type(conversion).objects.filter(pk=conversion.pk).update(file_count=conversion.file_count, size=conversion.size)

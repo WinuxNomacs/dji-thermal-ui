@@ -4,6 +4,7 @@ as they come into a staging folder in the data folder, `imports/<id>/`. Its mani
 name and flights are known early. Finishing makes a new project with new ids, the rows' links remapped, and moves the
 files into place. A folder flight comes in as an uploaded one; a job left running comes in as canceled.
 """
+import errno
 import json
 import os
 import re
@@ -30,6 +31,9 @@ FILE = re.compile(r'^datasets/([0-9]+)/(images|conversions/([0-9]+)|video-frames
 WINDOWS = os.name == 'nt'
 REFUSED_ON_WINDOWS = '<>:"|?*'                 # in a file name made on another system
 CANT_KEEP = "This computer can't keep one of the archive's files: {} ({})"
+
+
+DISK_FULL = "The disk is full: free some space and try again"
 
 
 class RestoreError(Exception):
@@ -201,7 +205,12 @@ class Reader:
     def data(self, chunk):
         kind = self.member[0]
         if kind == 'file':
-            self.out.write(chunk)
+            try:
+                self.out.write(chunk)
+            except OSError as e:
+                if e.errno != errno.ENOSPC:
+                    raise
+                raise RestoreError(DISK_FULL) from None
         elif kind != 'skip':
             self.meta += chunk
 
