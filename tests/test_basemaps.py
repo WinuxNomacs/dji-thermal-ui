@@ -178,6 +178,18 @@ def test_the_map_pages_get_the_basemaps_with_mapbox_and_its_token(api, env_file)
     assert page_basemaps(c.id)[-1]['token'] == TOKEN
 
 
+@pytest.mark.django_db
+def test_the_pages_let_the_browser_send_the_referer_openstreetmap_requires():
+    assert Client().get("/").headers['Referrer-Policy'] == "strict-origin-when-cross-origin"
+
+
+def test_openstreetmap_is_credited_to_its_contributors_and_the_credit_stays_open(settings):
+    osm = next(bm for bm in settings.BASEMAPS if bm['key'] == "osm")
+    assert "OpenStreetMap</a> contributors" in osm['attribution']
+    assert osm['attribution_open'] is True
+    assert osm['url'] == "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+
+
 def test_the_preferred_basemap_is_saved_offered_and_another_value_refused(api, env_file):
     got = api.get(PREFERENCES).data
     assert got['basemap'] == "esri"
