@@ -1,5 +1,6 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {onAnswerChanged} from "../src/core/answer";
 import {uploadName} from "../src/core/upload";
 import {deleteText} from "../src/core/format";
 import {DatasetsPage} from "../src/datasets/datasets-page";
@@ -179,11 +180,30 @@ describe("the datasets list", () => {
         expect(byId("message").textContent).toBe("No flights match the search.");
     });
 
-    it("says when the datasets could not be loaded", async () => {
-        page(vi.fn(() => Promise.reject(new Error("offline"))) as unknown as ReturnType<typeof server>);
+    it("says why when the datasets could not be loaded", async () => {
+        page(server({[LIST_URL]: () => Promise.resolve(new Response(JSON.stringify({detail: "Broken"}), {status: 400}))}));
         await ticks();
-        expect($("[role=alert]")!.textContent).toBe("Could not load the flights.");
+        expect($("[role=alert]")!.textContent).toBe("Broken");
         expect(byId("message")).toBeNull();
+    });
+
+    it("tells the app when it doesn't answer, and asks again until it does", async () => {
+        vi.useFakeTimers();
+        const heard: boolean[] = [];
+        const off = onAnswerChanged((s) => heard.push(s));
+        try {
+            let calls = 0;
+            const fetchFn = vi.fn(() => ++calls === 1 ? Promise.reject(new TypeError("offline")) : jsonResponse({datasets: []}));
+            page(fetchFn as unknown as ReturnType<typeof server>);
+            await vi.advanceTimersByTimeAsync(200);
+            expect(heard).toEqual([true]);
+            await vi.advanceTimersByTimeAsync(3000);
+            expect(calls).toBe(2);
+            expect(heard).toEqual([true, false]);
+        } finally {
+            off();
+            vi.useRealTimers();
+        }
     });
 
     it("says there are no datasets yet, and offers uploading images", async () => {

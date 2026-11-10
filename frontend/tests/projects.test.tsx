@@ -211,6 +211,22 @@ describe("a project's page", () => {
         expect(byId("project-name").textContent).toBe("Grain silos");
     });
 
+    it("warns which chosen flights would go without their images, and still lets them be exported", async () => {
+        const flights = [{id: 5, name: "Roof", busy: false, bytes: 1024, images_missing: true},
+                         {id: 6, name: "Wall", busy: false, bytes: 1024, images_missing: false}];
+        projectPage(routes(DETAIL, {[API + "projects/3/export"]: {flights}}));
+        await ticks();
+        click(byId("export-project-button"));
+        await ticks();
+        expect(byId("export-missing").textContent).toContain("The images of Roof can't");
+        expect(byId("export-save").getAttribute("href")).toBe("/api/projects/3/export.tar");
+        const box = document.querySelector<HTMLInputElement>("[name=export-flight]")!;
+        box.checked = false;
+        box.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks();
+        expect(document.getElementById("export-missing")).toBeNull();
+    });
+
     it("exports all its flights by default, with their sizes, a busy one not offered", async () => {
         const flights = [{id: 5, name: "Roof", busy: false, bytes: 3 * 1024 ** 3}, {id: 6, name: "Wall", busy: false, bytes: 1024 ** 3},
                          {id: 7, name: "Barn", busy: true, bytes: null}];

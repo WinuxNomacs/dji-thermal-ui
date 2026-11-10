@@ -142,18 +142,22 @@ def file_chunks(path, size):
 
 
 def flight_sizes(project):
-    """What each flight adds to the archive, in bytes, and whether it is busy (then not offered)"""
+    """What each flight adds to the archive, in bytes, whether it is busy (then not offered), and whether it would go
+    without its images (read from a folder that isn't there, or a drive not connected)"""
     out = []
     for d in ThermalDataset.objects.filter(project=project).prefetch_related('conversions').order_by('created_at', 'id'):
         if busy(d):
-            out.append({'id': d.id, 'name': d.name, 'busy': True, 'bytes': None})
+            out.append({'id': d.id, 'name': d.name, 'busy': True, 'bytes': None, 'images_missing': False})
             continue
         size = 0
-        for path, name in flight_files(d):
+        files = flight_files(d)
+        images = 'datasets/{}/images/'.format(d.id)
+        for path, name in files:
             try:
                 n = os.path.getsize(path)
             except OSError:
                 continue
             size += len(header(name, n, 0)) + n + len(padding(n))
-        out.append({'id': d.id, 'name': d.name, 'busy': False, 'bytes': size})
+        out.append({'id': d.id, 'name': d.name, 'busy': False, 'bytes': size,
+                    'images_missing': d.source == 'folder' and not any(n.startswith(images) for _p, n in files)})
     return out

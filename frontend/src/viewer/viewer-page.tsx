@@ -15,6 +15,7 @@ import Stroke from "ol/style/Stroke";
 import OlStyle from "ol/style/Style";
 import {getDistance} from "ol/sphere";
 import {useEffect, useRef, useState} from "preact/hooks";
+import {answered, noAnswer} from "../core/answer";
 import {errorText, readJson, sendJson} from "../core/api";
 import {viewAsked} from "../core/exports";
 import {type FlightZone, type Maybe, mosaicLabel, type Stage} from "../core/format";
@@ -40,7 +41,7 @@ import {MosaicExport} from "./export";
 import {VisualViewer} from "./visual-viewer";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         PanelGroup, Readout, Report, Section, Whole} from "./panel";
-import {adjustQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
+import {adjustQuery, builtQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
         disagreement, type Extra, extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
         readView, reportRows, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
         TAB_HINTS, TAB_TIPS, takenText, toneShares, valueCaption, viewQuery, type VisualMosaic, visualRows} from "./view";
@@ -57,6 +58,7 @@ export interface Mosaics {
     stripped?: boolean;
     status: string;
     mosaic_status: string;
+    mosaics_built?: number | null;
     mosaic_error?: string | null;
     mosaic_progress?: number | null;
     stage?: Maybe<Stage>;
@@ -87,7 +89,9 @@ interface Current {
     error?: string;
 }
 
-const isReady = (v: Maybe<Mosaics>) => !!v && v.mosaic_status === "ready" && (v.tabs || []).length > 0;
+// Built again, the last mosaics stay on show until the new ones replace them
+const isReady = (v: Maybe<Mosaics>) => !!v && (v.mosaic_status === "ready" || v.mosaic_status === "building") &&
+    (v.tabs || []).length > 0;
 const isBusy = (v: Mosaics) => v.status === "converting" || v.mosaic_status === "building";
 const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
 const fromCoords = (c: Coords): Coordinate => lonLatToMap(c);
@@ -198,6 +202,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0});
     const readyShown = useRef(false);
+    const builtShown = useRef<Maybe<number>>(undefined);
 
     const ready = isReady(v);
     const unit = v?.unit;
@@ -213,7 +218,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const params = unit !== undefined ? correctionParams(correction, unit) : {};
     const paramsKey = JSON.stringify(params);
     const tiles = (x: MosaicTab, extra?: Extra): Values =>
-        ({kind: "tiles", url: dataUrl(api, id, x.tab, extra), bounds: x.bounds || WORLD, maxZoom: (x.maxzoom || 20) + 1,
+        ({kind: "tiles", url: dataUrl(api, id, x.tab, extra, v?.mosaics_built), bounds: x.bounds || WORLD, maxZoom: (x.maxzoom || 20) + 1,
           gutter: DATA_GUTTER, pixel: rasterPixel(x.bounds, v?.kinds?.[x.kind || ""]?.width)});
     const values: Values | null = d ? tiles(d, params) : null;
     const seamValues: Values | null = onSeams && t ? tiles(t) : null;
@@ -229,11 +234,13 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         // Kept apart from v: the polling goes on from the render that started it, whose v is by then an old one
         const wasReady = readyShown.current;
         readyShown.current = isReady(data);
+        const replaced = builtShown.current !== data.mosaics_built;
+        builtShown.current = data.mosaics_built;
         setV(data);
         document.title = data.name + " · DJI Thermal Analyzer";
         if (isReady(data)) {
             // Rebuilt: start again from the new mosaics' ranges
-            if (!wasReady && map.current) setStyles({});
+            if ((!wasReady || replaced) && map.current) setStyles({});
             if (!tab || !data.tabs!.some((x) => x.tab === tab)) {
                 const onVisual = wanted.tab === VISUAL && !!data.visual && data.tabs!.some((x) => x.tab === "as_converted");
                 // Without a tab asked for, frames that disagree open on Harmonized, which evens them out
@@ -264,10 +271,12 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         clearTimeout(timer.current);
         try {
             const r = await readJson<Mosaics>(await fetch(base + "/mosaics", {credentials: "same-origin"}));
+            answered();
             if (!r.ok) return setNotice("Could not load the mosaics.");
             show(r.data);
         } catch {
-            setNotice("Could not load the mosaics.");
+            noAnswer();
+            timer.current = setTimeout(load, POLL_MS);
         }
     }
 
@@ -362,19 +371,19 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The visual mosaic's tiles (made again when it is built again), shown instead of the values on the Visual tab
     function makeVisual() {
-        const m = map.current, vis = v?.visual_only ? null : v?.visual, key = JSON.stringify(vis || null);
+        const m = map.current, vis = v?.visual_only ? null : v?.visual, key = JSON.stringify([vis || null, v?.mosaics_built]);
         if (!m || key === visualKey.current) return;
         visualKey.current = key;
         if (visualTiles.current) m.removeLayer(visualTiles.current);
         visualTiles.current = vis && vis.bounds ?
-            visualLayer(m, base + "/mosaics/visual/tiles/{z}/{x}/{y}.png", vis.bounds, (vis.maxzoom || 20) + 1) : null;
+            visualLayer(m, base + "/mosaics/visual/tiles/{z}/{x}/{y}.png" + builtQuery(v?.mosaics_built), vis.bounds, (vis.maxzoom || 20) + 1) : null;
         showVisual();
     }
     function showVisual() {
         visualTiles.current?.setVisible(now.current.visual);
         layer.current?.layer.setVisible(!now.current.visual || !visualTiles.current);
     }
-    useEffect(makeVisual, [JSON.stringify(v?.visual)]);
+    useEffect(makeVisual, [JSON.stringify(v?.visual), v?.mosaics_built]);
     useEffect(showVisual, [visual]);
 
     // The mosaic drawn again as the tab, palette, range, adjustments, isotherm and correction now are: its values

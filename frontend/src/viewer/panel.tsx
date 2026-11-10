@@ -302,5 +302,6 @@ export function MosaicStatus({v}: {v: {status: string; mosaic_status: string; mo
         return <div class="status text-muted" id="status">The images were not converted: there is nothing to make mosaics of.</div>;
     }
     if (v.mosaic_status !== "ready") return <div class="status text-muted" id="status">This dataset has no mosaics.</div>;
+    if (v.mosaic_error) return <div class="status text-danger" id="status"><Warning/> Building them again failed: {v.mosaic_error} These are the last ones built.</div>;
     return null;
 }

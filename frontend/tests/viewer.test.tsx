@@ -677,7 +677,7 @@ describe("the viewer page", () => {
 
     it("follows the mosaics being built until they are ready", async () => {
         vi.useFakeTimers();
-        const building = {...MOSAICS, mosaic_status: "building", mosaic_progress: 0.4,
+        const building = {...MOSAICS, mosaic_status: "building", mosaic_progress: 0.4, tabs: [], kinds: {},
                           stage: {stage: "align", step: 2, steps: 5, done: 3, total: 9, unit: "pairs"}};
         const fetchFn = server(routes({[BASE + "/mosaics"]: [building, MOSAICS]}));
         await open(fetchFn);
@@ -708,6 +708,33 @@ describe("the viewer page", () => {
         await ticks(40);
         expect(setSource).toHaveBeenCalled();
         expect(location.search).toContain("min=5&max=9");
+    });
+
+    it("keeps showing the last mosaics while they are built again, then asks for the new tiles", async () => {
+        vi.useFakeTimers();
+        const setSource = vi.spyOn(WebGLTileLayer.prototype, "setSource");
+        const built = {...MOSAICS, mosaics_built: 100};
+        const building = {...built, mosaic_status: "building", mosaic_progress: 0.4};
+        const rebuilt = {...built, mosaics_built: 200, tabs: MOSAICS.tabs!.map((t) => t.tab === "as_converted" ?
+            {...t, stats: {percentiles: [5, 9], min: 1, max: 12}} : t)};
+        const fetchFn = server(routes({[BASE + "/mosaics"]: [built, building, rebuilt], ["POST " + BASE + "/mosaics"]: building}));
+        await open(fetchFn);
+        click(byId("build"));
+        await ticks(40);
+        expect(($(".viewer-main") as HTMLElement).hidden).toBe(false);
+        expect(byId("status").textContent).toContain("Building");
+        expect(byId("cancel")).not.toBeNull();
+        setSource.mockClear();
+        vi.advanceTimersByTime(2000);
+        await ticks(40);
+        expect(setSource).toHaveBeenCalled();
+        expect(location.search).toContain("min=5&max=9");
+    });
+
+    it("says a rebuild failed and that the mosaics shown are the last ones", async () => {
+        await open(server(routes({[BASE + "/mosaics"]: {...MOSAICS, mosaic_error: "No frames to mosaic."}})));
+        expect(byId("status").textContent).toContain("Building them again failed: No frames to mosaic. These are the last ones built.");
+        expect(($(".viewer-main") as HTMLElement).hidden).toBe(false);
     });
 
     it("builds the mosaics again, and says why when it cannot", async () => {

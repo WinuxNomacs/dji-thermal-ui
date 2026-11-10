@@ -108,3 +108,6 @@ The viewer's header has **Frames** (the [frames explorer](frames.md)), **Compare
 [compare page](compare.md)), **Export…** (the mosaic as shown, with its saved measurements and colour scale, or
 whole, at full resolution: see [Exports](exports.md)), **Mosaic report** (see [Reports](reports.md#mosaic-report))
 and **Rebuild mosaics**.
+
+**Rebuild mosaics** builds the new mosaics beside the last ones, which stay on show until the new ones replace them, so
+the disk needs room for both for that time. If the rebuild fails or is canceled, the last ones are kept.

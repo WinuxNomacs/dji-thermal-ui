@@ -28,7 +28,9 @@ A project's page lists its flights' [findings](findings.md) together.
 
 A project is exported (backed up) as a `.tar` with all its flights or those chosen: their images (a flight read from
 a folder has them copied in), datasets, mosaics, measurements, findings and saved video frames. The export is written
-straight to the browser's download, so it needs no room in the data folder.
+straight to the browser's download, so it needs no room in the data folder. If the images of a flight read from a
+folder can't be found (its drive isn't connected, say), the dialog names the flight and warns that the archive won't
+have them; connect the drive first to include them.
 
 **Import** on the projects page makes such an archive a new project, here or on another computer. A name already in
 use gets a free one ("Roof (2)"), which you can change. Flights that were read from a folder come back as uploaded

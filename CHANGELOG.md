@@ -188,6 +188,16 @@ All notable changes are recorded here. The format follows
   folders are chosen and uploaded. Flights already read in place keep working, and the API still takes them.
 
 ### Fixed
+- **Rebuild mosaics** builds the new mosaics beside the last ones and swaps them in when they are finished: the viewer
+  goes on showing the last ones meanwhile, and a rebuild that fails or is canceled keeps them, saying why it failed.
+- The project's **Export** dialog names a flight whose images can't be found (a drive not connected), instead of
+  exporting it silently without them.
+- A line under the header says when the app has stopped answering, after a write that couldn't reach it or a job being
+  followed, and goes away once it answers again. Following a job goes on after that, instead of stopping for good.
+- An upload, a video frame saved or a project imported onto a full disk says the disk is full, instead of a server error.
+- The measurements CSV opens correctly in Excel (it starts with a byte order mark; a script reads it as `utf-8-sig`).
+- The Storage page says, while a move takes long, where to look if the page never comes back. The Flights list says why
+  when it can't be loaded.
 
 - A failed request whose answer gave no reason (a page that isn't JSON) showed only "could not be done": it now says
   when the app doesn't know the request, as a server started before an update answers a page made after it (restart

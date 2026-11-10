@@ -9,6 +9,7 @@ is the one user's.
 """
 import colorsys
 import datetime
+import errno
 import hashlib
 import io
 import json
@@ -178,10 +179,11 @@ def check_stale(item):
     if getattr(item, 'mosaic_status', '') == 'building' and item.status != 'converting':
         if jobs.alive(item.run_id):
             return item
-        message = "The mosaic job stopped before it finished"
-        if type(item).objects.filter(pk=item.pk, run_id=item.run_id).update(
-                mosaic_status='failed', mosaic_error=message, run_id="", mosaic_progress=0):
-            item.mosaic_status, item.mosaic_error, item.run_id, item.mosaic_progress = 'failed', message, "", 0
+        fields = thermal_mosaics.stopped(item, 'failed', "The mosaic job stopped before it finished")
+        if type(item).objects.filter(pk=item.pk, run_id=item.run_id).update(run_id="", mosaic_progress=0, **fields):
+            thermal_mosaics.discard_building(item)
+            item.mosaic_status, item.mosaic_error = fields['mosaic_status'], fields['mosaic_error']
+            item.run_id, item.mosaic_progress = "", 0
         return item
     if item.status not in ('analyzing', 'converting') or jobs.alive(item.run_id):
         return item
@@ -270,6 +272,8 @@ def conversion_summary(c):
         'mosaic_progress': c.mosaic_progress,
         'stage': c.stage,
         'mosaic_error': c.mosaic_error,
+        # When the mosaics shown were built: another value means other tiles under the same addresses
+        'mosaics_built': m.get('built_at'),
         # The visual mosaic alone, of a flight without thermal frames or imported: no images converted
         'visual_only': bool((c.options or {}).get('visual_only') or m.get('visual_only')),
         # Imported from WebODM (webodm_import): where from, and what its orthophoto holds once read ('thermal' or
@@ -469,7 +473,7 @@ def save_preference(key, value):
 def start_mosaics(conversion):
     run_id = uuid.uuid4().hex
     ThermalConversion.objects.filter(pk=conversion.pk).update(mosaic_status='building', mosaic_progress=0,
-                                                              stage={}, mosaic_error="", mosaics={}, run_id=run_id)
+                                                              stage={}, mosaic_error="", run_id=run_id)
     jobs.submit(thermal_mosaics.build_mosaics, conversion.pk, run_id)
     conversion.refresh_from_db()
     return conversion
@@ -488,7 +492,7 @@ def served_only(rel):
     """Whether a path in a conversion's folder is one served only to the viewer, never as a download (the located
     copies of stripped mosaics)"""
     parts = os.path.normpath(rel).replace('\\', '/').split('/')
-    return parts[0] == thermal_mosaics.VIEWER_DIR
+    return parts[0] in (thermal_mosaics.VIEWER_DIR, thermal_mosaics.BUILDING_DIR)
 
 
 def download_name(text):
@@ -669,7 +673,8 @@ def nav_conversion(c):
     """A conversion as the pane lists it: whether it has frames (once converted; a visual mosaic of its own's visual ones;
     none imported, which has no frames page) and mosaics (once built) to open"""
     return {'id': c.id, 'name': c.name, 'frames': c.status == 'ready' and not (c.options or {}).get('imported'),
-            'mosaics': c.status == 'ready' and (c.mosaic_status == 'ready' or bool((c.orthophoto or {}).get('raster')))}
+            'mosaics': c.status == 'ready' and (c.mosaic_status == 'ready' or bool(c.mosaics) or
+                                                bool((c.orthophoto or {}).get('raster')))}
 
 
 class PlacesView(DatasetView):
@@ -779,14 +784,21 @@ class DatasetUploadView(DatasetView):
                 skipped.append(name)
                 continue
             dst = path_traversal_check(os.path.join(images_dir, rel), images_dir)
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            if isinstance(f, InMemoryUploadedFile):
-                with open(dst, 'wb') as out:
-                    for chunk in f.chunks():
-                        out.write(chunk)
-            else:
-                # A large upload is a temporary file already: copied by path
-                shutil.copyfile(f.temporary_file_path(), dst)
+            try:
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                if isinstance(f, InMemoryUploadedFile):
+                    with open(dst, 'wb') as out:
+                        for chunk in f.chunks():
+                            out.write(chunk)
+                else:
+                    # A large upload is a temporary file already: copied by path
+                    shutil.copyfile(f.temporary_file_path(), dst)
+            except OSError as e:
+                if e.errno != errno.ENOSPC:
+                    raise
+                if os.path.isfile(dst):
+                    os.remove(dst)
+                raise ValidationError({'error': restore.DISK_FULL}) from None
             saved += 1
 
         with transaction.atomic():
@@ -1008,7 +1020,7 @@ class ConversionCancelView(DatasetView):
         if ThermalConversion.objects.filter(pk=conversion.pk, status='converting').update(
                 status='canceled', run_id="", progress=0, stage={}, finished_at=timezone.now()) or \
                 ThermalConversion.objects.filter(pk=conversion.pk, mosaic_status='building').update(
-                    mosaic_status='canceled', run_id="", mosaic_progress=0, stage={}):
+                    run_id="", mosaic_progress=0, stage={}, **thermal_mosaics.stopped(conversion, 'canceled')):
             conversion.refresh_from_db()
             conversion.update_size()
             conversion.save(update_fields=['file_count', 'size'])
@@ -1038,8 +1050,8 @@ class ConversionDownloadView(DatasetView):
         zs = ZipStream(sized=True)
         zs.comment = "Generated by dji-thermal-ui"
         for dirpath, dirnames, filenames in os.walk(out_dir):
-            if dirpath == out_dir and thermal_mosaics.VIEWER_DIR in dirnames:
-                dirnames.remove(thermal_mosaics.VIEWER_DIR)
+            if dirpath == out_dir:
+                dirnames[:] = [d for d in dirnames if d not in (thermal_mosaics.VIEWER_DIR, thermal_mosaics.BUILDING_DIR)]
             dirnames.sort()
             for f in sorted(filenames):
                 full = os.path.join(dirpath, f)
@@ -2804,9 +2816,18 @@ class VideoFramesView(DatasetView):
         v = VideoFrame(dataset=dataset, video=rel, time=t, frame=number, point=point, look=look,
                        key=secrets.token_hex(8), **fields)
         os.makedirs(os.path.dirname(v.picture_path()), exist_ok=True)
-        for data, where in ((picture, v.picture_path()), (original, v.picture_path(original=True))):
-            with open(where, 'wb') as out:
-                out.write(data)
+        written = (v.picture_path(), v.picture_path(original=True))
+        try:
+            for data, where in zip((picture, original), written):
+                with open(where, 'wb') as out:
+                    out.write(data)
+        except OSError as e:
+            if e.errno != errno.ENOSPC:
+                raise
+            for where in written:
+                if os.path.isfile(where):
+                    os.remove(where)
+            raise ValidationError({'error': restore.DISK_FULL}) from None
         v.save()
         return Response(video_frame_json(v), status=status.HTTP_201_CREATED)
 
@@ -2931,7 +2952,8 @@ class MeasurementsCsvView(DatasetView):
         for m in conversion.measurements.all():
             for row in csv_rows(m, app_unit()):
                 writer.writerow(["" if row[k] is None else row[k] for k, _l in CSV_COLUMNS])
-        response = HttpResponse(buf.getvalue(), content_type='text/csv; charset=utf-8')
+        # The byte order mark tells Excel it is UTF-8
+        response = HttpResponse('\ufeff' + buf.getvalue(), content_type='text/csv; charset=utf-8')
         name = download_name("{}-{}-measurements".format(conversion.dataset.name, conversion.name)) + ".csv"
         response['Content-Disposition'] = disposition('attachment', name)
         return response

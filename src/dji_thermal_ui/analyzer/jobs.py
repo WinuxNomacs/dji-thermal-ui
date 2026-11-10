@@ -68,12 +68,14 @@ def join():
 def mark_interrupted():
     """Marks the analyses, conversions, mosaics, uploads and downloads a closed server left running as failed (the tasks half
     made in WebODM are removed once the workers start: webodm_tasks.remove_half_made)"""
+    from . import thermal_mosaics
     from .models import ThermalConversion, ThermalDataset, WebODMTask
     n = ThermalDataset.objects.filter(status='analyzing').update(status='failed', error=INTERRUPTED, run_id="",
                                                                  progress=0)
-    n += ThermalConversion.objects.filter(mosaic_status='building').update(mosaic_status='failed',
-                                                                            mosaic_error=INTERRUPTED, run_id="",
-                                                                            mosaic_progress=0)
+    for c in ThermalConversion.objects.filter(mosaic_status='building'):
+        thermal_mosaics.discard_building(c)
+        n += ThermalConversion.objects.filter(pk=c.pk).update(run_id="", mosaic_progress=0,
+                                                              **thermal_mosaics.stopped(c, 'failed', INTERRUPTED))
     n += ThermalConversion.objects.filter(status='converting').update(status='failed', error=INTERRUPTED, run_id="",
                                                                       progress=0)
     n += WebODMTask.objects.filter(status='uploading').update(status='failed', error=INTERRUPTED, run_id="")

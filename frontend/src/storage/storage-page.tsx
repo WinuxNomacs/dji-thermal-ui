@@ -89,10 +89,14 @@ export function lastMoveText(m: LastMove): string[] {
     return out;
 }
 
+const MOVE_SLOW_MS = 120000;
+
 // Waits for the server to be back from moving the folder (its last move newer than when it was asked), then reloads
-export async function waitForMove(api: string, since: number, reload: () => void, every = 1000): Promise<void> {
-    for (;;) {
+export async function waitForMove(api: string, since: number, reload: () => void, every = 1000,
+                                  onSlow?: () => void): Promise<void> {
+    for (let waited = every; ; waited += every) {
         await new Promise((r) => setTimeout(r, every));
+        if (waited >= MOVE_SLOW_MS && waited - every < MOVE_SLOW_MS) onSlow?.();
         try {
             const r = await readJson<Storage>(await fetch(api + "storage", {credentials: "same-origin"}));
             if (r.ok && r.data.last_move && r.data.last_move.at >= since) return reload();
@@ -108,6 +112,7 @@ function MoveFolder({api, setBy, reload}: {api: string; setBy?: Storage["set_by"
     const [chosen, setChosen] = useState<Set<number>>(new Set());
     const [busy, setBusy] = useState(false);
     const [moving, setMoving] = useState("");
+    const [slow, setSlow] = useState(false);
     const [error, setError] = useState("");
 
     if (setBy === "environment") return (<section class="storage-move" id="storage-move">
@@ -151,7 +156,7 @@ function MoveFolder({api, setBy, reload}: {api: string; setBy?: Storage["set_by"
                                                                {path: found.path, projects: [...chosen]}));
             if (r.ok) {
                 setMoving(found.path);
-                await waitForMove(api, since, reload);
+                await waitForMove(api, since, reload, undefined, () => setSlow(true));
                 return;
             }
             if (r.data.problems) setFound(r.data);
@@ -188,7 +193,8 @@ function MoveFolder({api, setBy, reload}: {api: string; setBy?: Storage["set_by"
                     {" " + formatBytes(p.size)}</span></label></li>)}
             </ul>}
             {moving ? <div class="notice" role="status" id="moving">Moving the data folder to {moving}: the server
-                    is restarting, and this page reloads when it is back.</div>
+                    is restarting, and this page reloads when it is back.{slow && <> A large folder takes a while: if
+                    the page never comes back, the app's log says what happened.</>}</div>
                 : <button type="button" class="button primary" id="move-folder" disabled={!ready} onClick={moveIt}>
                     Move the data folder</button>}
         </div>}

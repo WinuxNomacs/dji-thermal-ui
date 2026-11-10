@@ -487,3 +487,130 @@ def test_the_preferences_preview_each_palette_dji_s_as_the_newest_flight_holds_t
     # The preference does not change the images' own
     api.put(PREFERENCES, {'palette': 'magma'}, format='json')
     assert api.get(PREFERENCES).data['images_palette'] == 'dji_ironred'
+
+
+def rebuild(api, c, make):
+    """Builds the conversion's mosaics again with this make_mosaic, and answers with its row"""
+    with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=make):
+        res = api.post("{}/{}/mosaics".format(CONVERSIONS, c.id))
+    assert res.status_code == 200, res.data
+    c.refresh_from_db()
+    return c
+
+
+def mosaic_files(c):
+    return sorted(p.name for p in Path(c.data_dir(), 'mosaics').rglob('*') if p.is_file())
+
+
+def test_a_failed_rebuild_keeps_the_last_mosaics_and_says_why(api):
+    from dji_thermal_cli import api as dji_api
+    c, _make = converted(api)
+    before, built = mosaic_files(c), c.mosaics
+
+    def fail(path, output_dir, *args, **kw):
+        os.makedirs(output_dir)
+        Path(output_dir, 'partial.tif').write_bytes(b'0' * 100)
+        raise dji_api.MosaicError("No frames to mosaic.", {})
+
+    c = rebuild(api, c, fail)
+    assert (c.mosaic_status, c.mosaic_error, c.run_id, c.mosaic_progress) == ('ready', "No frames to mosaic.", "", 0)
+    assert c.mosaics == built and mosaic_files(c) == before
+    assert not os.path.exists(mosaics.building_dir(c))
+
+
+def test_a_canceled_rebuild_keeps_the_last_mosaics_and_its_partial_files_go(api):
+    c, _make = converted(api)
+    before, built, count = mosaic_files(c), c.mosaics, c.file_count
+
+    def make(path, output_dir, *args, **kw):
+        os.makedirs(output_dir)
+        Path(output_dir, 'partial.tif').write_bytes(b'0' * 100)
+        res = api.post("{}/{}/cancel".format(CONVERSIONS, c.id))
+        assert (res.data['mosaic_status'], res.data['mosaic_error']) == ('ready', "")
+        return fake_make_mosaic(path, output_dir, *args, **kw)
+
+    c = rebuild(api, c, make)
+    assert (c.mosaic_status, c.mosaics, c.file_count) == ('ready', built, count)
+    assert mosaic_files(c) == before
+    assert not os.path.exists(mosaics.building_dir(c))
+
+
+def test_the_last_mosaics_can_be_read_while_they_are_built_again(api):
+    c, _make = converted(api)
+    (z, x, y), _ = mosaic_tile()
+    seen = []
+
+    def make(path, output_dir, *args, **kw):
+        tile = "{}/{}/mosaics/as_converted/data/{}/{}/{}".format(CONVERSIONS, c.id, z, x, y)
+        viewer = api.get("{}/{}/mosaics".format(CONVERSIONS, c.id)).data
+        seen.append((api.get(tile).status_code, viewer['mosaic_status'], len(viewer['tabs']) > 0,
+                     api.get("{}/{}/download".format(CONVERSIONS, c.id)).status_code))
+        with zipfile.ZipFile(io.BytesIO(b"".join(api.get("{}/{}/download".format(CONVERSIONS, c.id)).streaming_content))) as z_:
+            seen.append([n for n in z_.namelist() if mosaics.BUILDING_DIR in n])
+        Path(output_dir).mkdir(parents=True)
+        Path(output_dir, 'partial.tif').write_bytes(b'0')
+        assert api.get("{}/{}/download".format(CONVERSIONS, c.id), {
+            'file': "{}/mosaics/{}/partial.tif".format(mosaics.BUILDING_DIR, Path(output_dir).name)
+        }).status_code == 404
+        return fake_make_mosaic(path, output_dir, *args, **kw)
+
+    first = c.mosaics['built_at']
+    with mock.patch.object(jobs, 'alive', return_value=True):
+        c = rebuild(api, c, make)
+    assert seen == [(200, 'building', True, 200), []]
+    assert c.mosaic_status == 'ready' and c.mosaics['built_at'] > first
+
+
+def test_a_rebuild_interrupted_by_a_restart_goes_back_to_the_last_mosaics(api):
+    c, _make = converted(api)
+    os.makedirs(os.path.join(mosaics.building_dir(c), 'mosaics'))
+    ThermalConversion.objects.filter(pk=c.pk).update(mosaic_status='building', run_id="gone", mosaic_progress=0.5)
+    assert jobs.mark_interrupted() == 1
+    c.refresh_from_db()
+    assert (c.mosaic_status, c.mosaic_error, c.run_id) == ('ready', jobs.INTERRUPTED, "")
+    assert not os.path.exists(mosaics.building_dir(c))
+
+
+def test_a_rebuild_whose_job_is_gone_goes_back_to_the_last_mosaics(api):
+    c, _make = converted(api)
+    os.makedirs(os.path.join(mosaics.building_dir(c), 'mosaics'))
+    ThermalConversion.objects.filter(pk=c.pk).update(mosaic_status='building', run_id="gone", mosaic_progress=0.5)
+    res = api.get("{}/{}/mosaics".format(CONVERSIONS, c.id))
+    assert (res.data['mosaic_status'], res.data['mosaic_error']) == ('ready', "The mosaic job stopped before it finished")
+    assert res.data['tabs']
+    assert not os.path.exists(mosaics.building_dir(c))
+
+
+def test_a_swap_that_cannot_finish_puts_the_last_mosaics_back(api):
+    c, _make = converted(api)
+    before = mosaic_files(c)
+    real = os.rename
+    renames = []
+
+    def rename(src, dst):
+        renames.append(src)
+        if len(renames) == 3:       # the last ones are aside, the new ones not all in place
+            raise PermissionError("in use")
+        return real(src, dst)
+
+    with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=fake_make_mosaic), \
+            mock.patch.object(mosaics, 'SWAP_WAIT', 0), mock.patch('os.rename', side_effect=rename):
+        api.post("{}/{}/mosaics".format(CONVERSIONS, c.id))
+    c.refresh_from_db()
+    assert (c.mosaic_status, c.mosaic_error) == ('ready', "in use")
+    assert mosaic_files(c) == before
+    assert os.path.isdir(os.path.join(c.data_dir(), 'viewer'))
+
+
+def test_a_flight_deleted_while_its_mosaics_are_built_leaves_no_folder_behind(api):
+    c, _make = converted(api)
+    folder = c.data_dir()
+
+    def make(path, output_dir, *args, **kw):
+        c.dataset.delete()
+        out = fake_make_mosaic(path, output_dir, *args, **kw)
+        return out
+
+    with mock.patch('dji_thermal_cli.api.make_mosaic', side_effect=make):
+        assert mosaics.finish(c, ThermalConversion.objects.filter(pk=c.pk)) == {'canceled': True}
+    assert not os.path.exists(folder)

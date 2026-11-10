@@ -7,6 +7,7 @@ import {useEffect, useState} from "preact/hooks";
 import {Header} from "../components/header";
 import {ChevronLeft, ChevronRight} from "../components/icons";
 import {NavPane} from "../components/nav-pane";
+import {NoAnswer} from "../components/no-answer";
 import "../styles/app.css";
 import {setUserLocale} from "./format";
 import {type Current} from "./navigation";
@@ -62,6 +63,7 @@ function Layout({settings, unit, theme, current, children}: LayoutProps) {
     return (<>
         <Header api={settings.api} publicUrl={settings.publicUrl} unit={unit} theme={theme}
                 version={settings.data.version || ""} nav={{shown, toggle: () => show(!shown)}}/>
+        <NoAnswer/>
         <div class={"app-body" + (shown ? " nav-shown" : "") + (small ? " narrow" : "")}>
             {shown && <NavPane api={settings.api} publicUrl={settings.publicUrl} current={current}
                                onNavigate={small ? () => setShown(false) : undefined}

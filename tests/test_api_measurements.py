@@ -23,7 +23,7 @@ from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, analysed, converted
 
 def csv_rows(client, c):
     res = client.get("{}/{}/measurements.csv".format(CONVERSIONS, c.id))
-    return list(csv.DictReader(io.StringIO(res.content.decode())))
+    return list(csv.DictReader(io.StringIO(res.content.decode("utf-8-sig"))))
 
 
 def test_spots_lines_and_areas_measure_the_mosaics_and_their_surroundings(api):
@@ -203,8 +203,9 @@ def test_measurements_are_saved_listed_exported_renamed_and_deleted(api):
 
     res = api.get("{}/{}/measurements.csv".format(CONVERSIONS, c.id))
     assert res['Content-Type'] == 'text/csv; charset=utf-8'
+    assert res.content.startswith(b'\xef\xbb\xbf')      # Excel reads it as UTF-8
     assert '-measurements.csv' in res['Content-Disposition']
-    rows = list(csv.DictReader(io.StringIO(res.content.decode())))
+    rows = list(csv.DictReader(io.StringIO(res.content.decode("utf-8-sig"))))
     assert (rows[0]['Name'], rows[0]['Measured on'], rows[0]['Shape'], rows[0]['Isotherm share'],
             rows[0]['Length / area unit']) == ('Warm corner', 'Harmonized mosaic', 'Polygon', '0.6875', 'm')
     assert float(rows[0]['Mean']) == round(mosaic_temperature(39.5) + 0.5, 3)

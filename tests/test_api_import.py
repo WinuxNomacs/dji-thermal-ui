@@ -319,3 +319,15 @@ def test_imports_left_by_a_closed_server_are_cleared(api):
     start(api, tar_of(manifest()))
     restore.clear_imports()
     assert staged() == []
+
+
+def test_an_archive_that_fills_the_disk_says_so():
+    import errno
+    from unittest import mock
+    from dji_thermal_ui.analyzer import restore
+    reader = restore.Reader.__new__(restore.Reader)
+    reader.member = ('file', None)
+    reader.out = mock.Mock()
+    reader.out.write.side_effect = OSError(errno.ENOSPC, "No space left on device")
+    with pytest.raises(restore.RestoreError, match="The disk is full"):
+        reader.data(b'x')
