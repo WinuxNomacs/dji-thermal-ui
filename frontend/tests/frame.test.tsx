@@ -1,4 +1,5 @@
 import OlMap from "ol/Map";
+import MapBrowserEvent from "ol/MapBrowserEvent";
 import ImageLayer from "ol/layer/Image";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import type ImageStatic from "ol/source/ImageStatic";
@@ -531,5 +532,38 @@ describe("the frames of a visual mosaic of its own", () => {
         expect(byId("recorded").textContent).toContain("In the mosaicno");
         expect((byId("next") as HTMLButtonElement).disabled).toBe(true);
         expect($("#palette")).toBeNull();
+    });
+});
+
+describe("Temperature On Pointer on the frame page", () => {
+    it("shows the frame's temperature beside the pointer once ticked, and none outside the frame", async () => {
+        localStorage.setItem("thermal-analyzer.pointer-temperature", "1");
+        const added = vi.spyOn(OlMap.prototype, "addLayer");
+        const routed = server(routes());
+        const fetchFn = vi.fn((url: string, opts?: RequestInit) => {
+            if (url.includes("/frame/point?")) {
+                const x = parseFloat(new URLSearchParams(url.split("?")[1]).get("x")!);
+                return Promise.resolve(jsonResponse(x < 2 ? {inside: true, x, y: 1, temperature: 30.25} : {inside: false}));
+            }
+            return routed(url, opts);
+        }) as unknown as ReturnType<typeof server>;
+        await open(fetchFn);
+        const m = (added.mock.contexts as OlMap[]).find((x) => x.getTargetElement()?.id === "map")!;
+        const move = (at: number[]) => {
+            const e = new MapBrowserEvent("pointermove", m, new MouseEvent("pointermove") as PointerEvent);
+            e.coordinate = at;
+            m.dispatchEvent(e);
+        };
+        const tip = () => byId("map").querySelector(".map-tip.pointer-temperature") as HTMLElement;
+        expect((byId("pointer-temperature") as HTMLInputElement).checked).toBe(true);
+        move([1, -1]);
+        await new Promise((r) => setTimeout(r, 200));
+        await ticks(20);
+        expect([tip().hidden, tip().textContent]).toEqual([false, "30.25 °C"]);
+        move([3, -1]);
+        await new Promise((r) => setTimeout(r, 200));
+        await ticks(20);
+        expect(byId("readout").textContent).toContain("Outside the frame.");
+        expect(tip().hidden).toBe(true);
     });
 });

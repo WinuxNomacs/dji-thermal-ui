@@ -947,3 +947,76 @@ describe("an imported dataset in the viewer", () => {
         expect(nav).toHaveBeenLastCalledWith("/conversion/9?tab=visual");
     });
 });
+
+describe("Temperature On Pointer", () => {
+    const MIDDLE = [10.0006, 50.0005];
+    // Points with a temperature west of the middle and a little east of it, and none further east
+    function warm(routed: ReturnType<typeof server>) {
+        return vi.fn((url: string, opts?: RequestInit) => {
+            if (url.includes("/point?")) {
+                const lon = parseFloat(new URLSearchParams(url.split("?")[1]).get("lon")!);
+                return Promise.resolve(jsonResponse({valid: true, frame: lon < 10.0005 ? "a_T.JPG" : "b_T.JPG",
+                                                     temperature: lon < 10.0005 ? 21.5 : lon < 10.0007 ? 25 : null}));
+            }
+            return routed(url, opts);
+        }) as unknown as ReturnType<typeof server>;
+    }
+    function moveMap(m: OlMap, lonLat: number[]) {
+        const e = new MapBrowserEvent("pointermove", m, new MouseEvent("pointermove") as PointerEvent);
+        e.coordinate = fromLonLat(lonLat);
+        m.dispatchEvent(e);
+    }
+    const rest = async () => { await new Promise((r) => setTimeout(r, 200)); await ticks(20); };
+    const tip = () => $(".map-tip.pointer-temperature") as HTMLElement;
+    const box = () => byId("pointer-temperature") as HTMLInputElement;
+
+    it("is off at first, then shows the temperature under the pointer once it rests, and no tip where there is none", async () => {
+        const map = viewerMap();
+        await open(warm(server(routes(OUTLINES))));
+        expect(box().checked).toBe(false);
+        expect($("[data-section=cursor] summary")!.textContent).toContain("Temperature On Pointer");
+        moveMap(map(), WEST);
+        await rest();
+        expect(byId("readout").textContent).toContain("21.5");
+        expect(tip().hidden).toBe(true);
+
+        const section = $("[data-section=cursor]") as HTMLDetailsElement, open_ = section.open;
+        click(box());
+        await ticks();
+        expect(box().checked).toBe(true);
+        expect(section.open).toBe(open_);
+        expect(localStorage.getItem("thermal-analyzer.pointer-temperature")).toBe("1");
+        moveMap(map(), WEST);
+        await rest();
+        expect([tip().hidden, tip().textContent]).toEqual([false, "21.50 °C"]);
+        // Gone as the pointer moves on, and not shown where the point has no temperature
+        moveMap(map(), EAST);
+        expect(tip().hidden).toBe(true);
+        await rest();
+        expect(byId("readout").textContent).toContain("b_T.JPG");
+        expect(tip().hidden).toBe(true);
+
+        click(box());
+        await ticks();
+        moveMap(map(), WEST);
+        await rest();
+        expect(tip().hidden).toBe(true);
+        expect(localStorage.getItem("thermal-analyzer.pointer-temperature")).toBe("0");
+    });
+
+    it("follows the pointer while the readout keeps a point clicked", async () => {
+        localStorage.setItem("thermal-analyzer.pointer-temperature", "1");
+        const map = viewerMap();
+        await open(warm(server(routes(OUTLINES))));
+        expect(box().checked).toBe(true);
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(byId("readout").textContent).toContain("a_T.JPG");
+        moveMap(map(), MIDDLE);
+        await rest();
+        expect([tip().hidden, tip().textContent]).toEqual([false, "25.00 °C"]);
+        expect(byId("readout").textContent).toContain("a_T.JPG");
+        map().getViewport()!.dispatchEvent(new MouseEvent("mouseleave"));
+        expect(tip().hidden).toBe(true);
+    });
+});

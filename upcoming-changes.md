@@ -8,13 +8,30 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned. The bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is built.
+**Up next**: nothing planned. P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`,
+2026-11-09), with its list BR1–BR9, is built.
 
 J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
 **Then**: nothing planned yet.
+
+## P1: Temperature On Pointer
+
+Asked on 2026-11-10: a box named "Temperature On Pointer" in Pointer info's heading, off at first, that shows the
+temperature of the pixel under the pointer in a small tip near it, and no tip where the pixel has no temperature.
+
+The user's decisions (2026-11-10):
+
+- **Pages:** the viewer and the frame page, the two with Pointer info.
+- **While a click keeps Pointer info's values** (the viewer): the tip goes on following the pointer.
+- **Remembered** in the browser once ticked (`thermal-analyzer.pointer-temperature`), on every map.
+
+Built: `frontend/src/map/pointer-temperature.tsx` (the box, the tip and the setting), used by
+`viewer/viewer-page.tsx` and `frame/frame-page.tsx`. The tip shows the temperature Pointer info reads (the same
+request, after the pointer rests `HOVER_MS`), at the point it was read for; the frame page's is the frame's as
+converted. Tests: `frontend/tests/viewer.test.tsx` and `frame.test.tsx` ("Temperature On Pointer").
 
 ## Bug review
 

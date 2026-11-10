@@ -22,7 +22,9 @@ The first is shown on opening; a click or ++arrow-left++ ++arrow-right++ shows a
 The frame has the viewer's palette, range (with its cross of Narrow, Widen, Lower and Raise round Auto, within the frame's own
 temperatures), image sliders, Pointer info and [measuring](measuring.md). Its **Thermal**/**Visual**/**Both** switch
 shows the frame's visual image in its place or beside it, with the same shapes and the cursor on it, and measures the
-thermal frame under them. A frame can be measured again with other parameters.
+thermal frame under them. A frame can be measured again with other parameters. **Temperature On Pointer**, in Pointer
+info's heading, shows the frame's temperature beside the cursor, as on the
+[viewer](mosaics.md#pointer-info).
 
 ## The photos of a flight of visual images only
 
