@@ -188,6 +188,8 @@ All notable changes are recorded here. The format follows
   folders are chosen and uploaded. Flights already read in place keep working, and the API still takes them.
 
 ### Fixed
+- **OpenStreetMap** follows its tile usage policy: the pages let the browser send the Referer the tile server requires
+  (the app's address alone), and the credit reads "© OpenStreetMap contributors" and stays open while that map is shown.
 - **Rebuild mosaics** builds the new mosaics beside the last ones and swaps them in when they are finished: the viewer
   goes on showing the last ones meanwhile, and a rebuild that fails or is canceled keeps them, saying why it failed.
 - The project's **Export** dialog names a flight whose images can't be found (a drive not connected), instead of

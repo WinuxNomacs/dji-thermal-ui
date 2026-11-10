@@ -6,7 +6,8 @@ User Preferences › Map (ESRI Satellite unless another is chosen), and switchin
 ![System Settings › Mapbox Satellite](../assets/screenshots/settings-mapbox.png)
 
 - **ESRI Satellite** (the default) and **OpenStreetMap** need nothing set up. Where Esri's imagery stops short of the
-  zoom shown, its deepest level there is stretched instead of showing "Map data not yet available".
+  zoom shown, its deepest level there is stretched instead of showing "Map data not yet available". OpenStreetMap's
+  credit stays open at the bottom right of the map while it is shown.
 - **Mapbox Satellite** needs a Mapbox account of your own and its access token, saved under System Settings. The
   switch lists it once a token is known.
 - **None** shows the mosaic alone, and loads nothing from the internet.

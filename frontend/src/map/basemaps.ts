@@ -18,6 +18,7 @@ export interface Basemap {
     subdomains?: string | string[]; layers?: string; styles?: string; format?: string;
     key?: string; default?: boolean;                        // the one shown first (the preferred one)
     fallback?: boolean;                                     // the one a refused Mapbox goes back to (the settings' default)
+    attribution_open?: boolean;                             // its credit is kept open while it is shown (OpenStreetMap's)
     tilemap?: string;                                       // Esri's: which tiles exist
     logo?: string; token?: string | null;                   // Mapbox's: its wordmark, and the token
 }
@@ -190,7 +191,7 @@ export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
         map.addControl(new Control({element: logo}));
     }
 
-    // Mapbox's attribution stays open while its imagery is shown (the control would look at the hidden layers too)
+    // Mapbox's and OpenStreetMap's credits stay open while they are shown (the control would look at the hidden layers too)
     const attribution = map.getControls().getArray().find((c) => c instanceof Attribution) as Attribution | undefined;
 
     let shown = -1, previous = -1;
@@ -200,7 +201,7 @@ export function addBasemaps(map: OlMap, basemaps: Basemap[]) {
         layers.forEach((l, j) => l.setVisible(j === i));
         const isMapbox = i >= 0 && i === mapboxAt;
         logo.hidden = !isMapbox;
-        attribution?.setCollapsible(!isMapbox);
+        attribution?.setCollapsible(!isMapbox && !basemaps[i]?.attribution_open);
         options();
     }
 

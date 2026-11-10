@@ -9,7 +9,7 @@ import {jsonResponse, ticks} from "./helpers";
 
 const TOKEN = "pk.eyJ1IjoidGVzdCJ9.abc";
 const ESRI: Basemap = {label: "ESRI Satellite", url: "https://esri/tile/{z}/{y}/{x}", default: true, maxzoom: 21};
-const OSM: Basemap = {label: "OpenStreetMap", url: "https://osm/{z}/{x}/{y}.png", maxzoom: 19};
+const OSM: Basemap = {label: "OpenStreetMap", url: "https://osm/{z}/{x}/{y}.png", maxzoom: 19, attribution_open: true};
 const mapbox = (token: string | null = null): Basemap =>
     ({label: "Mapbox Satellite", type: "mapbox", url: "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/512/{z}/{x}/{y}",
       maxzoom: 22, logo: "/static/vendor/mapbox/mapbox-logo.svg", token});
@@ -46,6 +46,16 @@ afterEach(() => {
 });
 
 describe("the basemap switch", () => {
+    it("keeps OpenStreetMap's credit open only while OpenStreetMap is shown", () => {
+        const open_ = () => $(".ol-attribution")!.classList.contains("ol-uncollapsible");
+        open([ESRI, OSM]);
+        expect(open_()).toBe(false);
+        choose("OpenStreetMap");
+        expect(open_()).toBe(true);
+        choose("ESRI Satellite");
+        expect(open_()).toBe(false);
+    });
+
     it("lists Mapbox only once there is a token, and no way to add or change one", () => {
         open([ESRI, OSM, mapbox()]);
         expect(options()).toEqual(["ESRI Satellite", "OpenStreetMap", "None"]);

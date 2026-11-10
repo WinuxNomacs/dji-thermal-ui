@@ -83,12 +83,17 @@ LOGGING = {
     "loggers": {"dji_thermal_ui": {"handlers": ["console"], "level": "INFO"}},
 }
 
+# OpenStreetMap's tile usage policy requires a Referer, which Django's default (same-origin) keeps from being sent: this
+# sends the origin alone, and nothing of a page's address, to other sites
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
 # Where a project's location is searched for (analyzer/places.py)
 NOMINATIM_URL = "https://nominatim.openstreetmap.org"
 
 # The basemaps under the mosaics (Mapbox's satellite imagery is added to them when there is a token: analyzer/basemaps.py).
 # key: what the basemap preference names it by; default: the one a map starts with unless another is preferred;
-# tilemap: Esri's service saying which tiles exist, so that a level with none there is not drawn
+# tilemap: Esri's service saying which tiles exist, so that a level with none there is not drawn;
+# attribution_open: the credit is kept open while it is shown (OpenStreetMap's tile usage policy)
 BASEMAPS = [
     {
         "key": "esri",
@@ -108,7 +113,8 @@ BASEMAPS = [
         "type": "tms",
         "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         "label": "OpenStreetMap",
-        "attribution": '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        "attribution": '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        "attribution_open": True,
         "maxzoom": 19,
         "minzoom": 0,
     },
