@@ -729,6 +729,9 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     white-space: nowrap; pointer-events: none;
 }
 .map-tip[hidden] { display: none; }
+/* Temperature On Pointer: the tip, and its box in Pointer info's heading */
+.map-tip.pointer-temperature { font-size: 13px; font-variant-numeric: tabular-nums; }
+.pointer-temperature-box { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: normal; cursor: pointer; }
 
 /* Measuring (the viewer and the frame page) */
 .tools { display: flex; flex-wrap: wrap; }

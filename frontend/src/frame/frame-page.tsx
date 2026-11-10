@@ -28,6 +28,7 @@ import {type IsothermState, Isotherm, MeasureCard, Measurements, Toolbar} from "
 import {type Colouring, isothermRange, readValues} from "../map/colour";
 import {fitBounds, frameImage, frameImageLayer, frameMap, frameView, hoverTips, lonLatToMap, pointFeature,
         pointsMap, snapshot, ThermalLayer, vectorLayer} from "../map/map";
+import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
 import {fromVisual, toVisual, type VisualPair} from "../sources/sources";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, PanelGroup, Section} from "../viewer/panel";
@@ -134,6 +135,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const [rangeError, setRangeError] = useState("");
     const [curve, setCurve] = useState<number[] | null>(null);
     const [point, setPoint] = useState<Maybe<FramePoint>>(undefined);
+    const [tipOn, setTipOn] = usePointerTemperature();
     const [tools, setTools] = useState<{tool: ReturnType<Drawing["tool"]>; count: number}>({tool: null, count: 0});
     const [current, setCurrent] = useState<Current | null>(null);
     const [index, setIndex] = useState<number | null>(null);
@@ -179,6 +181,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const following = useRef(false);
     const follow = useRef<() => void>(() => undefined);
     const drawings = useRef<Drawing[]>([]);
+    const tips = useRef<PointerTip[]>([]);
     const locator = useRef<{map: OlMap; spots: VectorSource; photos: VectorSource; fitted: boolean} | null>(null);
     const [locatorVisual, setLocatorVisualState] = useState(() => {
         try { return localStorage.getItem(LOCATOR_VISUAL_KEY) === "1"; } catch { return false; }
@@ -202,8 +205,11 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     sidePair.current = beside ? pair : null;
 
     // What the maps' handlers (set up once) read: this render's values
-    const now = useRef({frame, changes, meta, current, locatorVisual});
-    now.current = {frame, changes, meta, current, locatorVisual};
+    const now = useRef({frame, changes, meta, current, locatorVisual, tipOn, unit});
+    now.current = {frame, changes, meta, current, locatorVisual, tipOn, unit};
+
+    // Temperature On Pointer's tip goes when the box is unticked, and on another frame until the pointer rests again
+    useEffect(() => hideTips(), [tipOn, frame]);
 
     useEffect(() => {
         load();
@@ -338,15 +344,18 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         const pairOf = () => i === 0 ? shownPair.current : i === SIDE ? sidePair.current : null;
         const to = (at: Coordinate): Coords => { const p = pairOf(); return p ? fromPair(p, at) : toCoords(at); };
         const from = (c: Coords): Coordinate => { const p = pairOf(); return p ? toPair(p, c) : fromCoords(c); };
+        tips.current[i] = pointerTip(m);
         m.on("pointermove", (e) => {
+            hideTips();
             if (e.dragging) return;
             clearTimeout(hover.current);
-            const at = to(e.coordinate);
+            const where = e.coordinate, at = to(where);
             drawings.current.forEach((d, j) => d?.showCursor(j === i || !at.every(isFinite) ? null : at));
-            hover.current = setTimeout(() => readout(at), HOVER_MS);
+            hover.current = setTimeout(() => readout(at, {pane: i, at: where}), HOVER_MS);
         });
         m.getViewport()?.addEventListener("mouseleave", () => {
             clearTimeout(hover.current);
+            hideTips();
             asked.current.point++;
             drawings.current.forEach((d) => d?.showCursor(null));
             setPoint(undefined);
@@ -548,15 +557,25 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     }, [frame, list, style && style.palette, style && style.range.join(), style && adjustQuery(style.adjust)]);
 
     // The values at a pixel of the frame (where the cursor is, on the frame or on its visual pair)
-    function readout(at: Coords) {
+    // The values under the pointer, and Temperature On Pointer's tip on the pane it is over (where: the place there)
+    function readout(at: Coords, where?: {pane: number; at: Coordinate}) {
         const n = ++asked.current.point, q = now.current;
         if (!at.every(isFinite)) return setPoint(null);
         fetch(base + "/frame/point?frame=" + encodeURIComponent(q.frame || "") + "&x=" + at[0] + "&y=" + at[1] +
               changesQuery(changesIn(q.changes, q.meta?.unit)), {credentials: "same-origin"})
             .then((res) => readJson<FramePoint>(res))
-            .then((r) => { if (n === asked.current.point) setPoint(r.ok ? r.data : null); })
+            .then((r) => {
+                if (n !== asked.current.point) return;
+                const p = r.ok ? r.data : null;
+                setPoint(p);
+                // The frame's temperature as converted, as the image shows it
+                const text = where && now.current.tipOn && p?.inside ? pointerText(p.temperature, now.current.unit) : null;
+                if (text) tips.current[where!.pane]?.show(where!.at, text);
+            })
             .catch(() => { if (n === asked.current.point) setPoint(null); });
     }
+
+    function hideTips() { tips.current.forEach((t) => t?.hide()); }
 
     // The profile's sample under the cursor (on the chart or along the line), marked on the chart and both panes
     function showIndex(i: number | null, points?: Maybe<Coords[]>) {
@@ -861,7 +880,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                         <Section name="isotherm" title="Isotherm" store={FOLDED_KEY}>
                             <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
                         </Section>
-                        <Section name="cursor" title="Pointer info" store={FOLDED_KEY}>
+                        <Section name="cursor" title={<PointerHead on={tipOn} onChange={setTipOn}/>} store={FOLDED_KEY}>
                             <div class="readout" id="readout"><FrameReadout point={point} unit={unit}/></div>
                         </Section>
                         <Section name="parameters" title="Measurement parameters" store={FOLDED_KEY} folded>

@@ -102,6 +102,11 @@ left.
 Pointer info gives the values under the cursor. A click keeps them and outlines the frame there, and **Open frame**
 then opens that frame on the [frame page](frames.md); Escape or a second click on that frame lets go of it.
 
+**Temperature On Pointer**, in Pointer info's heading, shows the temperature under the cursor in a small tip beside
+it, once the cursor rests, and goes on following the cursor while a click keeps Pointer info's values. There is no tip
+where Pointer info has no temperature, such as off the mosaic or where it has no data. It is off until ticked, and
+then stays ticked in this browser, on the frame page too.
+
 ## From the viewer
 
 The viewer's header has **Frames** (the [frames explorer](frames.md)), **Compare with…** (the

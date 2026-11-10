@@ -8,6 +8,9 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- **Temperature On Pointer**, a box in Pointer info's heading on the viewer and the frame page: the temperature under
+  the cursor in a small tip beside it, once the cursor rests, and none where there is no temperature. Off until
+  ticked, then remembered in the browser.
 - **Import from WebODM**, beside the New dataset form's **Convert**: an orthophoto made in WebODM becomes a dataset of
   the flight, with its DSM if wanted. The dialog browses the WebODM account's projects and their completed tasks as
   cards with a preview of each orthophoto (WebODM's own for colours, coloured here from its tiles for temperatures),

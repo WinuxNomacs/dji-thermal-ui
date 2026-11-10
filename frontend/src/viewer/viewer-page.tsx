@@ -36,6 +36,7 @@ import {FindingAbout, FindingForm, Findings, SaveFinding} from "../findings/pane
 import {type Colouring, isothermRange, SEAMS} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
+import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
 import {MosaicExport} from "./export";
 import {VisualViewer} from "./visual-viewer";
@@ -163,6 +164,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [curve, setCurve] = useState<number[] | null>(null);
     const [point, setPoint] = useState<Maybe<Point>>(undefined);
     const [pinned, setPinned] = useState(false);
+    const [tipOn, setTipOn] = usePointerTemperature();
     const [outlined, setOutlined] = useState<string | null>(null);
     const [tools, setTools] = useState<{tool: ReturnType<Drawing["tool"]>; count: number}>({tool: null, count: 0});
     const [current, setCurrent] = useState<Current | null>(null);
@@ -199,8 +201,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const footprint = useRef<VectorSource | null>(null);
     const sourcesShape = useRef<VectorSource | null>(null);
     const findingsShown = useRef<VectorSource | null>(null);
+    const tip = useRef<PointerTip | null>(null);
     // Counters: only the answer to the latest question is shown
-    const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0});
+    const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0, tip: 0});
     const readyShown = useRef(false);
     const builtShown = useRef<Maybe<number>>(undefined);
 
@@ -226,8 +229,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // What the map's handlers (set up once) read: this render's values
     const imported = !!v?.imported;
-    const now = useRef({tab, visual, params, current, pinned, outlined, findings, imported});
-    now.current = {tab, visual, params, current, pinned, outlined, findings, imported};
+    const now = useRef({tab, visual, params, current, pinned, outlined, findings, imported, tipOn, unit});
+    now.current = {tab, visual, params, current, pinned, outlined, findings, imported, tipOn, unit};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -300,6 +303,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         };
     }, []);
 
+    // Temperature On Pointer's tip goes when the box is unticked, and on another tab until the pointer rests again
+    useEffect(() => { tip.current?.hide(); }, [tipOn, tab, visual]);
+
     function syncTools() {
         const d = drawing.current;
         setTools({tool: d ? d.tool() : null, count: d ? d.count() : 0});
@@ -315,15 +321,23 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         layer.current = new ThermalLayer(m, values, colouring);
         fitBounds(m, t.bounds || WORLD);
         makeVisual();
+        tip.current = pointerTip(m);
 
+        // The readout follows the pointer where it rests, unless a click keeps a point; Temperature On Pointer's tip
+        // follows it either way
         m.on("pointermove", (e) => {
-            if (now.current.pinned || e.dragging) return;
+            tip.current?.hide();
+            const pinned = now.current.pinned;
+            if (e.dragging || (pinned && !now.current.tipOn)) return;
             clearTimeout(hover.current);
-            hover.current = setTimeout(() => readout(e.coordinate), HOVER_MS);
+            const at = e.coordinate;
+            hover.current = setTimeout(() => pinned ? tipAt(at) : readout(at), HOVER_MS);
         });
         m.getViewport()?.addEventListener("mouseleave", () => {
-            if (now.current.pinned) return;
             clearTimeout(hover.current);
+            tip.current?.hide();
+            asked.current.tip++;
+            if (now.current.pinned) return;
             asked.current.point++;
             setPoint(undefined);
         });
@@ -497,19 +511,40 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The values at a point, kept (and its frame outlined) when pinned; kept: the frame outlined before, let go of
     // when the point is on it again. Resolves to whether the point's values are shown (not let go of, nor moved on).
-    function readout(at: Coordinate, pin = false, kept: string | null = null): Promise<boolean> {
-        const n = ++asked.current.point, q = now.current, [lon, lat] = mapToLonLat(at);
+    // The values at a point of the mosaic shown (null: not read)
+    function pointAt(at: Coordinate): Promise<Point | null> {
+        const q = now.current, [lon, lat] = mapToLonLat(at);
         return fetch(base + "/mosaics/" + q.tab + "/point?lon=" + lon + "&lat=" + lat +
                      extraQuery(q.params), {credentials: "same-origin"})
             .then((res) => readJson<Point>(res))
-            .then((r) => {
+            .then((r) => r.ok ? r.data : null);
+    }
+
+    // Temperature On Pointer: the temperature read at a point beside it, or no tip where there is none
+    function showTip(at: Coordinate, p: Point | null) {
+        const text = now.current.tipOn && p?.valid ? pointerText(p.temperature, now.current.unit) : null;
+        if (text) tip.current?.show(at, text);
+        else tip.current?.hide();
+    }
+
+    // The tip alone, while the readout keeps a point clicked
+    function tipAt(at: Coordinate) {
+        const n = ++asked.current.tip;
+        pointAt(at).then((p) => { if (n === asked.current.tip) showTip(at, p); }).catch(() => undefined);
+    }
+
+    function readout(at: Coordinate, pin = false, kept: string | null = null): Promise<boolean> {
+        const n = ++asked.current.point;
+        return pointAt(at)
+            .then((p) => {
                 if (n !== asked.current.point) return false;    // the cursor moved on
-                const frame = r.ok && r.data.valid && r.data.frame || null;
+                showTip(at, p);
+                const frame = p && p.valid && p.frame || null;
                 if (pin && kept && frame === kept) {
                     follow();
                     return false;
                 }
-                setPoint(r.ok ? r.data : null);
+                setPoint(p);
                 if (pin) outline(frame);
                 return true;
             })
@@ -1052,7 +1087,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                         {measuring && <Section name="isotherm" title="Isotherm">
                             <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
                         </Section>}
-                        <Section name="cursor" title="Pointer info">
+                        <Section name="cursor" title={<PointerHead on={tipOn} onChange={setTipOn}/>}>
                             <div class="readout" id="readout">
                                 <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
                             </div>
