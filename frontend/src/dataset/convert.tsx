@@ -290,7 +290,8 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
     const [webodm, setWebodm] = useState(false);
     const ready = c.status === "ready", busy = isBusy(c);
     // The viewer shows the mosaics, or WebODM's orthophoto brought back without them
-    const mosaics = ready && (c.mosaic_status === "ready" || !!c.orthophoto);
+    const mosaics = ready && (c.mosaic_status === "ready" || !!c.orthophoto ||
+        (c.mosaic_status === "building" && (c.mosaic_files || []).length > 0));
     // A visual mosaic of its own: no images to open as frames, compare or send to WebODM (yet)
     const only = !!c.visual_only, them = only ? "the mosaic" : "the mosaics";
     // Imported from WebODM: nothing converted here, so no settings, files, frames or tasks of its own
@@ -359,7 +360,8 @@ function Card({c, defaults, api, publicUrl, base, viewer, fresh, act, onChange}:
         {c.mosaic_status === "building" ? <div class="mosaic-status text-info">{mosaicLabel(c)}</div> :
             c.mosaic_status === "failed" ? <div class="mosaic-status text-danger">{only ? "The mosaic" : "The mosaics"} failed: {c.mosaic_error}</div> :
             c.mosaic_status === "canceled" ? <div class="mosaic-status text-muted">Building {them} was canceled.</div> :
-            ready && made && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">{only ? "No mosaic." : "No mosaics."}</div> : null}
+            ready && made && c.mosaic_status !== "ready" ? <div class="mosaic-status text-muted">{only ? "No mosaic." : "No mosaics."}</div> :
+            c.mosaic_status === "ready" && c.mosaic_error ? <div class="mosaic-status text-danger">Building {them} again failed: {c.mosaic_error} The last {only ? "one built is" : "ones built are"} kept.</div> : null}
         {imported && ready && <div class="webodm-shown text-muted">
             {c.orthophoto ? "Its orthophoto of temperatures is the viewer's WebODM tab." :
                 "Its orthophoto of colours is the viewer's visual mosaic."}{c.dsm ? " Its DSM is the Heights tab." : ""}

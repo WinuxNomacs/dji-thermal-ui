@@ -41,6 +41,8 @@ HEIGHTS = 'heights'
 BASE_PERCENTILE = 1         # the DSM's lowest ground, which its heights are shown above
 MOSAICS_DIR = 'mosaics'
 VIEWER_DIR = 'viewer'       # served by the app only: left out of the downloads
+BUILDING_DIR = '.mosaics-building'  # where a build writes, in the conversion's folder, until it replaces the last one
+SWAP_WAIT = 5               # seconds a folder being read may hold up the swap (Windows won't rename what is open)
 PALETTES_FILE = 'palettes.json'
 VISUAL = 'visual'           # the visual mosaic's kind, folder and viewer files
 VISUAL_PAIRS_FILE = 'visual_pairs.json'
@@ -374,22 +376,85 @@ def remove(conversion):
         shutil.rmtree(os.path.join(conversion.data_dir(), d), ignore_errors=True)
 
 
+def building_dir(conversion):
+    return os.path.join(conversion.data_dir(), BUILDING_DIR)
+
+
+def discard_building(conversion):
+    """Removes what a build that won't finish wrote"""
+    shutil.rmtree(building_dir(conversion), ignore_errors=True)
+
+
+def stopped(conversion, status, error=""):
+    """The fields of a build that ended with no new mosaics (status: 'failed' or 'canceled'): the mosaics it was to
+    replace are still there, and ready as they were"""
+    return {'mosaic_status': 'ready' if conversion.mosaics else status, 'mosaic_error': error}
+
+
+def patient_rename(src, dst):
+    """os.rename, waiting up to SWAP_WAIT for a reader of a file in src to finish"""
+    deadline = time.time() + SWAP_WAIT
+    while True:
+        try:
+            return os.rename(src, dst)
+        except PermissionError:
+            if time.time() >= deadline:
+                raise
+            time.sleep(0.1)
+
+
+def swap(conversion, built):
+    """The new mosaics in the folder built put in place of the last ones, which are put back if that can't be done"""
+    out_dir = conversion.data_dir()
+    aside = os.path.join(built, 'replaced')
+    os.makedirs(aside)
+    moved, placed = [], []
+    try:
+        for d in (MOSAICS_DIR, VIEWER_DIR):
+            if os.path.isdir(os.path.join(out_dir, d)):
+                patient_rename(os.path.join(out_dir, d), os.path.join(aside, d))
+                moved.append(d)
+        for d in (MOSAICS_DIR, VIEWER_DIR):
+            if os.path.isdir(os.path.join(built, d)):
+                patient_rename(os.path.join(built, d), os.path.join(out_dir, d))
+                placed.append(d)
+    except OSError:
+        for d in placed:
+            os.rename(os.path.join(out_dir, d), os.path.join(built, d))
+        for d in moved:
+            os.rename(os.path.join(aside, d), os.path.join(out_dir, d))
+        raise
+
+
 def build(conversion, run):
     """
-    Builds a conversion's mosaics into its folder: {'kinds': {kind: ...}, 'frames': [names], 'unit', 'stripped'},
-    and 'visual' (see build_visual) or, when it was asked for and there is none, 'visual_note' (why).
+    Builds a conversion's mosaics beside the last ones, which they replace once finished: {'kinds': {kind: ...},
+    'frames': [names], 'unit', 'stripped', 'built_at'}, and 'visual' (see build_visual) or, when it was asked for and
+    there is none, 'visual_note' (why).
     Raises Canceled when the run is no longer wanted (checked at each progress write), MosaicError when no mosaic can
-    be made, and whatever else goes wrong.
+    be made, and whatever else goes wrong: then the last mosaics stay as they were, and nothing of this build is kept.
     """
+    discard_building(conversion)
+    try:
+        mosaics = build_into(conversion, run, building_dir(conversion))
+        if not run.exists():
+            raise Canceled()
+        swap(conversion, building_dir(conversion))
+    finally:
+        discard_building(conversion)
+    return dict(mosaics, built_at=time.time())
+
+
+def build_into(conversion, run, out_dir):
+    """The mosaics written to out_dir (as they are laid out in a conversion's folder)"""
     from dji_thermal_cli import api
     from dji_thermal_cli import mosaic as dji_mosaic
 
     dataset = conversion.dataset
-    root, out_dir = dataset.images_dir(), conversion.data_dir()
+    root = dataset.images_dir()
     if not os.path.isdir(root):
         raise Exception("The folder {} does not exist".format(root)
                         if dataset.source == 'folder' else "The flight has no images")
-    remove(conversion)
     os.makedirs(os.path.join(out_dir, VIEWER_DIR), exist_ok=True)
 
     options = conversion.options or {}
@@ -508,13 +573,14 @@ def finish(conversion, run):
     try:
         mosaics = build(conversion, run)
     except Canceled:
+        # The cancel counted the files while the build was still writing them
+        conversion.update_size()
+        type(conversion).objects.filter(pk=conversion.pk).update(file_count=conversion.file_count, size=conversion.size)
         return {'canceled': True}
     except Exception as e:
-        # Nothing of a failed build is kept: it is not shown, and would only take up space
-        remove(conversion)
         conversion.update_size()
-        run.update(mosaic_status='failed', mosaic_error=str(e), mosaic_progress=0, stage={}, run_id="",
-                   file_count=conversion.file_count, size=conversion.size)
+        run.update(mosaic_progress=0, stage={}, run_id="", file_count=conversion.file_count, size=conversion.size,
+                   **stopped(conversion, 'failed', str(e)))
         return {'error': str(e)}
     conversion.update_size()
     run.update(mosaic_status='ready', mosaic_error="", mosaic_progress=1.0, stage={}, mosaics=mosaics, run_id="",

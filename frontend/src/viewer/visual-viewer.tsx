@@ -26,7 +26,7 @@ import {centreOf, drawFindings, findingAt} from "../findings/layer";
 import {FindingAbout, FindingForm, Findings, SaveFinding} from "../findings/panel";
 import {type Basemap, fitBounds, lonLatToMap, mapToLonLat, mosaicMap, vectorLayer, visualLayer} from "../map/map";
 import {MosaicStatus, PanelGroup, Report, Section} from "./panel";
-import {TAB_TIPS, tabLabel, type VisualMosaic, viewQuery, visualRows} from "./view";
+import {builtQuery, TAB_TIPS, tabLabel, type VisualMosaic, viewQuery, visualRows} from "./view";
 import {SOURCES_SHAPE} from "./viewer-page";
 
 export const VISUAL_ALONE_HINT = "The visual camera's images, laid out by their own overlaps. The flight has no " +
@@ -49,6 +49,7 @@ export interface VisualAlone {
     stripped?: boolean;
     status: string;
     mosaic_status: string;
+    mosaics_built?: number | null;
     mosaic_error?: string | null;
     mosaic_progress?: number | null;
     stage?: Maybe<Stage>;
@@ -85,7 +86,7 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                               nav = (url) => { location.href = url; }}: Props) {
     const base = api + "conversions/" + id;
     const vis = v.visual;
-    const ready = v.mosaic_status === "ready" && !!vis?.bounds;
+    const ready = (v.mosaic_status === "ready" || v.mosaic_status === "building") && !!vis?.bounds;
     const busy = v.status === "converting" || v.mosaic_status === "building";
     const imported = !!v.imported, heights = (v.tabs || []).some((x) => x.tab === "heights");
     const [tools, setTools] = useState<{tool: ReturnType<Drawing["tool"]>; count: number}>({tool: null, count: 0});
@@ -115,11 +116,11 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
     };
 
     // The map, once the mosaic is built (made again when it is built again)
-    const key = ready ? JSON.stringify(vis!.bounds) + vis!.maxzoom : "";
+    const key = ready ? JSON.stringify(vis!.bounds) + vis!.maxzoom + v.mosaics_built : "";
     useEffect(() => {
         if (!ready || !mapEl.current) return;
         const m = map.current = mosaicMap(mapEl.current, basemaps).map;
-        visualLayer(m, base + "/mosaics/visual/tiles/{z}/{x}/{y}.png", vis!.bounds!, (vis!.maxzoom || 20) + 1).setVisible(true);
+        visualLayer(m, base + "/mosaics/visual/tiles/{z}/{x}/{y}.png" + builtQuery(v.mosaics_built), vis!.bounds!, (vis!.maxzoom || 20) + 1).setVisible(true);
         sourcesShape.current = vectorLayer(m, 9);
         findingsShown.current = vectorLayer(m, 8);
         fitBounds(m, vis!.bounds!);

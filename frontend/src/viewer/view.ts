@@ -154,10 +154,13 @@ export function extraQuery(extra: Maybe<Extra>): string {
 }
 
 // A mosaic tab's data tiles (the values the browser colours): a temperature's corrected as extra asks
-export function dataUrl(api: string, id: number, tab: string, extra?: Extra): string {
-    const query = isTemperatureTab(tab) ? extraQuery(extra) : "";
+// built: when the mosaics were built, since the tiles of mosaics built again have the same address otherwise
+export function dataUrl(api: string, id: number, tab: string, extra?: Extra, built?: Maybe<number>): string {
+    const query = (isTemperatureTab(tab) ? extraQuery(extra) : "") + (built ? "&built=" + built : "");
     return api + "conversions/" + id + "/mosaics/" + tab + "/data/{z}/{x}/{y}" + (query ? "?" + query.slice(1) : "");
 }
+
+export function builtQuery(built: Maybe<number>): string { return built ? "?built=" + built : ""; }
 
 // The palette's share at CURVE_SAMPLES values evenly across the range, with gamma alone (what the server's curve
 // gives with equalization)
