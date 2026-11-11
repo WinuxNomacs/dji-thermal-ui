@@ -22,7 +22,8 @@ On the card:
 
 The **Delta T** tool, after Circle, compares two spots. Click the first spot, then the second: the tool ends on the
 second click, and the card gives the line's length, the temperature of each spot (**First spot**, **Second spot**,
-each measured as the Spot tool measures one: the mean of a small disc around it) and **ΔT**, the second's temperature
+each the temperature of the pixel under it, as the cursor's own readout gives it, so a small hot or cold spot reads
+true) and **ΔT**, the second's temperature
 minus the first's. A Delta T is drawn as a line with a ring at each end. It has no isotherm, and it isn't offered on
 the Source frame tab or on a visual mosaic, which have no temperatures.
 

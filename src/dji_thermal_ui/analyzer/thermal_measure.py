@@ -564,19 +564,20 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
 
 def delta_measure(measure, geometry, length):
     """
-    A Delta T (a line of 2 points, shape delta): each end measured as a spot (measure(a Point geometry) -> what it
-    measures), {kind, first, second: the ends' disc means, delta_t: second − first, length, valid_pixels, reason};
+    A Delta T (a line of 2 points, shape delta): each end read as the pixel under it, the value a spot there gives
+    (measure(a Point geometry) -> what it measures), not its disc's mean, which mixes in what is around a small spot:
+    {kind, first, second: the ends' pixels, delta_t: second − first, length, valid_pixels (2), reason};
     valid_pixels 0, with the reason, where an end has no temperature
     """
     ends = [measure({'type': 'Point', 'coordinates': c}) for c in geometry['coordinates']]
-    first, second = (e.get('mean') if e.get('valid_pixels') else None for e in ends)
+    first, second = (e.get('value') for e in ends)
     out = {'kind': 'LineString', 'first': first, 'second': second, 'length': length, 'reason': None,
            'delta_t': None, 'valid_pixels': 0}
     if first is None or second is None:
-        missed = [e for e in ends if not e.get('valid_pixels')] or ends
+        missed = [e for e in ends if e.get('value') is None]
         out['reason'] = next((e['reason'] for e in missed if e.get('reason') == 'outside_raster'), 'nodata')
         return out
-    out.update(delta_t=second - first, valid_pixels=ends[0]['valid_pixels'] + ends[1]['valid_pixels'])
+    out.update(delta_t=second - first, valid_pixels=2)
     return out
 
 

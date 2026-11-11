@@ -37,8 +37,9 @@ The user's decisions (2026-11-11):
   the circle's mean, min and max, ΔT and the pixels counted.
 - **The radius is on the ground:** metres on a mosaic (0.5–10 m, 2 m at first), pixels on the frame page (3–50 px, 10
   at first); the outline grows and shrinks with the zoom.
-- **The Delta T tool's points are measured as a Spot's** (the mean of its small disc: 0.25 m on a mosaic, 1.5 px on a
-  frame); ΔT = the second point minus the first.
+- **The Delta T tool's points are each the pixel under them** (first built as a Spot's disc mean, 0.25 m on a mosaic,
+  1.5 px on a frame; changed 2026-11-11 by the user: on a low flight that disc is wider than a small spot, and mixed in
+  the warmer roof around a cold one, 58.6 °F where the cursor read −30 °F); ΔT = the second point minus the first.
 - **The tool has** Save measurement, Keep as finding, and the frame page as well as the viewer.
 
 ### D1: Delta T Around Pointer (built)

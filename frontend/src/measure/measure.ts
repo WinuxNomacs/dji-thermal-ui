@@ -50,7 +50,7 @@ export interface Result {
     std?: number | null;
     surroundings?: number | null;
     delta_t?: number | null;
-    // A Delta T's spots: the mean of each one's disc
+    // A Delta T's spots: the pixel under each one
     first?: number | null;
     second?: number | null;
     length?: number | null;
@@ -205,7 +205,9 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
     height("Lowest height", results.map((r) => r.heights?.min));
     height("Mean height", results.map((r) => r.heights?.mean));
     height("Highest height", results.map((r) => r.heights?.max));
-    if (!sizeAlone) rows.push({label: "Pixels", values: results.map((r) => String(r.valid_pixels || 0))});
+    // A Delta T reads a pixel at each end: no pixels worth counting
+    const twoPixels = results.every((r) => isPresent(r.first) || isPresent(r.second));
+    if (!sizeAlone && !twoPixels) rows.push({label: "Pixels", values: results.map((r) => String(r.valid_pixels || 0))});
     return rows;
 }
 
