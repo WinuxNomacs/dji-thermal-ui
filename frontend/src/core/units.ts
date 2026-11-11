@@ -44,6 +44,7 @@ export function formatTemp(v: Value, from: unknown, digits = 2): string {
 // A difference in the unit `from`, as the user sees it; signed: with its + when positive
 export function formatDelta(v: Value, from: unknown, digits = 2, signed = false): string {
     if (blankNumber(v)) return "";
-    const d = convertDelta(v, from) as number;
-    return (signed && d > 0 ? "+" : "") + formatNumber(d, digits, " " + unitSymbol(userUnit()));
+    // A difference that rounds to nothing is 0, with no sign (not -0.00)
+    const d = convertDelta(v, from) as number, shown = Number(d.toFixed(digits)) || 0;
+    return (signed && shown > 0 ? "+" : "") + formatNumber(shown, digits, " " + unitSymbol(userUnit()));
 }

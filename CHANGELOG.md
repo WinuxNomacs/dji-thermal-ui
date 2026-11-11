@@ -8,6 +8,11 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- **Measuring on the compare page**: each pane's map has all six measuring tools (Spot, Line, Area, Box, Circle and
+  Delta T). A shape drawn in either pane is measured on both mosaics, in a card with the columns A, B and A − B (a
+  line's profile with both curves); **Save measurement** saves it on both datasets, and **Source frames** opens the
+  window a spot or an area opened before. An **Isotherm**, shared by both panes, greys their temperature mosaics
+  outside it and is measured in the card.
 - **Delta T**, a measuring tool after Circle on the viewer and the frame page: two clicks, and the card gives the
   temperature of the pixel under each spot (as the cursor reads it), ΔT (the second's minus the first's) and the length between them. It
   is saved, measured again with other parameters on a frame, kept as a finding (its frames those that saw a strip

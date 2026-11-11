@@ -150,9 +150,10 @@ export interface Row {label: string; values: string[]; difference?: string}
 type Key = "value" | "mean" | "min" | "max" | "std" | "surroundings" | "delta_t" | "first" | "second";
 
 // A measure's figures, as rows of [label, value(s)]: a column per result (as converted, then changed) and their
-// difference when there are two
-export function resultRows(results: Result[], unit: unknown, pixels?: boolean): Row[] {
+// difference when there are two (the second's minus the first's; minus: the first's minus the second's, as A − B)
+export function resultRows(results: Result[], unit: unknown, pixels?: boolean, minus = false): Row[] {
     const a = results[0];
+    const diff = (x: number, y: number) => minus ? x - y : y - x;
     const rows: Row[] = [];
     const units = pixels ? {length: " px", area: " px²", perimeter: " px"} : {length: " m", area: " m²", perimeter: " m"};
     // A size once when the results share it (the same shape), else each result's own (two compared)
@@ -171,7 +172,7 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
         const vs = results.map((r) => r[key]);
         if (vs.every((v) => v === null || v === undefined)) return;
         const row: Row = {label, values: vs.map(fmt)};
-        if (results.length === 2 && isPresent(vs[0]) && isPresent(vs[1])) row.difference = diffFmt(vs[1] - vs[0]);
+        if (results.length === 2 && isPresent(vs[0]) && isPresent(vs[1])) row.difference = diffFmt(diff(vs[0], vs[1]));
         rows.push(row);
     }
     const t = (v: Maybe<number>) => temp(v, unit);
@@ -191,13 +192,13 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
     if (share.some(isPresent)) {
         rows.push({label: "In the isotherm", values: share.map(percent),
                    difference: results.length === 2 && isPresent(share[0]) && isPresent(share[1]) ?
-                       (share[1] - share[0] > 0 ? "+" : "") + formatNumber((share[1] - share[0]) * 100, 1, " %") : undefined});
+                       (diff(share[0], share[1]) > 0 ? "+" : "") + formatNumber(diff(share[0], share[1]) * 100, 1, " %") : undefined});
     }
     function height(label: string, vs: Maybe<number>[]) {
         if (!vs.some(isPresent)) return;
         const row: Row = {label, values: vs.map((v) => isPresent(v) ? formatNumber(v, 1, " m") : "")};
         if (results.length === 2 && isPresent(vs[0]) && isPresent(vs[1])) {
-            row.difference = (vs[1] - vs[0] > 0 ? "+" : "") + formatNumber(vs[1] - vs[0], 1, " m");
+            row.difference = (diff(vs[0], vs[1]) > 0 ? "+" : "") + formatNumber(diff(vs[0], vs[1]), 1, " m");
         }
         rows.push(row);
     }

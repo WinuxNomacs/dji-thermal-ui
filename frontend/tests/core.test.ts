@@ -64,6 +64,9 @@ describe("temperatures", () => {
         expect(formatTemp(21.5, "C")).toBe("70.70 °F");
         expect(formatDelta(-0.5, "C", 1, true)).toBe("-0.9 °F");
         expect(formatDelta(0.5, "C", 1, true)).toBe("+0.9 °F");
+        // A difference that rounds to nothing has no sign
+        expect(formatDelta(-1e-12, "F", 2, true)).toBe("0.00 °F");
+        expect(formatDelta(0.004, "F", 2, true)).toBe("0.00 °F");
         setUserUnit("K");
         expect(formatTemp(32, "F", 1)).toBe("273.1 K");
         setUserUnit("X");

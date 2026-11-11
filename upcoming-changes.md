@@ -8,12 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: CM1 (measuring on the compare page).
+**Up next**: nothing planned yet.
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+CM1 (measuring on the compare page), D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
@@ -119,19 +119,31 @@ The user's decisions (2026-11-11):
 - **The isotherm, shared by both panes:** one Isotherm control on the compare page, applied to both panes' temperature
   mosaics (not the difference or a visual mosaic), and measured in the card ("In the isotherm") for both.
 
-### CM1: measuring on the compare page
+### CM1: measuring on the compare page (built)
 
 - The pane's toolbar gets all six tools. A shape drawn opens the card on that pane's map (Esc or × closes it), as on
   the viewer; its Source frames button opens the window it opens today (each mosaic's frames, each with Save as
   finding), for a spot, an area or a Delta T.
 - The card's figures: B's results converted to A's unit when their units differ, A − B in its own column. A pane on a
-  visual mosaic has no temperatures: its column is left out (a card of two visual mosaics shows the size alone).
-- Save measurement: a temperature mosaic's pane only; when both panes show the same dataset (two tabs), both
-  measurements are saved there.
+  dataset's visual mosaic is measured on its as converted values, as its readout and source frames are; a visual
+  mosaic of its own has no temperatures: its column is left out (a card of two of them shows their sizes).
+- Save measurement: on the datasets of the card's columns; once when both panes show the same mosaic, twice (one per
+  tab) when they show two tabs of one dataset.
 - The isotherm: typed in the user's unit, sent in each conversion's; it starts from the top of the range shown, as the
   viewer's does.
 - Docs: `docs/guide/compare.md` and `measuring.md` (where the tools are), a screenshot of the card on the compare page;
   CHANGELOG "Added".
+
+Built: `compare/compare-page.tsx` (the card, `measuredPanes`, `cardShown`, the isotherm in each pane's colouring and
+measures, Save on both datasets), `compare/compare.ts` (`resultIn`: B's figures in A's unit; `profileAt`: B's profile
+at A's samples), `measure/` (`resultRows(…, minus)`, `MeasureCard`'s `compared` and `note`, the profile's readout
+naming A and B) and `core/units.ts` (a difference that rounds to nothing shows as 0, not −0.00). No server change: each
+conversion's `/measure` and `/measurements`. Tests: `frontend/tests/compare.test.tsx` ("measuring on the compare
+page", "the compare card's helpers"; the source frames now opened from the card), `core.test.ts`. Screenshots
+`compare-measure` (new) and `compare-overlay` (the Isotherm row). Checked live on conversion 1 against conversion 2
+and against its own Harmonized tab, light and dark: each column equals that mosaic's own measure, Delta T, line (two
+curves), isotherm (both panes and the card), Source frames, Esc, and Save (on both datasets, once per tab) all right;
+the measurements made were deleted.
 
 ## P1: Temperature On Pointer
 

@@ -25,8 +25,8 @@ one switch, or one by one, and a link keeps which are shown and which is open.
 ## On the compare page
 
 On the [compare page](compare.md) each pane draws its flights' findings, opened with a click or a link and changed
-there. A spot or an area drawn in a pane is kept on the flight of its mosaic (for a difference, the mosaic picked in
-the window).
+there. A spot, an area or a Delta T drawn in a pane is kept from its card's **Source frames** window, on the flight of
+the mosaic picked in the window (each mosaic the shape is read on has its own frames and **Save as finding**).
 
 ## Elsewhere
 

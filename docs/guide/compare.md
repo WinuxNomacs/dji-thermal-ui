@@ -16,6 +16,7 @@ project's listed first. Open it with **Compare with…** in the viewer's header 
 
 The header's **Link the panes**, **Shared palette** and **Findings** stay pressed in, with a check, while they are on.
 
-Each pane draws its flights' [findings](findings.md#on-the-compare-page), and a spot or an area drawn with the tools
-on a pane's map is [measured](measuring.md) there, opens its [source frames](measuring.md#source-frames), or is kept
-as a finding.
+Each pane draws its flights' [findings](findings.md#on-the-compare-page). The measuring tools on each pane's map (Spot,
+Line, Area, Box, Circle and Delta T) measure a shape on both mosaics at once, with A − B, in a card that saves it on
+both datasets and opens its [source frames](measuring.md#source-frames); an isotherm is shared by both panes. See
+[Measuring › On the compare page](measuring.md#on-the-compare-page).

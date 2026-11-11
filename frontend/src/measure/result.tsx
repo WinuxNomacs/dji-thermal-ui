@@ -52,6 +52,8 @@ interface CardProps {
     m: Measuring;
     unit: unknown;
     labels?: [string, string];          // the two results' names, with parameters changed
+    compared?: boolean;                 // two mosaics' results (the compare page): their difference the first's minus the second's
+    note?: string;                      // a line above the figures
     pixels?: boolean;                   // a frame: sizes in pixels
     index?: number | null;
     onIndex?: (i: number | null) => void;
@@ -77,8 +79,9 @@ export function MeasureCard(p: CardProps) {
             {m.error ? <p class="text-danger">{m.error}</p> :
                 m.res === undefined ? <p class="message">Measuring…</p> : <>
                     {m.saved && <div class="message">Saved{isotherm ? ", isotherm " + isothermText(isotherm, p.unit) : ""}</div>}
-                    <ResultView res={m.res} unit={p.unit} shape={m.shape} labels={p.labels} pixels={p.pixels} index={p.index}
-                                onIndex={p.onIndex}/>
+                    {p.note && <div class="message measure-note">{p.note}</div>}
+                    <ResultView res={m.res} unit={p.unit} shape={m.shape} labels={p.labels} compared={p.compared} pixels={p.pixels}
+                                index={p.index} onIndex={p.onIndex}/>
                 </>}
             {valid && (p.onKeep || p.onSources) && <div class="inline measure-card-actions">
                 {p.onKeep && <button type="button" class="button primary small" name="keep-finding" onClick={p.onKeep}
@@ -135,6 +138,7 @@ interface ResultProps {
     res: Measured | null | undefined;
     unit: unknown;
     labels?: [string, string];          // the columns' names when parameters were changed
+    compared?: boolean;                 // two mosaics' results: their difference the first's minus the second's
     shape?: Measured["shape"];
     pixels?: boolean;                   // a frame: sizes in pixels
     index?: number | null;              // a line's profile: the sample the cursor is at on the map
@@ -143,7 +147,7 @@ interface ResultProps {
 
 // A measure's figures (as converted, and with the parameters changed), its kind, and a line's profile or an area's
 // histogram
-export function ResultView({res, unit, labels, shape, pixels, index, onIndex}: ResultProps) {
+export function ResultView({res, unit, labels, compared, shape, pixels, index, onIndex}: ResultProps) {
     const a = res && res.result;
     if (!res || !a) return null;
     if (!a.valid_pixels) return <p class="message">{a.reason === "outside_raster" ? "Outside the mosaic." : "No data there."}</p>;
@@ -153,10 +157,11 @@ export function ResultView({res, unit, labels, shape, pixels, index, onIndex}: R
     const kind = shapeLabel(a, shape || res.shape);
     return (<div class="measure-result">
         {kind && <div class="result-kind">{kind}</div>}
-        <ResultTable head={two ? [names[0], names[1], "Difference"] : undefined} rows={resultRows(results, unit, pixels)} two={two}/>
+        <ResultTable head={two ? [names[0], names[1], compared ? names[0] + " − " + names[1] : "Difference"] : undefined}
+                     rows={resultRows(results, unit, pixels, compared)} two={two}/>
         {res.approximate && <p class="message"><Info/> {APPROXIMATE}</p>}
         {a.profile && <Profile profile={a.profile} unit={unit} other={res.changed && res.changed.profile} pixels={pixels}
-                               index={index} onIndex={onIndex}/>}
+                               names={compared && two ? names : undefined} index={index} onIndex={onIndex}/>}
         <Histogram hist={a.histogram} unit={unit} other={res.changed && res.changed.histogram}/>
     </div>);
 }

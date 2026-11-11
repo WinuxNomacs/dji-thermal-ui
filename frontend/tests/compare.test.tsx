@@ -8,7 +8,7 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
 import {autoRange, autoReach, type Comparable, comparedTabs, compareQuery, dataTab, differenceDataUrl, firstTab, frameCurveUrl,
-        frameDataUrl, mosaicGroups, reachIn, readCompare} from "../src/compare/compare";
+        frameDataUrl, mosaicGroups, profileAt, reachIn, readCompare, resultIn} from "../src/compare/compare";
 import {ComparePage} from "../src/compare/compare-page";
 import {DifferenceReadout} from "../src/compare/pane";
 import type {Finding} from "../src/findings/findings";
@@ -42,6 +42,10 @@ const FOUND: Finding = {
 const FINDINGS = (dataset: number) => API + "datasets/" + dataset + "/findings";
 const SOURCES = {kind: "Point", geometry: FOUND.geometry, models: true, reason: null, frames: FOUND.frames,
                  point: {valid: true, temperature: 31.5}};
+// A spot measured on each mosaic (Nadir's in °C, Other's in °F)
+const MEASURE = (conv: number) => "POST " + API + "conversions/" + conv + "/measure";
+const SPOT_9 = {result: {kind: "Point", valid_pixels: 5, mean: 31.5}};
+const SPOT_12 = {result: {kind: "Point", valid_pixels: 5, mean: 86}};
 
 const $ = (sel: string) => document.querySelector(sel) as HTMLInputElement | null;
 const byId = (id: string) => document.getElementById(id)!;
@@ -67,6 +71,8 @@ function clickMap(m: OlMap, lonLat: number[]) {
 
 function routes(extra: Record<string, unknown> = {}) {
     return {
+        [MEASURE(9)]: SPOT_9,
+        [MEASURE(12)]: SPOT_12,
         [API + "conversions/9/comparable"]: [LIST],       // a list of one answer: the list
         [API + "conversions/9/mosaics"]: NADIR,
         [API + "conversions/12/mosaics"]: OTHER,
@@ -76,6 +82,12 @@ function routes(extra: Record<string, unknown> = {}) {
         [API + "conversions/12/frame/data?frame=a_T.JPG"]: valuesResponse(10, 8),
         ...extra,
     };
+}
+
+// The card of the shape drawn in a pane, and its Source frames button pressed
+async function sourcesFromCard(pane: string) {
+    click($("#pane-" + pane + " #measure-card [name=sources]")!);
+    await ticks(40);
 }
 
 async function open(fetchFn: ReturnType<typeof server>, otherId = 9) {
@@ -169,6 +181,21 @@ describe("the compare helpers", () => {
         expect(frameDataUrl(API, 9, "a b.JPG")).toBe(API + "conversions/9/frame/data?frame=a%20b.JPG");
         expect(frameCurveUrl(API, 9, "a.JPG", {palette: "magma", range: [32, 212], adjust: {gamma: 2, equalize: true, sharpen: 0}}, "C"))
             .toBe(API + "conversions/9/frame/curve?frame=a.JPG&rescale=0,100&gamma=2&equalize=1");
+    });
+});
+
+describe("the compare card's helpers", () => {
+    it("give B's figures in A's unit: temperatures converted, spreads and differences scaled", () => {
+        const r = resultIn({kind: "Polygon", valid_pixels: 4, mean: 212, min: 32, max: 50, std: 9, delta_t: -18, area: 2,
+                            histogram: [[1, 3], [32, 41, 50]], profile: {distance: [0, 1], values: [32, null]}}, "F", "C");
+        expect(r).toEqual({kind: "Polygon", valid_pixels: 4, mean: 100, min: 0, max: 10, std: 5, delta_t: -10, area: 2,
+                           histogram: [[1, 3], [0, 5, 10]], profile: {distance: [0, 1], values: [0, null]}});
+    });
+
+    it("read a profile at another number of samples, each the nearest that far along", () => {
+        const p = {distance: [0, 1, 2, 3, 4], values: [10, 11, null, 13, 14], frames: ["a", "a", "b", "b", "b"]};
+        expect(profileAt(p, 3)).toEqual({distance: [0, 2, 4], values: [10, null, 14], frames: ["a", "b", "b"], points: undefined});
+        expect(profileAt(p, 5)).toBe(p);
     });
 });
 
@@ -336,6 +363,113 @@ describe("the compare page", () => {
     });
 });
 
+describe("measuring on the compare page", () => {
+    const rows = (pane: string) => [...document.querySelectorAll("#pane-" + pane + " #measure-card table.result tr")]
+        .map((tr) => [...tr.children].map((c) => c.textContent).join(" | "));
+
+    it("measures a spot drawn in either pane on both mosaics, with A − B, B's figures in A's unit", async () => {
+        const fetchFn = server(routes());
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        click($("#pane-b [data-tool=point]")!);
+        await ticks();
+        clickMap(maps[1], [10.005, 50.005]);
+        await ticks(40);
+        const [a] = sent(fetchFn, "POST", API + "conversions/9/measure"), [b] = sent(fetchFn, "POST", API + "conversions/12/measure");
+        expect({...a, geometry: a.geometry.type}).toEqual({target: "as_converted", geometry: "Point", isotherm: ""});
+        expect(b.target).toBe("as_converted");
+        expect($("#pane-a #measure-card")).toBeNull();
+        expect($("#pane-b #measure-card .measure-note")!.textContent).toBe("A Nadir · Mosaic, B Other · Mosaic");
+        expect(rows("b")).toEqual([" | A | B | A − B", "Mean | 31.50 °C | 30.00 °C | +1.50 °C", "Pixels | 5 | 5 | "]);
+        key(document.body, "Escape");
+        await ticks();
+        expect($("#measure-card")).toBeNull();
+    });
+
+    it("shows one mosaic's figures where the other has no data there", async () => {
+        const fetchFn = server(routes({[MEASURE(12)]: {result: {kind: "Point", valid_pixels: 0, reason: "outside_raster"}}}));
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        click($("#pane-a [data-tool=point]")!);
+        await ticks();
+        clickMap(maps[0], [10.005, 50.005]);
+        await ticks(40);
+        expect($("#pane-a #measure-card .measure-note")!.textContent).toBe("A Nadir · Mosaic; outside B's mosaic");
+        expect(rows("a")).toEqual(["Mean | 31.50 °C", "Pixels | 5"]);
+    });
+
+    it("saves the shape on both datasets, with the name typed", async () => {
+        const saved = (id: number, conv: number) => ({id, name: "Vent", target: "as_converted", geometry: FOUND.geometry,
+                                                      values: conv === 9 ? SPOT_9 : SPOT_12});
+        const fetchFn = server(routes({["POST " + API + "conversions/9/measurements"]: saved(3, 9),
+                                       ["POST " + API + "conversions/12/measurements"]: saved(4, 12)}));
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        click($("#pane-a [data-tool=delta]")!);
+        await ticks();
+        clickMap(maps[0], [10.003, 50.003]);
+        clickMap(maps[0], [10.006, 50.006]);
+        await ticks(40);
+        expect(sent(fetchFn, "POST", API + "conversions/9/measure")[0].shape).toEqual({kind: "delta"});
+        const name = $("#pane-a #measure-card [name=name]")!;
+        name.value = "Vent";
+        name.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        click($("#pane-a #measure-card [name=save]")!);
+        await ticks(40);
+        const bodies = [9, 12].map((c) => sent(fetchFn, "POST", API + "conversions/" + c + "/measurements")[0]);
+        expect(bodies.map((x) => [x.name, x.target, x.geometry.type, x.shape])).toEqual(
+            [["Vent", "as_converted", "LineString", {kind: "delta"}], ["Vent", "as_converted", "LineString", {kind: "delta"}]]);
+        expect($("#pane-a #measure-card strong")!.textContent).toBe("Vent");
+        expect($("#pane-a #measure-card #save")).toBeNull();
+    });
+
+    it("saves once on a dataset whose mosaic both panes show", async () => {
+        const fetchFn = server(routes({["POST " + API + "conversions/9/measurements"]: {id: 3, name: "Vent", target: "as_converted",
+                                                                                      values: SPOT_9}}));
+        history.replaceState(null, "", "/conversion/9/compare?b=9&a_tab=as_converted&b_tab=as_converted");
+        const maps = panesMaps();
+        await open(fetchFn, 9);
+        click($("#pane-a [data-tool=point]")!);
+        await ticks();
+        clickMap(maps[0], [10.005, 50.005]);
+        await ticks(40);
+        const name = $("#pane-a #measure-card [name=name]")!;
+        name.value = "Vent";
+        name.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        click($("#pane-a #measure-card [name=save]")!);
+        await ticks(40);
+        expect(sent(fetchFn, "POST", API + "conversions/9/measurements")).toHaveLength(1);
+    });
+
+    it("shares one isotherm between both panes, typed in the user's unit and asked in each conversion's", async () => {
+        const fetchFn = server(routes());
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        click($("#pane-a [data-tool=point]")!);
+        await ticks();
+        clickMap(maps[0], [10.005, 50.005]);
+        await ticks(40);
+        const restyled = vi.spyOn(WebGLTileLayer.prototype, "setStyle");
+        choose($("#isotherm select")!, "above");
+        await ticks(40);
+        const typed = $("#isotherm input[aria-label=Temperature]")!;
+        typed.value = "20";
+        typed.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks(40);
+        expect(sent(fetchFn, "POST", API + "conversions/9/measure").at(-1).isotherm).toBe("above,20");
+        expect(sent(fetchFn, "POST", API + "conversions/12/measure").at(-1).isotherm).toBe("above,68");
+        // Both panes' mosaics are drawn with it, each in its unit
+        const lows = restyled.mock.calls.slice(-2).map((c) => (c[0] as {variables?: Record<string, number>}).variables?.isoLow);
+        expect(lows.sort()).toEqual([20, 68]);
+        typed.value = "x";
+        typed.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks(20);
+        expect($("#isotherm [role=alert]")!.textContent).toBe("The isotherm needs a temperature");
+    });
+});
+
 describe("visual mosaics on the compare page", () => {
     const VISUAL_LIST = [{...LIST[0], visual: true}, LIST[1]];
     const WITH_VISUAL = {...NADIR, visual: {bounds: BOUNDS, minzoom: 15, maxzoom: 22}};
@@ -368,15 +502,17 @@ describe("visual mosaics on the compare page", () => {
         // The shared palette is B's, and A has no colour scale
         expect($("#shared input[name=min]")!.value).toBe("15.5");
         expect((byId("pane-a").querySelector(".map-legend") as HTMLElement).hidden).toBe(true);
-        // Its source frames are the as converted mosaic's, the window offering their visual pairs; the tools are on the
-        // pane's map, Spot and Area only
+        // It is measured, and its source frames found, on the as converted mosaic, the window offering their visual
+        // pairs; the tools are on the pane's map, all six
         expect([...byId("pane-a").querySelectorAll(".compare-stage .map-tools [data-tool]")].map((x) => x.getAttribute("data-tool")))
-            .toEqual(["point", "area"]);
+            .toEqual(["point", "line", "area", "box", "circle", "delta"]);
         expect(byId("pane-a").querySelector(".compare-head [data-tool]")).toBeNull();
         click($("#pane-a [data-tool=point]")!);
         await ticks();
         clickMap(maps[0], [10.005, 50.005]);
         await ticks(40);
+        expect(sent(fetchFn, "POST", API + "conversions/9/measure")[0]).toMatchObject({target: "as_converted"});
+        await sourcesFromCard("a");
         expect(calls(fetchFn)).toContain("POST " + API + "conversions/9/mosaics/as_converted/sources");
         expect($("[data-window=compare-a] .sources-groups")?.textContent ?? $("[data-window=compare-a]")!.textContent).toContain("Visual");
         expect($("[data-window=compare-a] .sources-camera")).not.toBeNull();
@@ -414,6 +550,10 @@ describe("visual mosaics on the compare page", () => {
         await ticks();
         clickMap(maps[1], [10.005, 50.005]);
         await ticks(40);
+        // Measured on A's temperatures alone
+        expect(calls(fetchFn).filter((c) => c.endsWith("/measure"))).toEqual([MEASURE(9)]);
+        expect($("#pane-b #measure-card .measure-note")!.textContent).toBe("A Nadir · Mosaic; B is a visual mosaic, with no temperatures");
+        await sourcesFromCard("b");
         expect(calls(fetchFn)).toContain("POST " + API + "conversions/14/mosaics/visual/sources");
         expect(($("[data-window=compare-b] img") as unknown as HTMLImageElement).getAttribute("src"))
             .toBe(API + "conversions/14/frame/visual?frame=a_V.JPG&size=" + WINDOW_VISUAL_PX);
@@ -526,6 +666,7 @@ describe("the findings on the compare page", () => {
         clickMap(maps[0], [10.005, 50.005]);
         await ticks(40);
         expect($("#pane-a [data-tool=point]")!.getAttribute("aria-pressed")).toBe("false");
+        await sourcesFromCard("a");
         expect($("[data-window=compare-a] .sources-what")!.textContent).toBe("Spot · 2 frames");
 
         click($("[data-window=compare-a] [name=save-finding]")!);
@@ -562,6 +703,7 @@ describe("the findings on the compare page", () => {
         await ticks();
         clickMap(maps[1], [10.005, 50.005]);
         await ticks(40);
+        await sourcesFromCard("b");
         const groups = document.querySelectorAll("[data-window=compare-b] .sources-groups button");
         expect([...groups].map((b) => b.textContent)).toEqual(["A · Nadir · Mosaic", "B · Other · Mosaic"]);
         click(groups[1]);

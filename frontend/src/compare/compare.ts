@@ -3,7 +3,7 @@
 // difference's. Plain functions, no DOM; ported from compare.js.
 import {type Maybe} from "../core/format";
 import {convertDelta, convertTemp, userUnit} from "../core/units";
-import {typedTemp} from "../measure/measure";
+import {type Profile, type Result, typedTemp} from "../measure/measure";
 import {adjustQuery, type Adjust, defaultRange, type MosaicTab} from "../viewer/view";
 
 export const SPLIT_LIMITS = [20, 80], SPLIT_STEP = 5;
@@ -178,4 +178,29 @@ export function frameCurveUrl(api: string, id: number, frame: string, style: Com
     const range = rangeIn(style.range, unit);
     return api + "conversions/" + id + "/frame/curve?frame=" + encodeURIComponent(frame) + "&rescale=" + range[0] + "," +
         range[1] + adjustQuery(style.adjust);
+}
+
+// A mosaic's measured figures in another unit (B's in A's, so that one card shows both): its temperatures converted,
+// its spreads and differences scaled
+export function resultIn(r: Result, from: unknown, to: unknown): Result {
+    const t = (v: Maybe<number>) => v === null || v === undefined ? v : convertTemp(v, from, to) as number;
+    const d = (v: Maybe<number>) => v === null || v === undefined ? v : convertDelta(v, from, to) as number;
+    const out: Result = {...r, value: t(r.value), mean: t(r.mean), min: t(r.min), max: t(r.max), std: d(r.std),
+                         surroundings: t(r.surroundings), delta_t: d(r.delta_t), first: t(r.first), second: t(r.second)};
+    (Object.keys(out) as (keyof Result)[]).forEach((k) => { if (out[k] === undefined) delete out[k]; });
+    if (r.percentiles) out.percentiles = r.percentiles.map((v) => t(v) as number);
+    if (r.histogram) out.histogram = [r.histogram[0], r.histogram[1].map((v) => t(v) as number)];
+    if (r.profile) out.profile = {...r.profile, values: r.profile.values.map(t)};
+    return out;
+}
+
+// A line's profile read at n samples evenly along it (B's at A's, when their pixels differ in size): each the sample
+// nearest that far along
+export function profileAt(p: Profile, n: number): Profile {
+    const m = p.values.length;
+    if (m === n || m < 2 || n < 2) return p;
+    const at = Array.from({length: n}, (_, i) => Math.round(i / (n - 1) * (m - 1)));
+    const length = p.distance[m - 1];
+    return {distance: at.map((_, i) => i / (n - 1) * length), values: at.map((j) => p.values[j]),
+            points: p.points && at.map((j) => p.points![j]), frames: p.frames && at.map((j) => p.frames![j])};
 }
