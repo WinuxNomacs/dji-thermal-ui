@@ -1,15 +1,11 @@
 # Copied from WebODM, as forked in LuxODM (commit a2a81052): the shapes measured of app/measurements.py, on shapely
-# instead of GEOS (the inspections' measurements left out).
+# instead of GEOS (the inspections' measurements and the surroundings' ring left out).
 # Copyright (C) the WebODM authors (OpenDroneMap) and the LuxODM authors.
 # Licensed under the GNU Affero General Public License v3.0 (see LICENSE).
-import math
-
 from shapely.geometry import LineString, Point, Polygon
 
 POINT_RADIUS = 0.25         # m: a point's temperature is the mean of this disc (one bad pixel doesn't decide it)
 LINE_HALF_WIDTH = 0.25      # m: a line's temperatures are those of a strip this wide on each side
-RING_MIN = 1.0              # m: the surroundings, from the outline out to the area's size, within these
-RING_MAX = 3.0
 
 
 def _rings(geometry):
@@ -33,14 +29,10 @@ def projected(geometry, to_utm=None):
     return Polygon(rings[0], rings[1:])
 
 
-def inside_and_ring(geometry_type, shape, point_radius=POINT_RADIUS, line_half_width=LINE_HALF_WIDTH,
-                    ring_min=RING_MIN, ring_max=RING_MAX):
+def inside(geometry_type, shape, point_radius=POINT_RADIUS, line_half_width=LINE_HALF_WIDTH):
     """
     What a projected shape measures (a point: a small disc around it, a line: a narrow strip along it, a polygon:
-    itself) and its surroundings (a ring around that), as shapely polygons in the shape's units
+    itself), as a shapely polygon in the shape's units
     """
-    inside = {'Point': lambda: shape.buffer(point_radius),
-              'LineString': lambda: shape.buffer(line_half_width)}.get(geometry_type, lambda: shape)()
-    # A line's surroundings: a band beside it (its strip's size says nothing of how far around to look)
-    width = ring_min if geometry_type == 'LineString' else min(ring_max, max(ring_min, math.sqrt(inside.area)))
-    return inside, inside.buffer(width).difference(inside)
+    return {'Point': lambda: shape.buffer(point_radius),
+            'LineString': lambda: shape.buffer(line_half_width)}.get(geometry_type, lambda: shape)()

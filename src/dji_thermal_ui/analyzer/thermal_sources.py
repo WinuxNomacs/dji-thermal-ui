@@ -114,7 +114,7 @@ def area(ds, to_crs, to_lonlat, geometry, names, models, source_bands=True):
     x, y = to_crs.transform(*zip(*geometry['coordinates'][0]))
     if not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):     # far from the mosaic's zone
         return {'frames': [], 'reason': 'outside_raster'}
-    _shape, inside, _ring = thermal_measure.shapes(geometry, to_crs)
+    _shape, inside = thermal_measure.shapes(geometry, to_crs)
     w = from_bounds(*inside.bounds, transform=ds.transform)
     col, row = math.floor(w.col_off), math.floor(w.row_off)
     col1, row1 = math.ceil(w.col_off + w.width), math.ceil(w.row_off + w.height)

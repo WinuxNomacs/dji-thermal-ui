@@ -186,7 +186,7 @@ export function resultIn(r: Result, from: unknown, to: unknown): Result {
     const t = (v: Maybe<number>) => v === null || v === undefined ? v : convertTemp(v, from, to) as number;
     const d = (v: Maybe<number>) => v === null || v === undefined ? v : convertDelta(v, from, to) as number;
     const out: Result = {...r, value: t(r.value), mean: t(r.mean), min: t(r.min), max: t(r.max), std: d(r.std),
-                         surroundings: t(r.surroundings), delta_t: d(r.delta_t), first: t(r.first), second: t(r.second)};
+                         delta_t: d(r.delta_t), first: t(r.first), second: t(r.second)};
     (Object.keys(out) as (keyof Result)[]).forEach((k) => { if (out[k] === undefined) delete out[k]; });
     if (r.percentiles) out.percentiles = r.percentiles.map((v) => t(v) as number);
     if (r.histogram) out.histogram = [r.histogram[0], r.histogram[1].map((v) => t(v) as number)];

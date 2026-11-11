@@ -2517,7 +2517,7 @@ class MeasureView(DatasetView):
         """
         Measures a spot, line or area (geometry: GeoJSON, lon/lat on a mosaic, pixel x/y on a frame), or all of a
         mosaic or frame (no geometry): the temperatures' statistics and histogram, where the extremes are, the
-        surroundings and ΔT, and the share of an isotherm. parameters: on a mosaic, emissivity and reflected_temp
+        share of an isotherm (and a Delta T's two spots and ΔT). parameters: on a mosaic, emissivity and reflected_temp
         (the approximate correction); on a frame, the measurement parameters it is measured again with.
         """
         conversion = get_conversion(pk)
@@ -2609,7 +2609,7 @@ class MeasurementDetailView(DatasetView):
 
 FINDING_TABS = ('as_converted', 'harmonized', 'webodm', 'visual')
 # What a finding keeps of what its spot or area measured
-FINDING_TEMPERATURES = ('min', 'max', 'mean', 'surroundings', 'delta_t', 'value', 'valid_pixels', 'area', 'perimeter',
+FINDING_TEMPERATURES = ('min', 'max', 'mean', 'delta_t', 'value', 'valid_pixels', 'area', 'perimeter',
                         'first', 'second', 'length')
 
 
@@ -2900,7 +2900,7 @@ class VideoFramePictureView(DatasetView):
 
 CSV_COLUMNS = (('name', "Name"), ('target', "Measured on"), ('frame', "Frame"), ('kind', "Shape"),
                ('min', "Min"), ('max', "Max"), ('mean', "Mean"), ('median', "Median"), ('std', "Std dev"),
-               ('surroundings', "Surroundings"), ('first', "First spot"), ('second', "Second spot"), ('delta_t', "ΔT"), ('unit', "Unit"), ('isotherm', "Isotherm"),
+               ('first', "First spot"), ('second', "Second spot"), ('delta_t', "ΔT"), ('unit', "Unit"), ('isotherm', "Isotherm"),
                ('isotherm_share', "Isotherm share"), ('length', "Length"), ('area', "Area"), ('perimeter', "Perimeter"),
                ('size_unit', "Length / area unit"), ('valid_pixels', "Pixels"), ('distance', "Distance"),
                ('temperature', "Temperature"), ('source_frame', "Source frame"), ('parameters', "Parameters changed"),
@@ -2937,6 +2937,8 @@ def csv_rows(m, unit='C', profile=True):
 
     t = lambda key: csv_number(temperature(r.get(key)), 3)
     d = lambda key: csv_number(difference(r.get(key)), 3)
+    # ΔT is a Delta T's alone (one saved before 2026-11-11 may keep its ΔT with the surroundings, no longer shown)
+    delta = (v.get('shape') or {}).get('kind') == 'delta'
     rows = []
     for which in ('result', 'changed'):
         r = v.get(which)
@@ -2948,7 +2950,7 @@ def csv_rows(m, unit='C', profile=True):
         rows.append({
             'name': name, 'target': target, 'frame': m.frame, 'kind': (v.get('shape') or {}).get('kind') or r.get('kind'),
             'min': t('min'), 'max': t('max'), 'mean': t('mean'), 'median': t('median'), 'std': d('std'),
-            'surroundings': t('surroundings'), 'first': t('first'), 'second': t('second'), 'delta_t': d('delta_t'),
+            'first': t('first'), 'second': t('second'), 'delta_t': d('delta_t') if delta else None,
             'unit': "" if m.target == thermal_mosaics.VISUAL else unit,        # no temperatures
             'isotherm': isotherm(v.get('isotherm')), 'isotherm_share': csv_number(iso.get('share'), 4),
             'length': csv_number(r.get('length'), 2), 'area': csv_number(r.get('area'), 2),

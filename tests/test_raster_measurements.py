@@ -1,4 +1,4 @@
-"""What a drawn shape measures and its surroundings (analyzer/raster/measurements.py), and the statistics of a
+"""What a drawn shape measures (analyzer/raster/measurements.py), and the statistics of a
 region's pixels (analyzer/raster/stats.py)"""
 import math
 
@@ -15,28 +15,16 @@ def square(x0, y0, size):
                                                 [x0, y0]]]}
 
 
-def test_a_polygon_measures_itself_with_a_ring_as_wide_as_its_size():
+def test_a_polygon_measures_itself():
     shape = m.projected(square(0, 0, 2))
-    inside, ring = m.inside_and_ring("Polygon", shape)
-    assert inside.area == pytest.approx(4)
-    # 2 m wide: a ring of 2 m around it (within 1 and 3 m)
-    assert ring.area == pytest.approx(m.projected(square(0, 0, 2)).buffer(2).area - 4)
-    assert not ring.intersects(inside.buffer(-0.01))
-
-
-def test_the_ring_stays_within_its_bounds():
-    for shape, width in ((m.projected(square(0, 0, 0.5)), m.RING_MIN), (m.projected(square(0, 0, 10)), m.RING_MAX)):
-        _inside, ring = m.inside_and_ring("Polygon", shape)
-        assert ring.area == pytest.approx(shape.buffer(width).area - shape.area)
+    assert m.inside("Polygon", shape).area == pytest.approx(4)
 
 
 def test_a_point_measures_a_small_disc_and_a_line_a_strip():
-    disc, ring = m.inside_and_ring("Point", m.projected({"type": "Point", "coordinates": [5, 5]}))
+    disc = m.inside("Point", m.projected({"type": "Point", "coordinates": [5, 5]}))
     assert disc.area == pytest.approx(math.pi * m.POINT_RADIUS ** 2, rel=0.01)
-    assert ring.area > disc.area
-    strip, band = m.inside_and_ring("LineString", m.projected({"type": "LineString", "coordinates": [[0, 0], [4, 0]]}))
+    strip = m.inside("LineString", m.projected({"type": "LineString", "coordinates": [[0, 0], [4, 0]]}))
     assert strip.area == pytest.approx(4 * 2 * m.LINE_HALF_WIDTH + math.pi * m.LINE_HALF_WIDTH ** 2, rel=0.01)
-    assert band.area == pytest.approx(strip.buffer(m.RING_MIN).area - strip.area)
 
 
 def test_a_polygon_keeps_its_holes():

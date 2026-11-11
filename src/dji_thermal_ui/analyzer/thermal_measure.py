@@ -1,7 +1,6 @@
 """
 A conversion's radiometric analysis (the viewer and the frame page): the temperatures of a spot, a line or an area,
-their difference with the surroundings (as raster/measurements.py finds it), histograms and
-isotherms, on its mosaics and on single frames.
+histograms and isotherms (the region measured as raster/measurements.py finds it), on its mosaics and on single frames.
 
 Frames are measured by dji-thermal-cli (api.measure) when they are asked for, as the conversion converted them, or with
 some measurement parameters changed (exact: the SDK measures again). The mosaics can be corrected for another
@@ -33,8 +32,8 @@ ISOTHERM_MODES = ('above', 'below', 'between')
 CHANGES = ('distance', 'humidity', 'emissivity', 'reflected_temp', 'ambient_temp')
 # What the mosaics' approximate correction changes
 CORRECTIONS = ('emissivity', 'reflected_temp')
-# On a frame, in pixels: a spot's disc, a line's strip and the surroundings (on a mosaic: app/measurements' metres)
-FRAME_SHAPES = {'point_radius': 1.5, 'line_half_width': 1.0, 'ring_min': 3.0, 'ring_max': 10.0}
+# On a frame, in pixels: a spot's disc and a line's strip (on a mosaic: app/measurements' metres)
+FRAME_SHAPES = {'point_radius': 1.5, 'line_half_width': 1.0}
 # Delta T Around Pointer: the circle's largest radius (metres on a mosaic, pixels on a frame)
 AROUND_MAX = {'mosaic': 10.0, 'frame': 50.0}
 FRAME_CACHE = 16            # frames measured kept in memory (about 1.3 MB each for the M4T's 640 × 512)
@@ -170,13 +169,12 @@ def check_shape(shape, geometry, lonlat=True):
 # --- statistics ----------------------------------------------------------------------------------------------------
 
 def shapes(geometry, to_crs=None, sizes=None):
-    """(the shape, what it measures, its surroundings) as shapely geometries in the grid's units"""
-    from .raster.measurements import inside_and_ring, projected
+    """(the shape, what it measures) as shapely geometries in the grid's units"""
+    from .raster.measurements import inside, projected
     shape = projected(geometry, to_crs)
     if not shape.is_valid:
         shape = shape.buffer(0)
-    inside, ring = inside_and_ring(geometry['type'], shape, **(sizes or {}))
-    return shape, inside, ring
+    return shape, inside(geometry['type'], shape, **(sizes or {}))
 
 
 def shape_size(geometry_type, shape):
@@ -209,26 +207,20 @@ def value_stats(values, isotherm=None):
     return stats
 
 
-def region_stats(values, transform, geometry_type, inside, ring, isotherm=None, locate=None):
+def region_stats(values, transform, inside, isotherm=None, locate=None):
     """
-    What a shape measures on a grid of values (NaN = no data): the statistics inside it, where its extremes are
-    (locate(row, col) -> coordinates), the surroundings' mean and the difference with them (ΔT, of the means)
+    What a shape measures on a grid of values (NaN = no data): the statistics inside it and where its extremes are
+    (locate(row, col) -> coordinates)
     """
     mask = region_mask(inside, values.shape, transform)
     inner = np.where(mask, values, np.nan)
     out = value_stats(inner, isotherm)
-    out['surroundings'] = out['delta_t'] = None
     if out['valid_pixels'] == 0:
         return out
     if locate is not None:
         filled = np.where(np.isfinite(inner), inner, np.nan)
         out['min_location'] = locate(*np.unravel_index(np.nanargmin(filled), filled.shape))
         out['max_location'] = locate(*np.unravel_index(np.nanargmax(filled), filled.shape))
-    around = values[region_mask(ring, values.shape, transform) & ~mask]
-    around = around[np.isfinite(around)]
-    if around.size:
-        out['surroundings'] = float(around.mean())
-        out['delta_t'] = out['mean'] - out['surroundings']
     return out
 
 
@@ -529,9 +521,8 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
     if not np.all(np.isfinite(to_crs.transform(flat[:, 0], flat[:, 1]))):     # far from the mosaic's zone
         out.update(valid_pixels=0, reason='outside_raster')
         return out
-    shape, inside, ring = shapes(geometry, to_crs)
-    reach = ring if not ring.is_empty else inside
-    read = read_mosaic(path, unit, reach.bounds)
+    shape, inside = shapes(geometry, to_crs)
+    read = read_mosaic(path, unit, inside.bounds)
     out.update(shape_size(geometry['type'], shape))
     if read is None:
         out.update(valid_pixels=0, reason='outside_raster')
@@ -543,7 +534,7 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
         x, y = transform @ (col + 0.5, row + 0.5)
         return list(to_lonlat.transform(x, y))
 
-    out.update(region_stats(values, transform, geometry['type'], inside, ring, isotherm, locate))
+    out.update(region_stats(values, transform, inside, isotherm, locate))
     if geometry['type'] == 'Point':
         col, row = ~transform @ (shape.x, shape.y)
         row, col = int(math.floor(row)), int(math.floor(col))
@@ -614,7 +605,7 @@ def visual_measure(path, geometry):
         flat = np.asarray(geometry['coordinates'], dtype=float).reshape(-1, 2)
         if not np.all(np.isfinite(to_crs.transform(flat[:, 0], flat[:, 1]))):     # far from the mosaic's zone
             return dict(out, valid_pixels=0, reason='outside_raster')
-        shape, inside, _ring = shapes(geometry, to_crs)
+        shape, inside = shapes(geometry, to_crs)
         out.update(shape_size(geometry['type'], shape))
         # A spot: its own pixel (what it measures is a few pixels around it)
         reach = shape.buffer(abs(ds.transform.a) / 4) if geometry['type'] == 'Point' else inside
@@ -811,10 +802,10 @@ def frame_measure(values, geometry, isotherm=None):
     from affine import Affine
     if geometry is None:
         return dict(value_stats(values, isotherm), kind='frame')
-    shape, inside, ring = shapes(geometry, sizes=FRAME_SHAPES)
+    shape, inside = shapes(geometry, sizes=FRAME_SHAPES)
     out = {'kind': geometry['type'], 'reason': None}
     out.update(shape_size(geometry['type'], shape))
-    out.update(region_stats(values, Affine.identity(), geometry['type'], inside, ring, isotherm,
+    out.update(region_stats(values, Affine.identity(), inside, isotherm,
                             lambda row, col: [col + 0.5, row + 0.5]))
     if geometry['type'] == 'Point':
         row, col = int(math.floor(shape.y)), int(math.floor(shape.x))
