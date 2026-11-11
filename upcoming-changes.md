@@ -8,13 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: D1b (Delta T Around Pointer: a 0.25 m radius and a ΔT tip beside the circle), then D2 (the Delta T
-measuring tool), both decided; see "Delta T" below.
+**Up next**: D2 (the Delta T measuring tool), decided; see "Delta T" below.
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
@@ -57,7 +56,12 @@ circle's figures with the point's, so Pointer info, the tip and D1 stay one requ
 mosaics, one for frames) are remembered in the browser. The outline follows the pointer; while a click keeps Pointer
 info's values it stays on the kept point, whose figures are shown.
 
-### D1b: a 0.25 m radius and a ΔT tip
+### D1b: a 0.25 m radius and a ΔT tip (built)
+
+Built: `frontend/src/map/pointer-delta.tsx` (`RADIUS_SLIDERS`' stops, the slider over them, the tip in
+`aroundOutline`'s `label`, `deltaText`), shown from the readouts of `viewer/viewer-page.tsx` and `frame/frame-page.tsx`.
+Tests: "Delta T Around Pointer" in `frontend/tests/viewer.test.tsx` and `frame.test.tsx`. Checked live on conversion 1
+(the tip beside the circle on the viewer, pinned and hovering, and the frame page; 0.25 m asked as `around=0.25`).
 
 Asked in `new.md` on 2026-11-11, after D1:
 
