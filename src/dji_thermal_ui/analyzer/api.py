@@ -2068,11 +2068,12 @@ def ground_height(conversion, lon, lat):
     return values[0] if values else None
 
 
-def mosaic_point(request, conversion, tab, lon, lat):
+def mosaic_point(request, conversion, tab, lon, lat, around=None):
     """A mosaic tab's values at a point (lon, lat): temperature (corrected as the tiles are), source frame, view angle
     and the frame's pixel it was read from (column, row; none in a mosaic built before dji-thermal-cli 1.4.0), and the
     ground's height when the conversion has WebODM's DSM (base_m: its lowest ground, which heights are above). The
-    Heights tab's: only the height"""
+    Heights tab's: only the height. around (a radius in metres): Delta T Around Pointer's circle too
+    (thermal_measure.around_point)"""
     from .raster.tiler import point_values
 
     path, _band = mosaic_raster(conversion, tab)
@@ -2094,10 +2095,13 @@ def mosaic_point(request, conversion, tab, lon, lat):
         out['reason'] = 'outside_raster'
         return out
     temperature, frame, angle = values[:3]
+    kind = dict((t[0], t[1]) for t in thermal_mosaics.TABS).get(tab)
     if temperature is not None and temperature > thermal_mosaics.low_value(unit):
-        kind = dict((t[0], t[1]) for t in thermal_mosaics.TABS).get(tab)
         out['temperature'] = float(thermal_measure.corrected(np.array([temperature]), unit,
                                                              mosaic_correction(request, conversion, kind))[0])
+    if around is not None:
+        out['around'] = thermal_measure.mosaic_around(path, unit, lon, lat, around,
+                                                      mosaic_correction(request, conversion, kind), out['temperature'])
     if frame is not None:
         frames = m.get('frames') or []
         out['frame_index'] = int(round(frame))
@@ -2124,7 +2128,16 @@ class MosaicPointView(DatasetView):
             raise ValidationError({'error': "lon and lat are required"}) from None
         if not (-180 <= lon <= 180 and -90 <= lat <= 90):
             raise ValidationError({'error': "Coordinates out of range"})
-        return Response(mosaic_point(request, conversion, tab, lon, lat))
+        around = around_param(request, 'mosaic') if tab != thermal_mosaics.HEIGHTS else None
+        return Response(mosaic_point(request, conversion, tab, lon, lat, around))
+
+
+def around_param(request, kind):
+    """Delta T Around Pointer's radius asked (?around=), checked (see thermal_measure.check_around)"""
+    try:
+        return thermal_measure.check_around(request.query_params.get('around'), kind)
+    except thermal_measure.MeasureError as e:
+        raise ValidationError({'around': str(e)}) from None
 
 
 def frame_sources(conversion, path, geometry, tab=None):
@@ -3120,7 +3133,8 @@ class FrameCurveView(DatasetView):
 
 class FramePointView(DatasetView):
     def get(self, request, pk):
-        """A frame's temperature at a pixel (x, y), as converted and measured again with the parameters given"""
+        """A frame's temperature at a pixel (x, y), as converted and measured again with the parameters given;
+        ?around= (a radius in pixels): Delta T Around Pointer's circle too, on the frame as converted"""
         conversion = get_conversion(pk)
         rel = request.query_params.get('frame') or ""
         try:
@@ -3128,6 +3142,7 @@ class FramePointView(DatasetView):
         except (TypeError, ValueError):
             raise ValidationError({'error': "x and y are required"}) from None
         changes = changes_of(request.query_params)
+        around = around_param(request, 'frame')
 
         def at(m):
             values = m['values']
@@ -3141,4 +3156,8 @@ class FramePointView(DatasetView):
                'inside': 0 <= x < base['values'].shape[1] and 0 <= y < base['values'].shape[0]}
         if changes:
             out['changed'] = at(frame_measured(conversion, rel, changes))
+        if around is not None:
+            from affine import Affine
+            out['around'] = thermal_measure.around_point(base['values'], Affine.identity(), x, y, around,
+                                                         out['temperature'])
         return Response(out)
