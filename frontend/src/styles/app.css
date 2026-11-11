@@ -948,6 +948,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 /* The isotherm both panes share, under the shared palette */
 .compare-isotherm { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; font-size: 13px; }
 .compare-isotherm-label { font-weight: 600; }
+.compare-isotherm .pointer-temperature-box { margin-left: auto; font-size: 13px; }
 .compare-isotherm .isotherm { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .compare-isotherm .isotherm .message, .compare-isotherm .isotherm .text-danger:empty { margin: 0; }
 .compare-isotherm .isotherm .text-danger:empty { display: none; }

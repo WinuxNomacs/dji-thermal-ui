@@ -10,7 +10,7 @@ import {setUserUnit} from "../src/core/units";
 import {autoRange, autoReach, type Comparable, comparedTabs, compareQuery, dataTab, differenceDataUrl, firstTab, frameCurveUrl,
         frameDataUrl, mosaicGroups, profileAt, reachIn, readCompare, resultIn} from "../src/compare/compare";
 import {ComparePage} from "../src/compare/compare-page";
-import {DifferenceReadout} from "../src/compare/pane";
+import {compareTipText, DifferenceReadout} from "../src/compare/pane";
 import type {Finding} from "../src/findings/findings";
 import {type Mosaics, WINDOW_VISUAL_PX} from "../src/viewer/viewer-page";
 import {calls, click, jsonResponse, key, server, ticks, valuesResponse} from "./helpers";
@@ -208,6 +208,74 @@ describe("the compare parts", () => {
         render(<DifferenceReadout a={{valid: true, temperature: 20}} b={{valid: true, temperature: 70}} aUnit="C" bUnit="F"
                                   difference={false}/>, byId("root"));
         expect(byId("root").textContent).toBe("A20.00 °CB21.11 °C");
+    });
+});
+
+describe("ΔT under the pointers on the compare page", () => {
+    // Each mosaic's value under the cursor (Nadir's 20 °C, Other's 70 °F), or none on B where b is null
+    function pointsServer(b: number | null = 70) {
+        const routed = server(routes());
+        return vi.fn((url: string, opts?: RequestInit) => !url.includes("/point?") ? routed(url, opts) :
+            Promise.resolve(jsonResponse(url.includes("/12/") ? (b === null ? {valid: false, reason: "outside_raster"} :
+                {valid: true, temperature: b}) : {valid: true, temperature: 20}))) as unknown as ReturnType<typeof server>;
+    }
+    async function move(m: OlMap) {
+        m.dispatchEvent(Object.assign(new MapBrowserEvent("pointermove", m, new MouseEvent("pointermove") as PointerEvent),
+                                      {coordinate: fromLonLat([10.005, 50.005])}));
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await ticks(40);
+    }
+    const readout = (pane: string) => byId("pane-" + pane).querySelector(".compare-readout")!.textContent;
+    const tip = (pane: string) => byId("pane-" + pane).querySelector(".map-tip.pointer-temperature") as HTMLElement;
+
+    beforeEach(() => localStorage.clear());
+
+    it("say what the tip shows in a pane of a mosaic, the difference and the overlay, and nothing without values", () => {
+        const a = {valid: true, temperature: 20}, b = {valid: true, temperature: 70}, none = {valid: false};
+        expect(compareTipText("mosaic", b, "F", a, b, "C", "F")).toBe("21.11 °C · ΔT (A − B) -1.11 °C");
+        expect(compareTipText("mosaic", a, "C", a, none, "C", "F")).toBe("20.00 °C");
+        expect(compareTipText("mosaic", none, "F", a, none, "C", "F")).toBeNull();
+        expect(compareTipText("difference", null, "C", a, b, "C", "F")).toBe("A − B -1.11 °C");
+        expect(compareTipText("difference", null, "C", a, none, "C", "F")).toBeNull();
+        expect(compareTipText("overlay", null, "C", a, b, "C", "F")).toBe("A 20.00 °C · B 21.11 °C · ΔT -1.11 °C");
+        expect(compareTipText("overlay", null, "C", none, none, "C", "F")).toBeNull();
+    });
+
+    it("show ΔT (A − B) under the temperature in both panes' readouts, the same in each", async () => {
+        const maps = panesMaps();
+        await open(pointsServer(), 12);
+        await move(maps[1]);
+        expect(readout("a")).toBe("Temperature20.00 °CΔT (A − B)-1.11 °C");
+        expect(readout("b")).toBe("Temperature21.11 °CΔT (A − B)-1.11 °C");
+        expect(tip("b").hidden).toBe(true);
+    });
+
+    it("leave ΔT out where one mosaic has no temperature", async () => {
+        const maps = panesMaps();
+        await open(pointsServer(null), 12);
+        await move(maps[0]);
+        expect(readout("a")).toBe("Temperature20.00 °C");
+    });
+
+    it("show the tip with ΔT in the pane under the pointer once Temperature On Pointer is ticked, remembered", async () => {
+        const maps = panesMaps();
+        await open(pointsServer(), 12);
+        const box = $("#isotherm #pointer-temperature")!;
+        expect(box.checked).toBe(false);
+        click(box);
+        await ticks();
+        await move(maps[1]);
+        expect([tip("b").hidden, tip("b").textContent]).toEqual([false, "21.11 °C · ΔT (A − B) -1.11 °C"]);
+        expect(tip("a").hidden).toBe(true);
+        expect(localStorage.getItem("thermal-analyzer.pointer-temperature")).toBe("1");
+        // Gone as the pointer moves on, and unticked
+        maps[1].dispatchEvent(Object.assign(new MapBrowserEvent("pointermove", maps[1], new MouseEvent("pointermove") as PointerEvent),
+                                            {coordinate: fromLonLat([10.006, 50.006])}));
+        expect(tip("b").hidden).toBe(true);
+        await move(maps[1]);
+        click(box);
+        await ticks();
+        expect(tip("b").hidden).toBe(true);
     });
 });
 
@@ -617,6 +685,15 @@ describe("visual mosaics on the compare page", () => {
         await new Promise((resolve) => setTimeout(resolve, 150));
         await ticks(40);
         expect(byId("pane-a").querySelector(".compare-readout")!.textContent).toBe("A20.00 °CB21.11 °C");
+        // The tip gives A, B and their ΔT
+        click($("#isotherm #pointer-temperature")!);
+        await ticks();
+        maps[0].dispatchEvent(Object.assign(new MapBrowserEvent("pointermove", maps[0], new MouseEvent("pointermove") as PointerEvent),
+                                            {coordinate: fromLonLat([10.005, 50.005])}));
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await ticks(40);
+        expect(byId("pane-a").querySelector(".map-tip.pointer-temperature")!.textContent).toBe("A 20.00 °C · B 21.11 °C · ΔT -1.11 °C");
+        localStorage.clear();
     });
 });
 

@@ -75,6 +75,27 @@ export function StyleBar({style, palettes, what, onChange, onAuto}: StyleProps) 
 
 const has = (p: Maybe<Point>): boolean => !!p && !!p.valid && p.temperature !== null && p.temperature !== undefined;
 
+// A − B at a point, each mosaic's temperature in its own unit, the difference in the user's; null unless both have one
+export function differenceText(a: Maybe<Point>, b: Maybe<Point>, aUnit: unknown, bUnit: unknown): string | null {
+    if (!has(a) || !has(b)) return null;
+    return signed((convertTemp(a!.temperature, aUnit) as number) - (convertTemp(b!.temperature, bUnit) as number), userUnit());
+}
+
+// Temperature On Pointer's tip in a pane, or null for none: in a pane of a mosaic, its temperature and ΔT (A − B); in
+// the difference, A − B; in the overlay, A, B and ΔT
+export function compareTipText(shows: "mosaic" | "difference" | "overlay", own: Maybe<Point>, ownUnit: unknown,
+                               a: Maybe<Point>, b: Maybe<Point>, aUnit: unknown, bUnit: unknown): string | null {
+    const d = differenceText(a, b, aUnit, bUnit);
+    if (shows === "difference") return d && "A − B " + d;
+    if (shows === "overlay") {
+        const parts = [has(a) ? "A " + temp(a!.temperature, aUnit) : "", has(b) ? "B " + temp(b!.temperature, bUnit) : "",
+                       d ? "ΔT " + d : ""].filter(Boolean);
+        return parts.length ? parts.join(" · ") : null;
+    }
+    if (!has(own)) return null;
+    return temp(own!.temperature, ownUnit) + (d ? " · ΔT (A − B) " + d : "");
+}
+
 // The values of both mosaics at a point, and A − B (each in its own unit; the difference in the user's) unless
 // difference is false
 export function DifferenceReadout({a, b, aUnit, bUnit, difference = true}: {a: Maybe<Point>; b: Maybe<Point>; aUnit: unknown;
@@ -83,8 +104,7 @@ export function DifferenceReadout({a, b, aUnit, bUnit, difference = true}: {a: M
         p?.reason === "outside_raster" ? "outside the mosaic" : p?.reason === "visual" ? "a visual mosaic" : "no data";
     const rows: [string, string][] = [
         ["A", value(a, aUnit)], ["B", value(b, bUnit)],
-        ...(!difference ? [] : [["A − B", has(a) && has(b) ? signed((convertTemp(a!.temperature, aUnit) as number) - (convertTemp(b!.temperature, bUnit) as number),
-                                           userUnit()) : "no data"] as [string, string]]),
+        ...(!difference ? [] : [["A − B", differenceText(a, b, aUnit, bUnit) ?? "no data"] as [string, string]]),
     ];
     return (<table class="table values"><tbody>
         {rows.map(([k, v]) => <tr key={k}><th>{k}</th><td>{v}</td></tr>)}

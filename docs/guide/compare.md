@@ -16,6 +16,18 @@ project's listed first. Open it with **Compare with…** in the viewer's header 
 
 The header's **Link the panes**, **Shared palette** and **Findings** stay pressed in, with a check, while they are on.
 
+## Under the cursor
+
+The cursor is marked in the other pane too, and the line under each pane gives the values there once it rests. In a
+pane of a mosaic: its **Temperature**, and under it **ΔT (A − B)**, pane A's temperature minus pane B's in your unit,
+the same in both panes (left out where either mosaic has no temperature there). In the difference and in the overlay:
+A and B, and the difference's A − B.
+
+**Temperature On Pointer**, at the right of the Isotherm row, shows a small tip beside the cursor once it rests, in
+the pane it is in: that pane's temperature and ΔT (A − B); in the difference, A − B; in the overlay, A, B and ΔT. The
+box is the one in the viewer's and the frame page's Pointer info (see
+[Mosaics › Pointer info](mosaics.md#pointer-info)), and ticking it on one page ticks it on the others.
+
 Each pane draws its flights' [findings](findings.md#on-the-compare-page). The measuring tools on each pane's map (Spot,
 Line, Area, Box, Circle and Delta T) measure a shape on both mosaics at once, with A − B, in a card that saves it on
 both datasets and opens its [source frames](measuring.md#source-frames); an isotherm is shared by both panes. See

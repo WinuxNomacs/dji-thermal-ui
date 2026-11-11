@@ -184,9 +184,11 @@ export interface Point {
     around?: Around | null;                             // Delta T Around Pointer's circle, when asked
 }
 
-// The values under the cursor, or at the point clicked (pinned), whose frame can then be opened
-export function Readout({point, unit, frameUrl, pinned, onFollow}: {point: Maybe<Point>; unit: unknown; frameUrl: string;
-                                                                    pinned: boolean; onFollow: () => void}) {
+// The values under the cursor, or at the point clicked (pinned), whose frame can then be opened; after: rows just below
+// the temperature (the compare page's ΔT)
+export function Readout({point, unit, frameUrl, pinned, onFollow, after = []}: {point: Maybe<Point>; unit: unknown; frameUrl: string;
+                                                                    pinned: boolean; onFollow: () => void;
+                                                                    after?: [string, string][]}) {
     const follow = pinned && <button type="button" class="button default small" id="follow" onClick={onFollow}>Follow the cursor</button>;
     if (point === undefined) return <span class="message">Move the cursor over the mosaic.</span>;
     if (!point || !point.valid) {
@@ -195,7 +197,7 @@ export function Readout({point, unit, frameUrl, pinned, onFollow}: {point: Maybe
     }
     // A frame a link asked for has no temperature: only its name
     const rows: [string, string, string?][] = "temperature" in point ? [["Temperature", point.temperature === null ||
-        point.temperature === undefined ? "no data" : temp(point.temperature, unit)]] : [];
+        point.temperature === undefined ? "no data" : temp(point.temperature, unit)], ...after] : [];
     if (point.frame !== null && point.frame !== undefined) rows.push(["Frame", point.frame]);
     if (point.frame_pixel) rows.push(["Frame pixel", "x " + point.frame_pixel[0] + ", y " + point.frame_pixel[1]]);
     if (point.view_angle !== null && point.view_angle !== undefined) rows.push(["View angle", formatNumber(point.view_angle, 1, "°")]);
