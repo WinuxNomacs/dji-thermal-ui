@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned yet.
+**Up next**: CM1 (measuring on the compare page).
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
@@ -98,6 +98,40 @@ own (no temperatures). Tests: `tests/test_api_measurements.py`, `test_api_findin
 ("delta", "a line lists the frames"); `frontend/tests/viewer.test.tsx`, `frame.test.tsx`, `panel.test.tsx`
 ("a Delta T"), `findings.test.ts` and `sources.test.tsx`. Checked live on conversion 1: its ends equal two Spot
 measures, saved, kept as a finding (107 frames along it), in the CSV and the flight report, and on the frame page.
+
+## Measuring on the compare page
+
+Asked in chat on 2026-11-11: "Add the remaining measurement tools/controls to the Comparison Analyzer when comparing 2
+mosaics (e.g. Line, Box, Delta T, etc...)".
+
+Builds on the compare page (`compare/compare-page.tsx`: Spot and Area only, which open the source frames window; no
+temperatures, no card) and the viewer's measuring (`measure/`: `Toolbar`, `MeasureCard`, `ResultView`, `Isotherm`,
+`resultRows`; the conversion's `/measure` and `/measurements`).
+
+The user's decisions (2026-11-11):
+
+- **Both mosaics, A − B:** a shape drawn in either pane, with any of the six tools (Spot, Line, Area, Box, Circle,
+  Delta T), is measured on pane A's and pane B's mosaics, whatever each pane shows (its mosaic, the difference or the
+  overlay). The card has the columns A, B and A − B; a line's profile and an area's histogram draw both. The shape is
+  drawn in both panes.
+- **Save measurement saves on both datasets:** one measurement on A's dataset and one on B's, with the name typed, so
+  each viewer's Saved measurements list and CSV carry it.
+- **The isotherm, shared by both panes:** one Isotherm control on the compare page, applied to both panes' temperature
+  mosaics (not the difference or a visual mosaic), and measured in the card ("In the isotherm") for both.
+
+### CM1: measuring on the compare page
+
+- The pane's toolbar gets all six tools. A shape drawn opens the card on that pane's map (Esc or × closes it), as on
+  the viewer; its Source frames button opens the window it opens today (each mosaic's frames, each with Save as
+  finding), for a spot, an area or a Delta T.
+- The card's figures: B's results converted to A's unit when their units differ, A − B in its own column. A pane on a
+  visual mosaic has no temperatures: its column is left out (a card of two visual mosaics shows the size alone).
+- Save measurement: a temperature mosaic's pane only; when both panes show the same dataset (two tabs), both
+  measurements are saved there.
+- The isotherm: typed in the user's unit, sent in each conversion's; it starts from the top of the range shown, as the
+  viewer's does.
+- Docs: `docs/guide/compare.md` and `measuring.md` (where the tools are), a screenshot of the card on the compare page;
+  CHANGELOG "Added".
 
 ## P1: Temperature On Pointer
 
