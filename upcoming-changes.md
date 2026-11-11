@@ -8,12 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: D2 (the Delta T measuring tool), decided; see "Delta T" below.
+**Up next**: nothing planned yet.
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
@@ -79,12 +79,24 @@ Decided (the defaults, the user having said to carry on):
   and the point is read; while a click keeps a point it stays beside that point's circle, and a new radius reads it
   again. No tip where the circle has no ΔT.
 
-### D2: the Delta T tool
+### D2: the Delta T tool (built)
 
 A two-point line with the shape `{kind: "delta"}` (as a box or circle is a polygon with its shape), ending itself on
 the second click. Each end measured as a Spot; the result has `first`, `second`, `delta_t` (second − first) and the
 length. Saved measurements, findings (the flight report too), the CSV (First spot and Second spot columns) and the
 GeoJSON take it.
+
+Built: the server in `analyzer/thermal_measure.py` (`SHAPE_KINDS`, `check_shape`, `delta_measure`, `mosaic_length`,
+`frame_length`), `analyzer/api.py` (`checked_shape`, `analysis(…, shape)`, the findings' `first`/`second`/`length`,
+the CSV's columns) and `analyzer/thermal_sources.py` (`strip`: a line's frames are those of a strip a spot's disc
+wide along it, found and outlined as an area's). The pages: `measure/measure.ts` (the tool, `isDelta`,
+`deltaFigure`, the card's rows), `measure/drawing.ts` (ends on the second click, drawn with a ring at each end),
+`components/icons.tsx` (`DeltaT`), `sources/` (the window names and outlines it), `findings/` (drawn as its line with
+ringed ends, its figure) and the flight report's map. Not offered on the Source frame tab or a visual mosaic of its
+own (no temperatures). Tests: `tests/test_api_measurements.py`, `test_api_findings.py` and `test_api_sources.py`
+("delta", "a line lists the frames"); `frontend/tests/viewer.test.tsx`, `frame.test.tsx`, `panel.test.tsx`
+("a Delta T"), `findings.test.ts` and `sources.test.tsx`. Checked live on conversion 1: its ends equal two Spot
+measures, saved, kept as a finding (107 frames along it), in the CSV and the flight report, and on the frame page.
 
 ## P1: Temperature On Pointer
 
