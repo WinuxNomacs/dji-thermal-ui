@@ -8,7 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned yet.
+**Up next**: S1 (Surroundings removed from the measurement data), then C1 (ΔT under the pointers on the compare
+page, and its floating tip), then B1 (Banded in place of Equalized). See "Requests of 2026-11-11 (second batch)".
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
@@ -18,6 +19,68 @@ dataset in the viewer, compare and report), J1 (WebODM datasets: Import from Web
 documentation) are built.
 
 **Then**: nothing planned yet.
+
+## Requests of 2026-11-11 (second batch)
+
+Asked in `new.md` on 2026-11-11:
+
+1. When comparing mosaics, the ΔT between the pixels under both pointers, shown just below the temperature.
+2. Equalize removed as a view option; stepped and banded added under a "Banded" feature instead, with a bandwidth the
+   user sets from 1 to 10, 5 at first.
+3. The calculated Surroundings temperature removed from the measurement data, as unnecessary.
+4. A control to show or hide a floating tip that follows the pointer with the temperature of the pixel under it; on
+   the compare page it shows the ΔT as well.
+
+What they build on:
+
+- (1) and (4): the compare page's readout under each pane (`compare/compare-page.tsx`, `readout()` reading both
+  mosaics at the cursor; `Readout` from `viewer/panel.tsx` in a pane of a mosaic, `DifferenceReadout` in
+  `compare/pane.tsx`, which already has A, B and A − B, in the difference and overlay panes). The floating tip is
+  P1's "Temperature On Pointer" (`map/pointer-temperature.tsx`), already built on the viewer and the frame page;
+  the compare page has none.
+- (2): the tone curve's Equalized (the viewer's and the frame page's Image panel: the Tone list, Linear or
+  Equalized; the compare page's style bar: the Equalize box), drawn in WebGL and on canvas (`map/colour.ts`) with the
+  server's equalization curve (`thermal_measure.equalization`, the mosaic's histogram file), and by the server in
+  exports and reports (`exports.py`), kept in the URL (`&equalize=1`), in saved report views and exports.
+- (3): `thermal_measure.measure_region` computes `surroundings` and `delta_t` (the mean minus the surroundings' mean,
+  `raster/measurements.py` finds the ring); shown by `resultRows` (`measure/measure.ts`), the CSV (`api.py`),
+  findings (`FINDING_TEMPERATURES`) and the flight report.
+
+The user's decisions (2026-11-11):
+
+- **Surroundings:** removed with the ΔT built on it (a shape's mean minus its surroundings), from the card, the CSV,
+  findings and the flight report; the server stops computing them. The Delta T tool's ΔT (second spot − first) and
+  Delta T Around Pointer stay. Old measurements and findings keep what was stored; it is no longer shown.
+- **Banded:** two modes. Stepped: the palette in flat colour steps, one colour per band. Banded: the smooth palette
+  with every other band darkened, so the bands read as stripes.
+- **The bandwidth** is in degrees of the user's unit (1–10, 5 at first), whatever the range.
+- **ΔT on the compare page is always A − B**, labelled "ΔT (A − B)", the same in both panes, as in the difference
+  pane and the measurement card.
+
+Taken as defaults (not asked):
+
+- The floating tip's control is P1's "Temperature On Pointer" box (the viewer and the frame page keep theirs as
+  built), added to the compare page by its readouts and remembered with the same setting. Its tip is in the pane under
+  the pointer: that pane's temperature and "ΔT (A − B)"; in the difference pane, A − B; in the overlay, A, B and ΔT.
+
+### S1: Surroundings out of the measurement data
+
+The server's measure (`thermal_measure`, `raster/measurements.py`'s ring), the card's rows, the CSV's columns, the
+findings' figures and the flight report; tests and the docs (Measuring, Findings, Reports).
+
+### C1: ΔT under the pointers on the compare page, and its floating tip
+
+A "ΔT (A − B)" row under Temperature in each pane of a mosaic's readout (when both panes have a temperature there);
+the "Temperature On Pointer" box on the compare page and its tip in each pane. Tests in `compare.test.tsx`; the
+Compare guide page.
+
+### B1: Banded in place of Equalized
+
+Equalized removed everywhere it is (the panels, the URL, exports, reports, the server's curve and histogram file; an
+old `equalize=1` is ignored). Banded: off, Stepped or Banded, and the bandwidth slider (1–10 degrees, 5 at first),
+on the viewer's and the frame page's Image panel and the compare page's style bar; drawn in WebGL and on canvas
+(`map/colour.ts`) and by the server in exports and reports; kept in the URL and in saved views. Tests on both sides;
+the docs (Mosaics, Frames, Compare, Reports) and their screenshots.
 
 ## Delta T
 
