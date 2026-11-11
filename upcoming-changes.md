@@ -8,16 +8,16 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: D1 (Delta T Around Pointer), decided; see "Delta T" below.
+**Up next**: D2 (the Delta T measuring tool), decided; see "Delta T" below.
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: D2 (the Delta T measuring tool), decided.
+**Then**: nothing planned yet.
 
 ## Delta T
 
@@ -41,7 +41,15 @@ The user's decisions (2026-11-11):
   frame); ΔT = the second point minus the first.
 - **The tool has** Save measurement, Keep as finding, and the frame page as well as the viewer.
 
-### D1: Delta T Around Pointer
+### D1: Delta T Around Pointer (built)
+
+Built: `frontend/src/map/pointer-delta.tsx` (the box, the slider, the outline and the figures), used by
+`viewer/viewer-page.tsx` and `frame/frame-page.tsx`; the server's `around_point`, `mosaic_around` and `check_around`
+in `analyzer/thermal_measure.py`, asked through `?around=` by both point requests (`api.py`). Tests:
+`tests/test_api_measurements.py` ("delta T around"), `frontend/tests/viewer.test.tsx` and `frame.test.tsx` ("Delta T
+Around Pointer"). Checked live on conversion 1 against numpy on its TIFF (the same ΔT to 0.003 °F; the API also counts
+the pixels the outline touches, as the other measurements do); a 10 m circle (1.2 million pixels at 1.6 cm) answers
+in about 0.15 s.
 
 On the viewer (temperature tabs only) and the frame page. Both point requests take `around=<radius>` and answer the
 circle's figures with the point's, so Pointer info, the tip and D1 stay one request. The box and the radius (one for

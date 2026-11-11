@@ -5,6 +5,7 @@ import {formatNumber, type Maybe} from "../core/format";
 import {convertTemp} from "../core/units";
 import {Histogram} from "../measure/charts";
 import {signed, symbol, temp} from "../measure/measure";
+import type {Around} from "../map/pointer-delta";
 import {CHANGES, type Changes, DISTANCE_SOURCES, type FrameInfo, limits} from "./frame";
 
 interface ParamsProps {
@@ -79,7 +80,8 @@ export function Info({info, unit, normalized}: {info: Maybe<FrameInfo>; unit: un
     </>);
 }
 
-export interface FramePoint {inside?: boolean; x?: number; y?: number; temperature?: number | null; changed?: number | null}
+export interface FramePoint {inside?: boolean; x?: number; y?: number; temperature?: number | null; changed?: number | null;
+                           around?: Around | null}
 
 // The values under the cursor: as converted, and with the parameters changed
 export function FrameReadout({point, unit}: {point: Maybe<FramePoint>; unit: unknown}) {

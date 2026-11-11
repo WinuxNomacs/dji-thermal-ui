@@ -33,6 +33,8 @@ CHANGES = ('distance', 'humidity', 'emissivity', 'reflected_temp', 'ambient_temp
 CORRECTIONS = ('emissivity', 'reflected_temp')
 # On a frame, in pixels: a spot's disc, a line's strip and the surroundings (on a mosaic: app/measurements' metres)
 FRAME_SHAPES = {'point_radius': 1.5, 'line_half_width': 1.0, 'ring_min': 3.0, 'ring_max': 10.0}
+# Delta T Around Pointer: the circle's largest radius (metres on a mosaic, pixels on a frame)
+AROUND_MAX = {'mosaic': 10.0, 'frame': 50.0}
 FRAME_CACHE = 16            # frames measured kept in memory (about 1.3 MB each for the M4T's 640 × 512)
 # How temperatures are drawn (display only, in the browser): gamma on the palette's shares, an unsharp mask's amount,
 # the histogram equalization reads and the legend's samples
@@ -221,6 +223,57 @@ def region_stats(values, transform, geometry_type, inside, ring, isotherm=None, 
         out['surroundings'] = float(around.mean())
         out['delta_t'] = out['mean'] - out['surroundings']
     return out
+
+
+def check_around(value, kind):
+    """Delta T Around Pointer's radius asked (kind: mosaic, in metres, or frame, in pixels), checked; None for none"""
+    if value is None or value == "":
+        return None
+    radius = number(value, "The circle's radius")
+    if not 0 < radius <= AROUND_MAX[kind]:
+        raise MeasureError("The circle's radius is above 0 and at most {:g}".format(AROUND_MAX[kind]))
+    return radius
+
+
+def around_point(values, transform, x, y, radius, at=None):
+    """
+    Delta T Around Pointer on a grid of values (NaN = no data): the mean, min and max of the finite pixels in a circle
+    of radius around (x, y) (in the grid's units), the pixel there left out, and the difference of the temperature at
+    the point (at; else the grid's own pixel there) with their mean (ΔT)
+    """
+    from shapely.geometry import Point
+    mask = region_mask(Point(x, y).buffer(radius), values.shape, transform)
+    col, row = ~transform @ (x, y)
+    row, col = int(math.floor(row)), int(math.floor(col))
+    if 0 <= row < values.shape[0] and 0 <= col < values.shape[1]:
+        mask[row, col] = False
+        if at is None and np.isfinite(values[row, col]):
+            at = float(values[row, col])
+    around = values[mask]
+    around = around[np.isfinite(around)]
+    out = {'radius': radius, 'pixels': int(around.size), 'mean': None, 'min': None, 'max': None, 'delta_t': None}
+    if around.size:
+        out.update(mean=float(around.mean()), min=float(around.min()), max=float(around.max()))
+        if at is not None:
+            out['delta_t'] = at - out['mean']
+    return out
+
+
+def mosaic_around(path, unit, lon, lat, radius, correction=None, at=None):
+    """Delta T Around Pointer (around_point) on a mosaic, at a point (lon, lat) with a radius in metres"""
+    import rasterio
+    from pyproj import Transformer
+    with rasterio.open(path) as ds:
+        crs = ds.crs
+    x, y = Transformer.from_crs("EPSG:4326", crs, always_xy=True).transform(lon, lat)
+    empty = {'radius': radius, 'pixels': 0, 'mean': None, 'min': None, 'max': None, 'delta_t': None}
+    if not (math.isfinite(x) and math.isfinite(y)):
+        return empty
+    read = read_mosaic(path, unit, (x - radius, y - radius, x + radius, y + radius))
+    if read is None:
+        return empty
+    values, transform, _crs = read
+    return around_point(corrected(values, unit, correction), transform, x, y, radius, at)
 
 
 def profile_points(line, step):

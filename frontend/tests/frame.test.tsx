@@ -567,3 +567,53 @@ describe("Temperature On Pointer on the frame page", () => {
         expect(tip().hidden).toBe(true);
     });
 });
+
+describe("Delta T Around Pointer on the frame page", () => {
+    it("asks for a circle in the frame's pixels once ticked, outlines it and shows its figures", async () => {
+        const added = vi.spyOn(OlMap.prototype, "addLayer");
+        const routed = server(routes());
+        const fetchFn = vi.fn((url: string, opts?: RequestInit) => {
+            if (url.includes("/frame/point?")) {
+                const r = new URLSearchParams(url.split("?")[1]).get("around");
+                return Promise.resolve(jsonResponse({inside: true, x: 1, y: 1, temperature: 30.25,
+                    ...(r ? {around: {radius: parseFloat(r), pixels: 300, mean: 29, min: 27, max: 31, delta_t: 1.25}} : {})}));
+            }
+            return routed(url, opts);
+        }) as unknown as ReturnType<typeof server>;
+        await open(fetchFn);
+        const m = (added.mock.contexts as OlMap[]).find((x) => x.getTargetElement()?.id === "map")!;
+        const move = (at: number[]) => {
+            const e = new MapBrowserEvent("pointermove", m, new MouseEvent("pointermove") as PointerEvent);
+            e.coordinate = at;
+            m.dispatchEvent(e);
+        };
+        const rest = async () => { await new Promise((r) => setTimeout(r, 200)); await ticks(20); };
+        const points = () => calls(fetchFn).filter((c) => c.includes("/frame/point?"));
+        const outline = () => (m.getLayers().getArray().find((l) => l.getZIndex() === 13) as unknown as
+            {getSource: () => {getFeatures: () => {getGeometry: () => {getExtent: () => number[]}}[]}}).getSource().getFeatures();
+        const box = byId("pointer-delta") as HTMLInputElement;
+        expect(box.checked).toBe(false);
+        move([1, -1]);
+        await rest();
+        expect(points().at(-1)).not.toContain("around=");
+
+        click(box);
+        await ticks();
+        const slider = document.querySelector("[name=pointer-delta-radius]") as HTMLInputElement;
+        expect([slider.value, slider.min, slider.max]).toEqual(["10", "3", "50"]);
+        move([1, -1]);
+        // 10 px of the frame each way
+        const e = outline()[0].getGeometry().getExtent();
+        expect((e[2] - e[0]) / 2).toBeCloseTo(10, 1);
+        await rest();
+        expect(points().at(-1)).toContain("around=10");
+        expect(byId("pointer-delta-figures").textContent).toContain("ΔT+1.25 °C");
+        expect(localStorage.getItem("thermal-analyzer.pointer-delta-radius.frame")).toBeNull();
+        slider.value = "20";
+        slider.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        expect(localStorage.getItem("thermal-analyzer.pointer-delta-radius.frame")).toBe("20");
+        m.getViewport()!.dispatchEvent(new MouseEvent("mouseleave"));
+        expect(outline()).toHaveLength(0);
+    });
+});

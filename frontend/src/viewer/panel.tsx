@@ -7,6 +7,7 @@ import {formatNumber, type Maybe} from "../core/format";
 import {convertTemp, unitSymbol, userUnit} from "../core/units";
 import {Histogram} from "../measure/charts";
 import {type Measured, symbol, temp} from "../measure/measure";
+import type {Around} from "../map/pointer-delta";
 import {gradientCss, type Scale} from "./canvas";
 import {type Adjust, EMISSIVITY_RANGE, gammaSlider, inTemperatures, type MosaicTab, reflectedRange, scaleTicks,
         SLIDERS, SPAN_STEPS, type SpanStep, stepRange, tabHint, valueUnit} from "./view";
@@ -180,6 +181,7 @@ export interface Point {
     valid?: boolean; reason?: string; temperature?: number | null; frame?: string | null;
     frame_pixel?: [number, number] | null; view_angle?: number | null;
     height?: number | null; base_m?: number | null;     // the ground's, above WebODM's DSM's lowest ground (base_m)
+    around?: Around | null;                             // Delta T Around Pointer's circle, when asked
 }
 
 // The values under the cursor, or at the point clicked (pinned), whose frame can then be opened

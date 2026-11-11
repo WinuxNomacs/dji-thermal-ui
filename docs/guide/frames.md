@@ -23,8 +23,9 @@ The frame has the viewer's palette, range (with its cross of Narrow, Widen, Lowe
 temperatures), image sliders, Pointer info and [measuring](measuring.md). Its **Thermal**/**Visual**/**Both** switch
 shows the frame's visual image in its place or beside it, with the same shapes and the cursor on it, and measures the
 thermal frame under them. A frame can be measured again with other parameters. **Temperature On Pointer**, in Pointer
-info's heading, shows the frame's temperature beside the cursor, as on the
-[viewer](mosaics.md#pointer-info).
+info's heading, shows the frame's temperature beside the cursor, and **Delta T Around Pointer** compares the pixel
+under it with those in a circle around it, as on the [viewer](mosaics.md#pointer-info); on a frame the circle's radius
+is in the frame's pixels (3 to 50), on the frame as converted.
 
 ## The photos of a flight of visual images only
 

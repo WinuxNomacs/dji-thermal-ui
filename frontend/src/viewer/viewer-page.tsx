@@ -37,6 +37,7 @@ import {type Colouring, isothermRange, SEAMS} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
+import {type AroundOutline, aroundOutline, aroundQuery, DeltaControls, DeltaFigures, usePointerDelta} from "../map/pointer-delta";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
 import {MosaicExport} from "./export";
 import {VisualViewer} from "./visual-viewer";
@@ -165,6 +166,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [point, setPoint] = useState<Maybe<Point>>(undefined);
     const [pinned, setPinned] = useState(false);
     const [tipOn, setTipOn] = usePointerTemperature();
+    const delta = usePointerDelta("mosaic");
     const [outlined, setOutlined] = useState<string | null>(null);
     const [tools, setTools] = useState<{tool: ReturnType<Drawing["tool"]>; count: number}>({tool: null, count: 0});
     const [current, setCurrent] = useState<Current | null>(null);
@@ -202,6 +204,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const sourcesShape = useRef<VectorSource | null>(null);
     const findingsShown = useRef<VectorSource | null>(null);
     const tip = useRef<PointerTip | null>(null);
+    // Delta T Around Pointer's circle, and where the readout last read (asked again when the radius changes)
+    const around = useRef<AroundOutline | null>(null);
+    const readAt = useRef<Coordinate | null>(null);
+    const radiusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0, tip: 0});
     const readyShown = useRef(false);
@@ -229,8 +235,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // What the map's handlers (set up once) read: this render's values
     const imported = !!v?.imported;
-    const now = useRef({tab, visual, params, current, pinned, outlined, findings, imported, tipOn, unit});
-    now.current = {tab, visual, params, current, pinned, outlined, findings, imported, tipOn, unit};
+    // Delta T Around Pointer, on the temperature mosaics
+    const deltaShown = delta.on && measures(tab, visual);
+    const radius = delta.radius;
+    const now = useRef({tab, visual, params, current, pinned, outlined, findings, imported, tipOn, unit, deltaShown, radius});
+    now.current = {tab, visual, params, current, pinned, outlined, findings, imported, tipOn, unit, deltaShown, radius};
 
     function show(data: Mosaics) {
         clearTimeout(timer.current);
@@ -298,6 +307,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             clearTimeout(timer.current);
             clearTimeout(hover.current);
             clearTimeout(typing.current);
+            clearTimeout(radiusTimer.current);
             document.removeEventListener("keydown", keys);
             map.current?.setTarget(undefined);
         };
@@ -305,6 +315,17 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // Temperature On Pointer's tip goes when the box is unticked, and on another tab until the pointer rests again
     useEffect(() => { tip.current?.hide(); }, [tipOn, tab, visual]);
+
+    // Delta T Around Pointer's circle goes when the box is unticked or on a tab without temperatures; a point clicked
+    // is read again with the radius changed (once the slider rests)
+    useEffect(() => {
+        clearTimeout(radiusTimer.current);
+        const at = readAt.current;
+        if (!deltaShown) return around.current?.hide();
+        if (!pinned || !at) return;
+        around.current?.show(at, radius);
+        radiusTimer.current = setTimeout(() => readout(at), HOVER_MS * 2);
+    }, [deltaShown, radius]);
 
     function syncTools() {
         const d = drawing.current;
@@ -322,12 +343,14 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         fitBounds(m, t.bounds || WORLD);
         makeVisual();
         tip.current = pointerTip(m);
+        around.current = aroundOutline(m, toCoords, fromCoords, getDistance);
 
         // The readout follows the pointer where it rests, unless a click keeps a point; Temperature On Pointer's tip
-        // follows it either way
+        // follows it either way, Delta T Around Pointer's circle only with the readout
         m.on("pointermove", (e) => {
             tip.current?.hide();
             const pinned = now.current.pinned;
+            if (now.current.deltaShown && !pinned && !e.dragging) around.current?.show(e.coordinate, now.current.radius);
             if (e.dragging || (pinned && !now.current.tipOn)) return;
             clearTimeout(hover.current);
             const at = e.coordinate;
@@ -338,6 +361,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             tip.current?.hide();
             asked.current.tip++;
             if (now.current.pinned) return;
+            around.current?.hide();
             asked.current.point++;
             setPoint(undefined);
         });
@@ -370,6 +394,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 setPinned(true);
                 now.current.pinned = true;
                 clearTimeout(hover.current);
+                if (now.current.deltaShown) around.current?.show(at, now.current.radius);
                 readout(at, true, kept).then((shown) => {
                     // An imported orthophoto's frames open as a visual mosaic's do: it has no Source frame tab
                     if (shown && (now.current.tab === "source_frame" || now.current.visual || (now.current.imported && now.current.tab === "webodm"))) {
@@ -511,11 +536,12 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     // The values at a point, kept (and its frame outlined) when pinned; kept: the frame outlined before, let go of
     // when the point is on it again. Resolves to whether the point's values are shown (not let go of, nor moved on).
-    // The values at a point of the mosaic shown (null: not read)
-    function pointAt(at: Coordinate): Promise<Point | null> {
+    // The values at a point of the mosaic shown (null: not read); withAround: Delta T Around Pointer's circle too,
+    // when it is on
+    function pointAt(at: Coordinate, withAround = false): Promise<Point | null> {
         const q = now.current, [lon, lat] = mapToLonLat(at);
         return fetch(base + "/mosaics/" + q.tab + "/point?lon=" + lon + "&lat=" + lat +
-                     extraQuery(q.params), {credentials: "same-origin"})
+                     extraQuery(q.params) + aroundQuery(withAround && q.deltaShown, q.radius), {credentials: "same-origin"})
             .then((res) => readJson<Point>(res))
             .then((r) => r.ok ? r.data : null);
     }
@@ -535,9 +561,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     function readout(at: Coordinate, pin = false, kept: string | null = null): Promise<boolean> {
         const n = ++asked.current.point;
-        return pointAt(at)
+        return pointAt(at, true)
             .then((p) => {
                 if (n !== asked.current.point) return false;    // the cursor moved on
+                readAt.current = at;
                 showTip(at, p);
                 const frame = p && p.valid && p.frame || null;
                 if (pin && kept && frame === kept) {
@@ -701,6 +728,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         setPinned(false);
         now.current.pinned = false;
         setPoint(undefined);
+        around.current?.hide();
         outline(null);
     }
 
@@ -1088,9 +1116,11 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                             <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
                         </Section>}
                         <Section name="cursor" title={<PointerHead on={tipOn} onChange={setTipOn}/>}>
+                            {measuring && <DeltaControls kind="mosaic" delta={delta}/>}
                             <div class="readout" id="readout">
                                 <Readout point={point} unit={unit} frameUrl={frameUrl} pinned={pinned} onFollow={follow}/>
                             </div>
+                            {deltaShown && point?.valid && <DeltaFigures around={point.around} unit={unit}/>}
                         </Section>
                         {measuring && <>
                             <Section name="parameters" title="Parameters" folded>

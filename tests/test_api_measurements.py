@@ -110,6 +110,62 @@ def test_the_mosaics_are_corrected_approximately_for_another_emissivity_or_refle
     assert corrected < plain
 
 
+def test_delta_t_around_a_point_compares_its_pixel_with_the_mean_of_the_others_in_a_circle():
+    from affine import Affine
+    from shapely.geometry import Point
+    values = np.tile(np.arange(7, dtype=float), (7, 1))
+    values[3, 3] = 10.0         # the pixel at the point, left out of the circle's figures
+    values[3, 1] = values[3, 5] = np.nan
+    a = measuring.around_point(values, Affine.identity(), 3.5, 3.5, 2.0)
+    assert (a['mean'], a['min'], a['max']) == (pytest.approx(3.0), 1.0, 5.0)
+    assert a['delta_t'] == pytest.approx(7.0)
+    assert a['radius'] == 2.0
+    assert a['pixels'] == int(measuring.region_mask(Point(3.5, 3.5).buffer(2.0), values.shape, Affine.identity()).sum()) - 3
+    # The temperature at the point given (as the point request read it) is what ΔT compares
+    assert measuring.around_point(values, Affine.identity(), 3.5, 3.5, 2.0, at=4.0)['delta_t'] == pytest.approx(1.0)
+    # No pixel with data: no figures
+    empty = measuring.around_point(np.full((7, 7), np.nan), Affine.identity(), 3.5, 3.5, 2.0)
+    assert (empty['pixels'], empty['mean'], empty['delta_t']) == (0, None, None)
+    for bad, kind in (("0", 'mosaic'), ("10.5", 'mosaic'), ("51", 'frame'), ("wide", 'frame')):
+        with pytest.raises(measuring.MeasureError):
+            measuring.check_around(bad, kind)
+    assert measuring.check_around("", 'mosaic') is None
+
+
+def test_the_point_requests_answer_delta_t_around_the_point_when_asked(api):
+    c = analysed(converted(api)[0])
+    point = "{}/{}/mosaics/as_converted/point".format(CONVERSIONS, c.id)
+    lon, lat = mosaic_lonlat(32.5, 32.5)
+    assert 'around' not in api.get(point, {'lon': lon, 'lat': lat}).data
+    res = api.get(point, {'lon': lon, 'lat': lat, 'around': '0.5'})
+    assert res.status_code == 200, res.data
+    a = res.data['around']
+    # A circle of 10 px around the pixel of column 32: as warm as its column on average, the columns 22 to 42 in it
+    assert a['radius'] == 0.5
+    assert a['mean'] == pytest.approx(mosaic_temperature(32), abs=1e-3)
+    assert a['delta_t'] == pytest.approx(res.data['temperature'] - a['mean'], abs=1e-6)
+    assert a['min'] == pytest.approx(mosaic_temperature(22), abs=1e-3)
+    assert a['max'] == pytest.approx(mosaic_temperature(42), abs=1e-3)
+    assert a['pixels'] > 300
+    # Corrected as the temperature is
+    lower = api.get(point, {'lon': lon, 'lat': lat, 'around': '0.5', 'emissivity': '0.85'}).data
+    assert lower['around']['mean'] < a['mean']
+    assert lower['around']['delta_t'] == pytest.approx(lower['temperature'] - lower['around']['mean'], abs=1e-6)
+    for bad in ('0', '10.5', 'wide'):
+        assert api.get(point, {'lon': lon, 'lat': lat, 'around': bad}).status_code == 400, bad
+
+    rel = '100MEDIA/DJI_0002_T.JPG'
+    frame = "{}/{}/frame".format(CONVERSIONS, c.id)
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
+        assert 'around' not in api.get(frame + "/point", {'frame': rel, 'x': '3.5', 'y': '2.5'}).data
+        # The 3 x 3 px around the pixel (3, 2), of 22 to 24 °C, on the frame as converted
+        p = api.get(frame + "/point", {'frame': rel, 'x': '3.5', 'y': '2.5', 'around': '1.2',
+                                       'emissivity': '0.95'}).data
+        assert p['around'] == {'radius': 1.2, 'pixels': 8, 'mean': pytest.approx(23.0), 'min': 22.0, 'max': 24.0,
+                               'delta_t': pytest.approx(0.0)}
+        assert api.get(frame + "/point", {'frame': rel, 'x': '3.5', 'y': '2.5', 'around': '51'}).status_code == 400
+
+
 def test_the_palettes_shares_are_bent_by_gamma_and_equalization_without_changing_the_temperatures():
     assert measuring.parse_adjust({}) == {'gamma': 1.0, 'equalize': False, 'sharpen': 0.0}
     assert measuring.parse_adjust({'gamma': '2', 'equalize': '1', 'sharpen': '1.5'}) == \

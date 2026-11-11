@@ -1020,3 +1020,116 @@ describe("Temperature On Pointer", () => {
         expect(tip().hidden).toBe(true);
     });
 });
+
+describe("Delta T Around Pointer", () => {
+    const MIDDLE = [10.0006, 50.0005];
+    // Points with a temperature, and the circle's figures when they are asked for
+    function around(routed: ReturnType<typeof server>) {
+        return vi.fn((url: string, opts?: RequestInit) => {
+            if (url.includes("/point?")) {
+                const q = new URLSearchParams(url.split("?")[1]), r = q.get("around");
+                return Promise.resolve(jsonResponse({valid: true, frame: "a_T.JPG", temperature: 21.5,
+                    ...(r ? {around: {radius: parseFloat(r), pixels: 120, mean: 20, min: 18.5, max: 23, delta_t: 1.5}} : {})}));
+            }
+            return routed(url, opts);
+        }) as unknown as ReturnType<typeof server>;
+    }
+    function moveMap(m: OlMap, lonLat: number[]) {
+        const e = new MapBrowserEvent("pointermove", m, new MouseEvent("pointermove") as PointerEvent);
+        e.coordinate = fromLonLat(lonLat);
+        m.dispatchEvent(e);
+    }
+    const rest = async () => { await new Promise((r) => setTimeout(r, 300)); await ticks(20); };
+    const box = () => byId("pointer-delta") as HTMLInputElement;
+    const slider = () => $("[name=pointer-delta-radius]") as HTMLInputElement | null;
+    const figures = () => document.getElementById("pointer-delta-figures");
+    const asked = (fetchFn: ReturnType<typeof server>) => calls(fetchFn).filter((c) => c.includes("/point?"));
+    // The circle's outline on the map (its own layer, above the drawing's)
+    function circle(m: OlMap): number[] | null {
+        const layer = m.getLayers().getArray().find((l) => l.getZIndex() === 13) as unknown as
+            {getSource: () => {getFeatures: () => {getGeometry: () => {getExtent: () => number[]}}[]}};
+        const f = layer.getSource().getFeatures();
+        return f.length ? f[0].getGeometry().getExtent() : null;
+    }
+    const centre = (e: number[]) => [(e[0] + e[2]) / 2, (e[1] + e[3]) / 2];
+
+    it("is off at first, then asks for the circle around the pointer, outlines it and shows its figures", async () => {
+        const map = viewerMap();
+        const fetchFn = around(server(routes(OUTLINES)));
+        await open(fetchFn);
+        expect(box().checked).toBe(false);
+        expect(slider()).toBeNull();
+        moveMap(map(), WEST);
+        await rest();
+        expect(asked(fetchFn).at(-1)).not.toContain("around=");
+        expect(figures()).toBeNull();
+        expect(circle(map())).toBeNull();
+
+        click(box());
+        await ticks();
+        expect(localStorage.getItem("thermal-analyzer.pointer-delta")).toBe("1");
+        expect(slider()!.value).toBe("2");
+        expect($("[data-section=cursor] .slider-value")!.textContent).toBe("2.0 m");
+        moveMap(map(), WEST);
+        // The outline follows the pointer at once, 2 m across each way
+        const e = circle(map())!;
+        expect(centre(e)[0]).toBeCloseTo(fromLonLat(WEST)[0], 0);
+        expect((e[2] - e[0]) / 2 * Math.cos(50.0005 * Math.PI / 180)).toBeCloseTo(2, 1);
+        await rest();
+        expect(asked(fetchFn).at(-1)).toContain("around=2");
+        expect(figures()!.textContent).toContain("Circle mean20.00 °C");
+        expect(figures()!.textContent).toContain("ΔT+1.50 °C");
+        expect(figures()!.textContent).toContain("Pixels120");
+
+        // The radius is remembered and asked for
+        change(slider()!, "5", "input");
+        await ticks();
+        expect(localStorage.getItem("thermal-analyzer.pointer-delta-radius.mosaic")).toBe("5");
+        moveMap(map(), MIDDLE);
+        await rest();
+        expect(asked(fetchFn).at(-1)).toContain("around=5");
+
+        map().getViewport()!.dispatchEvent(new MouseEvent("mouseleave"));
+        expect(circle(map())).toBeNull();
+        click(box());
+        await ticks();
+        expect(slider()).toBeNull();
+        expect(localStorage.getItem("thermal-analyzer.pointer-delta")).toBe("0");
+    });
+
+    it("keeps the circle on a point clicked, and reads it again with another radius", async () => {
+        localStorage.setItem("thermal-analyzer.pointer-delta", "1");
+        localStorage.setItem("thermal-analyzer.pointer-delta-radius.mosaic", "3");
+        const map = viewerMap();
+        const fetchFn = around(server(routes(OUTLINES)));
+        await open(fetchFn);
+        expect(slider()!.value).toBe("3");
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(asked(fetchFn).at(-1)).toContain("around=3");
+        moveMap(map(), MIDDLE);
+        await rest();
+        expect(centre(circle(map())!)[0]).toBeCloseTo(fromLonLat(WEST)[0], 0);
+        const n = asked(fetchFn).length;
+        change(slider()!, "6", "input");
+        await rest();
+        const again = asked(fetchFn).slice(n);
+        expect(again).toHaveLength(1);
+        expect(again[0]).toContain("around=6");
+        expect(again[0]).toContain("lon=" + WEST[0]);
+        // Let go of: the circle goes until the pointer moves again
+        click(byId("follow"));
+        await ticks();
+        expect(circle(map())).toBeNull();
+    });
+
+    it("is not offered on the Visual tab", async () => {
+        localStorage.setItem("thermal-analyzer.pointer-delta", "1");
+        const fetchFn = around(server(routes({...OUTLINES, [BASE + "/mosaics"]: {...MOSAICS, visual: {bounds: BOUNDS, maxzoom: 22, files: []}}})));
+        await open(fetchFn);
+        expect(document.getElementById("pointer-delta")).not.toBeNull();
+        click($("[data-tab=visual]")!);
+        await ticks();
+        expect(document.getElementById("pointer-delta")).toBeNull();
+    });
+});
