@@ -300,6 +300,20 @@ async function explore(page, project, flight, conversion) {
                "&opacity=60&swipe=50");
     await settled(page, 5000);
     await shot(page, "compare-overlay");
+    // A line drawn in pane B, measured on both mosaics
+    await open(page, `conversion/${conversion}/compare?b=${conversion}&a_tab=as_converted&b_tab=harmonized`);
+    await settled(page, 5000);
+    const pane = await page.locator("#map-b").boundingBox();
+    const px = pane.x + pane.width * 0.3, py = pane.y + pane.height * 0.8;
+    await page.click('#pane-b [data-tool="line"]');
+    await page.mouse.click(px - 60, py + 20);
+    await page.waitForTimeout(600);
+    await page.mouse.click(px + 60, py - 20);
+    await page.waitForTimeout(600);
+    await page.keyboard.press("Enter");
+    await page.waitForSelector("#pane-b #measure-card .measure-result");
+    await settled(page, 1500);
+    await shot(page, "compare-measure");
 
     await open(page, `dataset/${flight}#files`);
     await page.click("#export-frames");

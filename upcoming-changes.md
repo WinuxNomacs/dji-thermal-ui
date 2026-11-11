@@ -125,9 +125,10 @@ The user's decisions (2026-11-11):
   the viewer; its Source frames button opens the window it opens today (each mosaic's frames, each with Save as
   finding), for a spot, an area or a Delta T.
 - The card's figures: B's results converted to A's unit when their units differ, A − B in its own column. A pane on a
-  visual mosaic has no temperatures: its column is left out (a card of two visual mosaics shows the size alone).
-- Save measurement: a temperature mosaic's pane only; when both panes show the same dataset (two tabs), both
-  measurements are saved there.
+  dataset's visual mosaic is measured on its as converted values, as its readout and source frames are; a visual
+  mosaic of its own has no temperatures: its column is left out (a card of two of them shows their sizes).
+- Save measurement: on the datasets of the card's columns; once when both panes show the same mosaic, twice (one per
+  tab) when they show two tabs of one dataset.
 - The isotherm: typed in the user's unit, sent in each conversion's; it starts from the top of the range shown, as the
   viewer's does.
 - Docs: `docs/guide/compare.md` and `measuring.md` (where the tools are), a screenshot of the card on the compare page;

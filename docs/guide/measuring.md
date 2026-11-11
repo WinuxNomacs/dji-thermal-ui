@@ -34,6 +34,27 @@ along its line, as wide as a spot's disc, outlined in each frame.
 On a frame page, the Thermal/Visual/Both switch shows the frame's visual image in its place or beside it, with the
 same shapes and the cursor on it, and measures the thermal frame under them.
 
+## On the compare page
+
+![A line drawn on the compare page, measured on both mosaics, with A − B](../assets/screenshots/compare-measure.png)
+
+On the [compare page](compare.md) each pane's map has the same six tools. A shape drawn in either pane is measured on
+both mosaics, pane A's and pane B's, whatever each pane shows (its mosaic, the difference or the overlay), and drawn
+in both panes. Its card, on the pane it was drawn in, names the two mosaics and gives each figure in three columns,
+**A**, **B** and **A − B** (B's temperatures in A's unit when their units differ); a line's profile draws both
+curves. Where one mosaic has no data under the shape, or is a visual mosaic of its own with no temperatures, the card
+gives the other's alone and says why. A pane on a dataset's visual mosaic is measured on its temperatures, as its
+readout is.
+
+- **Save measurement** saves it on both datasets, with the name typed, so each one's viewer lists it in its Saved
+  measurements and its CSV (once, when both panes show the same mosaic).
+- **Source frames**, for a spot, an area or a Delta T, opens the frames that saw it in each mosaic, each with
+  **Save as finding**: see [Findings](findings.md#on-the-compare-page).
+
+The **Isotherm**, under the panes' palette, is shared by both panes: typed in your unit, it greys the pixels outside
+it in both temperature mosaics (not the difference or a visual mosaic), and the card gives the share inside it for
+both.
+
 ## On a visual mosaic
 
 The dataset of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only) has no temperatures. In
@@ -60,7 +81,7 @@ It opens from:
 - **Source frames** on a measurement's card;
 - a spot or an area drawn (or a click) on the Source frame or Visual tab;
 - a saved measurement's;
-- on the compare page, a spot or an area drawn with the tools on a pane's map.
+- on the compare page, **Source frames** on the card of a spot, an area or a Delta T drawn on a pane's map.
 
 A [finding](findings.md) can be kept from it. Mosaics built before version 0.5.0 list only the frames they used:
 build them again to list every frame.
