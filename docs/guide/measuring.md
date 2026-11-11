@@ -1,6 +1,6 @@
 # Measuring
 
-Spots, lines, areas, boxes and circles are measured on mosaics, in the [viewer](mosaics.md) and on the
+Spots, lines, areas, boxes, circles and Delta Ts are measured on mosaics, in the [viewer](mosaics.md) and on the
 [compare page](compare.md), and on single frames, on the [frame page](frames.md).
 
 ![A box measured on a mosaic, with its card](../assets/screenshots/viewer-measure.png)
@@ -15,8 +15,20 @@ or an area's histogram.
 On the card:
 
 - **Save measurement** keeps it, listed in the side panel's Saved measurements.
-- **Keep as finding**, for a spot or an area of a mosaic: see [Findings](findings.md).
-- **Source frames**, for a spot or an area of a mosaic: see below.
+- **Keep as finding**, for a spot, an area or a Delta T of a mosaic: see [Findings](findings.md).
+- **Source frames**, for a spot, an area or a Delta T of a mosaic: see below.
+
+## Delta T
+
+The **Delta T** tool, after Circle, compares two spots. Click the first spot, then the second: the tool ends on the
+second click, and the card gives the line's length, the temperature of each spot (**First spot**, **Second spot**,
+each measured as the Spot tool measures one: the mean of a small disc around it) and **ΔT**, the second's temperature
+minus the first's. A Delta T is drawn as a line with a ring at each end. It has no isotherm, and it isn't offered on
+the Source frame tab or on a visual mosaic, which have no temperatures.
+
+A saved Delta T is listed with its ΔT and both temperatures, for example "ΔT +1.5 °C (20.0 °C → 21.5 °C)", and the
+CSV gives them in its **First spot**, **Second spot** and **ΔT** columns. Its source frames are those that saw a strip
+along its line, as wide as a spot's disc, outlined in each frame.
 
 On a frame page, the Thermal/Visual/Both switch shows the frame's visual image in its place or beside it, with the
 same shapes and the cursor on it, and measures the thermal frame under them.
@@ -38,9 +50,9 @@ have a comment, shown in the viewer's list, in the CSV and GeoJSON, and in the
 
 ## Source frames
 
-The source frames window shows every frame that saw a spot or an area of a mosaic, the one the mosaic used first,
-each with its time and view angle and the spot marked or the area outlined in it, in the thermal frame or, with the
-Thermal/Visual switch, its visual image.
+The source frames window shows every frame that saw a spot, an area or a [Delta T](#delta-t) of a mosaic, the one
+the mosaic used first, each with its time and view angle and the spot marked or the area (or the Delta T's strip)
+outlined in it, in the thermal frame or, with the Thermal/Visual switch, its visual image.
 
 It opens from:
 

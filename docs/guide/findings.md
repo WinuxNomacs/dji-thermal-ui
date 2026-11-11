@@ -1,7 +1,8 @@
 # Findings
 
-A finding is a spot or an area of a mosaic kept on its flight, with a name, notes, a severity and a status, the
-temperatures measured when it was kept, and the frames that saw it (all of them, or those you pick). On the visual
+A finding is a spot, an area or a [Delta T](measuring.md#delta-t) of a mosaic kept on its flight, with a name, notes,
+a severity and a status, the temperatures measured when it was kept, and the frames that saw it (all of them, or
+those you pick). On the visual
 mosaic of a [flight of visual images only](datasets.md#a-flight-of-visual-images-only), an area's finding keeps its
 area and perimeter instead, and its frames are the visual photos. A finding on an
 [imported dataset](mosaics.md#an-imported-dataset) keeps the photos found from its WebODM task's cameras
@@ -11,9 +12,9 @@ area and perimeter instead, and its frames are the visual photos. A finding on a
 
 ## Keeping one
 
-- Draw a spot or an area on a mosaic and press **Keep as finding** on its card: the form opens with the frames beside
-  it.
-- Or keep one from the [source frames](measuring.md#source-frames) window, or from a saved spot or area measurement.
+- Draw a spot, an area or a Delta T on a mosaic and press **Keep as finding** on its card: the form opens with the
+  frames beside it.
+- Or keep one from the [source frames](measuring.md#source-frames) window, or from a saved spot, area or Delta T measurement.
 
 ## On the viewer
 
