@@ -374,6 +374,76 @@ def test_areas_drawn_as_a_box_or_a_circle_are_saved_as_such(api):
         assert api.post(url, bad, format='json').status_code == 400, bad
 
 
+def delta(a, b):
+    return {'type': 'LineString', 'coordinates': [a, b]}
+
+
+def test_a_delta_t_measures_its_two_ends_as_spots_on_a_mosaic_second_minus_first(api):
+    c, _ = converted(api)
+    url = "{}/{}/measure".format(CONVERSIONS, c.id)
+    a, b = mosaic_lonlat(20.5, 30.5), mosaic_lonlat(40.5, 30.5)
+    res = api.post(url, {'target': 'as_converted', 'geometry': delta(a, b), 'shape': {'kind': 'delta'},
+                         'isotherm': 'above,20'}, format='json')
+    assert res.status_code == 200, res.data
+    r = res.data['result']
+    # Each end is what a Spot there measures: the mean of its disc
+    spots = [api.post(url, {'target': 'as_converted', 'geometry': {'type': 'Point', 'coordinates': p}},
+                      format='json').data['result'] for p in (a, b)]
+    assert (r['kind'], r['first'], r['second']) == ('LineString', spots[0]['mean'], spots[1]['mean'])
+    assert r['first'] == pytest.approx(mosaic_temperature(20), abs=0.05)
+    assert r['delta_t'] == pytest.approx(r['second'] - r['first'], abs=1e-9)
+    assert r['delta_t'] == pytest.approx(mosaic_temperature(40) - mosaic_temperature(20), abs=0.05)
+    assert r['length'] == pytest.approx(1.0, abs=1e-3)
+    assert r['valid_pixels'] == spots[0]['valid_pixels'] + spots[1]['valid_pixels']
+    assert not {'profile', 'isotherm', 'mean', 'histogram'} & set(r)
+    # The other way round, ΔT is below zero; corrected, both ends are
+    back = api.post(url, {'target': 'as_converted', 'geometry': delta(b, a), 'shape': {'kind': 'delta'}},
+                    format='json').data['result']
+    assert back['delta_t'] == pytest.approx(-r['delta_t'], abs=1e-9)
+    # An end off the mosaic: no ΔT
+    off = api.post(url, {'target': 'as_converted', 'geometry': delta(a, mosaic_lonlat(500, 500)),
+                         'shape': {'kind': 'delta'}}, format='json').data['result']
+    assert (off['valid_pixels'], off['reason'], off['delta_t'], off['second']) == (0, 'outside_raster', None, None)
+    for bad in ({'geometry': {'type': 'LineString', 'coordinates': [a, b, a]}, 'shape': {'kind': 'delta'}},
+                {'geometry': mosaic_square(32, 16, 48, 32), 'shape': {'kind': 'delta'}},
+                {'geometry': delta(a, b), 'shape': {'kind': 'box'}}):
+        assert api.post(url, dict(bad, target='as_converted'), format='json').status_code == 400, bad
+
+    # Saved, then in the CSV (in °C here) with its two spots, and no profile
+    api.put(PREFERENCES, {'unit': 'C'}, format='json')
+    saved = api.post("{}/{}/measurements".format(CONVERSIONS, c.id),
+                     {'name': 'Joint', 'target': 'as_converted', 'geometry': delta(a, b), 'shape': {'kind': 'delta'},
+                      'isotherm': 'above,20'}, format='json')
+    assert saved.status_code == 201, saved.data
+    assert (saved.data['values']['shape'], 'isotherm' in saved.data['values']) == ({'kind': 'delta'}, False)
+    rows = csv_rows(api, c)
+    assert [(x['Shape'], x['Length / area unit']) for x in rows] == [('delta', 'm')]
+    assert (float(rows[0]['First spot']), float(rows[0]['Second spot']), float(rows[0]['ΔT'])) == (
+        round(r['first'], 3), round(r['second'], 3), round(r['delta_t'], 3))
+    assert rows[0]['Mean'] == ''
+
+
+def test_a_delta_t_on_a_frame_is_measured_as_converted_and_again_with_parameters_changed(api):
+    c = analysed(converted(api)[0])
+    rel = '100MEDIA/DJI_0002_T.JPG'
+    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
+        res = api.post("{}/{}/measurements".format(CONVERSIONS, c.id), {
+            'name': 'Across', 'target': 'frame', 'frame': rel, 'shape': {'kind': 'delta'},
+            'geometry': delta([2.5, 3.5], [7.5, 3.5])}, format='json')
+        assert res.status_code == 201, res.data
+        r = res.data['values']['result']
+        # 20 °C plus the column: the spots' discs are centred on columns 2 and 7 (touching a pixel more east)
+        assert (r['first'], r['second']) == (pytest.approx(22.0, abs=0.25), pytest.approx(27.0, abs=0.25))
+        assert (r['delta_t'], r['length']) == (pytest.approx(5.0), 5.0)
+        again = api.patch("{}/{}/measurements/{}".format(CONVERSIONS, c.id, res.data['id']),
+                          {'parameters': {'emissivity': 0.93}}, format='json')
+        assert again.status_code == 200, again.data
+        v = again.data['values']
+        assert v['shape'] == {'kind': 'delta'}
+        assert (v['changed']['first'], v['changed']['delta_t']) == (pytest.approx(r['first'] + 2, abs=1e-4),
+                                                                   pytest.approx(5.0, abs=1e-4))
+
+
 def test_a_saved_measurement_is_measured_again_with_other_parameters(api):
     c = analysed(converted(api)[0])
     url = "{}/{}/measurements".format(CONVERSIONS, c.id)

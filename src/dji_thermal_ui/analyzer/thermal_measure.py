@@ -25,7 +25,9 @@ HISTOGRAM_BINS = 64
 MAX_VERTICES = 1000
 VISUAL_COVER_PX = 1024      # a visual mosaic's coverage of a shape: its mask read at most this many pixels across
 MAX_SAMPLES = 1000          # a line's profile: sampled at the grid's pixel spacing, at most this many times
-SHAPE_KINDS = ('box', 'circle')     # areas drawn by dragging, measured as their polygon
+# How a shape was drawn: areas by dragging (box, circle), measured as their polygon; a Delta T (delta): a 2-point line
+# whose two ends are each measured as a spot
+SHAPE_KINDS = ('box', 'circle', 'delta')
 ISOTHERM_MODES = ('above', 'below', 'between')
 # The measurement parameters a frame can be measured again with (Settings fields: temperatures in the unit)
 CHANGES = ('distance', 'humidity', 'emissivity', 'reflected_temp', 'ambient_temp')
@@ -142,13 +144,18 @@ def check_geometry(geometry, lonlat=True):
 
 def check_shape(shape, geometry, lonlat=True):
     """
-    How an area was drawn when it was not clicked corner by corner: {kind: box} or {kind: circle, center, radius}
-    (the radius in metres on a mosaic, in pixels on a frame), checked; None for none
+    How a shape was drawn when it was not clicked point by point: {kind: box} or {kind: circle, center, radius} (the
+    radius in metres on a mosaic, in pixels on a frame), an area; {kind: delta}, a Delta T, a line of 2 points;
+    checked; None for none
     """
     if shape is None or shape == "":
         return None
     if not isinstance(shape, dict) or shape.get('kind') not in SHAPE_KINDS:
-        raise MeasureError("The shape is a box or a circle")
+        raise MeasureError("The shape is a box, a circle or a Delta T")
+    if shape['kind'] == 'delta':
+        if geometry is None or geometry['type'] != 'LineString' or len(geometry['coordinates']) != 2:
+            raise MeasureError("A Delta T is a line of 2 points")
+        return {'kind': 'delta'}
     if geometry is None or geometry['type'] != 'Polygon':
         raise MeasureError("A box or a circle is an area")
     if shape['kind'] == 'box':
@@ -553,6 +560,40 @@ def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=
     if out['valid_pixels'] == 0:
         out['reason'] = 'nodata'
     return out
+
+
+def delta_measure(measure, geometry, length):
+    """
+    A Delta T (a line of 2 points, shape delta): each end measured as a spot (measure(a Point geometry) -> what it
+    measures), {kind, first, second: the ends' disc means, delta_t: second − first, length, valid_pixels, reason};
+    valid_pixels 0, with the reason, where an end has no temperature
+    """
+    ends = [measure({'type': 'Point', 'coordinates': c}) for c in geometry['coordinates']]
+    first, second = (e.get('mean') if e.get('valid_pixels') else None for e in ends)
+    out = {'kind': 'LineString', 'first': first, 'second': second, 'length': length, 'reason': None,
+           'delta_t': None, 'valid_pixels': 0}
+    if first is None or second is None:
+        missed = [e for e in ends if not e.get('valid_pixels')] or ends
+        out['reason'] = next((e['reason'] for e in missed if e.get('reason') == 'outside_raster'), 'nodata')
+        return out
+    out.update(delta_t=second - first, valid_pixels=ends[0]['valid_pixels'] + ends[1]['valid_pixels'])
+    return out
+
+
+def mosaic_length(path, geometry):
+    """A line's (lon/lat) length in a mosaic's projection, in metres (None far from its zone)"""
+    import rasterio
+    from pyproj import Transformer
+
+    with rasterio.open(path) as ds:
+        to_crs = Transformer.from_crs("EPSG:4326", ds.crs, always_xy=True)
+    shape = shapes(geometry, to_crs)[0]
+    return shape.length if math.isfinite(shape.length) else None
+
+
+def frame_length(geometry):
+    """A line's (pixel x/y) length on a frame, in pixels"""
+    return shapes(geometry, sizes=FRAME_SHAPES)[0].length
 
 
 def visual_measure(path, geometry):

@@ -115,9 +115,24 @@ def test_a_mosaic_without_frame_models_lists_only_the_frames_it_used(api, mosaic
         (FILES[1], 0.52, None, [], 4.0), (FILES[0], 0.48, None, [], 4.0)]
 
 
-def test_only_a_spot_or_an_area_is_asked_for(api, mosaic):
+def test_a_line_lists_the_frames_that_saw_a_strip_along_it_outlined_in_each(api, mosaic):
     c, url = mosaic
-    line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(1, 1), mosaic_lonlat(5, 5)]}
-    assert api.post(url.format('as_converted'), {'geometry': line}, format='json').status_code == 400
+    # A Delta T across the middle: from the first frame's half to the second's, the third seeing all of it
+    line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(10.5, 30.5), mosaic_lonlat(50.5, 30.5)]}
+    with mock.patch('dji_thermal_cli.api.read_frame_models', return_value=FakeModels()):
+        d = api.post(url.format('as_converted'), {'geometry': line}, format='json').data
+    assert (d['kind'], d['geometry'], d['models']) == ('LineString', line, True)
+    assert sorted((f['frame'], f['used']) for f in d['frames']) == [(FILES[0], True), (FILES[1], True), (FILES[2], False)]
+    assert d['frames'][2]['share'] == 1.0 and all(f['outline'] for f in d['frames'])
+    # The strip is a spot's disc wide (0.25 m, 5 px of the mosaic), outlined in the third frame's pixels
+    xs, ys = zip(*d['frames'][2]['outline'][0])
+    assert (min(xs), max(xs)) == pytest.approx((10.5 - 5, 50.5 + 5), abs=0.5)
+    assert (min(ys), max(ys)) == pytest.approx((30.5 - 5, 30.5 + 5), abs=0.5)
+    far = {'type': 'LineString', 'coordinates': [mosaic_lonlat(500, 500), mosaic_lonlat(510, 500)]}
+    assert api.post(url.format('as_converted'), {'geometry': far}, format='json').data['frames'] == []
+
+
+def test_a_geometry_and_a_mosaic_tab_are_asked_for(api, mosaic):
+    c, url = mosaic
     assert api.post(url.format('as_converted'), {}, format='json').status_code == 400
     assert api.post(url.format('nope'), {'geometry': centre(10, 10)}, format='json').status_code == 404

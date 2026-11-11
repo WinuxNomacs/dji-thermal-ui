@@ -2200,7 +2200,7 @@ def webodm_sources(conversion, path, geometry):
 class MosaicSourcesView(DatasetView):
     def post(self, request, pk, tab):
         """
-        The frames that saw a spot or an area of a mosaic tab (geometry: a GeoJSON Point or Polygon, lon/lat), the ones
+        The frames that saw a spot, a line or an area of a mosaic tab (geometry: GeoJSON, lon/lat; a line's: a strip along it), the ones
         the mosaic used first (see thermal_sources.sources), each with when it was taken; models: whether the mosaic
         knows every frame that saw it (built with dji-thermal-cli 1.5.0 or later), else it lists only those it used.
         A spot also gets the mosaic's values there (point, as MosaicPointView's).
@@ -2216,8 +2216,6 @@ class MosaicSourcesView(DatasetView):
             geometry = thermal_measure.check_geometry(request.data.get('geometry'))
         except thermal_measure.MeasureError as e:
             raise ValidationError({'error': str(e)}) from None
-        if geometry['type'] not in ('Point', 'Polygon'):
-            raise ValidationError({'error': "The geometry is a spot or an area"})
         out = frame_sources(conversion, path, geometry, tab)
         if geometry['type'] == 'Point' and not alone:
             out['point'] = mosaic_point(request, conversion, tab, *geometry['coordinates'])
@@ -2442,26 +2440,52 @@ def analysis_request(conversion, data):
     return target, frame, geometry, parameters, isotherm
 
 
-def analysis(conversion, target, frame, geometry, parameters, isotherm):
+def checked_shape(data, target, geometry):
+    """How the geometry asked (data: a measure's body) was drawn (see thermal_measure.check_shape), checked: a Delta T
+    only where there are temperatures"""
+    try:
+        shape = thermal_measure.check_shape(data.get('shape'), geometry, lonlat=target != 'frame')
+    except thermal_measure.MeasureError as e:
+        raise ValidationError({'error': str(e)}) from None
+    if is_delta(shape) and target == thermal_mosaics.VISUAL:
+        raise ValidationError({'error': "A Delta T is measured on temperatures, not on a visual mosaic"})
+    return shape
+
+
+def is_delta(shape):
+    return isinstance(shape, dict) and shape.get('kind') == 'delta'
+
+
+def analysis(conversion, target, frame, geometry, parameters, isotherm, shape=None):
     """
     What a geometry measures (or the whole mosaic or frame): {result, unit, approximate}; on a frame with parameters
-    changed, also {changed}: the same measured again by dji-thermal-cli with them
+    changed, also {changed}: the same measured again by dji-thermal-cli with them. A Delta T (shape delta) has its two
+    ends measured as spots (thermal_measure.delta_measure), with no isotherm.
     """
     from .thermal_analysis import clean
     unit = (conversion.options or {}).get('unit') or 'C'
     out = {'unit': unit, 'approximate': False}
+    delta = is_delta(shape)
     if target == thermal_mosaics.VISUAL:
         out['result'] = thermal_measure.visual_measure(visual_alone_raster(conversion), geometry)
     elif target == 'frame':
-        base = frame_measured(conversion, frame)
-        out['result'] = thermal_measure.frame_measure(base['values'], geometry, isotherm)
+        def on(values):
+            if delta:
+                return thermal_measure.delta_measure(lambda g: thermal_measure.frame_measure(values, g), geometry,
+                                                     thermal_measure.frame_length(geometry))
+            return thermal_measure.frame_measure(values, geometry, isotherm)
+        out['result'] = on(frame_measured(conversion, frame)['values'])
         if parameters:
-            changed = frame_measured(conversion, frame, parameters)
-            out['changed'] = thermal_measure.frame_measure(changed['values'], geometry, isotherm)
+            out['changed'] = on(frame_measured(conversion, frame, parameters)['values'])
     else:
         path, _band = mosaic_raster(conversion, target)
         correction = thermal_measure.mosaic_correction(conversion, target, parameters)
         out['approximate'] = correction is not None
+        if delta:
+            out['result'] = thermal_measure.delta_measure(
+                lambda g: thermal_measure.mosaic_measure(path, unit, g, correction), geometry,
+                thermal_measure.mosaic_length(path, geometry))
+            return clean(out)
         # WebODM's orthophoto doesn't say which frame each pixel came from
         out['result'] = thermal_measure.mosaic_measure(path, unit, geometry, correction, isotherm,
                                                        profile_frames(conversion, geometry)
@@ -2497,7 +2521,9 @@ class MeasureView(DatasetView):
         (the approximate correction); on a frame, the measurement parameters it is measured again with.
         """
         conversion = get_conversion(pk)
-        return Response(analysis(conversion, *analysis_request(conversion, request.data)))
+        target, frame, geometry, parameters, isotherm = analysis_request(conversion, request.data)
+        shape = checked_shape(request.data, target, geometry)
+        return Response(analysis(conversion, target, frame, geometry, parameters, isotherm, shape))
 
 
 class MeasurementsView(DatasetView):
@@ -2520,12 +2546,9 @@ class MeasurementsView(DatasetView):
         target, frame, geometry, parameters, isotherm = analysis_request(conversion, request.data)
         if geometry is None:
             raise ValidationError({'error': "Draw a spot, a line or an area to save"})
-        try:
-            shape = thermal_measure.check_shape(request.data.get('shape'), geometry, lonlat=target != 'frame')
-        except thermal_measure.MeasureError as e:
-            raise ValidationError({'error': str(e)}) from None
-        values = analysis(conversion, target, frame, geometry, parameters, isotherm)
-        if isotherm is not None:
+        shape = checked_shape(request.data, target, geometry)
+        values = analysis(conversion, target, frame, geometry, parameters, isotherm, shape)
+        if isotherm is not None and not is_delta(shape):
             values['isotherm'] = request.data.get('isotherm')
         if shape is not None:
             values['shape'] = shape
@@ -2567,7 +2590,7 @@ class MeasurementDetailView(DatasetView):
             asked = {'target': m.target, 'frame': m.frame, 'geometry': m.geometry, 'isotherm': old.get('isotherm'),
                      'parameters': request.data.get('parameters')}
             target, frame, geometry, parameters, isotherm = analysis_request(conversion, asked)
-            values = analysis(conversion, target, frame, geometry, parameters, isotherm)
+            values = analysis(conversion, target, frame, geometry, parameters, isotherm, old.get('shape'))
             for kept in ('isotherm', 'shape'):
                 if old.get(kept) is not None:
                     values[kept] = old[kept]
@@ -2586,7 +2609,8 @@ class MeasurementDetailView(DatasetView):
 
 FINDING_TABS = ('as_converted', 'harmonized', 'webodm', 'visual')
 # What a finding keeps of what its spot or area measured
-FINDING_TEMPERATURES = ('min', 'max', 'mean', 'surroundings', 'delta_t', 'value', 'valid_pixels', 'area', 'perimeter')
+FINDING_TEMPERATURES = ('min', 'max', 'mean', 'surroundings', 'delta_t', 'value', 'valid_pixels', 'area', 'perimeter',
+                        'first', 'second', 'length')
 
 
 def get_finding(pk, fid):
@@ -2650,9 +2674,9 @@ def finding_from_measurement(dataset, mid):
         raise ValidationError({'measurement': "That measurement does not exist"}) from None
     if m.target not in FINDING_TABS:
         raise ValidationError({'measurement': "Only a measurement on a mosaic can be saved as a finding"})
-    if m.geometry.get('type') not in ('Point', 'Polygon'):
-        raise ValidationError({'measurement': "Only a spot or an area can be saved as a finding"})
     values = m.values or {}
+    if m.geometry.get('type') not in ('Point', 'Polygon') and not is_delta(values.get('shape')):
+        raise ValidationError({'measurement': "Only a spot, an area or a Delta T can be saved as a finding"})
     temperatures = finding_temperatures(values)
     if m.parameters:
         temperatures['parameters'] = m.parameters
@@ -2672,13 +2696,12 @@ def finding_drawn(dataset, data):
                                       "or visual for a visual mosaic of its own)"})
     asked = {'target': tab, 'geometry': data.get('geometry'), 'parameters': data.get('parameters')}
     _t, _f, geometry, parameters, _i = analysis_request(conversion, asked)
-    if geometry is None or geometry['type'] not in ('Point', 'Polygon'):
-        raise ValidationError({'error': "A finding is a spot or an area"})
-    try:
-        shape = thermal_measure.check_shape(data.get('shape'), geometry)
-    except thermal_measure.MeasureError as e:
-        raise ValidationError({'error': str(e)}) from None
-    temperatures = finding_temperatures(analysis(conversion, tab, "", geometry, parameters, None))
+    if geometry is None:
+        raise ValidationError({'error': "A finding is a spot, an area or a Delta T"})
+    shape = checked_shape(data, tab, geometry)
+    if geometry['type'] not in ('Point', 'Polygon') and not is_delta(shape):
+        raise ValidationError({'error': "A finding is a spot, an area or a Delta T"})
+    temperatures = finding_temperatures(analysis(conversion, tab, "", geometry, parameters, None, shape))
     if parameters:
         temperatures['parameters'] = parameters
     return conversion, tab, geometry, shape, temperatures
@@ -2692,7 +2715,7 @@ class FindingsView(DatasetView):
 
     def post(self, request, pk):
         """
-        Saves a spot or an area as a finding (name, notes, severity, status): drawn on a conversion's mosaic
+        Saves a spot, an area or a Delta T as a finding (name, notes, severity, status): drawn on a conversion's mosaic
         (conversion, tab, geometry, shape, parameters: the correction, as MeasureView's), its temperatures measured
         there; or a saved measurement's (measurement: its id), its figures copied. The frames that saw it are found
         on that mosaic, the ones named in `kept` are kept (all of them without it).
@@ -2877,7 +2900,7 @@ class VideoFramePictureView(DatasetView):
 
 CSV_COLUMNS = (('name', "Name"), ('target', "Measured on"), ('frame', "Frame"), ('kind', "Shape"),
                ('min', "Min"), ('max', "Max"), ('mean', "Mean"), ('median', "Median"), ('std', "Std dev"),
-               ('surroundings', "Surroundings"), ('delta_t', "ΔT"), ('unit', "Unit"), ('isotherm', "Isotherm"),
+               ('surroundings', "Surroundings"), ('first', "First spot"), ('second', "Second spot"), ('delta_t', "ΔT"), ('unit', "Unit"), ('isotherm', "Isotherm"),
                ('isotherm_share', "Isotherm share"), ('length', "Length"), ('area', "Area"), ('perimeter', "Perimeter"),
                ('size_unit', "Length / area unit"), ('valid_pixels', "Pixels"), ('distance', "Distance"),
                ('temperature', "Temperature"), ('source_frame', "Source frame"), ('parameters', "Parameters changed"),
@@ -2925,7 +2948,7 @@ def csv_rows(m, unit='C', profile=True):
         rows.append({
             'name': name, 'target': target, 'frame': m.frame, 'kind': (v.get('shape') or {}).get('kind') or r.get('kind'),
             'min': t('min'), 'max': t('max'), 'mean': t('mean'), 'median': t('median'), 'std': d('std'),
-            'surroundings': t('surroundings'), 'delta_t': d('delta_t'),
+            'surroundings': t('surroundings'), 'first': t('first'), 'second': t('second'), 'delta_t': d('delta_t'),
             'unit': "" if m.target == thermal_mosaics.VISUAL else unit,        # no temperatures
             'isotherm': isotherm(v.get('isotherm')), 'isotherm_share': csv_number(iso.get('share'), 4),
             'length': csv_number(r.get('length'), 2), 'area': csv_number(r.get('area'), 2),
