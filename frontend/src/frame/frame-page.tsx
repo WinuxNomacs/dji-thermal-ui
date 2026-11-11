@@ -539,8 +539,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     useEffect(() => {
         if (!current || current.res !== undefined || current.error || !frame) return;
         const n = ++asked.current.measure, c = current;
-        sendJson(base + "/measure", "POST", {target: "frame", frame, geometry: c.geometry, isotherm: isoValue,
-                                             parameters: changesIn(changes, unit)})
+        sendJson(base + "/measure", "POST", {target: "frame", frame, geometry: c.geometry, shape: c.shape,
+                                             isotherm: isoValue, parameters: changesIn(changes, unit)})
             .then((res) => readJson<Measured>(res))
             .then((r) => {
                 if (n !== asked.current.measure) return;
@@ -553,7 +553,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     useEffect(() => {
         drawings.current.forEach((d) => {
             d.showCursor(null);
-            if (current) d.show(current.geometry, current.res?.result, unit);
+            if (current) d.show(current.geometry, current.res?.result, unit, current.shape);
             else d.clear();
         });
     }, [current, changed, onPair, beside, pair?.frame]);

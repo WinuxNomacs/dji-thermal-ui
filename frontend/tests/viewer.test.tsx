@@ -606,7 +606,7 @@ describe("the viewer page", () => {
         expect($(".viewer-panel [data-section=measure]")).toBeNull();
         expect($(".viewer-panel [data-section=sources]")).toBeNull();
         expect([...document.querySelectorAll(".map-stage .map-tools [data-tool]")].map((b) => b.getAttribute("aria-label")))
-            .toEqual(["Spot", "Line", "Area", "Box", "Circle"]);
+            .toEqual(["Spot", "Line", "Area", "Box", "Circle", "Delta T"]);
         click($(".map-tools [data-tool=area]")!);
         await ticks();
         expect(start).toHaveBeenCalledWith("area");
@@ -658,6 +658,58 @@ describe("the viewer page", () => {
         expect(posted).toMatchObject([{name: "Warm roof", conversion: 9, tab: "as_converted", geometry: AREA}]);
         expect($("#measure-card")).toBeNull();
         expect($(".sources-window .finding-about")!.textContent).toContain("Warm roof");
+    });
+
+    it("draws a Delta T with two clicks, measures its two spots in the card and keeps it as a finding", async () => {
+        const map = viewerMap();
+        const line: Geometry = {type: "LineString", coordinates: [WEST, EAST] as [number, number][]};
+        const result = {kind: "LineString", first: 20, second: 21.5, delta_t: 1.5, length: 4.3, valid_pixels: 160, reason: null};
+        const made: Finding = {...FOUND, id: 8, name: "Joint", geometry: line, shape: {kind: "delta"},
+                               temperatures: {first: 20, second: 21.5, delta_t: 1.5, length: 4.3, unit: "C", approximate: false}};
+        const fetchFn = server(routes({
+            ["POST " + BASE + "/measure"]: (_url: string, opts?: RequestInit) =>
+                jsonResponse(JSON.parse(String(opts!.body)).geometry ? {result, unit: "C", approximate: false} : WHOLE),
+            [FINDINGS]: [{findings: []}, {findings: [made]}],
+            ["POST " + BASE + "/mosaics/as_converted/sources"]: {kind: "LineString", geometry: line, models: true, reason: null,
+                                                                 frames: FOUND.frames},
+            ["POST " + FINDINGS]: made,
+        }));
+        await open(fetchFn);
+        click($(".map-tools [data-tool=delta]")!);
+        await ticks();
+        expect($(".map-tools .tool-hint")!.textContent).toContain("ΔT is the second's temperature minus the first's");
+        expect($(".map-tools .tool-hint .primary")).toBeNull();
+        clickMap(map(), WEST);
+        await ticks(40);
+        expect(measured(fetchFn).filter((b) => b.geometry)).toEqual([]);
+        // The second click ends it
+        clickMap(map(), EAST);
+        await ticks(40);
+        const body = measured(fetchFn).at(-1);
+        expect(body.shape).toEqual({kind: "delta"});
+        expect(body.geometry.type).toBe("LineString");
+        expect(body.geometry.coordinates.flat().map((x: number) => x.toFixed(6))).toEqual([...WEST, ...EAST].map((x) => x.toFixed(6)));
+        expect($(".map-tools [data-tool=delta]")!.getAttribute("aria-pressed")).toBe("false");
+        const card = byId("result").textContent;
+        expect(card).toContain("Delta T");
+        expect(card).toContain("Length4.30 m");
+        expect(card).toContain("First spot20.00 °C");
+        expect(card).toContain("Second spot21.50 °C");
+        expect(card).toContain("ΔT+1.50 °C");
+        expect(card).not.toContain("Mean");
+
+        click($("#measure-card [name=keep-finding]")!);
+        await ticks(40);
+        expect($(".sources-window")!.textContent).toContain("Delta T · 2 frames");
+        (byId("finding-name") as HTMLInputElement).value = "Joint";
+        byId("finding-name").dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        submit();
+        await ticks(40);
+        const posted = fetchFn.mock.calls.filter((c) => c[0] === FINDINGS && c[1]?.method === "POST")
+            .map((c) => JSON.parse(String(c[1]!.body)));
+        expect(posted).toMatchObject([{name: "Joint", tab: "as_converted", shape: {kind: "delta"}, geometry: body.geometry}]);
+        expect($(".sources-window .finding-about")!.textContent).toContain("ΔT +1.5 °C (20.0 °C → 21.5 °C)");
     });
 
     it("opens the frames that saw a shape drawn on the Source frame tab, with no Line and no card", async () => {

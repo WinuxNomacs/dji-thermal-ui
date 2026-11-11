@@ -4,6 +4,7 @@
 // dataset; the print styles leave out the controls and print it light.
 import Feature from "ol/Feature";
 import type OlMap from "ol/Map";
+import LineString from "ol/geom/LineString";
 import Polygon from "ol/geom/Polygon";
 import type VectorSource from "ol/source/Vector";
 import {boundingExtent} from "ol/extent";
@@ -111,9 +112,10 @@ function FramesMap({basemaps, d, findings, videoFrames, visual}: MapProps) {
         findings.forEach((f) => {
             const at = centreOf(f);
             points.push(at);
-            if (f.geometry.type !== "Point") {
-                const outline = new Feature({geometry: new Polygon((f.geometry.coordinates as [number, number][][])
-                    .map((ring) => ring.map((c) => lonLatToMap(c))))});
+            const g = f.geometry;
+            if (g.type !== "Point") {
+                const outline = new Feature({geometry: g.type === "LineString" ? new LineString(g.coordinates.map((c) => lonLatToMap(c))) :
+                    new Polygon(g.coordinates.map((ring) => ring.map((c) => lonLatToMap(c))))});
                 outline.setStyle(new Style({stroke: new Stroke({color: SEVERITY_COLORS[f.severity], width: 2})}));
                 source.addFeature(outline);
             }

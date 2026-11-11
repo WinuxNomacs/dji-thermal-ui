@@ -3,7 +3,7 @@
 import {render} from "preact";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
-import {resultRows} from "../src/measure/measure";
+import {geometryOf, type Measurement, measurementFigure, resultRows} from "../src/measure/measure";
 import {Controls, correctionStarts, Readout, Report, Section, Whole} from "../src/viewer/panel";
 import {click, ticks} from "./helpers";
 
@@ -156,6 +156,30 @@ describe("a measure's heights", () => {
 
     it("are left out without a DSM", () => {
         expect(rows([{kind: "Polygon", mean: 20, valid_pixels: 9}])).toEqual([]);
+    });
+});
+
+describe("a Delta T", () => {
+    const RESULT = {kind: "LineString", first: 20, second: 21.5, delta_t: 1.5, length: 4.3, valid_pixels: 160};
+
+    it("is a line of exactly two spots", () => {
+        expect(geometryOf("delta", [[1, 2]])).toBeNull();
+        expect(geometryOf("delta", [[1, 2], [3, 4]])).toEqual({type: "LineString", coordinates: [[1, 2], [3, 4]]});
+    });
+
+    it("shows its length, its two spots and ΔT, compared with its difference", () => {
+        const rows = (results: Parameters<typeof resultRows>[0]) =>
+            resultRows(results, "C").map((r) => [r.label, ...r.values, r.difference]);
+        expect(rows([RESULT])).toEqual([["Length", "4.30 m", undefined], ["First spot", "20.00 °C", undefined],
+                                        ["Second spot", "21.50 °C", undefined], ["ΔT", "+1.50 °C", undefined],
+                                        ["Pixels", "160", undefined]]);
+        expect(rows([RESULT, {...RESULT, second: 22, delta_t: 2}])[3]).toEqual(["ΔT", "+1.50 °C", "+2.00 °C", "+0.50 °C"]);
+    });
+
+    it("is listed saved with its ΔT and its two spots", () => {
+        const m: Measurement = {id: 1, name: "Joint", target: "as_converted", values: {result: RESULT, shape: {kind: "delta"}}};
+        expect(measurementFigure(m, "C")).toBe("ΔT +1.5 °C (20.0 °C → 21.5 °C)");
+        expect(measurementFigure({...m, values: {result: {...RESULT, delta_t: null}, shape: {kind: "delta"}}}, "C")).toBe("ΔT no data");
     });
 });
 

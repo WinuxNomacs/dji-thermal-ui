@@ -36,6 +36,8 @@ export const IMPORTED_HINT = "The colour orthophoto imported from WebODM. Nothin
     "to see the photos that saw it, or draw a line or an area to measure it.";
 const WINDOW_PX = 1600;     // a frame in the source frames window, at most this many pixels across
 const TARGET = "visual";    // what its measurements and findings are measured on
+// Its tools: a Delta T has no temperatures to compare here
+const TOOLS_HERE = TOOLS.filter(([x]) => x !== "delta");
 const HINTS_HERE: Record<Tool, string> = {
     ...HINTS,
     point: "Click a spot: the frames that saw it open beside the map.",
@@ -387,7 +389,7 @@ export function VisualViewer({api, publicUrl, id, datasetId, datasetName, basema
                 <div class="viewer-body">
                     <div class="map-stage">
                         <div class="viewer-map" id="map" ref={mapEl}/>
-                        {ready && <Toolbar tool={tools.tool} count={tools.count} tools={TOOLS} hints={HINTS_HERE}
+                        {ready && <Toolbar tool={tools.tool} count={tools.count} tools={TOOLS_HERE} hints={HINTS_HERE}
                                            label="Drawing tools: the frames that saw a spot, the length of a line or the size of an area"
                                            onTool={pickTool} onFinish={() => { drawing.current?.finish(); syncTools(); }}/>}
                         {ready && current && <MeasureCard m={current} unit={undefined} name={saveName} error={measureError}

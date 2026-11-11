@@ -1,5 +1,6 @@
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import type {Geometry} from "../src/measure/measure";
 import {emptyText, frameName, fromVisual, hasSources, ringToVisual, shareText, type SourceFrame, type Sources, sourcesUrl,
         stepped, svgPoints, toVisual, type VisualPair} from "../src/sources/sources";
 import {type SourceGroup, SourcesWindow} from "../src/sources/window";
@@ -39,10 +40,11 @@ afterEach(() => {
 });
 
 describe("the source frames", () => {
-    it("are asked for a spot or an area of a mosaic tab", () => {
+    it("are asked for a spot, an area or a Delta T of a mosaic tab, not a line", () => {
+        const line: Geometry = {type: "LineString", coordinates: [[1, 2], [3, 4]]};
         expect(sourcesUrl("/api/", 9, "harmonized")).toBe("/api/conversions/9/mosaics/harmonized/sources");
-        expect([hasSources(SPOT), hasSources(AREA), hasSources({type: "LineString", coordinates: [[1, 2], [3, 4]]}),
-                hasSources(null)]).toEqual([true, true, false, false]);
+        expect([hasSources(SPOT), hasSources(AREA), hasSources(line), hasSources(line, {kind: "delta"}),
+                hasSources(null)]).toEqual([true, true, false, true, false]);
     });
 
     it("are named by their file, with the share of an area each saw and the mosaic took", () => {
@@ -75,6 +77,7 @@ describe("the source frames", () => {
         expect(emptyText({...spot([]), reason: "no_cameras", error: "WebODM couldn't give the task's cameras: gone."}))
             .toBe("WebODM couldn't give the task's cameras: gone. Try again once WebODM can be reached.");
         expect(emptyText({...spot([]), kind: "Polygon", geometry: AREA})).toBe("No frame is known for this area.");
+        expect(emptyText({...spot([]), kind: "LineString"})).toBe("No frame is known for this Delta T.");
     });
 });
 

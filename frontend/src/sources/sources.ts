@@ -1,7 +1,8 @@
-// The source frames of a spot or an area of a mosaic (…/mosaics/<tab>/sources): what the pop-out lists and how it marks
-// the spot or area in a frame. Plain functions, no DOM.
+// The source frames of a spot, an area or a Delta T of a mosaic (…/mosaics/<tab>/sources): what the pop-out lists and
+// how it marks the spot or outlines the area in a frame (a Delta T: a strip a spot wide along its line). Plain
+// functions, no DOM.
 import {type Maybe} from "../core/format";
-import {type Geometry} from "../measure/measure";
+import {type Geometry, isDelta, type Shape} from "../measure/measure";
 import {type Point} from "../viewer/panel";
 
 // A thermal frame's visual frame, from the visual mosaic: its size, and the homography taking a pixel of the thermal
@@ -33,7 +34,7 @@ export interface SourceFrame {
 // models: the mosaic knows every frame that saw it, else it lists only those it used (built before dji-thermal-cli 1.5.0);
 // error: why WebODM couldn't give its task's cameras (reason no_cameras)
 export interface Sources {
-    kind: "Point" | "Polygon";
+    kind: "Point" | "Polygon" | "LineString";
     geometry: Geometry;
     models: boolean;
     frames: SourceFrame[];
@@ -48,8 +49,12 @@ export const NOT_KNOWN = ["not_recorded", "no_cameras"];
 export const NO_MODELS = "Only the frames the mosaic used are listed: build the mosaics again to list every frame " +
     "that saw it.";
 
-// The geometries the pop-out takes: a spot or an area (box and circle included), not a line
-export const hasSources = (g: Maybe<Geometry>): boolean => !!g && (g.type === "Point" || g.type === "Polygon");
+// What the pop-out calls each kind
+export const KIND_NAMES: Record<Sources["kind"], string> = {Point: "Spot", Polygon: "Area", LineString: "Delta T"};
+
+// The geometries the pop-out takes: a spot, an area (box and circle included) or a Delta T (shape), not a line
+export const hasSources = (g: Maybe<Geometry>, shape?: Maybe<Shape>): boolean =>
+    !!g && (g.type === "Point" || g.type === "Polygon" || (g.type === "LineString" && isDelta(shape)));
 
 export function sourcesUrl(api: string, id: number, tab: string): string {
     return api + "conversions/" + id + "/mosaics/" + tab + "/sources";
@@ -67,7 +72,7 @@ export function emptyText(s: Sources): string {
         "cameras.json), so the photos that saw it aren't known.";
     if (s.reason === "no_cameras") return (s.error || "WebODM couldn't give the task's cameras.") + " Try again once " +
         "WebODM can be reached.";
-    return s.kind === "Point" ? "No frame is known for this spot." : "No frame is known for this area.";
+    return "No frame is known for this " + (s.kind === "LineString" ? "Delta T." : KIND_NAMES[s.kind].toLowerCase() + ".");
 }
 
 const percent = (x: number) => x > 0 && x < 0.01 ? "<1%" : Math.round(x * 100) + "%";
