@@ -29,7 +29,7 @@ import {type Colouring, isothermRange, readValues} from "../map/colour";
 import {fitBounds, frameImage, frameImageLayer, frameMap, frameView, hoverTips, lonLatToMap, pointFeature,
         pointsMap, snapshot, ThermalLayer, vectorLayer} from "../map/map";
 import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
-import {type AroundOutline, aroundOutline, aroundQuery, DeltaControls, DeltaFigures, usePointerDelta} from "../map/pointer-delta";
+import {type AroundOutline, aroundOutline, aroundQuery, DeltaControls, DeltaFigures, deltaText, usePointerDelta} from "../map/pointer-delta";
 import {fromVisual, toVisual, type VisualPair} from "../sources/sources";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, PanelGroup, Section} from "../viewer/panel";
@@ -583,6 +583,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                 // The frame's temperature as converted, as the image shows it
                 const text = where && now.current.tipOn && p?.inside ? pointerText(p.temperature, now.current.unit) : null;
                 if (text) tips.current[where!.pane]?.show(where!.at, text);
+                // Delta T Around Pointer's ΔT beside the circle
+                if (where) circles.current[where.pane]?.label(where.at, now.current.deltaOn && p?.inside ?
+                                                                           deltaText(p.around, now.current.unit) : null);
             })
             .catch(() => { if (n === asked.current.point) setPoint(null); });
     }

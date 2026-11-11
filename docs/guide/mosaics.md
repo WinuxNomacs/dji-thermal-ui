@@ -108,11 +108,12 @@ where Pointer info has no temperature, such as off the mosaic or where it has no
 then stays ticked in this browser, on the frame page too.
 
 **Delta T Around Pointer**, at the top of Pointer info, compares the pixel under the cursor with the pixels around it:
-a thin circle outlines them on the map, and its **Radius** slider sets how far it reaches on the ground (0.5 to 10 m).
+a thin circle outlines them on the map, and its **Radius** slider sets how far it reaches on the ground (0.25 m, then 0.5 to 10 m).
 Under the values at the cursor come the circle's mean, its lowest and highest temperature, the number of pixels in it
 and **ΔT**, the pixel's temperature minus the circle's mean (the pixel itself left out of the circle). The pixels the
-circle's outline touches count as inside it. While a click keeps Pointer info's values, the circle stays on the point
-clicked, and a new radius measures it again. It is on the temperature tabs only (not on Visual, Source frame or
+circle's outline touches count as inside it. Once the cursor rests, a small tip just right of the circle shows its ΔT
+too. While a click keeps Pointer info's values, the circle stays on the point
+clicked, with its tip, and a new radius measures it again. It is on the temperature tabs only (not on Visual, Source frame or
 Heights), and the box and the radius stay as they were left in this browser.
 
 ## From the viewer

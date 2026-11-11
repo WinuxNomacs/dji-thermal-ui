@@ -13,7 +13,7 @@ its title.
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
@@ -55,6 +55,29 @@ On the viewer (temperature tabs only) and the frame page. Both point requests ta
 circle's figures with the point's, so Pointer info, the tip and D1 stay one request. The box and the radius (one for
 mosaics, one for frames) are remembered in the browser. The outline follows the pointer; while a click keeps Pointer
 info's values it stays on the kept point, whose figures are shown.
+
+### D1b: a 0.25 m radius and a ΔT tip (built)
+
+Built: `frontend/src/map/pointer-delta.tsx` (`RADIUS_SLIDERS`' stops, the slider over them, the tip in
+`aroundOutline`'s `label`, `deltaText`), shown from the readouts of `viewer/viewer-page.tsx` and `frame/frame-page.tsx`.
+Tests: "Delta T Around Pointer" in `frontend/tests/viewer.test.tsx` and `frame.test.tsx`. Checked live on conversion 1
+(the tip beside the circle on the viewer, pinned and hovering, and the frame page; 0.25 m asked as `around=0.25`).
+
+Asked in `new.md` on 2026-11-11, after D1:
+
+1. Add 0.25 to the radii Delta T Around Pointer's slider offers.
+2. A small tip just outside the circle that shows its ΔT and follows the circle, much as Temperature On Pointer's tip
+   does.
+
+Decided (the defaults, the user having said to carry on):
+
+- **0.25 m** becomes the mosaic slider's first stop: 0.25, 0.5, 1, 1.5 … 10 m (the other steps stay 0.5 m). The frame
+  page's slider stays 3–50 px: a quarter pixel holds nothing.
+- **The ΔT tip** is shown whenever Delta T Around Pointer is ticked (no box of its own), on the viewer and the frame
+  page: "ΔT +1.2 °C", in the Temperature On Pointer tip's style, just right of the circle's rightmost point, so the two
+  tips never cover each other. Like the other tip it goes as the circle moves and comes back once the pointer rests
+  and the point is read; while a click keeps a point it stays beside that point's circle, and a new radius reads it
+  again. No tip where the circle has no ΔT.
 
 ### D2: the Delta T tool
 
