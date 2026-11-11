@@ -254,6 +254,13 @@ export function toggleCompared(compared: Maybe<number[]>, id: number, on: boolea
 // A box's corners from two opposite ones
 export function boxCoords(a: Coords, b: Coords): Coords[] { return [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]]]; }
 
+// A circle's vertices around c of a radius in the map's distance (see circleCoords), or null
+export function circleAround(c: Coords, radius: number, distance: (a: Coords, b: Coords) => number): Coords[] | null {
+    const step = 1e-4, scale = distance(c, [c[0] + step, c[1]]) / step;
+    if (!(radius > 0) || !(scale > 0)) return null;
+    return circleCoords(c, [c[0] + radius / scale, c[1]], distance)?.coords || null;
+}
+
 // A circle's vertices around c through e, as a polygon's, and its radius in the map's distance (metres on a mosaic,
 // pixels on a frame): distance(c, d) -> how far apart two points are
 export function circleCoords(c: Coords, e: Coords, distance: (a: Coords, b: Coords) => number):

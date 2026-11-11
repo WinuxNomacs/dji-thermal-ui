@@ -732,6 +732,9 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 /* Temperature On Pointer: the tip, and its box in Pointer info's heading */
 .map-tip.pointer-temperature { font-size: 13px; font-variant-numeric: tabular-nums; }
 .pointer-temperature-box { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: normal; cursor: pointer; }
+.pointer-delta { margin-bottom: 6px; }
+.pointer-delta-box { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
+#pointer-delta-figures { margin-top: 6px; }
 
 /* Measuring (the viewer and the frame page) */
 .tools { display: flex; flex-wrap: wrap; }

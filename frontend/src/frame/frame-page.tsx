@@ -29,6 +29,7 @@ import {type Colouring, isothermRange, readValues} from "../map/colour";
 import {fitBounds, frameImage, frameImageLayer, frameMap, frameView, hoverTips, lonLatToMap, pointFeature,
         pointsMap, snapshot, ThermalLayer, vectorLayer} from "../map/map";
 import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
+import {type AroundOutline, aroundOutline, aroundQuery, DeltaControls, DeltaFigures, usePointerDelta} from "../map/pointer-delta";
 import {fromVisual, toVisual, type VisualPair} from "../sources/sources";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, PanelGroup, Section} from "../viewer/panel";
@@ -136,6 +137,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const [curve, setCurve] = useState<number[] | null>(null);
     const [point, setPoint] = useState<Maybe<FramePoint>>(undefined);
     const [tipOn, setTipOn] = usePointerTemperature();
+    const delta = usePointerDelta("frame");
     const [tools, setTools] = useState<{tool: ReturnType<Drawing["tool"]>; count: number}>({tool: null, count: 0});
     const [current, setCurrent] = useState<Current | null>(null);
     const [index, setIndex] = useState<number | null>(null);
@@ -182,6 +184,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const follow = useRef<() => void>(() => undefined);
     const drawings = useRef<Drawing[]>([]);
     const tips = useRef<PointerTip[]>([]);
+    const circles = useRef<AroundOutline[]>([]);
     const locator = useRef<{map: OlMap; spots: VectorSource; photos: VectorSource; fitted: boolean} | null>(null);
     const [locatorVisual, setLocatorVisualState] = useState(() => {
         try { return localStorage.getItem(LOCATOR_VISUAL_KEY) === "1"; } catch { return false; }
@@ -205,11 +208,14 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     sidePair.current = beside ? pair : null;
 
     // What the maps' handlers (set up once) read: this render's values
-    const now = useRef({frame, changes, meta, current, locatorVisual, tipOn, unit});
-    now.current = {frame, changes, meta, current, locatorVisual, tipOn, unit};
+    const deltaOn = delta.on, radius = delta.radius;
+    const now = useRef({frame, changes, meta, current, locatorVisual, tipOn, unit, deltaOn, radius});
+    now.current = {frame, changes, meta, current, locatorVisual, tipOn, unit, deltaOn, radius};
 
     // Temperature On Pointer's tip goes when the box is unticked, and on another frame until the pointer rests again
     useEffect(() => hideTips(), [tipOn, frame]);
+    // Delta T Around Pointer's circle goes when the box is unticked, until the pointer moves again
+    useEffect(() => { if (!deltaOn) hideCircles(); }, [deltaOn]);
 
     useEffect(() => {
         load();
@@ -345,17 +351,23 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         const to = (at: Coordinate): Coords => { const p = pairOf(); return p ? fromPair(p, at) : toCoords(at); };
         const from = (c: Coords): Coordinate => { const p = pairOf(); return p ? toPair(p, c) : fromCoords(c); };
         tips.current[i] = pointerTip(m);
+        const distance = (a: Coords, b: Coords) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+        circles.current[i] = aroundOutline(m, to, from, distance);
         m.on("pointermove", (e) => {
             hideTips();
             if (e.dragging) return;
             clearTimeout(hover.current);
             const where = e.coordinate, at = to(where);
+            // Delta T Around Pointer's circle on the pane the pointer is over
+            circles.current.forEach((c, j) => { if (j !== i) c?.hide(); });
+            if (now.current.deltaOn) circles.current[i]?.show(where, now.current.radius);
             drawings.current.forEach((d, j) => d?.showCursor(j === i || !at.every(isFinite) ? null : at));
             hover.current = setTimeout(() => readout(at, {pane: i, at: where}), HOVER_MS);
         });
         m.getViewport()?.addEventListener("mouseleave", () => {
             clearTimeout(hover.current);
             hideTips();
+            hideCircles();
             asked.current.point++;
             drawings.current.forEach((d) => d?.showCursor(null));
             setPoint(undefined);
@@ -378,7 +390,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
             sideLayer.current = frameImageLayer(m);
         }
         drawings.current[i] = new Drawing({
-            map: m, toCoords: to, fromCoords: from, pixels: true, distance: (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]),
+            map: m, toCoords: to, fromCoords: from, pixels: true, distance,
             onDone: (geometry, shape) => {
                 drawings.current.forEach((d) => { if (d.tool()) d.stop(); });
                 setCurrent({geometry, shape});
@@ -562,7 +574,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
         const n = ++asked.current.point, q = now.current;
         if (!at.every(isFinite)) return setPoint(null);
         fetch(base + "/frame/point?frame=" + encodeURIComponent(q.frame || "") + "&x=" + at[0] + "&y=" + at[1] +
-              changesQuery(changesIn(q.changes, q.meta?.unit)), {credentials: "same-origin"})
+              changesQuery(changesIn(q.changes, q.meta?.unit)) + aroundQuery(q.deltaOn, q.radius), {credentials: "same-origin"})
             .then((res) => readJson<FramePoint>(res))
             .then((r) => {
                 if (n !== asked.current.point) return;
@@ -576,6 +588,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     }
 
     function hideTips() { tips.current.forEach((t) => t?.hide()); }
+
+    function hideCircles() { circles.current.forEach((c) => c?.hide()); }
 
     // The profile's sample under the cursor (on the chart or along the line), marked on the chart and both panes
     function showIndex(i: number | null, points?: Maybe<Coords[]>) {
@@ -881,7 +895,9 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                             <Isotherm state={isotherm} error={isoError} onChange={changeIsotherm}/>
                         </Section>
                         <Section name="cursor" title={<PointerHead on={tipOn} onChange={setTipOn}/>} store={FOLDED_KEY}>
+                            <DeltaControls kind="frame" delta={delta}/>
                             <div class="readout" id="readout"><FrameReadout point={point} unit={unit}/></div>
+                            {deltaOn && point?.inside && <DeltaFigures around={point.around} unit={unit}/>}
                         </Section>
                         <Section name="parameters" title="Measurement parameters" store={FOLDED_KEY} folded>
                             <Params info={info} recorded={entry?.recorded} starts={starts} values={fieldValues} changes={changes}
