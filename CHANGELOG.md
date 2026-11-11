@@ -9,7 +9,7 @@ All notable changes are recorded here. The format follows
 ### Added
 
 - **Delta T**, a measuring tool after Circle on the viewer and the frame page: two clicks, and the card gives the
-  temperature of each spot (measured as a Spot), ΔT (the second's minus the first's) and the length between them. It
+  temperature of the pixel under each spot (as the cursor reads it), ΔT (the second's minus the first's) and the length between them. It
   is saved, measured again with other parameters on a frame, kept as a finding (its frames those that saw a strip
   along it, outlined in the source frames window) and shown in the flight report; the measurements' CSV has **First
   spot** and **Second spot** columns. The measure, measurement and finding requests take `shape: {kind: "delta"}` on a

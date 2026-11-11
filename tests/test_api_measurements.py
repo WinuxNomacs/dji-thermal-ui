@@ -386,15 +386,15 @@ def test_a_delta_t_measures_its_two_ends_as_spots_on_a_mosaic_second_minus_first
                          'isotherm': 'above,20'}, format='json')
     assert res.status_code == 200, res.data
     r = res.data['result']
-    # Each end is what a Spot there measures: the mean of its disc
+    # Each end is the pixel under it, as a Spot there reads it, not its disc's mean
     spots = [api.post(url, {'target': 'as_converted', 'geometry': {'type': 'Point', 'coordinates': p}},
                       format='json').data['result'] for p in (a, b)]
-    assert (r['kind'], r['first'], r['second']) == ('LineString', spots[0]['mean'], spots[1]['mean'])
+    assert (r['kind'], r['first'], r['second']) == ('LineString', spots[0]['value'], spots[1]['value'])
     assert r['first'] == pytest.approx(mosaic_temperature(20), abs=0.05)
     assert r['delta_t'] == pytest.approx(r['second'] - r['first'], abs=1e-9)
     assert r['delta_t'] == pytest.approx(mosaic_temperature(40) - mosaic_temperature(20), abs=0.05)
     assert r['length'] == pytest.approx(1.0, abs=1e-3)
-    assert r['valid_pixels'] == spots[0]['valid_pixels'] + spots[1]['valid_pixels']
+    assert r['valid_pixels'] == 2
     assert not {'profile', 'isotherm', 'mean', 'histogram'} & set(r)
     # The other way round, ΔT is below zero; corrected, both ends are
     back = api.post(url, {'target': 'as_converted', 'geometry': delta(b, a), 'shape': {'kind': 'delta'}},
@@ -432,8 +432,8 @@ def test_a_delta_t_on_a_frame_is_measured_as_converted_and_again_with_parameters
             'geometry': delta([2.5, 3.5], [7.5, 3.5])}, format='json')
         assert res.status_code == 201, res.data
         r = res.data['values']['result']
-        # 20 °C plus the column: the spots' discs are centred on columns 2 and 7 (touching a pixel more east)
-        assert (r['first'], r['second']) == (pytest.approx(22.0, abs=0.25), pytest.approx(27.0, abs=0.25))
+        # 20 °C plus the column: the pixels of columns 2 and 7 exactly
+        assert (r['first'], r['second']) == (22.0, 27.0)
         assert (r['delta_t'], r['length']) == (pytest.approx(5.0), 5.0)
         again = api.patch("{}/{}/measurements/{}".format(CONVERSIONS, c.id, res.data['id']),
                           {'parameters': {'emissivity': 0.93}}, format='json')
@@ -443,6 +443,21 @@ def test_a_delta_t_on_a_frame_is_measured_as_converted_and_again_with_parameters
         assert (v['changed']['first'], v['changed']['delta_t']) == (pytest.approx(r['first'] + 2, abs=1e-4),
                                                                    pytest.approx(5.0, abs=1e-4))
 
+
+def test_a_delta_t_end_on_a_small_cold_spot_reads_its_pixel_not_the_warm_disc_around_it():
+    import numpy as np
+    from dji_thermal_ui.analyzer import thermal_measure
+    values = np.full((9, 9), 50.0)
+    values[4, 6] = -30.0
+    line = delta([1.5, 4.5], [6.5, 4.5])
+    r = thermal_measure.delta_measure(lambda g: thermal_measure.frame_measure(values, g), line, 5.0)
+    assert (r['first'], r['second'], r['delta_t'], r['valid_pixels']) == (50.0, -30.0, -80.0, 2)
+    # A Spot there averages its disc, warm all round the cold pixel
+    assert thermal_measure.frame_measure(values, {'type': 'Point', 'coordinates': [6.5, 4.5]})['mean'] > 0
+    # An end on no data: no ΔT
+    values[4, 1] = np.nan
+    r = thermal_measure.delta_measure(lambda g: thermal_measure.frame_measure(values, g), line, 5.0)
+    assert (r['first'], r['delta_t'], r['valid_pixels'], r['reason']) == (None, None, 0, 'nodata')
 
 def test_a_saved_measurement_is_measured_again_with_other_parameters(api):
     c = analysed(converted(api)[0])

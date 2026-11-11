@@ -160,7 +160,7 @@ describe("a measure's heights", () => {
 });
 
 describe("a Delta T", () => {
-    const RESULT = {kind: "LineString", first: 20, second: 21.5, delta_t: 1.5, length: 4.3, valid_pixels: 160};
+    const RESULT = {kind: "LineString", first: 20, second: 21.5, delta_t: 1.5, length: 4.3, valid_pixels: 2};
 
     it("is a line of exactly two spots", () => {
         expect(geometryOf("delta", [[1, 2]])).toBeNull();
@@ -171,8 +171,7 @@ describe("a Delta T", () => {
         const rows = (results: Parameters<typeof resultRows>[0]) =>
             resultRows(results, "C").map((r) => [r.label, ...r.values, r.difference]);
         expect(rows([RESULT])).toEqual([["Length", "4.30 m", undefined], ["First spot", "20.00 °C", undefined],
-                                        ["Second spot", "21.50 °C", undefined], ["ΔT", "+1.50 °C", undefined],
-                                        ["Pixels", "160", undefined]]);
+                                        ["Second spot", "21.50 °C", undefined], ["ΔT", "+1.50 °C", undefined]]);
         expect(rows([RESULT, {...RESULT, second: 22, delta_t: 2}])[3]).toEqual(["ΔT", "+1.50 °C", "+2.00 °C", "+0.50 °C"]);
     });
 
