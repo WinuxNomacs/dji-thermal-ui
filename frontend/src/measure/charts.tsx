@@ -39,6 +39,7 @@ interface ProfileProps {
     profile: Prof;
     unit: unknown;
     other?: Maybe<Prof>;            // a second profile (parameters changed) drawn over it
+    names?: [string, string];       // the two profiles' names in the readout (two mosaics compared)
     pixels?: boolean;               // a frame: distances in pixels
     index?: number | null;          // the sample the cursor is at on the map's line
     onIndex?: (i: number | null) => void;   // the cursor moved over the chart (null: it left)
@@ -46,7 +47,7 @@ interface ProfileProps {
 
 // A line's profile (evenly spaced samples, null where there is no data) as a line chart, with its hottest and coldest
 // samples, a cursor and, on a mosaic, the frames each stretch was read from
-export function Profile({profile, unit, other, pixels, index, onIndex}: ProfileProps) {
+export function Profile({profile, unit, other, names, pixels, index, onIndex}: ProfileProps) {
     const [hovered, setHovered] = useState<number | null>(null);
     const n = profile.values.length;
     if (n < 2) return null;
@@ -77,8 +78,9 @@ export function Profile({profile, unit, other, pixels, index, onIndex}: ProfileP
     let readout = NO_CURSOR;
     if (at !== null) {
         const v = profile.values[at];
-        const parts = [lengthText(profile.distance[at], pixels), isValue(v) ? temp(v, unit) : "no data"];
-        if (others && isValue(others[at])) parts.push("changed " + temp(others[at], unit));
+        const shown = isValue(v) ? temp(v, unit) : "no data";
+        const parts = [lengthText(profile.distance[at], pixels), names ? names[0] + " " + shown : shown];
+        if (others && isValue(others[at])) parts.push((names ? names[1] : "changed") + " " + temp(others[at], unit));
         if (profile.frames && profile.frames[at]) parts.push(String(profile.frames[at]).split("/").pop()!);
         readout = parts.join(" · ");
     }

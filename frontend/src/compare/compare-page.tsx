@@ -1,8 +1,10 @@
 // Two mosaics side by side: each pane shows a conversion's temperature or visual mosaic, the difference of pane A's and
 // pane B's (A − B), or A's drawn over B's (faded, and swiped away right of a line), with pan and zoom linked, the cursor marked in the other pane, one palette and range shared (or each
 // pane's own), the split between the panes moved, and the source frames of a spot or an area drawn in a pane, in a
-// window, saved as a finding of its mosaic's dataset. Each pane draws its datasets' findings, opened by a click. The
-// view (the mosaics, the difference or overlay, the split, the findings shown and open) is kept in the URL.
+// window, saved as a finding of its mosaic's dataset. A shape drawn with any of the measuring tools in a pane is
+// measured on both mosaics, in a card on that pane's map (A, B and A − B), saved on both datasets; one isotherm is
+// shared by both panes. Each pane draws its datasets' findings, opened by a click. The view (the mosaics, the
+// difference or overlay, the split, the findings shown and open) is kept in the URL.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
 import GeoJSON from "ol/format/GeoJSON";
@@ -21,15 +23,17 @@ import {type ComponentChildren, render} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {errorText, readJson, sendJson} from "../core/api";
 import {type Maybe} from "../core/format";
+import {userUnit} from "../core/units";
 import {ArrowLeft, Check, Flag, Link, Lock} from "../components/icons";
 import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, findingSources,
         findingsUrl} from "../findings/findings";
 import {centreOf, drawFindings, findingAt} from "../findings/layer";
 import {FindingAbout, FindingForm, SaveFinding} from "../findings/panel";
-import {Drawing, drawingKey} from "../measure/drawing";
-import {type Coords, type Geometry, type Shape, symbol, TOOLS, type Tool} from "../measure/measure";
-import {Toolbar} from "../measure/result";
-import {type Colouring} from "../map/colour";
+import {Drawing, drawingKey, inField} from "../measure/drawing";
+import {type Coords, type Geometry, isothermParam, type Measured, type Measurement, nearestIndex, type Shape, symbol, TOOLS,
+        type Tool} from "../measure/measure";
+import {type IsothermState, Isotherm, MeasureCard, type Measuring, Toolbar} from "../measure/result";
+import {type Colouring, isothermRange} from "../map/colour";
 import {type Basemap, clipLeft, DATA_GUTTER, fitBounds, lonLatToMap, MAX_ZOOM, mapToLonLat, mosaicMap, pointFeature,
         rasterPixel, ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {type Scale} from "../viewer/canvas";
@@ -38,9 +42,9 @@ import {type Adjust, dataUrl, defaultAdjust, type MosaicTab, tabLabel, toneShare
 import {type Mosaics, SOURCES_SHAPE, WINDOW_VISUAL_PX} from "../viewer/viewer-page";
 import {autoRange, autoReach, clampShare, clampSplit, type Comparable, comparedTabs, type CompareStyle, compareQuery,
         dataTab, type DiffInfo, differenceDataUrl, differenceUrl, type DiffStyle, firstTab, frameCurveUrl, frameDataUrl,
-        mosaicCurveUrl, mosaicGroups, NO_OVERLAP, OPACITY_STEP, type PaneName, rangeIn, reachIn, readCompare, SPLIT_LIMITS,
-        SPLIT_STEP, SWIPE_LIMITS, VISUAL} from "./compare";
-import {type Sources, sourcesUrl} from "../sources/sources";
+        mosaicCurveUrl, mosaicGroups, NO_OVERLAP, OPACITY_STEP, type PaneName, profileAt, rangeIn, reachIn, readCompare,
+        resultIn, SPLIT_LIMITS, SPLIT_STEP, SWIPE_LIMITS, VISUAL} from "./compare";
+import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {type SourceGroup, SourcesWindow} from "../sources/window";
 import {DifferenceReadout, StyleBar} from "./pane";
 
@@ -49,8 +53,8 @@ const CURSOR = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke(
 const PICKED = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2}),
                                                   fill: new Fill({color: "#e8562a"})})});
 const NAMES: PaneName[] = ["a", "b"];
-// The source frames of a spot or an area (polygon) drawn in a pane
-const PANE_TOOLS = TOOLS.filter(([x]) => x === "point" || x === "area");
+// Without temperatures (two visual mosaics of their own) there is no Delta T to measure
+const SIZE_TOOLS = TOOLS.filter(([x]) => x !== "delta");
 const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
 
 // What a pane shows: a conversion's temperature tab or visual mosaic (its mosaics' info), the difference, or A over B
@@ -63,6 +67,11 @@ type Panes = Record<PaneName, PaneState>;
 // asked, null when they could not be); or a finding opened there, with its kept frames on the mosaic of its dataset
 interface PickMosaic {pane: PaneName; conv: number; unit: unknown; res?: Sources | null; error?: string}
 interface Pick {geometry: Geometry; shape?: Maybe<Shape>; mosaics: PickMosaic[]; finding?: number}
+
+// A shape drawn in a pane with the measuring tools, measured on A's and B's mosaics (res: each pane's, null where it is
+// not measured; undefined while they are asked), and the first of its measurements once saved
+interface Card {pane: PaneName; geometry: Geometry; shape?: Maybe<Shape>; res?: Record<PaneName, Measured | null>; error?: string;
+                saved?: Measurement | null}
 
 // The finding form open: a new one from a mosaic of what a pane's window shows (its index in the pick), or one changed
 interface Draft {title: string; fields: FindingFields; pane: PaneName; mosaic: number; edit?: Finding; error?: string}
@@ -86,6 +95,12 @@ const isVisual = (p: PaneState) => p.tab === VISUAL;
 // A visual mosaic of its own: no values to read, its frames the visual ones
 const isAlone = (p: PaneState) => !!p.info.visual_only;
 const readTab = (p: PaneState) => dataTab(p.tab, isAlone(p));
+// The panes a shape is measured on: those with temperatures (a conversion's visual mosaic read on its as converted
+// values), else both visual mosaics of their own (their sizes)
+function measuredPanes(p: Panes): PaneName[] {
+    const temperatures = NAMES.filter((x) => !isAlone(p[x]));
+    return temperatures.length ? temperatures : NAMES;
+}
 const boundsOf = (p: PaneState) => isAlone(p) ? p.info.visual?.bounds : tabEntry(p)?.bounds;
 // What a pane of a visual mosaic of its own reads at the cursor
 const NO_VALUES: Point = {valid: false, reason: "visual"};
@@ -138,6 +153,14 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const [findings, setFindings] = useState<Record<number, Finding[]>>({});
     const [showFindings, setShowFindings] = useState(wanted.findings !== false);
     const [draft, setDraft] = useState<Draft | null>(null);
+    const [card, setCard] = useState<Card | null>(null);
+    const [saveName, setSaveName] = useState("");
+    const [measureError, setMeasureError] = useState("");
+    const [index, setIndex] = useState<number | null>(null);
+    // The isotherm as typed (in the user's unit), and as it was last read right: what the panes and the card use
+    const [isoTyped, setIsoTyped] = useState<IsothermState>({mode: ""});
+    const [iso, setIso] = useState<IsothermState>({mode: ""});
+    const [isoError, setIsoError] = useState("");
     const [mapsMade, setMapsMade] = useState(false);
     const [curves, setCurves] = useState<Record<string, number[] | null>>({});      // null: it could not be loaded
     const [live, setLive] = useState<{where: PaneName | "shared"; changes: Partial<CompareStyle>} | null>(null);
@@ -151,14 +174,14 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const drag = useRef(false);
     const swiping = useRef<PaneName | null>(null);
     // Counters: only the answer to the latest question is shown
-    const asked = useRef({point: 0, a: 0, b: 0});
+    const asked = useRef({point: 0, a: 0, b: 0, measure: 0});
 
     // The findings a link asked to open, once their datasets' are in
     const toOpen = useRef<Record<PaneName, Maybe<number>>>({a: wanted.a_finding, b: wanted.b_finding});
 
     // What the maps' handlers (set up once) read: this render's values
-    const now = useRef({panes, linked, picks, findings, list});
-    now.current = {panes, linked, picks, findings, list};
+    const now = useRef({panes, linked, picks, findings, list, card});
+    now.current = {panes, linked, picks, findings, list, card};
 
     const palettes = panes?.a.info.palettes || [];
     const key = panes ? diffKey(panes) : "";
@@ -218,6 +241,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         start();
         const keys = (e: KeyboardEvent) => {
             if (NAMES.some((n) => drawingKey(e, maps.current[n]?.drawing || null))) syncTools();
+            else if (e.key === "Escape" && !inField(e.target) && now.current.card) closeCard();
         };
         document.addEventListener("keydown", keys);
         // The split follows the mouse while its handle is held
@@ -259,10 +283,16 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         const drawing = new Drawing({
             map: m, toCoords, fromCoords: lonLatToMap, distance: (a, b) => getDistance(a, b),
             onDone: (geometry, shape) => {
+                setCard({pane: n, geometry, shape});
+                setMeasureError("");
+                showIndex(null);
                 syncTools();
-                openSources(n, geometry, shape);
             },
             onChange: syncTools,
+            onLineHover: (coords) => {
+                const points = profilePoints(now.current.card);
+                showIndex(coords && points ? nearestIndex(points, coords) : null, points);
+            },
             // A click with no tool on opens the finding there
             onClick: (at) => {
                 const hit = findingAt(m, m.getPixelFromCoordinate(at), findingsShown);
@@ -311,6 +341,90 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         if (x) maps.current[n]?.drawing.start(x);
         else maps.current[n]?.drawing.stop();
         syncTools();
+    }
+
+    // The profile's sample the cursor is at, marked on the line in both panes
+    function showIndex(i: number | null, points?: Maybe<Coords[]>) {
+        setIndex(i);
+        NAMES.forEach((n) => maps.current[n]?.drawing.showCursor(i === null || i < 0 || !points ? null : points[i]));
+    }
+
+    // Where the card's line was sampled: the first mosaic's measure
+    const profilePoints = (c: Maybe<Card>) => NAMES.map((x) => c?.res?.[x]?.result?.profile?.points).find((x) => x);
+
+    function closeCard() {
+        asked.current.measure++;
+        setCard(null);
+        setMeasureError("");
+        showIndex(null);
+    }
+
+    // The isotherm of a pane's mosaic, in its conversion's unit ("" for none)
+    const isoFor = (p: PaneState): string =>
+        iso.mode && !isAlone(p) ? isothermParam(iso.mode, iso.a || "", iso.b || "", p.info.unit).value || "" : "";
+
+    function changeIsotherm(s: IsothermState, field: string) {
+        let next = s;
+        if (field === "mode" && s.mode && (s.a ?? "") === "") {
+            // Starts from the top of the range shown (A's, or the shared one): the hottest part shows
+            const range = (locked ? shared : panes?.a.style)?.range || [0, 1];
+            next = {...s, a: String(Math.round((range[1] - (range[1] - range[0]) / 4) * 10) / 10),
+                    b: String(Math.round(range[1] * 100) / 100)};
+        }
+        setIsoTyped(next);
+        const r = isothermParam(next.mode, next.a || "", next.b || "", userUnit());
+        setIsoError(r.error || "");
+        if (!r.error) setIso(next);
+    }
+
+    // The shape drawn saved on both datasets (once on a dataset whose mosaic both panes show)
+    async function save() {
+        const name = saveName.trim(), c = card, p = panes;
+        if (!c || !p) return;
+        if (!name) return setMeasureError("Name the measurement to save it");
+        const which = measuredPanes(p).filter((x, i, all) =>
+            all.findIndex((y) => p[y].conv === p[x].conv && readTab(p[y]) === readTab(p[x])) === i);
+        const saved: Measurement[] = [];
+        for (const x of which) {
+            const r = await readJson<Measurement>(await sendJson(api + "conversions/" + p[x].conv + "/measurements", "POST",
+                {name, target: readTab(p[x]), geometry: c.geometry, shape: c.shape ?? undefined, isotherm: isoFor(p[x])}));
+            if (!r.ok) {
+                if (saved.length) setCard({...c, saved: saved[0]});
+                return setMeasureError((saved.length ? "Saved on " + which[0].toUpperCase() + "'s dataset only. " : "") +
+                                       errorText(r.data, "Could not save the measurement."));
+            }
+            saved.push(r.data);
+        }
+        setMeasureError("");
+        setSaveName("");
+        setCard({...c, saved: saved[0]});
+    }
+
+    // What the card shows: A's and B's figures (B's in A's unit, its profile at A's samples) with A − B, or one mosaic's
+    // where the other has none there or no temperatures, with a line naming them
+    function cardShown(c: Card): {m: Measuring; unit: unknown; compared: boolean; note?: string} {
+        const p = panes!, named = (x: PaneName) => {
+            const conv = list.find((y) => y.id === p[x].conv);
+            return x.toUpperCase() + " " + (conv ? conv.name + " · " : "") + tabLabel(p[x].tab);
+        };
+        const base = {error: c.error, saved: c.saved, shape: c.shape};
+        if (!c.res) return {m: {...base, res: c.res}, unit: p.a.info.unit, compared: false};
+        const got = NAMES.filter((x) => c.res![x]?.result), valid = got.filter((x) => c.res![x]!.result!.valid_pixels);
+        const shown = valid.length ? valid : got.slice(0, 1);
+        if (!shown.length) return {m: {...base, res: null}, unit: p.a.info.unit, compared: false};
+        const first = shown[0], unit = p[first].info.unit, result = c.res[first]!.result!;
+        const approximate = shown.some((x) => c.res![x]!.approximate);
+        if (shown.length === 2) {
+            let b = resultIn(c.res.b!.result!, p.b.info.unit, unit);
+            if (result.profile && b.profile) b = {...b, profile: profileAt(b.profile, result.profile.values.length)};
+            return {m: {...base, res: {result, changed: b, approximate, shape: c.shape}}, unit, compared: true,
+                    note: named("a") + ", " + named("b")};
+        }
+        const left = NAMES.find((x) => x !== first)!;
+        const why = !c.res[left] ? left.toUpperCase() + " is a visual mosaic, with no temperatures" :
+            got.length === 2 ? "outside " + left.toUpperCase() + "'s mosaic" : "";
+        return {m: {...base, res: {result, approximate, shape: c.shape}}, unit, compared: false,
+                note: named(first) + (why ? "; " + why : "")};
     }
 
     function pointOf(p: PaneState, at: Coordinate): Promise<Point | null> {
@@ -440,6 +554,47 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         openFinding(d.pane, r.data);
     }
 
+    // The shape drawn measured on both mosaics, with the isotherm
+    useEffect(() => {
+        if (!card || card.res !== undefined || card.error || !panes) return;
+        const n = ++asked.current.measure, c = card, p = panes, which = measuredPanes(p);
+        const measure = (x: PaneName): Promise<Measured | null> => !which.includes(x) ? Promise.resolve(null) :
+            sendJson(api + "conversions/" + p[x].conv + "/measure", "POST",
+                     {target: readTab(p[x]), geometry: c.geometry, shape: c.shape ?? undefined, isotherm: isoFor(p[x])})
+                .then((res) => readJson<Measured>(res))
+                .then((r) => {
+                    if (!r.ok) throw new Error(errorText(r.data, "Could not measure."));
+                    return r.data;
+                });
+        Promise.all(NAMES.map(measure)).then(
+            ([a, b]) => { if (n === asked.current.measure) setCard({...c, res: {a, b}}); },
+            (e: unknown) => {
+                if (n === asked.current.measure) setCard({...c, error: (e instanceof Error && e.message) || "Could not measure."});
+            });
+    }, [card, panes]);
+
+    // Measured again when the mosaics compared or the isotherm change
+    const isoKey = iso.mode ? isothermParam(iso.mode, iso.a || "", iso.b || "", userUnit()).value : "";
+    const firstMeasured = useRef(true);
+    useEffect(() => {
+        if (firstMeasured.current) { firstMeasured.current = false; return; }
+        setCard((c) => c && {pane: c.pane, geometry: c.geometry, shape: c.shape});
+        showIndex(null);
+    }, [key, isoKey]);
+
+    // The shape measured drawn in both panes, with the hottest and coldest pixels of the mosaic each pane reads (A's for
+    // the difference and the overlay)
+    useEffect(() => {
+        if (!mapsMade) return;
+        NAMES.forEach((n) => {
+            const d = maps.current[n]!.drawing;
+            d.showCursor(null);
+            if (!card || !panes) return d.clear();
+            const x = readsOf(n, panes[n]).find((y) => card.res?.[y]?.result);
+            d.show(card.geometry, x ? card.res![x]!.result : null, x ? panes[x].info.unit : undefined, card.shape);
+        });
+    }, [card, mapsMade]);
+
     // A pane's map sized again when the split moves
     useEffect(() => { NAMES.forEach((n) => maps.current[n]?.map.updateSize()); }, [split, mapsMade]);
 
@@ -555,7 +710,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 values: {kind: "tiles", url: dataUrl(api, p.conv, p.tab), bounds: t.bounds, maxZoom: (t.maxzoom || 20) + 1,
                          gutter: DATA_GUTTER, pixel: rasterPixel(t.bounds, p.info.kinds?.[t.kind || ""]?.width)},
                 colouring: {colors: palettes.find((c) => c.key === s.palette)?.color_map || [], range: rangeIn(s.range, p.info.unit),
-                            shares: mosaicShares(x), sharpen: s.adjust.sharpen}};
+                            shares: mosaicShares(x), sharpen: s.adjust.sharpen, isotherm: isothermRange(isoFor(p))}};
     }
 
     // What each pane's map shows, bottom first: its mosaic, B's and A's for the overlay, or the difference's values
@@ -802,9 +957,18 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             {/* Keyed: what comes and goes above it is never taken for it, which would lose its map */}
             <div class="compare-stage" key="map">
                 <div class="compare-map" id={"map-" + n} ref={mapEls[n]}/>
-                {p && <Toolbar tool={tools[n].tool} count={tools[n].count} tools={PANE_TOOLS} compact
-                               label={"Drawing tools: the source frames of a spot or an area of pane " + n.toUpperCase()}
+                {p && <Toolbar tool={tools[n].tool} count={tools[n].count} compact
+                               tools={NAMES.some((x) => !isAlone(panes![x])) ? TOOLS : SIZE_TOOLS}
+                               label={"Drawing tools: measure a spot, a line, an area or a Delta T on both mosaics, from pane " + n.toUpperCase()}
                                onTool={(x) => pickTool(n, x)} onFinish={() => { maps.current[n]?.drawing.finish(); syncTools(); }}/>}
+                {p && card && card.pane === n && (() => {
+                    const c = cardShown(card), points = profilePoints(card);
+                    return <MeasureCard m={c.m} unit={c.unit} compared={c.compared} labels={c.compared ? ["A", "B"] : undefined}
+                                        note={c.note} index={index} onIndex={(i) => showIndex(i, points)}
+                                        name={saveName} error={measureError} onName={setSaveName} onSave={save} onClose={closeCard}
+                                        onSources={hasSources(card.geometry, card.shape) ?
+                                            () => openSources(n, card.geometry, card.shape) : undefined}/>;
+                })()}
                 {p?.overlay && <div class="compare-swipe" id={"swipe-" + n} role="separator" aria-orientation="vertical"
                                     tabIndex={0} aria-label="Move the line A is shown left of" aria-valuenow={swipe}
                                     aria-valuemin={SWIPE_LIMITS[0]} aria-valuemax={SWIPE_LIMITS[1]} style={{left: swipe + "%"}}
@@ -849,6 +1013,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 {sharedShown && <div id="shared">
                     <StyleBar key="shared" style={drawnStyle("shared")} palettes={palettes} what="both mosaics"
                               onChange={(c, done) => changeStyle("shared", c, done)} onAuto={() => auto("shared")}/>
+                </div>}
+                {thermalDrawn.length > 0 && <div class="compare-isotherm" id="isotherm"
+                                                 title="Both panes' temperature mosaics: the pixels inside it keep the palette">
+                    <span class="compare-isotherm-label">Isotherm</span>
+                    <Isotherm state={isoTyped} error={isoError} onChange={changeIsotherm}/>
                 </div>}
                 <div class="compare-body" ref={body}>
                     {paneView("a")}
