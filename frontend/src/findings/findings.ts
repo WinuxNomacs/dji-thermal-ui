@@ -1,7 +1,7 @@
-// The findings of a dataset (/api/datasets/<id>/findings): a spot or an area the user found something at, kept with
+// The findings of a dataset (/api/datasets/<id>/findings): a spot, an area or a Delta T the user found something at, kept with
 // the frames that saw it and the temperatures measured when it was saved. Plain functions, no DOM.
 import {type Maybe} from "../core/format";
-import {type Geometry, type Shape, signed, sizeText, temp} from "../measure/measure";
+import {deltaFigure, type Geometry, type Shape, signed, sizeText, temp} from "../measure/measure";
 import {type SourceFrame, type Sources} from "../sources/sources";
 
 export type Severity = "low" | "medium" | "high" | "critical";
@@ -15,6 +15,9 @@ export interface Temperatures {
     surroundings?: number;
     delta_t?: number;
     value?: number;             // a spot's own pixel
+    first?: number;             // a Delta T's spots (ΔT: delta_t) and its length
+    second?: number;
+    length?: number;
     valid_pixels?: number;
     area?: number;
     perimeter?: number;
@@ -82,14 +85,17 @@ export function fieldsBody(v: FindingFields, frames: Maybe<SourceFrame[]>): Reco
 
 // A finding as the source frames window shows it: its kept frames
 export function findingSources(f: Finding): Sources {
-    return {kind: f.geometry.type === "Point" ? "Point" : "Polygon", geometry: f.geometry, models: f.models,
+    return {kind: f.geometry.type, geometry: f.geometry, models: f.models,
             frames: f.frames.filter((x) => x.kept), reason: null};
 }
 
-// Its main figures, in the user's unit: a spot's temperature, an area's max and mean with ΔT; with no temperatures (on a
-// visual mosaic of its own), an area's size
+// Its main figures, in the user's unit: a spot's temperature, an area's max and mean with ΔT, a Delta T's ΔT and its
+// spots; with no temperatures (on a visual mosaic of its own), an area's size
 export function temperaturesText(t: Temperatures): string {
     const unit = t.unit;
+    if (t.first !== undefined || t.second !== undefined) {
+        return deltaFigure(t, unit) + (t.approximate ? " (corrected, approximate)" : "");
+    }
     if (t.value === undefined && t.mean === undefined) return sizeText(t);
     const parts = t.value !== undefined && t.value !== null ? [temp(t.value, unit)] :
         [t.max !== undefined ? "max " + temp(t.max, unit) : "", t.mean !== undefined ? "mean " + temp(t.mean, unit) : ""];

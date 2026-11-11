@@ -82,6 +82,30 @@ def test_a_saved_spot_or_area_measurement_is_saved_as_a_finding_with_its_figures
     assert f['models'] is False and [x['frame'] for x in f['frames']] == [FILES[1]]
 
 
+def test_a_delta_t_is_saved_as_a_finding_with_its_two_spots_and_the_frames_along_it(api, conversion):
+    c = conversion
+    line = {'type': 'LineString', 'coordinates': [mosaic_lonlat(10.5, 30.5), mosaic_lonlat(50.5, 30.5)]}
+    with mock.patch('dji_thermal_cli.api.read_frame_models', return_value=FakeModels()):
+        res = api.post(url(c), drawn(c, line, shape={'kind': 'delta'}), format='json')
+    assert res.status_code == 201, res.data
+    f = res.data
+    t = f['temperatures']
+    assert (f['shape'], f['geometry']['type']) == ({'kind': 'delta'}, 'LineString')
+    assert t['first'] == pytest.approx(mosaic_temperature(10), abs=0.05)
+    assert t['delta_t'] == pytest.approx(t['second'] - t['first'], abs=1e-9)
+    assert t['length'] == pytest.approx(2.0, abs=1e-3)
+    assert sorted(x['frame'] for x in f['frames']) == list(FILES)
+
+    # From a saved Delta T: its figures copied
+    m = api.post("{}/{}/measurements".format(CONVERSIONS, c.id), {
+        'name': "Joint", 'target': 'as_converted', 'geometry': line, 'shape': {'kind': 'delta'}}, format='json').data
+    res = api.post(url(c), {'name': "From the joint", 'measurement': m['id']}, format='json')
+    assert res.status_code == 201, res.data
+    assert res.data['shape'] == {'kind': 'delta'}
+    assert {k: res.data['temperatures'][k] for k in ('first', 'second', 'delta_t')} == {
+        k: m['values']['result'][k] for k in ('first', 'second', 'delta_t')}
+
+
 def test_a_line_or_a_frame_measurement_is_not_saved_as_a_finding(api, conversion):
     c = conversion
     base = "{}/{}/measurements".format(CONVERSIONS, c.id)

@@ -1,12 +1,13 @@
 // What measuring shows on the viewer and frame pages: the tools' toolbar on the map, the card of the shape drawn, the
 // isotherm, a measure's figures and charts, and the saved measurements (with two of them compared)
 import {useState} from "preact/hooks";
-import {Circle, Crosshairs, Flag, Images, Info, Minus, Pencil, Polygon, Save, Sliders, Square, Trash} from "../components/icons";
+import {Circle, Crosshairs, DeltaT, Flag, Images, Info, Minus, Pencil, Polygon, Save, Sliders, Square, Trash} from "../components/icons";
 import {Histogram, Profile} from "./charts";
-import {HINTS, ISOTHERM_MODES, isothermText, type Measured, type Measurement, measurementFigure, type ParamField, paramsText,
+import {HINTS, isDelta, ISOTHERM_MODES, isothermText, type Measured, type Measurement, measurementFigure, type ParamField, paramsText,
         type Result, resultRows, shapeLabel, shownTemp, symbol, targetLabel, type Tool, TOOLS} from "./measure";
 
-const TOOL_ICONS: Record<Tool, typeof Crosshairs> = {point: Crosshairs, line: Minus, area: Polygon, box: Square, circle: Circle};
+const TOOL_ICONS: Record<Tool, typeof Crosshairs> = {point: Crosshairs, line: Minus, area: Polygon, box: Square, circle: Circle,
+                                                     delta: DeltaT};
 const APPROXIMATE = "Approximate: corrected for the parameters changed with the thermal correction model, not measured " +
     "again by dji-thermal-cli.";
 
@@ -58,7 +59,7 @@ interface CardProps {
     error?: string;
     onName: (name: string) => void;
     onSave: () => void;
-    onKeep?: () => void;                // kept as a finding (a spot or an area of a mosaic)
+    onKeep?: () => void;                // kept as a finding (a spot, an area or a Delta T of a mosaic)
     onSources?: () => void;             // the frames that saw it, in a window
     onClose: () => void;
 }
@@ -81,7 +82,7 @@ export function MeasureCard(p: CardProps) {
                 </>}
             {valid && (p.onKeep || p.onSources) && <div class="inline measure-card-actions">
                 {p.onKeep && <button type="button" class="button primary small" name="keep-finding" onClick={p.onKeep}
-                                     title="Keep this spot or area, its figures and frames, as a finding of the flight">
+                                     title="Keep this spot, area or Delta T, its figures and frames, as a finding of the flight">
                     <Flag/> Keep as finding</button>}
                 {p.onSources && <button type="button" class="button default small" name="sources" onClick={p.onSources}
                                         title="The frames that saw it, in a window"><Images/> Source frames</button>}
@@ -219,7 +220,7 @@ interface MeasurementsProps {
     onRename: (m: Measurement) => void;
     onDelete: (m: Measurement) => void;
     onRemeasure: (m: Measurement, values: Record<string, string>) => Promise<string | null>;
-    onFinding?: (m: Measurement) => void;   // saved as a finding (a spot or an area on a mosaic)
+    onFinding?: (m: Measurement) => void;   // saved as a finding (a spot, an area or a Delta T on a mosaic)
 }
 
 // The saved measurements: a line each with its name, where it was measured and its main figure, then the two ticked
@@ -242,7 +243,8 @@ export function Measurements(props: MeasurementsProps) {
                 {m.comment && <div class="measurement-comment text-muted">{m.comment}</div>}
                 {fields.length > 0 && <button type="button" class="icon-button" title="Measure again with other parameters"
                                               onClick={() => props.onEdit(editing === m.id ? null : m.id)}><Sliders/></button>}
-                {props.onFinding && m.target !== "frame" && (m.geometry?.type === "Point" || m.geometry?.type === "Polygon") &&
+                {props.onFinding && m.target !== "frame" &&
+                    (m.geometry?.type === "Point" || m.geometry?.type === "Polygon" || isDelta(m.values?.shape)) &&
                     <button type="button" class="icon-button" name="finding" title="Save as finding"
                             onClick={() => props.onFinding!(m)}><Flag/></button>}
                 <button type="button" class="icon-button" title="Rename" onClick={() => props.onRename(m)}><Pencil/></button>

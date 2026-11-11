@@ -1,9 +1,13 @@
-// The findings on a map: each spot or area in a white-and-black dashed outline that reads on any palette (a spot as a
-// ringed dot), labelled with a tag in its severity's colour holding its name; the one opened drawn thicker.
+// The findings on a map: each spot, area or Delta T in a white-and-black dashed outline that reads on any palette (a
+// spot as a ringed dot, a Delta T as its line with a ringed dot at each end), labelled with a tag in its severity's
+// colour holding its name; the one opened drawn thicker.
 import type {Coordinate} from "ol/coordinate";
 import type Feature from "ol/Feature";
+import LineString from "ol/geom/LineString";
+import MultiPoint from "ol/geom/MultiPoint";
 import GeoJSON from "ol/format/GeoJSON";
 import type OlMap from "ol/Map";
+import type {FeatureLike} from "ol/Feature";
 import type {Pixel} from "ol/pixel";
 import type VectorSource from "ol/source/Vector";
 import CircleStyle from "ol/style/Circle";
@@ -12,7 +16,6 @@ import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import Text from "ol/style/Text";
 import {lonLatToMap} from "../map/map";
-import {type Coords} from "../measure/measure";
 import {type Finding, SEVERITY_COLORS} from "./findings";
 
 function styles(f: Finding, opened: boolean): Style[] {
@@ -30,7 +33,12 @@ function styles(f: Finding, opened: boolean): Style[] {
                 new Style({image: new CircleStyle({radius: 7, stroke: over, fill: new Fill({color: "rgba(255, 255, 255, 0.25)"})}),
                            text: label})];
     }
-    return [new Style({stroke: under}), new Style({stroke: over, fill: new Fill({color: "rgba(255, 255, 255, 0.06)"}), text: label})];
+    const lines = [new Style({stroke: under}), new Style({stroke: over, fill: new Fill({color: "rgba(255, 255, 255, 0.06)"}), text: label})];
+    if (f.geometry.type !== "LineString") return lines;
+    // A Delta T's two spots
+    const ends = (feature: FeatureLike) => new MultiPoint((feature.getGeometry() as LineString).getCoordinates());
+    return [...lines, new Style({geometry: ends, image: new CircleStyle({radius: 5, stroke: under})}),
+            new Style({geometry: ends, image: new CircleStyle({radius: 5, stroke: over, fill: new Fill({color: "rgba(255, 255, 255, 0.25)"})})})];
 }
 
 // The findings shown drawn on a layer's source (opened: the one in the window)
@@ -56,9 +64,10 @@ export function findingAt(map: OlMap, pixel: Pixel, source: VectorSource): numbe
     return found;
 }
 
-// Where a finding is on the map: a spot's place, an area's outline's mean point
+// Where a finding is on the map: a spot's place, an area's outline's (a Delta T's ends') mean point
 export function centreOf(f: Finding): Coordinate {
-    const ring = f.geometry.type === "Point" ? [f.geometry.coordinates as Coords] : (f.geometry.coordinates as Coords[][])[0];
+    const g = f.geometry;
+    const ring = g.type === "Point" ? [g.coordinates] : g.type === "LineString" ? g.coordinates : g.coordinates[0];
     const xs = ring.map((c) => lonLatToMap(c));
     return [xs.reduce((a, c) => a + c[0], 0) / xs.length, xs.reduce((a, c) => a + c[1], 0) / xs.length];
 }

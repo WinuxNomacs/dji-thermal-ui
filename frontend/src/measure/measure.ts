@@ -4,14 +4,15 @@
 import {formatNumber, type Maybe} from "../core/format";
 import {convertTemp, formatDelta, formatTemp, unitSymbol, userUnit} from "../core/units";
 
-export type Tool = "point" | "line" | "area" | "box" | "circle";
+export type Tool = "point" | "line" | "area" | "box" | "circle" | "delta";
 export type Coords = [number, number];     // lon/lat, or a frame's pixels
 
-export const TOOLS: [Tool, string][] = [["point", "Spot"], ["line", "Line"], ["area", "Area"], ["box", "Box"], ["circle", "Circle"]];
+export const TOOLS: [Tool, string][] = [["point", "Spot"], ["line", "Line"], ["area", "Area"], ["box", "Box"], ["circle", "Circle"],
+                                        ["delta", "Delta T"]];
 export const ISOTHERM_MODES: [string, string][] = [["", "None"], ["above", "Above"], ["below", "Below"], ["between", "Between"]];
 const SHAPE_LABELS: Record<string, string> = {Point: "Spot", LineString: "Line", Polygon: "Area"};
-// An area drawn by dragging (values.shape.kind)
-const DRAWN_LABELS: Record<string, string> = {box: "Box", circle: "Circle"};
+// How a shape was drawn (values.shape.kind): an area by dragging, or a Delta T's two spots
+const DRAWN_LABELS: Record<string, string> = {box: "Box", circle: "Circle", delta: "Delta T"};
 const TARGET_LABELS: Record<string, string> = {as_converted: "Mosaic", harmonized: "Harmonized", webodm: "WebODM",
                                                frame: "Frame", visual: "Visual"};
 export const HINTS: Record<Tool, string> = {
@@ -20,14 +21,18 @@ export const HINTS: Record<Tool, string> = {
     area: "Click the area's corners; double-click the last one (or Finish) to end.",
     box: "Drag from one corner to the opposite one.",
     circle: "Drag from the centre outwards.",
+    delta: "Click the first spot, then the second: ΔT is the second's temperature minus the first's.",
 };
 const CIRCLE_VERTICES = 64;
 
 export type Geometry =
     {type: "Point"; coordinates: Coords} | {type: "LineString"; coordinates: Coords[]} | {type: "Polygon"; coordinates: Coords[][]};
 
-// How a box or circle was drawn
+// How a box, a circle or a Delta T was drawn
 export interface Shape {kind: string; center?: Coords; radius?: number}
+
+// Whether a shape is a Delta T: a line of two spots, ΔT the second's temperature minus the first's
+export const isDelta = (shape: Maybe<Shape>): boolean => shape?.kind === "delta";
 
 // A line's profile: evenly spaced samples, null where there is no data; on a mosaic, the frame each was read from
 export interface Profile {distance: number[]; values: Maybe<number>[]; points?: Coords[]; frames?: Maybe<string>[]}
@@ -45,6 +50,9 @@ export interface Result {
     std?: number | null;
     surroundings?: number | null;
     delta_t?: number | null;
+    // A Delta T's spots: the mean of each one's disc
+    first?: number | null;
+    second?: number | null;
     length?: number | null;
     area?: number | null;
     perimeter?: number | null;
@@ -112,6 +120,7 @@ export function geometryOf(tool: Tool | null, coords: Coords[]): Geometry | null
     if (!coords.length) return null;
     if (tool === "point") return {type: "Point", coordinates: coords[0]};
     if (tool === "line") return coords.length >= 2 ? {type: "LineString", coordinates: coords} : null;
+    if (tool === "delta") return coords.length === 2 ? {type: "LineString", coordinates: coords} : null;
     if (coords.length < 3) return null;
     return {type: "Polygon", coordinates: [coords.concat([coords[0]])]};
 }
@@ -138,7 +147,7 @@ export function isothermText(value: Maybe<string>, unit: unknown): string {
 
 export interface Row {label: string; values: string[]; difference?: string}
 
-type Key = "value" | "mean" | "min" | "max" | "std" | "surroundings" | "delta_t";
+type Key = "value" | "mean" | "min" | "max" | "std" | "surroundings" | "delta_t" | "first" | "second";
 
 // A measure's figures, as rows of [label, value(s)]: a column per result (as converted, then changed) and their
 // difference when there are two
@@ -156,7 +165,7 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
     size("Length", "length");
     size("Area", "area");
     // A visual mosaic's shape has its size alone: its perimeter too, and no pixels measured
-    const sizeAlone = results.every((r) => !isPresent(r.mean) && !isPresent(r.value));
+    const sizeAlone = results.every((r) => !isPresent(r.mean) && !isPresent(r.value) && !isPresent(r.first));
     if (sizeAlone) size("Perimeter", "perimeter");
     function figure(label: string, key: Key, fmt: (v: Maybe<number>) => string, diffFmt: (v: number) => string) {
         const vs = results.map((r) => r[key]);
@@ -167,6 +176,8 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean): 
     }
     const t = (v: Maybe<number>) => temp(v, unit);
     const d = (v: Maybe<number>) => signed(v, unit);
+    figure("First spot", "first", t, d);
+    figure("Second spot", "second", t, d);
     figure("At the spot", "value", t, d);
     figure("Mean", "mean", t, d);
     if (a.kind !== "Point") {
@@ -235,13 +246,21 @@ export function paramsText(parameters: Maybe<Record<string, number | null>>, fie
         f[1].toLowerCase() + " " + (f[3] ? shownTemp(p[f[0]]!, unit) + " " + symbol() : String(p[f[0]]))).join(", ");
 }
 
-// A saved measurement's main figure: a spot's temperature, else the mean and ΔT; on a visual mosaic, its size. A frame's
-// measurement measured again keeps the frame as converted in result, its own in changed.
+// A saved measurement's main figure: a spot's temperature, a Delta T's ΔT with its two spots, else the mean and ΔT; on
+// a visual mosaic, its size. A frame's measurement measured again keeps the frame as converted in result, its own in
+// changed.
 export function measurementFigure(m: Measurement, unit: unknown): string {
     const r = m.values?.changed || m.values?.result || {};
     if (m.target === "visual") return sizeText(r);
+    if (isDelta(m.values?.shape)) return deltaFigure(r, unit);
     if (r.kind === "Point") return temp(isPresent(r.value) ? r.value : r.mean, unit, 1);
     return temp(r.mean, unit, 1) + (isPresent(r.delta_t) ? ", ΔT " + signed(r.delta_t, unit, 1) : "");
+}
+
+// A Delta T's figure: "ΔT +1.2 °C (20.1 °C → 21.3 °C)"
+export function deltaFigure(r: {first?: Maybe<number>; second?: Maybe<number>; delta_t?: Maybe<number>}, unit: unknown): string {
+    if (!isPresent(r.delta_t)) return "ΔT no data";
+    return "ΔT " + signed(r.delta_t, unit, 1) + " (" + temp(r.first, unit, 1) + " → " + temp(r.second, unit, 1) + ")";
 }
 
 // The ids compared once id is ticked (on) or unticked: two at most, a third dropping the first ticked

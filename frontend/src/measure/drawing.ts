@@ -1,5 +1,5 @@
-// The measuring tools on a map (spot, line, area, box and circle), what was measured shown on it, and the keys that
-// finish or cancel a shape
+// The measuring tools on a map (spot, line, area, box, circle and Delta T), what was measured shown on it, and the keys
+// that finish or cancel a shape
 import type {Coordinate} from "ol/coordinate";
 import Feature from "ol/Feature";
 import type MapBrowserEvent from "ol/MapBrowserEvent";
@@ -16,8 +16,8 @@ import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import {fixedTip, hoverTips, vectorLayer} from "../map/map";
-import {boxCoords, circleCoords, type Coords, type Geometry, geometryOf, lengthText, type Result, type Shape, temp,
-        type Tool} from "./measure";
+import {boxCoords, circleCoords, type Coords, type Geometry, geometryOf, isDelta, lengthText, type Result, type Shape,
+        temp, type Tool} from "./measure";
 
 // A click this soon after a drag ends is the drag's own, not a click
 const DRAG_CLICK_MS = 400;
@@ -37,7 +37,7 @@ export interface DrawingOptions {
     toCoords: (at: Coordinate) => Coords;                   // a place on the map as the API takes it
     fromCoords: (coords: Coords) => Coordinate;
     distance: (a: Coords, b: Coords) => number;             // metres, or a frame's pixels
-    onDone: (geometry: Geometry, shape?: Shape) => void;    // shape: how a box or circle was drawn
+    onDone: (geometry: Geometry, shape?: Shape) => void;    // shape: how a box, a circle or a Delta T was drawn
     onChange?: () => void;                                  // a vertex added
     onClick?: (at: Coordinate) => void;                     // a click while no tool is on
     onLineHover?: (coords: Coords | null) => void;          // the cursor over a shown line (null: it left)
@@ -102,12 +102,13 @@ export class Drawing {
             if (!this.tool_) { opts.onClick?.(e.coordinate); return; }
             if (dragged(this.tool_)) return;
             this.points.push(at(e));
-            if (this.tool_ === "point") { this.finish(); return; }
+            // A spot ends on its click, a Delta T on its second
+            if (this.tool_ === "point" || (this.tool_ === "delta" && this.points.length === 2)) { this.finish(); return; }
             this.redraw();
             opts.onChange?.();
         });
         map.on("dblclick", () => {
-            if (!this.tool_ || this.tool_ === "point") return;
+            if (!this.tool_ || this.tool_ === "point" || this.tool_ === "delta") return;
             // The double click's own two clicks each added the same last point
             if (this.points.length > 1) this.points.pop();
             if (!this.finish()) this.redraw();
@@ -134,17 +135,20 @@ export class Drawing {
         this.redraw();
     }
 
-    // Ends the line or area being drawn: false when it has too few points
+    // Ends the line, area or Delta T being drawn: false when it has too few points
     finish(): boolean {
         const g = geometryOf(this.tool_, this.points);
         if (!g) return false;
+        const delta = this.tool_ === "delta";
         this.stop();
-        this.opts.onDone(g);
+        if (delta) this.opts.onDone(g, {kind: "delta"});
+        else this.opts.onDone(g);
         return true;
     }
 
-    // A measured geometry on the map, with its hottest and coldest pixels
-    show(geometry: Geometry | null | undefined, result?: Result | null, unit?: unknown) {
+    // A measured geometry on the map, with its hottest and coldest pixels; a Delta T (shape) as its line between its
+    // two spots
+    show(geometry: Geometry | null | undefined, result?: Result | null, unit?: unknown, shape?: Shape | null) {
         const {fromCoords} = this.opts;
         this.shown.clear();
         this.line = null;
@@ -154,6 +158,15 @@ export class Drawing {
         if (geometry.type === "Point") {
             f = new Feature({geometry: new Point(fromCoords(geometry.coordinates))});
             f.setStyle(SPOT);
+        } else if (isDelta(shape) && geometry.type === "LineString") {
+            // No profile to follow along it
+            f = new Feature({geometry: new LineString(this.mapped(geometry.coordinates))});
+            f.setStyle(STYLE);
+            geometry.coordinates.forEach((c) => {
+                const end = new Feature({geometry: new Point(fromCoords(c))});
+                end.setStyle(SPOT);
+                this.shown.addFeature(end);
+            });
         } else if (geometry.type === "LineString") {
             f = this.line = new Feature({geometry: new LineString(this.mapped(geometry.coordinates))});
             f.setStyle(STYLE);

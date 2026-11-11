@@ -110,6 +110,10 @@ export const Minus = (p: Props) => (<Icon {...p}><path d="M5 12h14"/></Icon>);
 export const Polygon = (p: Props) => (<Icon {...p}><path d="M12 3l9 7-4 10H7L3 10z"/></Icon>);
 export const Square = (p: Props) => (<Icon {...p}><rect x="4" y="4" width="16" height="16"/></Icon>);
 export const Circle = (p: Props) => (<Icon {...p}><circle cx="12" cy="12" r="9"/></Icon>);
+// Delta T: two spots joined by a line, under a Δ
+export const DeltaT = (p: Props) => (
+    <Icon {...p}><path d="M12 3l5 9H7z"/><circle cx="4.5" cy="18.5" r="2"/><circle cx="19.5" cy="18.5" r="2"/>
+        <path d="M6.5 18.5h11"/></Icon>);
 export const MapPin = (p: Props) => (
     <Icon {...p}><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></Icon>);
 export const MoveTo = (p: Props) => (

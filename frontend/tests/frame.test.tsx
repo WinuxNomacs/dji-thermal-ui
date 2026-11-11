@@ -395,6 +395,26 @@ describe("the frame page", () => {
         expect($("#measure-card")).toBeNull();
     });
 
+    it("measures a Delta T on the frame, in pixels", async () => {
+        const start = vi.spyOn(Drawing.prototype, "start");
+        const result = {kind: "LineString", first: 22.2, second: 27.2, delta_t: 5, length: 5, valid_pixels: 22, reason: null};
+        const fetchFn = server(routes({["POST " + BASE + "/measure"]: {result, unit: "C", approximate: false}}));
+        await open(fetchFn);
+        expect([...document.querySelectorAll(".map-tools [data-tool]")].map((b) => b.getAttribute("data-tool")).at(-1)).toBe("delta");
+        click($(".map-tools [data-tool=delta]")!);
+        await ticks();
+        const d = start.mock.contexts.at(-1) as unknown as Drawing;
+        d.stop();
+        const line = {type: "LineString", coordinates: [[2.5, 3.5], [7.5, 3.5]]};
+        (d as unknown as {opts: {onDone: (g: unknown, s: unknown) => void}}).opts.onDone(line, {kind: "delta"});
+        await ticks(40);
+        const body = JSON.parse(String(fetchFn.mock.calls.filter((c) => c[0] === BASE + "/measure").at(-1)![1]!.body));
+        expect(body).toMatchObject({target: "frame", frame: A, geometry: line, shape: {kind: "delta"}});
+        const card = byId("result").textContent;
+        expect(card).toContain("Length5 px");
+        expect(card).toContain("ΔT+5.00 °C");
+    });
+
     it("measures the frame again with the parameters changed, beside it as converted", async () => {
         const changedInfo = {...INFO, changed: {...INFO, stats: {...INFO.stats, mean: 22.5}}};
         const fetchFn = server(routes({[BASE + "/frame?frame=" + enc(A) + "&emissivity=0.98"]: changedInfo}));

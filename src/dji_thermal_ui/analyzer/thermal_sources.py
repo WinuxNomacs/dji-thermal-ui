@@ -35,7 +35,7 @@ def angle(value):
 
 def sources(path, geometry, names, models, source_bands=True):
     """
-    The frames that saw a geometry (a checked Point or Polygon, lon/lat) on a mosaic (path: its GeoTIFF, with the
+    The frames that saw a geometry (a checked Point, LineString or Polygon, lon/lat) on a mosaic (path: its GeoTIFF, with the
     source frame band and, since dji-thermal-cli 1.4.0, the frame pixel bands; names: its frames, as its source band
     numbers them; models: its frame models or None): {frames, reason}, the frames the mosaic used first. Without
     source_bands (a visual mosaic of its own, which has its models) the frame used is the most nadir that saw it, as
@@ -52,7 +52,24 @@ def sources(path, geometry, names, models, source_bands=True):
         to_lonlat = Transformer.from_crs(ds.crs, "EPSG:4326", always_xy=True)
         if geometry['type'] == 'Point':
             return spot(ds, to_crs, geometry['coordinates'], names, models, source_bands)
+        if geometry['type'] == 'LineString':
+            geometry = strip(geometry, to_crs, to_lonlat)
+            if geometry is None:
+                return {'frames': [], 'reason': 'outside_raster'}
         return area(ds, to_crs, to_lonlat, geometry, names, models, source_bands)
+
+
+def strip(line, to_crs, to_lonlat):
+    """A line's (lon/lat) frames are those of a strip along it as wide as a spot's disc (a Delta T's ends are spots):
+    the strip as a lon/lat Polygon, or None far from the mosaic's zone"""
+    from .raster.measurements import POINT_RADIUS, projected
+
+    shape = projected(line, to_crs)
+    if not all(math.isfinite(v) for v in shape.bounds):
+        return None
+    x, y = shape.buffer(POINT_RADIUS).exterior.xy
+    lon, lat = to_lonlat.transform(np.asarray(x), np.asarray(y))
+    return {'type': 'Polygon', 'coordinates': [[[float(a), float(b)] for a, b in zip(lon, lat)]]}
 
 
 def spot(ds, to_crs, lonlat, names, models, source_bands=True):

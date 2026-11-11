@@ -112,7 +112,7 @@ const framesTab = (v: Maybe<Mosaics>) => (v?.tabs || []).some((x) => x.tab === "
 // A visual mosaic of its own shows its Heights tab here (it has a DSM, imported with it), asked for in the address, and
 // its Visual tab in VisualViewer
 const onHeights = (v: Mosaics, tab: Maybe<string>) => tab === "heights" && (v.tabs || []).some((x) => x.tab === "heights");
-const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line");
+const SOURCES_TOOLS = TOOLS.filter(([x]) => x !== "line" && x !== "delta");
 // A tab whose shapes are measured: a temperature mosaic, not under the visual one
 const measures = (tab: Maybe<string>, visual: boolean) => !!tab && isTemperatureTab(tab) && !visual;
 
@@ -478,7 +478,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     useEffect(() => {
         if (!current || current.res !== undefined || current.error || !temperature) return;
         const n = ++asked.current.measure, c = current;
-        sendJson(base + "/measure", "POST", {target: c.target, geometry: c.geometry, isotherm: isoValue, parameters: params})
+        sendJson(base + "/measure", "POST", {target: c.target, geometry: c.geometry, shape: c.shape, isotherm: isoValue,
+                                             parameters: params})
             .then((res) => readJson<Measured>(res))
             .then((r) => {
                 if (n !== asked.current.measure) return;
@@ -492,7 +493,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const d = drawing.current;
         if (!d) return;
         d.showCursor(null);
-        if (current && current.target === tab) d.show(current.geometry, current.res?.result, unit);
+        if (current && current.target === tab) d.show(current.geometry, current.res?.result, unit, current.shape);
         else d.clear();
     }, [current, tab, ready]);
 
@@ -1090,13 +1091,13 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                     <div class="map-stage">
                         <div class="viewer-map" id="map" ref={mapEl}/>
                         {ready && drawable && <Toolbar tool={tools.tool} count={tools.count} tools={measuring ? TOOLS : SOURCES_TOOLS}
-                            label={measuring ? "Drawing tools: measure a spot, a line or an area" : "Drawing tools: the frames that saw a spot or an area"}
+                            label={measuring ? "Drawing tools: measure a spot, a line, an area or a Delta T" : "Drawing tools: the frames that saw a spot or an area"}
                             onTool={pickTool} onFinish={() => { drawing.current?.finish(); syncTools(); }}/>}
                         {ready && measuring && res && <MeasureCard m={res} unit={unit} index={index}
                             onIndex={(i) => showIndex(i, res.res?.result?.profile?.points)}
                             name={saveName} error={measureError} onName={setSaveName} onSave={save} onClose={closeCard}
-                            onKeep={hasSources(res.geometry) ? () => keepCard(res) : undefined}
-                            onSources={hasSources(res.geometry) ?
+                            onKeep={hasSources(res.geometry, res.shape) ? () => keepCard(res) : undefined}
+                            onSources={hasSources(res.geometry, res.shape) ?
                                 () => openSources(res.geometry, {shape: res.shape, measurement: res.saved || undefined}) : undefined}/>}
                     </div>
                     {ready && t && shown && <div class="viewer-panel">

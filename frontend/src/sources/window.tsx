@@ -10,7 +10,7 @@ import {formatCapture, type Maybe} from "../core/format";
 import {inField} from "../measure/drawing";
 import {temp} from "../measure/measure";
 import {type Colouring, colourValues, readValues} from "../map/colour";
-import {emptyText, frameName, NO_MODELS, ringToVisual, shareText, type SourceFrame, type Sources, stepped, svgPoints,
+import {emptyText, frameName, KIND_NAMES, NO_MODELS, ringToVisual, shareText, type SourceFrame, type Sources, stepped, svgPoints,
         toVisual, type VisualPair} from "./sources";
 
 // One mosaic's frames, and how they are drawn and linked to
@@ -174,7 +174,7 @@ export function SourcesWindow({groups, name, anchor, about, visual: startVisual 
         }
     }
 
-    const what = res ? (res.kind === "Point" ? "Spot" : "Area") + (frames.length ? " · " + frames.length +
+    const what = res ? KIND_NAMES[res.kind] + (frames.length ? " · " + frames.length +
         (frames.length === 1 ? " frame" : " frames") : "") : "";
     const here = res?.point?.temperature;
     let body;
@@ -182,7 +182,7 @@ export function SourcesWindow({groups, name, anchor, about, visual: startVisual 
     else if (res === null) body = <p class="text-danger">{group.error || "Could not find the frames."}</p>;
     else if (!f) body = <p class="message">{emptyText(res)}</p>;
     else {
-        const pixel = res.kind === "Point" ? f.pixel : null, outline = res.kind === "Polygon" ? f.outline : undefined;
+        const pixel = res.kind === "Point" ? f.pixel : null, outline = res.kind !== "Point" ? f.outline : undefined;
         const pair = group.visual && f.visual ? f.visual : null;
         body = (<>
             {group.visual && <div class="segmented sources-camera" role="group" aria-label="Camera">
@@ -206,7 +206,8 @@ export function SourcesWindow({groups, name, anchor, about, visual: startVisual 
                 {group.href && <a class="button default small" href={group.href(f.frame)}><Image/> Open frame</a>}
             </div>
             {res.kind === "Point" && !f.pixel && <p class="message">The spot is not marked: build the mosaics again to know where it is.</p>}
-            {res.kind === "Polygon" && !res.models && <p class="message">The area is not outlined without the frames' models.</p>}
+            {res.kind !== "Point" && !res.models && <p class="message">The {KIND_NAMES[res.kind] === "Area" ? "area" : "Delta T"} is
+                not outlined without the frames' models.</p>}
             {here !== null && here !== undefined && <p class="sources-here">The mosaic here: <strong>{temp(here, group.unit)}</strong></p>}
             <ol class="sources-list">
                 {frames.map((x, k) => <FrameRow key={x.frame} f={x} current={k === i} onPick={() => setIndex(k)}/>)}
