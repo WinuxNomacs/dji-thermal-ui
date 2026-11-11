@@ -26,7 +26,7 @@ def csv_rows(client, c):
     return list(csv.DictReader(io.StringIO(res.content.decode("utf-8-sig"))))
 
 
-def test_spots_lines_and_areas_measure_the_mosaics_and_their_surroundings(api):
+def test_spots_lines_and_areas_measure_the_mosaics_without_their_surroundings(api):
     c, _ = converted(api)
     url = "{}/{}/measure".format(CONVERSIONS, c.id)
     res = api.post(url, {'target': 'as_converted', 'geometry': mosaic_square(32, 16, 48, 32),
@@ -41,9 +41,9 @@ def test_spots_lines_and_areas_measure_the_mosaics_and_their_surroundings(api):
     assert r['area'] == pytest.approx((15.6 * 0.05) ** 2, abs=1e-3)
     # The hottest pixel: the east edge's (the first of its column)
     assert r['max_location'] == pytest.approx(mosaic_lonlat(47.5, 16.5), abs=1e-7)
-    # Half of it is above its mean; the surroundings are a ring around it, its ΔT their difference
+    # Half of it is above its mean; nothing is measured around it
     assert r['isotherm'] == {'pixels': 128, 'share': 0.5}
-    assert r['delta_t'] == pytest.approx(r['mean'] - r['surroundings'], abs=1e-6)
+    assert 'surroundings' not in r and 'delta_t' not in r
     assert sum(r['histogram'][0]) == 256
     # The harmonized mosaic is half a degree warmer
     h = api.post(url, {'target': 'harmonized', 'geometry': mosaic_square(32, 16, 48, 32)}, format='json').data['result']

@@ -9,7 +9,7 @@ Spots, lines, areas, boxes, circles and Delta Ts are measured on mosaics, in the
 
 The drawing tools are on the map's top edge, beside the zoom buttons. A shape drawn is measured in a card on the map,
 closed with × or Escape. The card gives the temperature at a spot, or a shape's mean, min, max and standard
-deviation, its surroundings and the ΔT against them, the share inside the isotherm, its pixels, and a line's profile
+deviation, the share inside the isotherm, its pixels, and a line's profile
 or an area's histogram.
 
 On the card:

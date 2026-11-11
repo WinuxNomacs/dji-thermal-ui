@@ -75,8 +75,8 @@ def test_a_saved_spot_or_area_measurement_is_saved_as_a_finding_with_its_figures
     f = res.data
     assert (f['geometry'], f['shape'], f['conversion'], f['tab']) == (m['geometry'], {'kind': 'box'}, c.id, 'as_converted')
     r = m['values']['result']
-    assert (f['temperatures']['min'], f['temperatures']['max'], f['temperatures']['mean'], f['temperatures']['delta_t']) == (
-        r['min'], r['max'], r['mean'], r['delta_t'])
+    assert (f['temperatures']['min'], f['temperatures']['max'], f['temperatures']['mean']) == (r['min'], r['max'], r['mean'])
+    assert 'surroundings' not in f['temperatures'] and 'delta_t' not in f['temperatures']
     assert f['temperatures']['approximate'] is True and f['temperatures']['parameters'] == {'emissivity': 0.9}
     # Without frame models, the frames the mosaic used: the box is in the second's half
     assert f['models'] is False and [x['frame'] for x in f['frames']] == [FILES[1]]

@@ -159,6 +159,15 @@ describe("a measure's heights", () => {
     });
 });
 
+describe("a measure's figures", () => {
+    it("leave out the surroundings and the ΔT with them that a measurement saved before kept", () => {
+        const old = {kind: "Polygon", mean: 30, min: 25, max: 40, std: 2, surroundings: 25, delta_t: 5, area: 4, valid_pixels: 9};
+        const labels = resultRows([old as Parameters<typeof resultRows>[0][0]], "C").map((r) => r.label);
+        expect(labels).toEqual(["Area", "Mean", "Min", "Max", "Std dev", "Pixels"]);
+        expect(measurementFigure({id: 1, name: "Roof", target: "as_converted", values: {result: old}}, "C")).toBe("30.0 °C");
+    });
+});
+
 describe("a Delta T", () => {
     const RESULT = {kind: "LineString", first: 20, second: 21.5, delta_t: 1.5, length: 4.3, valid_pixels: 2};
 

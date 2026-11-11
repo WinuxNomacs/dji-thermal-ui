@@ -6,6 +6,13 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Removed
+
+- **Surroundings** and the **ΔT** against them are no longer measured for a spot, a line, an area, a box or a circle:
+  the measurement card, the measurements' CSV (its Surroundings column; ΔT is a Delta T's alone), findings and the
+  flight report leave them out. A measurement or finding saved before keeps them stored, not shown. The Delta T
+  tool's ΔT and Delta T Around Pointer are unchanged.
+
 ### Added
 
 - **Measuring on the compare page**: each pane's map has all six measuring tools (Spot, Line, Area, Box, Circle and

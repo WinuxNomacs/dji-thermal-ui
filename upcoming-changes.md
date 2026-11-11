@@ -8,13 +8,13 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: S1 (Surroundings removed from the measurement data), then C1 (ΔT under the pointers on the compare
-page, and its floating tip), then B1 (Banded in place of Equalized). See "Requests of 2026-11-11 (second batch)".
+**Up next**: C1 (ΔT under the pointers on the compare page, and its floating tip), then B1 (Banded in place of
+Equalized). See "Requests of 2026-11-11 (second batch)".
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-CM1 (measuring on the compare page), D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+S1 (Surroundings out of the measurement data), CM1 (measuring on the compare page), D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
@@ -63,10 +63,14 @@ Taken as defaults (not asked):
   built), added to the compare page by its readouts and remembered with the same setting. Its tip is in the pane under
   the pointer: that pane's temperature and "ΔT (A − B)"; in the difference pane, A − B; in the overlay, A, B and ΔT.
 
-### S1: Surroundings out of the measurement data
+### S1: Surroundings out of the measurement data (built)
 
-The server's measure (`thermal_measure`, `raster/measurements.py`'s ring), the card's rows, the CSV's columns, the
-findings' figures and the flight report; tests and the docs (Measuring, Findings, Reports).
+Built: `raster/measurements.py`'s `inside()` (the ring gone), `thermal_measure.region_stats` without `surroundings` and
+`delta_t`; `api.py`'s CSV (no Surroundings column; ΔT only for a `delta` shape) and `FINDING_TEMPERATURES`; the front
+end's `resultRows` (ΔT only with a Delta T's spots), `measurementFigure` and `findings.temperaturesText`, which also hide
+what older measurements and findings kept stored. Tests: `tests/test_raster_measurements.py`,
+`test_api_measurements.py`, `test_api_findings.py`; `frontend/tests/panel.test.tsx` ("a measure's figures"),
+`findings.test.ts`. The viewer-measure, compare-measure, viewer-finding and finding-form screenshots remade.
 
 ### C1: ΔT under the pointers on the compare page, and its floating tip
 

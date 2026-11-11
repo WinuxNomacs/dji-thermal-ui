@@ -6,8 +6,7 @@ report is made of.
 ## 1. Measure
 
 The drawing tools are on the map's top edge: a spot, a line, an area, a box, a circle and a Delta T. Choose the box and drag it
-across the place to measure. A card on the map gives its temperatures, the ΔT against its surroundings, and a
-histogram.
+across the place to measure. A card on the map gives its temperatures and a histogram.
 
 ![A box measured on the mosaic, with its card](../assets/screenshots/viewer-measure.png)
 

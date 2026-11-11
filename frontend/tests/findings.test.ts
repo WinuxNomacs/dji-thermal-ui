@@ -22,10 +22,11 @@ describe("a finding", () => {
         expect(fieldsBody({...v, kept: ["b.JPG"]}, FRAMES)).toHaveProperty("kept", ["b.JPG"]);
     });
 
-    it("shows a spot's temperature, an area's maximum and mean, or a Delta T's two spots, with ΔT in the user's unit", () => {
+    it("shows a spot's temperature, an area's maximum and mean, or a Delta T's two spots with ΔT, in the user's unit", () => {
         expect(temperaturesText({value: 31.5, unit: "C"})).toBe("31.50 °C");
+        // An area saved before the surroundings were left out keeps its ΔT with them, no longer shown
         expect(temperaturesText({max: 40, mean: 30, delta_t: 5, unit: "C", approximate: true}))
-            .toBe("max 40.00 °C · mean 30.00 °C · ΔT +5.00 °C (corrected, approximate)");
+            .toBe("max 40.00 °C · mean 30.00 °C (corrected, approximate)");
         expect(temperaturesText({first: 20, second: 21.5, delta_t: 1.5, length: 4.3, unit: "C"}))
             .toBe("ΔT +1.5 °C (20.0 °C → 21.5 °C)");
         setUserUnit("F");

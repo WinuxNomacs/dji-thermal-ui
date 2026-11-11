@@ -48,8 +48,7 @@ export interface Result {
     min?: number | null;
     max?: number | null;
     std?: number | null;
-    surroundings?: number | null;
-    delta_t?: number | null;
+    delta_t?: number | null;       // a Delta T's: the second spot's minus the first's
     // A Delta T's spots: the pixel under each one
     first?: number | null;
     second?: number | null;
@@ -147,7 +146,7 @@ export function isothermText(value: Maybe<string>, unit: unknown): string {
 
 export interface Row {label: string; values: string[]; difference?: string}
 
-type Key = "value" | "mean" | "min" | "max" | "std" | "surroundings" | "delta_t" | "first" | "second";
+type Key = "value" | "mean" | "min" | "max" | "std" | "delta_t" | "first" | "second";
 
 // A measure's figures, as rows of [label, value(s)]: a column per result (as converted, then changed) and their
 // difference when there are two (the second's minus the first's; minus: the first's minus the second's, as A − B)
@@ -186,8 +185,8 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean, m
         figure("Max", "max", t, d);
     }
     figure("Std dev", "std", (v) => delta(v, unit), d);
-    figure("Surroundings", "surroundings", t, d);
-    figure("ΔT", "delta_t", d, d);
+    // ΔT is a Delta T's alone (one saved before 2026-11-11 may keep its ΔT with the surroundings, no longer shown)
+    if (results.some((r) => "first" in r || "second" in r)) figure("ΔT", "delta_t", d, d);
     const share = results.map((r) => r.isotherm ? r.isotherm.share : null);
     if (share.some(isPresent)) {
         rows.push({label: "In the isotherm", values: share.map(percent),
@@ -249,7 +248,7 @@ export function paramsText(parameters: Maybe<Record<string, number | null>>, fie
         f[1].toLowerCase() + " " + (f[3] ? shownTemp(p[f[0]]!, unit) + " " + symbol() : String(p[f[0]]))).join(", ");
 }
 
-// A saved measurement's main figure: a spot's temperature, a Delta T's ΔT with its two spots, else the mean and ΔT; on
+// A saved measurement's main figure: a spot's temperature, a Delta T's ΔT with its two spots, else the mean; on
 // a visual mosaic, its size. A frame's measurement measured again keeps the frame as converted in result, its own in
 // changed.
 export function measurementFigure(m: Measurement, unit: unknown): string {
@@ -257,7 +256,7 @@ export function measurementFigure(m: Measurement, unit: unknown): string {
     if (m.target === "visual") return sizeText(r);
     if (isDelta(m.values?.shape)) return deltaFigure(r, unit);
     if (r.kind === "Point") return temp(isPresent(r.value) ? r.value : r.mean, unit, 1);
-    return temp(r.mean, unit, 1) + (isPresent(r.delta_t) ? ", ΔT " + signed(r.delta_t, unit, 1) : "");
+    return temp(r.mean, unit, 1);
 }
 
 // A Delta T's figure: "ΔT +1.2 °C (20.1 °C → 21.3 °C)"
