@@ -10,8 +10,8 @@ All notable changes are recorded here. The format follows
 
 - **Delta T Around Pointer**, at the top of Pointer info on the viewer and the frame page: the pixel under the cursor
   against the mean of the pixels in a circle around it (ΔT), with the circle's mean, lowest and highest temperature,
-  under the values at the cursor. A thin circle outlines it on the map; a slider sets its radius (0.5 to 10 m on a
-  mosaic, 3 to 50 px on a frame). It stays on a point clicked. The point requests take `around=<radius>` for it.
+  under the values at the cursor. A thin circle outlines it on the map, with its ΔT in a small tip beside it; a slider
+  sets its radius (0.25 m, then 0.5 to 10 m on a mosaic, 3 to 50 px on a frame). It stays on a point clicked. The point requests take `around=<radius>` for it.
 - **Temperature On Pointer**, a box in Pointer info's heading on the viewer and the frame page: the temperature under
   the cursor in a small tip beside it, once the cursor rests, and none where there is no temperature. Off until
   ticked, then remembered in the browser.
