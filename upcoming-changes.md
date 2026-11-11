@@ -8,14 +8,52 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned. P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`,
-2026-11-09), with its list BR1–BR9, is built.
+**Up next**: D1 (Delta T Around Pointer), decided; see "Delta T" below.
+
+P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
+built.
 
 J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
-**Then**: nothing planned yet.
+**Then**: D2 (the Delta T measuring tool), decided.
+
+## Delta T
+
+Asked in `new.md` on 2026-11-11:
+
+1. Under Pointer info, a checkbox and a slider for a new option "Delta T Around Pointer": the ΔT of the pixel under
+   the pointer (or the one clicked) against the pixels within a circle around it, whose size the user sets. The
+   circle is shown as a thin outline around the pointer; the figures go under Pointer info in the detail pane.
+2. A measuring tool "Delta T" next to Circle: two points placed on the map, the ΔT between them, saved as a box or a
+   line is.
+
+Builds on P1 (Pointer info and its point request) and on the measuring tools (`measure/`, `thermal_measure.py`).
+
+The user's decisions (2026-11-11):
+
+- **ΔT around the pointer** = the pixel's temperature minus the mean of the circle's other pixels. Shown: the pixel,
+  the circle's mean, min and max, ΔT and the pixels counted.
+- **The radius is on the ground:** metres on a mosaic (0.5–10 m, 2 m at first), pixels on the frame page (3–50 px, 10
+  at first); the outline grows and shrinks with the zoom.
+- **The Delta T tool's points are measured as a Spot's** (the mean of its small disc: 0.25 m on a mosaic, 1.5 px on a
+  frame); ΔT = the second point minus the first.
+- **The tool has** Save measurement, Keep as finding, and the frame page as well as the viewer.
+
+### D1: Delta T Around Pointer
+
+On the viewer (temperature tabs only) and the frame page. Both point requests take `around=<radius>` and answer the
+circle's figures with the point's, so Pointer info, the tip and D1 stay one request. The box and the radius (one for
+mosaics, one for frames) are remembered in the browser. The outline follows the pointer; while a click keeps Pointer
+info's values it stays on the kept point, whose figures are shown.
+
+### D2: the Delta T tool
+
+A two-point line with the shape `{kind: "delta"}` (as a box or circle is a polygon with its shape), ending itself on
+the second click. Each end measured as a Spot; the result has `first`, `second`, `delta_t` (second − first) and the
+length. Saved measurements, findings (the flight report too), the CSV (First spot and Second spot columns) and the
+GeoJSON take it.
 
 ## P1: Temperature On Pointer
 
