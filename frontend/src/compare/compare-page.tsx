@@ -46,7 +46,8 @@ import {autoRange, autoReach, clampShare, clampSplit, type Comparable, comparedT
         resultIn, SPLIT_LIMITS, SPLIT_STEP, SWIPE_LIMITS, VISUAL} from "./compare";
 import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {type SourceGroup, SourcesWindow} from "../sources/window";
-import {DifferenceReadout, StyleBar} from "./pane";
+import {PointerTemperatureBox, type PointerTip, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
+import {compareTipText, DifferenceReadout, differenceText, StyleBar} from "./pane";
 
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
 const CURSOR = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2})})});
@@ -80,10 +81,11 @@ interface Draft {title: string; fields: FindingFields; pane: PaneName; mosaic: n
 interface Drawn {key: string; thermal?: ThermalLayer; tiles?: TileLayer<XYZ>; unclip: () => void}
 
 // A pane's map and what is on it: what it draws (bottom first; the top one, top, cut at swipe % across while it shows
-// A over B), the cursor of the other pane, the spot or area drawn, the findings, the drawing
+// A over B), the cursor of the other pane, the spot or area drawn, the findings, the drawing, Temperature On Pointer's tip
 interface PaneMap {
     map: OlMap; legend: HTMLDivElement; drawn: Drawn[]; top: string | null; swipe: number | null;
     marks: VectorSource; cursor: Feature | null; shape: VectorSource; findings: VectorSource; drawing: Drawing;
+    tip: PointerTip;
 }
 
 // What a pane's map draws: its values (key: which mosaic or difference) and how they are coloured, or the visual tiles
@@ -152,6 +154,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     // The findings of the datasets shown, by dataset
     const [findings, setFindings] = useState<Record<number, Finding[]>>({});
     const [showFindings, setShowFindings] = useState(wanted.findings !== false);
+    const [tipOn, setTipOn] = usePointerTemperature();
     const [draft, setDraft] = useState<Draft | null>(null);
     const [card, setCard] = useState<Card | null>(null);
     const [saveName, setSaveName] = useState("");
@@ -180,8 +183,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const toOpen = useRef<Record<PaneName, Maybe<number>>>({a: wanted.a_finding, b: wanted.b_finding});
 
     // What the maps' handlers (set up once) read: this render's values
-    const now = useRef({panes, linked, picks, findings, list, card});
-    now.current = {panes, linked, picks, findings, list, card};
+    const now = useRef({panes, linked, picks, findings, list, card, tipOn});
+    now.current = {panes, linked, picks, findings, list, card, tipOn};
 
     const palettes = panes?.a.info.palettes || [];
     const key = panes ? diffKey(panes) : "";
@@ -236,6 +239,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             setStatus({text: "Could not load the mosaics.", error: true});
         }
     }
+
+    useEffect(() => { hideTips(); }, [tipOn]);
 
     useEffect(() => {
         start();
@@ -301,7 +306,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             },
         });
         const pm: PaneMap = maps.current[n] = {map: m, legend, drawn: [], top: null, swipe: null, marks: vectorLayer(m, 20),
-                                               cursor: null, shape: vectorLayer(m, 9), findings: findingsShown, drawing};
+                                               cursor: null, shape: vectorLayer(m, 9), findings: findingsShown, drawing,
+                                               tip: pointerTip(m)};
         // The cursor marked in the other pane
         m.on("pointermove", (e) => {
             const o = maps.current[other(n)];
@@ -312,12 +318,14 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 o.marks.addFeature(o.cursor);
             }
             if (pm.cursor) { pm.marks.removeFeature(pm.cursor); pm.cursor = null; }
+            hideTips();
             if (e.dragging) return;
             clearTimeout(hover.current);
-            hover.current = setTimeout(() => readout(e.coordinate), HOVER_MS);
+            hover.current = setTimeout(() => readout(e.coordinate, n), HOVER_MS);
         });
         m.getViewport()?.addEventListener("mouseleave", () => {
             clearTimeout(hover.current);
+            hideTips();
             asked.current.point++;
             NAMES.forEach((x) => {
                 const xm = maps.current[x];
@@ -434,14 +442,28 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             .then((r) => r.ok ? r.data : null, () => null);
     }
 
-    // Both mosaics' values at the cursor: each pane's readout is made from them
-    function readout(at: Coordinate) {
+    // Both mosaics' values at the cursor (in pane from): each pane's readout is made from them, and the tip beside it
+    function readout(at: Coordinate, from: PaneName) {
         const n = ++asked.current.point, p = now.current.panes;
         if (!p) return;
         Promise.all([pointOf(p.a, at), pointOf(p.b, at)]).then(([a, b]) => {
-            if (n === asked.current.point) setUnder({a, b});    // else the cursor moved on
+            if (n !== asked.current.point) return;      // the cursor moved on
+            setUnder({a, b});
+            showTip(from, at, a, b);
         });
     }
+
+    // Temperature On Pointer: the tip in the pane the cursor is in, or none where it has nothing to say
+    function showTip(n: PaneName, at: Coordinate, a: Point | null, b: Point | null) {
+        const q = now.current, p = q.panes?.[n], tip = maps.current[n]?.tip;
+        if (!tip || !p || !q.tipOn || isAlone(p)) return tip?.hide();
+        const shows = p.diff ? "difference" : p.overlay ? "overlay" : "mosaic";
+        const text = compareTipText(shows, n === "a" ? a : b, p.info.unit, a, b, q.panes!.a.info.unit, q.panes!.b.info.unit);
+        if (text) tip.show(at, text);
+        else tip.hide();
+    }
+
+    function hideTips() { NAMES.forEach((x) => maps.current[x]?.tip.hide()); }
 
     function sourcesOf(p: PaneState, geometry: Geometry): Promise<{res: Sources | null; error?: string}> {
         return sendJson(sourcesUrl(api, p.conv, readTab(p)), "POST", {geometry}).then((res) => readJson<Sources>(res))
@@ -980,11 +1002,18 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     p.diff || p.overlay ? <DifferenceReadout a={under.a} b={under.b} aUnit={panes!.a.info.unit}
                                                              bUnit={panes!.b.info.unit} difference={p.diff}/> :
                     isAlone(p) ? <span class="message">A visual mosaic, with no values to read.</span> :
-                    <Readout point={under[n]} unit={p.info.unit} frameUrl={frameUrl(p.conv)} pinned={false} onFollow={() => undefined}/>}
+                    <Readout point={under[n]} unit={p.info.unit} frameUrl={frameUrl(p.conv)} pinned={false} onFollow={() => undefined}
+                             after={underDelta()}/>}
             </div>}
             {p && picks[n] && <SourcesWindow name={"compare-" + n} anchor={mapEls[n].current} groups={pickedGroups(n)}
                                              about={findingAbout(n)} visual={onVisual} onClose={() => closePick(n)}/>}
         </div>);
+    }
+
+    // ΔT (A − B) under the cursor, a row of a mosaic pane's readout when both mosaics have a temperature there
+    function underDelta(): [string, string][] {
+        const d = under && panes ? differenceText(under.a, under.b, panes.a.info.unit, panes.b.info.unit) : null;
+        return d ? [["ΔT (A − B)", d]] : [];
     }
 
     const sharedShown = locked && !!shared && thermalDrawn.length > 0;
@@ -1014,10 +1043,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     <StyleBar key="shared" style={drawnStyle("shared")} palettes={palettes} what="both mosaics"
                               onChange={(c, done) => changeStyle("shared", c, done)} onAuto={() => auto("shared")}/>
                 </div>}
-                {thermalDrawn.length > 0 && <div class="compare-isotherm" id="isotherm"
-                                                 title="Both panes' temperature mosaics: the pixels inside it keep the palette">
-                    <span class="compare-isotherm-label">Isotherm</span>
+                {thermalDrawn.length > 0 && <div class="compare-isotherm" id="isotherm">
+                    <span class="compare-isotherm-label"
+                          title="Both panes' temperature mosaics: the pixels inside it keep the palette">Isotherm</span>
                     <Isotherm state={isoTyped} error={isoError} onChange={changeIsotherm}/>
+                    <PointerTemperatureBox on={tipOn} onChange={setTipOn}
+                                           title="Beside the pointer once it rests: the temperature under it and ΔT (A − B)"/>
                 </div>}
                 <div class="compare-body" ref={body}>
                     {paneView("a")}

@@ -45,14 +45,17 @@ export function pointerText(t: unknown, unit: unknown): string | null {
     return typeof t === "number" && Number.isFinite(t) ? temp(t, unit) : null;
 }
 
+// The box (in Pointer info's heading; by the compare page's isotherm)
+export function PointerTemperatureBox({on, onChange, title = "The temperature under the pointer, beside it, once it rests"}:
+                                      {on: boolean; onChange: (on: boolean) => void; title?: string}) {
+    return (<label class="pointer-temperature-box" title={title} onClick={(e) => e.stopPropagation()}>
+        <input type="checkbox" id="pointer-temperature" checked={on}
+               onChange={(e) => onChange((e.currentTarget as HTMLInputElement).checked)}/>
+        Temperature On Pointer
+    </label>);
+}
+
 // Pointer info's heading, with the box at its right
 export function PointerHead({on, onChange}: {on: boolean; onChange: (on: boolean) => void}) {
-    return (<span class="measurements-head"><span>Pointer info</span>
-        <label class="pointer-temperature-box" title="The temperature under the pointer, beside it, once it rests"
-               onClick={(e) => e.stopPropagation()}>
-            <input type="checkbox" id="pointer-temperature" checked={on}
-                   onChange={(e) => onChange((e.currentTarget as HTMLInputElement).checked)}/>
-            Temperature On Pointer
-        </label>
-    </span>);
+    return (<span class="measurements-head"><span>Pointer info</span><PointerTemperatureBox on={on} onChange={onChange}/></span>);
 }

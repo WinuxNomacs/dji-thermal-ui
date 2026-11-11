@@ -15,6 +15,10 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- **ΔT under the cursor on the compare page**: the readout under a pane of a mosaic gives **ΔT (A − B)** just below
+  the temperature, and **Temperature On Pointer** (at the right of the Isotherm row) shows a tip beside the cursor with
+  the pane's temperature and ΔT (A − B), A − B in the difference, A, B and ΔT in the overlay.
+
 - **Measuring on the compare page**: each pane's map has all six measuring tools (Spot, Line, Area, Box, Circle and
   Delta T). A shape drawn in either pane is measured on both mosaics, in a card with the columns A, B and A − B (a
   line's profile with both curves); **Save measurement** saves it on both datasets, and **Source frames** opens the
