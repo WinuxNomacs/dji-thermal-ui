@@ -37,7 +37,7 @@ import {type Colouring, isothermRange, SEAMS} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
-import {type AroundOutline, aroundOutline, aroundQuery, DeltaControls, DeltaFigures, usePointerDelta} from "../map/pointer-delta";
+import {type AroundOutline, aroundOutline, aroundQuery, DeltaControls, DeltaFigures, deltaText, usePointerDelta} from "../map/pointer-delta";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "./canvas";
 import {MosaicExport} from "./export";
 import {VisualViewer} from "./visual-viewer";
@@ -566,6 +566,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                 if (n !== asked.current.point) return false;    // the cursor moved on
                 readAt.current = at;
                 showTip(at, p);
+                around.current?.label(at, now.current.deltaShown && p?.valid ? deltaText(p.around, now.current.unit) : null);
                 const frame = p && p.valid && p.frame || null;
                 if (pin && kept && frame === kept) {
                     follow();

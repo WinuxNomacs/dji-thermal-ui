@@ -735,6 +735,7 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
 .pointer-delta { margin-bottom: 6px; }
 .pointer-delta-box { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
 #pointer-delta-figures { margin-top: 6px; }
+.map-tip.pointer-delta-tip { font-size: 13px; font-variant-numeric: tabular-nums; }
 
 /* Measuring (the viewer and the frame page) */
 .tools { display: flex; flex-wrap: wrap; }

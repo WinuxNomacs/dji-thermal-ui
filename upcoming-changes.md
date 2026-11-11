@@ -8,7 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: D2 (the Delta T measuring tool), decided; see "Delta T" below.
+**Up next**: D1b (Delta T Around Pointer: a 0.25 m radius and a ΔT tip beside the circle), then D2 (the Delta T
+measuring tool), both decided; see "Delta T" below.
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
@@ -55,6 +56,24 @@ On the viewer (temperature tabs only) and the frame page. Both point requests ta
 circle's figures with the point's, so Pointer info, the tip and D1 stay one request. The box and the radius (one for
 mosaics, one for frames) are remembered in the browser. The outline follows the pointer; while a click keeps Pointer
 info's values it stays on the kept point, whose figures are shown.
+
+### D1b: a 0.25 m radius and a ΔT tip
+
+Asked in `new.md` on 2026-11-11, after D1:
+
+1. Add 0.25 to the radii Delta T Around Pointer's slider offers.
+2. A small tip just outside the circle that shows its ΔT and follows the circle, much as Temperature On Pointer's tip
+   does.
+
+Decided (the defaults, the user having said to carry on):
+
+- **0.25 m** becomes the mosaic slider's first stop: 0.25, 0.5, 1, 1.5 … 10 m (the other steps stay 0.5 m). The frame
+  page's slider stays 3–50 px: a quarter pixel holds nothing.
+- **The ΔT tip** is shown whenever Delta T Around Pointer is ticked (no box of its own), on the viewer and the frame
+  page: "ΔT +1.2 °C", in the Temperature On Pointer tip's style, just right of the circle's rightmost point, so the two
+  tips never cover each other. Like the other tip it goes as the circle moves and comes back once the pointer rests
+  and the point is read; while a click keeps a point it stays beside that point's circle, and a new radius reads it
+  again. No tip where the circle has no ΔT.
 
 ### D2: the Delta T tool
 

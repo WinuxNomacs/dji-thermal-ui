@@ -600,7 +600,8 @@ describe("Delta T Around Pointer on the frame page", () => {
         click(box);
         await ticks();
         const slider = document.querySelector("[name=pointer-delta-radius]") as HTMLInputElement;
-        expect([slider.value, slider.min, slider.max]).toEqual(["10", "3", "50"]);
+        // It stops at every pixel from 3 to 50: 10 at first
+        expect([slider.value, slider.min, slider.max]).toEqual(["7", "0", "47"]);
         move([1, -1]);
         // 10 px of the frame each way
         const e = outline()[0].getGeometry().getExtent();
@@ -608,12 +609,15 @@ describe("Delta T Around Pointer on the frame page", () => {
         await rest();
         expect(points().at(-1)).toContain("around=10");
         expect(byId("pointer-delta-figures").textContent).toContain("ΔT+1.25 °C");
+        const deltaTip = document.querySelector(".pointer-delta-tip") as HTMLElement;
+        expect([deltaTip.hidden, deltaTip.textContent]).toEqual([false, "ΔT +1.25 °C"]);
         expect(localStorage.getItem("thermal-analyzer.pointer-delta-radius.frame")).toBeNull();
-        slider.value = "20";
+        slider.value = "17";
         slider.dispatchEvent(new Event("input", {bubbles: true}));
         await ticks();
         expect(localStorage.getItem("thermal-analyzer.pointer-delta-radius.frame")).toBe("20");
         m.getViewport()!.dispatchEvent(new MouseEvent("mouseleave"));
         expect(outline()).toHaveLength(0);
+        expect(deltaTip.hidden).toBe(true);
     });
 });

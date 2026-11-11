@@ -8,6 +8,7 @@ import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
 import type {Finding} from "../src/findings/findings";
+import {RADIUS_SLIDERS} from "../src/map/pointer-delta";
 import {Drawing} from "../src/measure/drawing";
 import type {Geometry} from "../src/measure/measure";
 import {SLIDERS} from "../src/viewer/view";
@@ -1043,6 +1044,9 @@ describe("Delta T Around Pointer", () => {
     const box = () => byId("pointer-delta") as HTMLInputElement;
     const slider = () => $("[name=pointer-delta-radius]") as HTMLInputElement | null;
     const figures = () => document.getElementById("pointer-delta-figures");
+    const deltaTip = () => $(".pointer-delta-tip") as HTMLElement;
+    // The slider's position of a radius (it stops at RADIUS_SLIDERS' radii)
+    const stop = (r: number) => String(RADIUS_SLIDERS.mosaic.stops.indexOf(r));
     const asked = (fetchFn: ReturnType<typeof server>) => calls(fetchFn).filter((c) => c.includes("/point?"));
     // The circle's outline on the map (its own layer, above the drawing's)
     function circle(m: OlMap): number[] | null {
@@ -1068,7 +1072,7 @@ describe("Delta T Around Pointer", () => {
         click(box());
         await ticks();
         expect(localStorage.getItem("thermal-analyzer.pointer-delta")).toBe("1");
-        expect(slider()!.value).toBe("2");
+        expect(slider()!.value).toBe(stop(2));
         expect($("[data-section=cursor] .slider-value")!.textContent).toBe("2.0 m");
         moveMap(map(), WEST);
         // The outline follows the pointer at once, 2 m across each way
@@ -1080,9 +1084,16 @@ describe("Delta T Around Pointer", () => {
         expect(figures()!.textContent).toContain("Circle mean20.00 °C");
         expect(figures()!.textContent).toContain("ΔT+1.50 °C");
         expect(figures()!.textContent).toContain("Pixels120");
+        // Its ΔT in a tip just right of the circle, gone as the circle moves until the pointer rests again
+        expect(deltaTip().hidden).toBe(false);
+        expect(deltaTip().textContent).toBe("ΔT +1.50 °C");
+        moveMap(map(), MIDDLE);
+        expect(deltaTip().hidden).toBe(true);
+        await rest();
+        expect(deltaTip().hidden).toBe(false);
 
         // The radius is remembered and asked for
-        change(slider()!, "5", "input");
+        change(slider()!, stop(5), "input");
         await ticks();
         expect(localStorage.getItem("thermal-analyzer.pointer-delta-radius.mosaic")).toBe("5");
         moveMap(map(), MIDDLE);
@@ -1091,6 +1102,7 @@ describe("Delta T Around Pointer", () => {
 
         map().getViewport()!.dispatchEvent(new MouseEvent("mouseleave"));
         expect(circle(map())).toBeNull();
+        expect(deltaTip().hidden).toBe(true);
         click(box());
         await ticks();
         expect(slider()).toBeNull();
@@ -1103,15 +1115,16 @@ describe("Delta T Around Pointer", () => {
         const map = viewerMap();
         const fetchFn = around(server(routes(OUTLINES)));
         await open(fetchFn);
-        expect(slider()!.value).toBe("3");
+        expect(slider()!.value).toBe(stop(3));
         clickMap(map(), WEST);
         await ticks(40);
         expect(asked(fetchFn).at(-1)).toContain("around=3");
         moveMap(map(), MIDDLE);
         await rest();
         expect(centre(circle(map())!)[0]).toBeCloseTo(fromLonLat(WEST)[0], 0);
+        expect(deltaTip().hidden).toBe(false);
         const n = asked(fetchFn).length;
-        change(slider()!, "6", "input");
+        change(slider()!, stop(6), "input");
         await rest();
         const again = asked(fetchFn).slice(n);
         expect(again).toHaveLength(1);
@@ -1121,6 +1134,24 @@ describe("Delta T Around Pointer", () => {
         click(byId("follow"));
         await ticks();
         expect(circle(map())).toBeNull();
+    });
+
+    it("offers a quarter of a metre, then every half metre to 10 m", async () => {
+        localStorage.setItem("thermal-analyzer.pointer-delta", "1");
+        const map = viewerMap();
+        const fetchFn = around(server(routes(OUTLINES)));
+        await open(fetchFn);
+        expect([slider()!.min, slider()!.max]).toEqual(["0", "20"]);
+        change(slider()!, "0", "input");
+        await ticks();
+        expect($("[data-section=cursor] .slider-value")!.textContent).toBe("0.25 m");
+        expect(localStorage.getItem("thermal-analyzer.pointer-delta-radius.mosaic")).toBe("0.25");
+        moveMap(map(), WEST);
+        await rest();
+        expect(asked(fetchFn).at(-1)).toContain("around=0.25");
+        change(slider()!, "1", "input");
+        await ticks();
+        expect($("[data-section=cursor] .slider-value")!.textContent).toBe("0.5 m");
     });
 
     it("is not offered on the Visual tab", async () => {
