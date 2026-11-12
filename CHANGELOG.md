@@ -6,6 +6,10 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-12
+
+The first release on PyPI: `uv tool install dji-thermal-ui`.
+
 ### Changed
 
 - **Banded replaces Equalized**: the Image panel's Tone list (viewer and frame page) and the compare page's

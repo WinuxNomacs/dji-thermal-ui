@@ -34,9 +34,9 @@ page you are on, from the copy installed, so it matches that version and works o
 
 ## Install
 
-dji-thermal-ui is not on PyPI yet. From a built wheel, it installs as a command with
-`uv tool install dji_thermal_ui-<version>-py3-none-any.whl` (or `pipx install` with the same file). It needs
-Python 3.12 or newer.
+dji-thermal-ui is on PyPI and installs as a command with `uv tool install dji-thermal-ui` (or
+`pipx install dji-thermal-ui`). It needs Python 3.12 or newer. The wheel carries the pages and the help, so installing
+needs no Node.js.
 
 From a clone, for development: `uv sync`, `npm ci && npm run build` (the pages are built with Node.js) and
 `uv run --only-group docs zensical build --strict` (the help), then `uv run dji-thermal-ui`.
