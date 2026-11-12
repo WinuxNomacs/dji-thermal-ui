@@ -21,9 +21,9 @@ bandwidth while it is on: for both panes while the palette is shared, else for e
 ## Under the cursor
 
 The cursor is marked in the other pane too, and the line under each pane gives the values there once it rests. In a
-pane of a mosaic: its **Temperature**, and under it **ΔT**, the temperature of the pane the cursor is in minus the
-other's, in your unit: A − B with the cursor over pane A, B − A over pane B. Both panes give the same ΔT (left out where
-either mosaic has no temperature there). In the difference and in the overlay: A and B, and the difference's A − B.
+pane of a mosaic: its **Temperature**, and under it **ΔT**, that pane's temperature minus the other's, in your unit:
+A − B under pane A, B − A under pane B, so the two give it both ways (left out where either mosaic has no temperature
+there). In the difference and in the overlay: A and B, and the difference's A − B.
 
 **Temperature On Pointer**, at the right of the Isotherm row, shows a small tip beside the cursor once it rests, in
 the pane it is in: that pane's temperature and its ΔT; in the difference, A − B (what it draws); in the overlay, A, B

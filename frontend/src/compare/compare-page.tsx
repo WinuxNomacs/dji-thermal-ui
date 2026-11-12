@@ -147,8 +147,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const [swipe, setSwipe] = useState(wanted.swipe ?? 50);
     const [dragging, setDragging] = useState(false);
     const [diffs, setDiffs] = useState<Record<string, DiffInfo | null>>({});     // null: it could not be loaded
-    // Both mosaics' values under the cursor, and the pane it is in (ΔT is that pane's minus the other's)
-    const [under, setUnder] = useState<(Record<PaneName, Maybe<Point>> & {from: PaneName}) | undefined>(undefined);
+    const [under, setUnder] = useState<Record<PaneName, Maybe<Point>> | undefined>(undefined);
     const [tools, setTools] = useState<Record<PaneName, {tool: Tool | null; count: number}>>(
         {a: {tool: null, count: 0}, b: {tool: null, count: 0}});
     const [picks, setPicks] = useState<Record<PaneName, Pick | null>>({a: null, b: null});
@@ -448,7 +447,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         if (!p) return;
         Promise.all([pointOf(p.a, at), pointOf(p.b, at)]).then(([a, b]) => {
             if (n !== asked.current.point) return;      // the cursor moved on
-            setUnder({a, b, from});
+            setUnder({a, b});
             showTip(from, at, a, b);
         });
     }
@@ -983,17 +982,17 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                                                              bUnit={panes!.b.info.unit} difference={p.diff}/> :
                     isAlone(p) ? <span class="message">A visual mosaic, with no values to read.</span> :
                     <Readout point={under[n]} unit={p.info.unit} frameUrl={frameUrl(p.conv)} pinned={false} onFollow={() => undefined}
-                             after={underDelta()}/>}
+                             after={underDelta(n)}/>}
             </div>}
             {p && picks[n] && <SourcesWindow name={"compare-" + n} anchor={mapEls[n].current} groups={pickedGroups(n)}
                                              about={findingAbout(n)} visual={onVisual} onClose={() => closePick(n)}/>}
         </div>);
     }
 
-    // ΔT under the cursor, the pane it is in minus the other, a row of a mosaic pane's readout when both mosaics have a
-    // temperature there
-    function underDelta(): [string, string][] {
-        const d = under && panes ? paneDelta(under.from, under.a, under.b, panes.a.info.unit, panes.b.info.unit) : null;
+    // ΔT under the cursor in pane n's readout: its mosaic minus the other's (A's A − B, B's B − A), when both mosaics
+    // have a temperature there
+    function underDelta(n: PaneName): [string, string][] {
+        const d = under && panes ? paneDelta(n, under.a, under.b, panes.a.info.unit, panes.b.info.unit) : null;
         return d ? [["ΔT", d]] : [];
     }
 
