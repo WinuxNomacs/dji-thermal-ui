@@ -2,6 +2,9 @@ import TileLayer from "ol/layer/Tile";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import type XYZ from "ol/source/XYZ";
 import OlMap from "ol/Map";
+import type Feature from "ol/Feature";
+import type Point from "ol/geom/Point";
+import type Style from "ol/style/Style";
 import MapBrowserEvent from "ol/MapBrowserEvent";
 import {fromLonLat} from "ol/proj";
 import {render} from "preact";
@@ -521,6 +524,18 @@ describe("measuring on the compare page", () => {
         expect($("#pane-b #measure-card .measure-note")!.textContent).toBe("First spot on A Nadir · Mosaic, second on B Other · Mosaic");
         expect(rows("b")).toEqual(["Length | 4.20 m", "First spot | 31.50 °C", "Second spot | 33.25 °C", "ΔT | +1.75 °C"]);
         expect($("#pane-b #measure-card [name=sources]")).toBeNull();
+        // Each pane draws its own spot alone, numbered, with no line between the two images
+        const drawn = (m: OlMap) => (marks(m) as Feature[]).map((f) => {
+            const text = (f.getStyle() as Style | undefined)?.getText?.()?.getText();
+            const g = f.getGeometry()!;
+            return {type: g.getType(), text, at: g.getType() === "Point" ? (g as Point).getCoordinates().map((x) => Math.round(x)) : null};
+        });
+        const at = (c: number[]) => fromLonLat(c).map((x) => Math.round(x));
+        [[maps[0], "1", [10.003, 50.003]], [maps[1], "2", [10.006, 50.006]]].forEach(([m, n, c]) => {
+            const d = drawn(m as OlMap);
+            expect(d.some((x) => x.type === "LineString")).toBe(false);
+            expect(d.filter((x) => x.text)).toEqual([{type: "Point", text: n, at: at(c as number[])}]);
+        });
         // Saved on both datasets, each with its own end
         const name = $("#pane-b #measure-card [name=name]")!;
         name.value = "Seam";

@@ -15,6 +15,7 @@ import CircleStyle from "ol/style/Circle";
 import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
+import Text from "ol/style/Text";
 import {fixedTip, hoverTips, vectorLayer} from "../map/map";
 import {boxCoords, circleCoords, type Coords, type Geometry, geometryOf, isAcross, isDelta, lengthText, type Result, type Shape,
         temp, type Tool} from "./measure";
@@ -24,6 +25,11 @@ const DRAG_CLICK_MS = 400;
 const COLOR = "#00e5ff";
 const STYLE = new Style({stroke: new Stroke({color: COLOR, width: 2}), fill: new Fill({color: "rgba(0, 229, 255, 0.1)"})});
 const SPOT = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke({color: COLOR, width: 2})})});
+// A Delta T across two images: the end on this one, numbered as the first or the second spot
+const acrossSpot = (n: number) => new Style({image: new CircleStyle({radius: 6, stroke: new Stroke({color: COLOR, width: 2})}),
+                                             text: new Text({text: String(n), offsetX: 13, font: "bold 13px sans-serif",
+                                                             fill: new Fill({color: COLOR}),
+                                                             stroke: new Stroke({color: "rgba(0, 0, 0, 0.8)", width: 3})})});
 const VERTEX = new Style({image: new CircleStyle({radius: 3, stroke: new Stroke({color: COLOR, width: 2})})});
 const CURSOR = new Style({image: new CircleStyle({radius: 5, stroke: new Stroke({color: "#fff", width: 2}),
                                                   fill: new Fill({color: "#ffea00"})})});
@@ -150,7 +156,7 @@ export class Drawing {
     }
 
     // A measured geometry on the map, with its hottest and coldest pixels; a Delta T (shape) as its line between its
-    // two spots
+    // two spots, one across two images (with own) as its own end alone, numbered
     show(geometry: Geometry | null | undefined, result?: Result | null, unit?: unknown, shape?: Shape | null) {
         const {fromCoords} = this.opts;
         this.shown.clear();
@@ -161,6 +167,10 @@ export class Drawing {
         if (geometry.type === "Point") {
             f = new Feature({geometry: new Point(fromCoords(geometry.coordinates))});
             f.setStyle(SPOT);
+        } else if (isAcross(shape) && geometry.type === "LineString" && (shape!.own === 0 || shape!.own === 1)) {
+            // Only its own end: the other is on the other dataset's image
+            f = new Feature({geometry: new Point(fromCoords(geometry.coordinates[shape!.own]))});
+            f.setStyle(acrossSpot(shape!.own + 1));
         } else if ((isDelta(shape) || isAcross(shape)) && geometry.type === "LineString") {
             // No profile to follow along it
             f = new Feature({geometry: new LineString(this.mapped(geometry.coordinates))});
