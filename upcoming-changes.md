@@ -8,10 +8,8 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: RR1 (deleting a flight or a project names the Delta Ts across it that go from other flights too), to be
-planned with the user. See "Release review (2026-11-12)".
-
-**Then**: RR2 (the cross-image Delta T's order, as the user saw it reversed: only once reproduced).
+**Up next**: nothing planned. RR2 (the cross-image Delta T's order, as the user saw it reversed) waits until it is
+seen again. See "Release review (2026-11-12)".
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
@@ -37,13 +35,11 @@ plan the rest. Done on branch `review-fixes` (the changelog's Fixed list says wh
 
 To plan:
 
-- **RR1, deleting a flight or a project:** its datasets' Delta Ts across into another flight (or project: the compare
-  page lists any flight) go from there too, as for a dataset, but the dialogs (the flight page's and the projects
-  list's Delete) don't say so. Needs the server to count them (`ThermalMeasurement` rows whose `other` is in the flight
-  or project and whose own conversion is not), in the flight's and the project's answers or a check before deleting.
-  Decision for the user: name them in the dialog (as a dataset's delete now does), or also offer to keep a copy (the
-  measurements' CSV) first.
-- **RR2, the cross-image Delta T's order:** the user once saw a card in pane A saying the first spot was on B after
+- **RR1, deleting a flight or a project:** its datasets' Delta Ts across into another flight (or project: the comp- **RR1, deleting a flight or a project: decided, no change.** Its datasets' Delta Ts across into another flight or
+  project go with it, and the dialogs (the flight page's, the flights list's, the project page's and the projects
+  list's Delete) don't name them. The user's decision (2026-11-12): delete them silently, as they are obviously no
+  longer needed.
+r
   clicking A then B. Not reproduced (A WebODM, B dataset 1 Harmonized, as in their screenshot: right way round).
   Since then each pane numbers its spot 1 or 2, so a repeat shows which click counted first; planned only once seen
   again, with the steps before it.
