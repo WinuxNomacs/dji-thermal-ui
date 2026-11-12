@@ -664,7 +664,9 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             d.showCursor(null);
             if (!card || !panes) return d.clear();
             const x = readsOf(n, panes[n]).find((y) => card.res?.[y]?.result);
-            d.show(card.geometry, x ? card.res![x]!.result : null, x ? panes[x].info.unit : undefined, card.shape);
+            // A Delta T across: each pane its own spot alone
+            const shape = card.across ? {...card.shape!, own: n === card.across ? 0 : 1} : card.shape;
+            d.show(card.geometry, x ? card.res![x]!.result : null, x ? panes[x].info.unit : undefined, shape);
         });
     }, [card, mapsMade]);
 
