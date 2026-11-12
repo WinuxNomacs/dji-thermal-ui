@@ -98,6 +98,12 @@ def saved(path):
     return envfile.file_value(path, 'WEBODM_PASSWORD')
 
 
+def shown(res):
+    """What an answer shows, less the .env file's path (a Windows runner's holds "runneradmin")"""
+    data = json.loads(res.content)
+    return json.dumps({k: v for k, v in data.items() if k not in ('file', 'source')})
+
+
 def save(api, url=URL, username="admin", password=PASSWORD):
     return api.put(SETTINGS, {'url': url, 'username': username, 'password': password}, format='json')
 
@@ -111,8 +117,8 @@ def test_a_login_webodm_takes_is_written_to_dotenv_and_shown_masked_without_the_
                         'source': str(env_file), 'configured': True, 'file': str(env_file),
                         'nodes': [{'id': 1, 'label': "node-odx-1", 'online': True},
                                   {'id': 2, 'label': "spare:3001", 'online': False}]}
-    assert PASSWORD not in res.content.decode() and "admin" not in res.content.decode()
-    assert PASSWORD not in api.get(SETTINGS).content.decode()
+    assert PASSWORD not in shown(res) and "admin" not in shown(res)
+    assert PASSWORD not in shown(api.get(SETTINGS))
     assert env_file.read_text() == "WEBODM_URL=%s\nWEBODM_USERNAME=admin\nWEBODM_PASSWORD=%s\n" % (URL, saved(env_file))
     assert not POSIX or env_file.stat().st_mode & 0o777 == 0o600
     assert webodm.config() == {'url': URL, 'username': "admin", 'password': PASSWORD, 'unreadable': False,
@@ -276,7 +282,7 @@ def test_creating_the_account_adds_only_its_name_and_password_and_saves_it_not_t
                         'nodes': [{'id': 1, 'label': "node-odx-1", 'online': True},
                                   {'id': 2, 'label': "spare:3001", 'online': False}]}
     for secret in (PASSWORD, NEW_PASSWORD, "admin"):
-        assert secret not in res.content.decode() and secret not in env_file.read_text()
+        assert secret not in shown(res) and secret not in env_file.read_text()
     assert webodm.config()['username'] == "dji-thermal-ui-api-user"
     assert webodm.config()['password'] == NEW_PASSWORD
     assert env_file.read_text().startswith("OTHER=1\n")
