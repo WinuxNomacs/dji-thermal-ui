@@ -47,7 +47,7 @@ import {autoRange, autoReach, clampShare, clampSplit, type Comparable, comparedT
 import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {type SourceGroup, SourcesWindow} from "../sources/window";
 import {PointerTemperatureBox, type PointerTip, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
-import {compareTipText, DifferenceReadout, differenceText, StyleBar} from "./pane";
+import {compareTipText, DifferenceReadout, paneDelta, StyleBar} from "./pane";
 
 const HOVER_MS = 120;       // the readout asks for the point the cursor rests on, not every point it crosses
 const CURSOR = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke({color: "#fff", width: 2})})});
@@ -147,7 +147,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const [swipe, setSwipe] = useState(wanted.swipe ?? 50);
     const [dragging, setDragging] = useState(false);
     const [diffs, setDiffs] = useState<Record<string, DiffInfo | null>>({});     // null: it could not be loaded
-    const [under, setUnder] = useState<Record<PaneName, Maybe<Point>> | undefined>(undefined);
+    // Both mosaics' values under the cursor, and the pane it is in (ΔT is that pane's minus the other's)
+    const [under, setUnder] = useState<(Record<PaneName, Maybe<Point>> & {from: PaneName}) | undefined>(undefined);
     const [tools, setTools] = useState<Record<PaneName, {tool: Tool | null; count: number}>>(
         {a: {tool: null, count: 0}, b: {tool: null, count: 0}});
     const [picks, setPicks] = useState<Record<PaneName, Pick | null>>({a: null, b: null});
@@ -447,7 +448,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         if (!p) return;
         Promise.all([pointOf(p.a, at), pointOf(p.b, at)]).then(([a, b]) => {
             if (n !== asked.current.point) return;      // the cursor moved on
-            setUnder({a, b});
+            setUnder({a, b, from});
             showTip(from, at, a, b);
         });
     }
@@ -457,7 +458,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         const q = now.current, p = q.panes?.[n], tip = maps.current[n]?.tip;
         if (!tip || !p || !q.tipOn || isAlone(p)) return tip?.hide();
         const shows = p.diff ? "difference" : p.overlay ? "overlay" : "mosaic";
-        const text = compareTipText(shows, n === "a" ? a : b, p.info.unit, a, b, q.panes!.a.info.unit, q.panes!.b.info.unit);
+        const text = compareTipText(shows, n, a, b, q.panes!.a.info.unit, q.panes!.b.info.unit);
         if (text) tip.show(at, text);
         else tip.hide();
     }
@@ -989,10 +990,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         </div>);
     }
 
-    // ΔT (A − B) under the cursor, a row of a mosaic pane's readout when both mosaics have a temperature there
+    // ΔT under the cursor, the pane it is in minus the other, a row of a mosaic pane's readout when both mosaics have a
+    // temperature there
     function underDelta(): [string, string][] {
-        const d = under && panes ? differenceText(under.a, under.b, panes.a.info.unit, panes.b.info.unit) : null;
-        return d ? [["ΔT (A − B)", d]] : [];
+        const d = under && panes ? paneDelta(under.from, under.a, under.b, panes.a.info.unit, panes.b.info.unit) : null;
+        return d ? [["ΔT", d]] : [];
     }
 
     const sharedShown = locked && !!shared && thermalDrawn.length > 0;

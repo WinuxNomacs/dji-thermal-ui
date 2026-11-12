@@ -22,9 +22,10 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
-- **ΔT under the cursor on the compare page**: the readout under a pane of a mosaic gives **ΔT (A − B)** just below
-  the temperature, and **Temperature On Pointer** (at the right of the Isotherm row) shows a tip beside the cursor with
-  the pane's temperature and ΔT (A − B), A − B in the difference, A, B and ΔT in the overlay.
+- **ΔT under the cursor on the compare page**: the readout under a pane of a mosaic gives **ΔT** just below the
+  temperature, the pane the cursor is in minus the other (A − B over pane A, B − A over pane B), and **Temperature On
+  Pointer** (at the right of the Isotherm row) shows a tip beside the cursor with the pane's temperature and ΔT, A − B
+  in the difference, A, B and ΔT in the overlay.
 
 - **Measuring on the compare page**: each pane's map has all six measuring tools (Spot, Line, Area, Box, Circle and
   Delta T). A shape drawn in either pane is measured on both mosaics, in a card with the columns A, B and A − B (a

@@ -81,19 +81,29 @@ export function differenceText(a: Maybe<Point>, b: Maybe<Point>, aUnit: unknown,
     return signed((convertTemp(a!.temperature, aUnit) as number) - (convertTemp(b!.temperature, bUnit) as number), userUnit());
 }
 
-// Temperature On Pointer's tip in a pane, or null for none: in a pane of a mosaic, its temperature and ΔT (A − B); in
-// the difference, A − B; in the overlay, A, B and ΔT
-export function compareTipText(shows: "mosaic" | "difference" | "overlay", own: Maybe<Point>, ownUnit: unknown,
-                               a: Maybe<Point>, b: Maybe<Point>, aUnit: unknown, bUnit: unknown): string | null {
-    const d = differenceText(a, b, aUnit, bUnit);
-    if (shows === "difference") return d && "A − B " + d;
+// ΔT with the cursor in pane n: that pane's mosaic minus the other's (over A, A − B; over B, B − A); null unless both
+// have a temperature there
+export function paneDelta(n: "a" | "b", a: Maybe<Point>, b: Maybe<Point>, aUnit: unknown, bUnit: unknown): string | null {
+    return n === "a" ? differenceText(a, b, aUnit, bUnit) : differenceText(b, a, bUnit, aUnit);
+}
+
+// Temperature On Pointer's tip in pane n, or null for none: in a pane of a mosaic, its temperature and ΔT (this pane's
+// minus the other's); in the difference, A − B (what it shows); in the overlay, A, B and ΔT (this pane's minus the other's)
+export function compareTipText(shows: "mosaic" | "difference" | "overlay", n: "a" | "b", a: Maybe<Point>, b: Maybe<Point>,
+                               aUnit: unknown, bUnit: unknown): string | null {
+    if (shows === "difference") {
+        const d = differenceText(a, b, aUnit, bUnit);
+        return d && "A − B " + d;
+    }
+    const d = paneDelta(n, a, b, aUnit, bUnit);
     if (shows === "overlay") {
         const parts = [has(a) ? "A " + temp(a!.temperature, aUnit) : "", has(b) ? "B " + temp(b!.temperature, bUnit) : "",
                        d ? "ΔT " + d : ""].filter(Boolean);
         return parts.length ? parts.join(" · ") : null;
     }
+    const own = n === "a" ? a : b;
     if (!has(own)) return null;
-    return temp(own!.temperature, ownUnit) + (d ? " · ΔT (A − B) " + d : "");
+    return temp(own!.temperature, n === "a" ? aUnit : bUnit) + (d ? " · ΔT " + d : "");
 }
 
 // The values of both mosaics at a point, and A − B (each in its own unit; the difference in the user's) unless
