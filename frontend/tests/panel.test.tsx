@@ -166,6 +166,13 @@ describe("a measure's figures", () => {
         expect(labels).toEqual(["Area", "Mean", "Min", "Max", "Std dev", "Pixels"]);
         expect(measurementFigure({id: 1, name: "Roof", target: "as_converted", values: {result: old}}, "C")).toBe("30.0 °C");
     });
+
+    it("compared with a Delta T, give the Delta T's ΔT alone, not the surroundings' one a measurement saved before kept", () => {
+        const old = {kind: "Point", value: 30, mean: 30, std: 1, surroundings: 25, delta_t: 5, valid_pixels: 9};
+        const delta = {kind: "LineString", first: 20, second: 21.5, delta_t: 1.5, length: 4.3, valid_pixels: 2};
+        const dt = resultRows([old, delta] as Parameters<typeof resultRows>[0], "C").find((r) => r.label === "ΔT")!;
+        expect([...dt.values, dt.difference]).toEqual(["", "+1.50 °C", undefined]);
+    });
 });
 
 describe("a Delta T", () => {
