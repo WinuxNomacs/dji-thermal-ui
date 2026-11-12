@@ -229,22 +229,28 @@ describe("ΔT under the pointers on the compare page", () => {
 
     it("say what the tip shows in a pane of a mosaic, the difference and the overlay, and nothing without values", () => {
         const a = {valid: true, temperature: 20}, b = {valid: true, temperature: 70}, none = {valid: false};
-        expect(compareTipText("mosaic", b, "F", a, b, "C", "F")).toBe("21.11 °C · ΔT (A − B) -1.11 °C");
-        expect(compareTipText("mosaic", a, "C", a, none, "C", "F")).toBe("20.00 °C");
-        expect(compareTipText("mosaic", none, "F", a, none, "C", "F")).toBeNull();
-        expect(compareTipText("difference", null, "C", a, b, "C", "F")).toBe("A − B -1.11 °C");
-        expect(compareTipText("difference", null, "C", a, none, "C", "F")).toBeNull();
-        expect(compareTipText("overlay", null, "C", a, b, "C", "F")).toBe("A 20.00 °C · B 21.11 °C · ΔT -1.11 °C");
-        expect(compareTipText("overlay", null, "C", none, none, "C", "F")).toBeNull();
+        // ΔT is the pane under the pointer minus the other: over B, B − A; over A, A − B
+        expect(compareTipText("mosaic", "b", a, b, "C", "F")).toBe("21.11 °C · ΔT +1.11 °C");
+        expect(compareTipText("mosaic", "a", a, b, "C", "F")).toBe("20.00 °C · ΔT -1.11 °C");
+        expect(compareTipText("mosaic", "a", a, none, "C", "F")).toBe("20.00 °C");
+        expect(compareTipText("mosaic", "b", a, none, "C", "F")).toBeNull();
+        // The difference is A − B whichever pane it is in, as it is drawn
+        expect(compareTipText("difference", "b", a, b, "C", "F")).toBe("A − B -1.11 °C");
+        expect(compareTipText("difference", "a", a, none, "C", "F")).toBeNull();
+        expect(compareTipText("overlay", "b", a, b, "C", "F")).toBe("A 20.00 °C · B 21.11 °C · ΔT +1.11 °C");
+        expect(compareTipText("overlay", "a", none, none, "C", "F")).toBeNull();
     });
 
-    it("show ΔT (A − B) under the temperature in both panes' readouts, the same in each", async () => {
+    it("show ΔT under the temperature in both panes' readouts: the pane under the pointer minus the other", async () => {
         const maps = panesMaps();
         await open(pointsServer(), 12);
         await move(maps[1]);
-        expect(readout("a")).toBe("Temperature20.00 °CΔT (A − B)-1.11 °C");
-        expect(readout("b")).toBe("Temperature21.11 °CΔT (A − B)-1.11 °C");
+        expect(readout("a")).toBe("Temperature20.00 °CΔT+1.11 °C");
+        expect(readout("b")).toBe("Temperature21.11 °CΔT+1.11 °C");
         expect(tip("b").hidden).toBe(true);
+        await move(maps[0]);
+        expect(readout("a")).toBe("Temperature20.00 °CΔT-1.11 °C");
+        expect(readout("b")).toBe("Temperature21.11 °CΔT-1.11 °C");
     });
 
     it("leave ΔT out where one mosaic has no temperature", async () => {
@@ -262,7 +268,7 @@ describe("ΔT under the pointers on the compare page", () => {
         click(box);
         await ticks();
         await move(maps[1]);
-        expect([tip("b").hidden, tip("b").textContent]).toEqual([false, "21.11 °C · ΔT (A − B) -1.11 °C"]);
+        expect([tip("b").hidden, tip("b").textContent]).toEqual([false, "21.11 °C · ΔT +1.11 °C"]);
         expect(tip("a").hidden).toBe(true);
         expect(localStorage.getItem("thermal-analyzer.pointer-temperature")).toBe("1");
         // Gone as the pointer moves on, and unticked
