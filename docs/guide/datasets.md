@@ -98,4 +98,6 @@ are built (else **Frames**, or **Cancel** while it converts), and its menu (**Mo
 - **Use settings**, its settings put back in the New dataset form.
 - **Build mosaics**, when they were not built with it.
 - **Process in WebODM** (see [WebODM](webodm.md)).
-- **Rename** and **Delete**.
+- **Rename** and **Delete**. Deleting a dataset deletes its measurements too, and a
+  [Delta T across it and another dataset](measuring.md#a-delta-t-across-the-two-images) from that one as well: the
+  dialog names them first.

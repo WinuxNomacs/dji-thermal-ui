@@ -1433,6 +1433,23 @@ describe("the Datasets tab", () => {
         expect(field("normalize").checked).toBe(true);
     });
 
+    it("says before deleting a dataset that its Delta Ts across it and another go from that one too", async () => {
+        const base = API + "conversions/9";
+        const other = (id: number, name: string) => ({id, name, dataset: 2, dataset_name: "Roof"});
+        const fetchFn = routes({...DETAIL, conversions: [{...CONVERSION, mosaic_status: null, mosaic_files: []}]}, {
+            ["GET " + base + "/measurements"]: {measurements: [
+                {id: 1, name: "Seam", other: other(12, "Oblique")}, {id: 2, name: "Vent", other: null},
+                {id: 3, name: "Ridge", other: other(12, "Oblique")}, {id: 4, name: "Both tabs", other: other(9, "Nadir")}]},
+        });
+        page(fetchFn);
+        await ticks();
+        await openMenu();
+        click(menuItem("Delete")!);
+        await ticks(10);
+        expect(dialog()!.textContent).toContain("Delete Nadir and its files? Its 2 Delta Ts across it and Roof · Oblique will " +
+                                                "be deleted from that dataset too. This cannot be undone.");
+    });
+
     it("builds the mosaics, cancels, renames and deletes a conversion, saying when the server refuses", async () => {
         const base = API + "conversions/9";
         const fetchFn = routes({...DETAIL, conversions: [{...CONVERSION, mosaic_status: null, mosaic_files: []}]}, {
