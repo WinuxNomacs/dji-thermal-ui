@@ -30,15 +30,15 @@ plan the rest. Done on branch `review-fixes` (the changelog's Fixed list says wh
   and the compare page; Delta T Around Pointer and Banded used. No script error or failed request anywhere.
 - Fixed: the flight report's Datasets table overflowing on a phone; the compare page's maps out of level when a long
   name wrapped one pane's head; a waiting cross-image Delta T spot kept when a pane turned to the difference, overlay
-  or a visual mosaic; the compare page's tip box saying A − B; deleting a dataset not saying its cross-image Delta Ts
-  go from the other dataset too; two saved measurements compared showing an old surroundings' ΔT beside a Delta T's.
+  or a visual mosaic; the compare page's tip box saying A − B; two saved measurements compared showing an old surroundings' ΔT beside a Delta T's.
 
 To plan:
 
 - **RR1, deleting a flight or a project:** its datasets' Delta Ts across into another flight (or project: the comp- **RR1, deleting a flight or a project: decided, no change.** Its datasets' Delta Ts across into another flight or
   project go with it, and the dialogs (the flight page's, the flights list's, the project page's and the projects
   list's Delete) don't name them. The user's decision (2026-11-12): delete them silently, as they are obviously no
-  longer needed.
+  longer needed. Deleting a dataset does the same: its dialog named them for a while (a fix of the review), taken out
+  at the user's word for consistency.
 r
   clicking A then B. Not reproduced (A WebODM, B dataset 1 Harmonized, as in their screenshot: right way round).
   Since then each pane numbers its spot 1 or 2, so a repeat shows which click counted first; planned only once seen
