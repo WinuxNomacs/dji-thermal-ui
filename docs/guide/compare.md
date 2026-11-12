@@ -15,6 +15,8 @@ project's listed first. Open it with **Compare with…** in the viewer's header 
 - **The difference** of two mosaics, in one pane.
 
 The header's **Link the panes**, **Shared palette** and **Findings** stay pressed in, with a check, while they are on.
+The palette bar above the panes has the range, **Gamma**, **Sharpen** and [Banded](mosaics.md#banded), with its
+bandwidth while it is on: for both panes while the palette is shared, else for each pane.
 
 ## Under the cursor
 

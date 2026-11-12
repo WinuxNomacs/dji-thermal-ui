@@ -81,8 +81,8 @@ Under the mosaic is a street map or satellite imagery, chosen with the switch at
 
 The panel has, from the top:
 
-- **View:** the palette, the temperature range, **Image** (brightness and contrast, gamma, equalization and
-  sharpening) and **Isotherm**. They are redrawn as their sliders are dragged. The colour scale is labelled with its
+- **View:** the palette, the temperature range, **Image** (brightness and contrast, gamma, sharpening and
+  [Banded](#banded)) and **Isotherm**. They are redrawn as their sliders are dragged. The colour scale is labelled with its
   range's ends, and the line straight under it gives the mosaic's own lowest and highest temperatures.
 
   Under the range's fields is a cross of buttons. Its centre, **Auto**, sets the range to the mosaic's 2nd to 98th
@@ -96,6 +96,20 @@ The panel has, from the top:
 
 On a first visit Image, Parameters, This mosaic and The mosaic start folded, and each section then stays as it was
 left.
+
+### Banded
+
+**Banded**, in Image on a temperature tab, draws the temperatures in bands a **Bandwidth** wide (1 to 10 degrees of
+your unit, 5 at first), a band starting at every multiple of it (70, 75, 80 °F):
+
+- **Stepped:** each band in one colour, the palette's colour at its middle, so that each colour is a span of
+  temperatures.
+- **Banded:** the palette as it is, with every other band darker, so that the bands show as stripes across it.
+
+![The mosaic stepped every 5 °F, with Image open in the side panel](../assets/screenshots/viewer-banded.png)
+
+The colour scale shows the bands too. They change how the temperatures are drawn, never the temperatures; the link,
+the PNG exports and the mosaic report keep them.
 
 ## Pointer info
 
