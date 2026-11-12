@@ -59,7 +59,6 @@ def fresh_measurements():
     """Measurements are cached by file and settings: each test starts with none"""
     from dji_thermal_ui.analyzer import thermal_measure
     thermal_measure.measured.cache_clear()
-    thermal_measure.kept_histogram.cache_clear()
 
 
 @pytest.fixture(autouse=True)

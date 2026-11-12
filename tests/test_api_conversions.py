@@ -196,7 +196,7 @@ def test_a_mosaic_reports_text_view_and_measurements_left_out_are_saved_on_the_c
     url = "{}/{}".format(CONVERSIONS, c.id)
     assert api.get(url).data['report'] == {}
     view = {'tab': 'harmonized', 'palette': 'ironbow', 'range': [10, 30.5],
-            'adjust': {'gamma': 1.2, 'equalize': True, 'sharpen': 1}, 'findings': False, 'hidden': [3]}
+            'adjust': {'gamma': 1.2, 'sharpen': 1, 'bands': 'stepped', 'bandwidth': 5}, 'findings': False, 'hidden': [3]}
     res = api.patch(url, {'report': {'title': "Roof, harmonized", 'author': "A. Inspector", 'view': view,
                                      'left_out': [7, 2, 7]}}, format='json')
     assert res.status_code == 200, res.data

@@ -1,7 +1,8 @@
 """
 Values coloured as the browser colours them (colourValues in frontend/src/map/colour.ts), for the images the exports
-make: over a range, toned by the curve's shares, sharpened with an unsharp mask, an isotherm's pixels in the palette
-and the rest in grey, or each source frame in its own colour. The same values give the same bytes on both sides:
+make: over a range, toned by the curve's shares, sharpened with an unsharp mask, in bands (stepped: each band one
+colour; banded: every other band darkened), an isotherm's pixels in the palette and the rest in grey, or each source
+frame in its own colour. The same values give the same bytes on both sides:
 tests/fixtures/colouring.json holds what colourValues makes, and both test suites check against it.
 """
 import numpy as np
@@ -14,6 +15,8 @@ SIGMA_LIMITS = (0.5, 4.0)
 # A binomial blur: its variance is the spacing's square
 TAPS = (-2, -1, 0, 1, 2)
 WEIGHTS = (1, 4, 6, 4, 1)
+# Banded: every other band's colours this much darker
+BAND_DARKEN = 0.7
 # The pixels the unsharp mask reads around one: a strip of an image is coloured with this many more rows on each side
 MARGIN = int(np.floor(TAPS[-1] * SIGMA_LIMITS[1] + 0.5))
 
@@ -62,7 +65,7 @@ def isotherm_range(isotherm):
 
 
 def colour(values, colors, value_range=None, shares=None, sharpen=0.0, isotherm=None, index=False, sigma=1.0,
-           rows=None):
+           rows=None, bands=None):
     """
     Values (a 2-D array, NaN or not finite where there are none) coloured: an (h, w, 4) uint8 RGBA image, clear where
     there are no values.
@@ -75,6 +78,8 @@ def colour(values, colors, value_range=None, shares=None, sharpen=0.0, isotherm=
     :param index: each value its own colour (the source frames): colors[value mod length]
     :param sigma: the unsharp mask's, in the pixels drawn
     :param rows: (first, stop): only these rows are coloured (the others are the unsharp mask's margin)
+    :param bands: (mode, width, origin): the values in bands width wide, one's edge at origin (the values' unit);
+        stepped: each band the colour of its middle; banded: every other band darkened (None: neither)
     """
     v = np.asarray(values, dtype=np.float32).astype(np.float64)
     first, stop = rows or (0, v.shape[0])
@@ -117,6 +122,14 @@ def colour(values, colors, value_range=None, shares=None, sharpen=0.0, isotherm=
                 weight = weight + np.where(taken, wt, 0)
         with np.errstate(invalid='ignore', divide='ignore'):
             u = np.clip(u + sharpen * (u - total / weight), 0.0, 1.0)
+    odd = None
+    if bands:
+        mode, width, origin = bands
+        band = np.floor((low + u * span - origin) / width)
+        if mode == 'stepped':
+            u = np.clip((origin + (band + 0.5) * width - low) / span, 0.0, 1.0)
+        else:
+            odd = band % 2 == 1
     step = js_round(np.where(here, u, 0) * (TONE_STEPS - 1)).astype(np.int64)
     palette = toned_palette(colors, shares)
     out[..., :3] = palette[step]
@@ -126,6 +139,8 @@ def colour(values, colors, value_range=None, shares=None, sharpen=0.0, isotherm=
         with np.errstate(invalid='ignore'):
             outside = ~((vals >= isotherm[0]) & (vals <= isotherm[1]))
         out[..., :3] = np.where(outside[..., None], grey[step], out[..., :3])
+    if odd is not None:
+        out[..., :3] = np.where(odd[..., None], js_round(out[..., :3] * BAND_DARKEN), out[..., :3])
     out[..., 3] = 255
     out[~here] = 0
     return out

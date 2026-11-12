@@ -436,8 +436,10 @@ def report_view(v):
                                                   np.isfinite(n) for n in r) and r[0] < r[1]):
         refuse()
     a = v.get('adjust')
-    if a is not None and not (set(a) <= {'gamma', 'equalize', 'sharpen'} and
-                              all(isinstance(n, (int, float)) for n in a.values())):
+    # bands: "", stepped or banded, bandwidth in the user's unit (equalize: a view kept before it was replaced by them)
+    if a is not None and not (isinstance(a, dict) and set(a) <= {'gamma', 'equalize', 'sharpen', 'bands', 'bandwidth'} and
+                              all(isinstance(n, (int, float)) for k, n in a.items() if k != 'bands') and
+                              a.get('bands', '') in ('',) + thermal_measure.BAND_MODES):
         refuse()
     if not all(isinstance(i, int) and not isinstance(i, bool) for i in v.get('hidden') or []):
         refuse()
@@ -1105,18 +1107,15 @@ class MosaicExportView(DatasetView):
 
 
 def mosaic_colouring(conversion, asked):
-    """A mosaic PNG's palette (or the source frames' colours) and equalization over its range, as the viewer draws
-    the tab"""
+    """A mosaic PNG's palette (or the source frames' colours), as the viewer draws the tab"""
     tab, view = asked['tab'], asked['view']
     if tab == 'source_frame':
-        return encoded(frame_colormap()[i] for i in range(FRAME_COLORS)), None
+        return encoded(frame_colormap()[i] for i in range(FRAME_COLORS))
     palettes = {p['key']: p['color_map'] for p in viewer_palettes(conversion)}
     key = view['palette'] or default_palette(conversion, viewer_palettes(conversion))
     if key not in palettes:
         raise ValidationError({'error': "Not a palette: " + key})
-    path, band = mosaic_raster(conversion, tab)
-    curve = mosaic_curve(conversion, tab, path, band, asked['correction'], *view['range'], view['adjust'])
-    return palettes[key], curve
+    return palettes[key]
 
 
 class ExportDownloadView(DatasetView):
@@ -1133,12 +1132,12 @@ class ExportDownloadView(DatasetView):
                 name, data = exports.frames_export(dataset, conversion, asked, asked['view']['unit'])
             else:
                 conversion = get_conversion(asked['conversion'])
-                colors = curve = None
+                colors = None
                 if asked['format'] == 'png' and asked['tab'] != thermal_mosaics.VISUAL:
                     asked = dict(asked, view=dict(asked['view'], range=asked['view']['range'] or
                                                   mosaic_default_range(conversion, asked['tab'])))
-                    colors, curve = mosaic_colouring(conversion, asked)
-                name, data = exports.mosaic_export(conversion, asked, colors, curve)
+                    colors = mosaic_colouring(conversion, asked)
+                name, data = exports.mosaic_export(conversion, asked, colors)
         except exports.ExportError as e:
             raise ValidationError({'error': str(e)}) from None
         stem, ext = os.path.splitext(name)
@@ -1770,7 +1769,6 @@ VIEWER_COLORMAPS = ('ironbow', 'gray', 'gray_r', 'lava', 'arctic', 'rainbow', 'h
                     'viridis', 'jet')
 DJI_PREFIX = 'dji_'
 FRAME_COLORS = 256      # the source frame tab colours frame n with colour n % FRAME_COLORS
-HISTOGRAM_FILE = 'histogram-{}.json'    # a mosaic tab's histogram for the equalization, in the viewer folder
 # The values the browser colours (data tiles): float32, this where there is no data (WebGL cannot test for NaN), with
 # DATA_GUTTER pixels around a mosaic's tile for the browser's sharpening to read past its edges
 DATA_TILE_SIZE = 256
@@ -1822,21 +1820,6 @@ def viewer_palettes(conversion):
     dji = [{'key': DJI_PREFIX + name, 'label': "DJI " + name, 'color_map': encoded(lut)}
            for name, lut in conversion_palettes(conversion).items()]
     return dji + colormap_entries(VIEWER_COLORMAPS)
-
-
-def adjust_params(request):
-    try:
-        return thermal_measure.parse_adjust(request.query_params)
-    except thermal_measure.MeasureError as e:
-        raise ValidationError({'error': str(e)}) from None
-
-
-def range_params(request):
-    from .raster.tiler import parse_rescale
-    low, high = parse_rescale(request.query_params.get('rescale') or "0,1")
-    if not high > low:
-        raise ValidationError({'rescale': "The range's maximum must be above its minimum"})
-    return low, high
 
 
 def default_palette(conversion, palettes):
@@ -1894,22 +1877,6 @@ def mosaic_correction(request, conversion, kind):
         return thermal_measure.mosaic_correction(conversion, kind, request.query_params)
     except thermal_measure.MeasureError as e:
         raise ValidationError({'error': str(e)}) from None
-
-
-def mosaic_curve(conversion, tab, path, band, correction, low, high, adjust):
-    """The equalization (thermal_measure.equalization) of a temperature tab's temperatures, corrected, over low..high,
-    or None when not asked for (or not temperatures)"""
-    if not adjust['equalize'] or not thermal_mosaics.temperatures(tab, band):
-        return None
-    unit = mosaic_unit(conversion)
-    kept = os.path.join(conversion.data_dir(), thermal_mosaics.VIEWER_DIR, HISTOGRAM_FILE.format(tab))
-    histogram = thermal_measure.mosaic_histogram(path, unit, kept)
-    return thermal_measure.equalization(thermal_measure.corrected_histogram(histogram, unit, correction), low, high)
-
-
-def frame_curve(values, low, high, adjust):
-    return thermal_measure.equalization(thermal_measure.value_histogram(values, (low, high)), low, high) \
-        if adjust['equalize'] else None
 
 
 def read_tile(src, x, y, z, band, margin=0, tilesize=256):
@@ -2039,21 +2006,6 @@ class MosaicDataView(DatasetView):
         with thermal_mosaics.open_raster(path) as src:
             data, valid = read_tile(src, int(x), int(y), int(z), band, DATA_GUTTER, DATA_TILE_SIZE)
         return data_response(*mosaic_values(conversion, tab, band, data, valid, correction), etag)
-
-
-class MosaicCurveView(DatasetView):
-    def get(self, request, pk, tab):
-        """How the browser draws a temperature tab's tiles over rescale with gamma and equalize (corrected as they
-        are): the palette's share at thermal_measure.CURVE_SAMPLES temperatures evenly across the range, for the legend"""
-        conversion = get_conversion(pk)
-        path, band = mosaic_raster(conversion, tab)
-        if not thermal_mosaics.temperatures(tab, band):
-            raise NotFound()
-        low, high = range_params(request)
-        adjust = adjust_params(request)
-        correction = mosaic_correction(request, conversion, tab)
-        curve = mosaic_curve(conversion, tab, path, band, correction, low, high, adjust)
-        return Response({'shares': thermal_measure.curve_shares(low, high, adjust, curve)})
 
 
 def ground_height(conversion, lon, lat):
@@ -3142,18 +3094,6 @@ class VisualTileView(DatasetView):
         res['ETag'] = etag
         res['Cache-Control'] = 'private, no-cache'
         return res
-
-
-class FrameCurveView(DatasetView):
-    def get(self, request, pk):
-        """How the browser draws a frame (see MosaicCurveView), measured again with the parameters given"""
-        conversion = get_conversion(pk)
-        rel = request.query_params.get('frame') or ""
-        m = frame_measured(conversion, rel, changes_of(request.query_params))
-        low, high = range_params(request)
-        adjust = adjust_params(request)
-        return Response({'shares': thermal_measure.curve_shares(low, high, adjust,
-                                                                frame_curve(m['values'], low, high, adjust))})
 
 
 class FramePointView(DatasetView):

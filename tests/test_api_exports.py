@@ -193,7 +193,8 @@ def test_a_mosaics_png_is_coloured_whole_in_strips(api, monkeypatch, tab):
     import rasterio
     monkeypatch.setattr(exports, 'STRIP_ROWS', 7)
     c, _ = converted(api)
-    view = {'palette': 'gray', 'range': [10, 30], 'sharpen': 2, 'equalize': True}
+    view = {'palette': 'gray', 'range': [10, 30], 'sharpen': 2, 'gamma': 2, 'bands': 'banded', 'band_width': 2.5,
+            'band_origin': 1}
     res = download(api, api.post("{}/{}/mosaics/{}/exports".format(CONVERSIONS, c.id, tab),
                                  {'format': 'png', 'view': view, 'correction': {'emissivity': '0.9'}}, format='json'))
     png = np.asarray(Image.open(io.BytesIO(content(res))))
@@ -203,15 +204,14 @@ def test_a_mosaics_png_is_coloured_whole_in_strips(api, monkeypatch, tab):
         values = src.read(band, masked=True).astype(np.float64).filled(np.nan)
     assert (png[..., 3] == 0).any() and (png[..., 3] == 255).any()
     if tab == 'as_converted':
-        # As the browser colours the same values, with the same curve
+        # As the browser colours the same values, with the same tone curve and bands
         from dji_thermal_ui.analyzer import api as api_module
         correction = api_module.thermal_measure.mosaic_correction(c, tab, {'emissivity': '0.9'})
         shown = exports.mosaic_band_values(values, band, 'C', correction)
-        curve = api_module.mosaic_curve(c, tab, path, band, correction, 10, 30, {'gamma': 1.0, 'equalize': True,
-                                                                                    'sharpen': 2.0})
-        shares = api_module.thermal_measure.curve_shares(10, 30, {'gamma': 1.0}, curve)
+        shares = api_module.thermal_measure.curve_shares(10, 30, {'gamma': 2.0})
         from dji_thermal_ui.analyzer.raster.tiler import colormap_entries
-        want = colouring.colour(shown, colormap_entries(['gray'])[0]['color_map'], (10, 30), shares, 2)
+        want = colouring.colour(shown, colormap_entries(['gray'])[0]['color_map'], (10, 30), shares, 2,
+                                bands=('banded', 2.5, 1.0))
         assert np.array_equal(png, want)
 
 
@@ -316,7 +316,7 @@ def _saved(tmp_path, data):
     return path
 
 
-def test_an_imported_orthophotos_curve_and_png_read_it_in_its_own_unit(api, monkeypatch):
+def test_an_imported_orthophotos_png_reads_it_in_its_own_unit(api, monkeypatch):
     from dji_thermal_ui.analyzer import api as api_module
     from dji_thermal_ui.analyzer.raster.tiler import colormap_entries
     c, _ = converted(api)
@@ -324,12 +324,10 @@ def test_an_imported_orthophotos_curve_and_png_read_it_in_its_own_unit(api, monk
     # As an import leaves it: no mosaics of its own, its temperatures in the unit it was imported in
     c.orthophoto, c.mosaics = {'raster': os.path.relpath(path, c.data_dir()), 'unit': 'F'}, {}
     units = []
-    monkeypatch.setattr(api_module.thermal_measure, 'mosaic_histogram', lambda _p, unit, _k: units.append(unit))
-    api_module.mosaic_curve(c, 'webodm', path, 1, None, 10, 30, {'gamma': 1.0, 'equalize': True, 'sharpen': 0.0})
     shown = exports.mosaic_band_values
     monkeypatch.setattr(exports, 'mosaic_band_values',
                         lambda v, t, unit, correction: units.append(unit) or shown(v, t, unit, correction))
-    adjust = {'gamma': 1.0, 'equalize': False, 'sharpen': 0.0}
+    adjust = {'gamma': 1.0, 'bands': None, 'sharpen': 0.0}
     list(exports.mosaic_png(c, path, 1, {'view': {'adjust': adjust, 'isotherm': None}, 'correction': None, 'tab': 'webodm'},
-                            colormap_entries(['gray'])[0]['color_map'], (10, 30), None))
+                            colormap_entries(['gray'])[0]['color_map'], (10, 30)))
     assert set(units) == {'F'}
