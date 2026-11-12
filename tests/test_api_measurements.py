@@ -563,3 +563,51 @@ def test_a_download_named_with_letters_beyond_ascii_keeps_them(api):
     c = ThermalConversion.objects.create(dataset=d, name="Krov")
     res = api.get("{}/{}/measurements.csv".format(CONVERSIONS, c.id))
     assert res['Content-Disposition'] == "attachment; filename*=UTF-8''%C5%BDilina-Krov-measurements.csv"
+
+
+def test_a_delta_t_across_two_datasets_reads_each_end_on_its_own_mosaic_and_is_saved_with_both(api):
+    c, _ = converted(api)
+    other, _ = converted(api)
+    a, b = mosaic_lonlat(20.5, 20.5), mosaic_lonlat(40.5, 20.5)
+    across = {'kind': 'across', 'own': 0, 'other': other.id, 'other_target': 'harmonized'}
+    res = api.post("{}/{}/measure".format(CONVERSIONS, c.id),
+                   {'target': 'as_converted', 'geometry': delta(a, b), 'shape': across}, format='json')
+    assert res.status_code == 200, res.data
+    r = res.data['result']
+    # The first spot on this one's mosaic, the second on the other's harmonized one (half a degree warmer)
+    assert r['first'] == pytest.approx(mosaic_temperature(20), abs=0.05)
+    assert r['second'] == pytest.approx(mosaic_temperature(40) + 0.5, abs=0.05)
+    assert (r['delta_t'], r['valid_pixels']) == (pytest.approx(r['second'] - r['first'], abs=1e-9), 2)
+    # Measured from the other dataset, with its own end second: the same ΔT
+    mirrored = api.post("{}/{}/measure".format(CONVERSIONS, other.id), {
+        'target': 'harmonized', 'geometry': delta(a, b),
+        'shape': {'kind': 'across', 'own': 1, 'other': c.id, 'other_target': 'as_converted'}}, format='json').data['result']
+    assert mirrored['delta_t'] == pytest.approx(r['delta_t'], abs=1e-9)
+    for bad in ({'shape': dict(across, own=2)}, {'shape': dict(across, other=999999)},
+                {'shape': dict(across, other_target='view_angle')}, {'shape': dict(across, other_target='nothing')},
+                {'shape': across, 'geometry': {'type': 'LineString', 'coordinates': [a, b, a]}},
+                {'shape': across, 'target': 'visual'}):
+        assert api.post("{}/{}/measure".format(CONVERSIONS, c.id),
+                        dict({'target': 'as_converted', 'geometry': delta(a, b)}, **bad), format='json').status_code == 400, bad
+
+    # Saved on both datasets: each lists it with the other named, and its CSV gives both spots
+    api.put(PREFERENCES, {'unit': 'C'}, format='json')
+    saved = api.post("{}/{}/measurements".format(CONVERSIONS, c.id),
+                     {'name': 'Roof joint', 'target': 'as_converted', 'geometry': delta(a, b), 'shape': across,
+                      'isotherm': 'above,20'}, format='json')
+    assert saved.status_code == 201, saved.data
+    assert saved.data['other'] == {'id': other.id, 'name': other.name, 'dataset': other.dataset_id,
+                                   'dataset_name': other.dataset.name}
+    assert saved.data['values']['shape'] == across and 'isotherm' not in saved.data['values']
+    api.post("{}/{}/measurements".format(CONVERSIONS, other.id), {
+        'name': 'Roof joint', 'target': 'harmonized', 'geometry': delta(a, b),
+        'shape': {'kind': 'across', 'own': 1, 'other': c.id, 'other_target': 'as_converted'}}, format='json')
+    row = csv_rows(api, c)[0]
+    assert (row['Shape'], row['Across to']) == ('across', "{} · {}".format(other.dataset.name, other.name))
+    assert float(row['ΔT']) == round(r['delta_t'], 3)
+    # It is measured as converted only
+    assert api.patch("{}/{}/measurements/{}".format(CONVERSIONS, c.id, saved.data['id']),
+                     {'parameters': {'emissivity': 0.9}}, format='json').status_code == 400
+    # Kept only while both datasets are: deleting one deletes those between them, on both
+    assert api.delete("{}/{}".format(CONVERSIONS, other.id)).status_code == 204
+    assert not ThermalMeasurement.objects.filter(name='Roof joint').exists()

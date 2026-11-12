@@ -238,6 +238,11 @@ class ThermalMeasurement(models.Model):
     was saved (and the parameters changed, if any, they were found with)"""
     conversion = models.ForeignKey(ThermalConversion, on_delete=models.CASCADE, related_name='measurements',
                                    help_text=_("The conversion measured"), verbose_name=_("Conversion"))
+    # A Delta T across two conversions (the compare page's): it goes with either of them
+    other = models.ForeignKey(ThermalConversion, on_delete=models.CASCADE, null=True, blank=True,
+                              related_name='paired_measurements',
+                              help_text=_("The other conversion of a Delta T across two, if it is one"),
+                              verbose_name=_("Other conversion"))
     name = models.CharField(max_length=255, help_text=_("A label used to describe the measurement"),
                             verbose_name=_("Name"))
     target = models.CharField(max_length=16, choices=MEASUREMENT_TARGETS,
