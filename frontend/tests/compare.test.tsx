@@ -241,16 +241,15 @@ describe("ΔT under the pointers on the compare page", () => {
         expect(compareTipText("overlay", "a", none, none, "C", "F")).toBeNull();
     });
 
-    it("show ΔT under the temperature in both panes' readouts: the pane under the pointer minus the other", async () => {
+    it("show ΔT under the temperature in each pane's readout: its mosaic minus the other's, wherever the pointer is", async () => {
         const maps = panesMaps();
         await open(pointsServer(), 12);
-        await move(maps[1]);
-        expect(readout("a")).toBe("Temperature20.00 °CΔT+1.11 °C");
-        expect(readout("b")).toBe("Temperature21.11 °CΔT+1.11 °C");
+        for (const m of [maps[1], maps[0]]) {
+            await move(m);
+            expect(readout("a")).toBe("Temperature20.00 °CΔT-1.11 °C");
+            expect(readout("b")).toBe("Temperature21.11 °CΔT+1.11 °C");
+        }
         expect(tip("b").hidden).toBe(true);
-        await move(maps[0]);
-        expect(readout("a")).toBe("Temperature20.00 °CΔT-1.11 °C");
-        expect(readout("b")).toBe("Temperature21.11 °CΔT-1.11 °C");
     });
 
     it("leave ΔT out where one mosaic has no temperature", async () => {

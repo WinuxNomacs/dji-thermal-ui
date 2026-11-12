@@ -53,10 +53,11 @@ The user's decisions (2026-11-11):
 - **Banded:** two modes. Stepped: the palette in flat colour steps, one colour per band. Banded: the smooth palette
   with every other band darkened, so the bands read as stripes.
 - **The bandwidth** is in degrees of the user's unit (1–10, 5 at first), whatever the range.
-- **ΔT on the compare page is the pane under the pointer minus the other** (changed 2026-11-11 by the user, from
-  "always A − B, labelled ΔT (A − B)"): over A, A − B; over B, B − A; labelled just "ΔT", the same in both readouts. The
-  difference pane keeps A − B, as it draws; the overlay's tip follows its pane. Built on branch `pointer-delta-direction`
-  (`compare/pane.tsx`'s `paneDelta`).
+- **ΔT on the compare page is each pane's own minus the other's** (changed 2026-11-11 by the user, from "always
+  A − B, labelled ΔT (A − B)"): pane A's readout A − B, pane B's B − A, both at once, labelled just "ΔT"; the tip, in
+  the pane under the pointer, gives that pane's. (A first change made both readouts follow the pointer's pane, so only
+  one direction showed at a time; the user's screenshot showed that was not it.) The difference pane keeps A − B, as it
+  draws; the overlay's tip follows its pane. `compare/pane.tsx`'s `paneDelta`.
 
 Taken as defaults (not asked):
 
