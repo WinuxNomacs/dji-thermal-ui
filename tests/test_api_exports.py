@@ -317,7 +317,6 @@ def _saved(tmp_path, data):
 
 
 def test_an_imported_orthophotos_png_reads_it_in_its_own_unit(api, monkeypatch):
-    from dji_thermal_ui.analyzer import api as api_module
     from dji_thermal_ui.analyzer.raster.tiler import colormap_entries
     c, _ = converted(api)
     path, _band = mosaics.tab_raster(c, 'as_converted')

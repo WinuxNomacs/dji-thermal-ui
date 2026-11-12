@@ -6,7 +6,6 @@ the app's unit)"""
 import csv
 import io
 import json
-import os
 from types import SimpleNamespace
 from unittest import mock
 
@@ -14,7 +13,6 @@ import numpy as np
 import pytest
 
 from dji_thermal_ui.analyzer import thermal_measure as measuring
-from dji_thermal_ui.analyzer import thermal_mosaics as mosaics
 from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset, ThermalMeasurement
 from dji_thermal_ui.analyzer.raster.thermal_correction import corrected_array
 from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, analysed, converted, dataset, fake_measure, fake_process,
