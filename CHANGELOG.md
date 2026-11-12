@@ -231,6 +231,14 @@ All notable changes are recorded here. The format follows
   folders are chosen and uploaded. Flights already read in place keep working, and the API still takes them.
 
 ### Fixed
+- The flight report's **Datasets** table no longer pushes the page sideways on a phone: it scrolls in its own box.
+- The compare page's two maps stay level: a long dataset name no longer wraps one pane's head onto a third line. The
+  **Temperature On Pointer** box says its ΔT is that pane's minus the other's.
+- A Delta T's first spot on the compare page lets go when a pane turns to the difference, the overlay or a visual
+  mosaic, instead of waiting for a second spot there.
+- Deleting a dataset names the Delta Ts across it and another dataset that go from that one too.
+- Two saved measurements compared give ΔT for a Delta T alone, not the surroundings' ΔT a measurement saved before
+  kept.
 - **OpenStreetMap** follows its tile usage policy: the pages let the browser send the Referer the tile server requires
   (the app's address alone), and the credit reads "© OpenStreetMap contributors" and stays open while that map is shown.
 - **Rebuild mosaics** builds the new mosaics beside the last ones and swaps them in when they are finished: the viewer

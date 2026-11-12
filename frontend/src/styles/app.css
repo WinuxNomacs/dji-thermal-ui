@@ -931,8 +931,12 @@ td .project-description { font-size: 12px; max-width: 420px; overflow: hidden; t
     background: var(--accent);
 }
 .compare.dragging { user-select: none; cursor: col-resize; }
-.compare-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
-.compare-head select { min-width: 0; flex: 0 1 auto; }
+/* One line, the mosaic's name cut short where the pane is narrow: a head wrapping in one pane alone would put its map
+   lower than the other's */
+.compare-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.compare-head select { min-width: 0; flex: 0 1 auto; text-overflow: ellipsis; }
+.compare-head select[name=mosaic] { flex: 0 1 auto; max-width: 100%; }
+.compare-head select[name=show] { flex: 0 0 auto; }
 .compare-name { font-weight: 600; }
 .compare-map { height: calc(100vh - 300px); min-height: 320px; border-radius: var(--radius); }
 .compare-pane.picking .compare-map { cursor: crosshair; }

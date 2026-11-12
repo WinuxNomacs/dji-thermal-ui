@@ -277,13 +277,13 @@ export function DatasetReportPage({api, publicUrl, id, projectName, location: pl
 
             <section class="report-section" id="report-conversions">
                 <h2>Datasets</h2>
-                {conversions.length ? <table class="table report-conversions">
+                {conversions.length ? <div class="table-scroll"><table class="table report-conversions">
                     <thead><tr><th>Name</th><th>Settings</th><th>Status</th><th>Mosaics</th><th>Finished</th></tr></thead>
                     <tbody>{conversions.map((c) => (<tr key={c.id}><td>{c.name}</td><td>{c.description}</td>
                         <td>{conversionLabel(c)}{c.converted ? " · " + c.converted + " converted" : ""}</td>
                         <td>{c.mosaic_status === "ready" ? (c.imported ? "Imported" : "Built") : c.mosaic_status ? c.mosaic_status : "None"}</td>
                         <td>{formatDate(c.finished_at)}</td></tr>))}</tbody>
-                </table> : <p class="text-muted">None made.</p>}
+                </table></div> : <p class="text-muted">None made.</p>}
             </section>
 
             <FindingsSection items={items} files={files} thumbs={thumbs} none="None saved." videoFrames={shots}

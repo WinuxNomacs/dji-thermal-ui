@@ -698,8 +698,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     // A pane's map sized again when the split moves
     useEffect(() => { NAMES.forEach((n) => maps.current[n]?.map.updateSize()); }, [split, mapsMade]);
 
-    // The spots and areas drawn asked again when what the panes show changes; a finding kept open where its dataset still is
+    // A Delta T's first spot waiting for its second in the other pane lets go where a pane no longer shows a temperature
+    // mosaic (the difference, the overlay, a visual mosaic)
     const shownKey = panes ? key + ":" + panes.a.diff + ":" + panes.b.diff + ":" + panes.a.overlay + ":" + panes.b.overlay : "";
+    useEffect(() => { if (mapsMade) syncTools(); }, [shownKey, mapsMade]);
+
+    // The spots and areas drawn asked again when what the panes show changes; a finding kept open where its dataset still is
     const firstShown = useRef(true);
     useEffect(() => {
         if (!shownKey) return;
@@ -1107,7 +1111,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                           title="Both panes' temperature mosaics: the pixels inside it keep the palette">Isotherm</span>
                     <Isotherm state={isoTyped} error={isoError} onChange={changeIsotherm}/>
                     <PointerTemperatureBox on={tipOn} onChange={setTipOn}
-                                           title="Beside the pointer once it rests: the temperature under it and ΔT (A − B)"/>
+                                           title="Beside the pointer once it rests: the temperature under it and ΔT, that pane's minus the other's"/>
                 </div>}
                 <div class="compare-body" ref={body}>
                     {/* A Delta T across: its line from one pane to the other (drawAcross) */}

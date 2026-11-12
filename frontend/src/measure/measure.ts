@@ -171,8 +171,9 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean, m
     // A visual mosaic's shape has its size alone: its perimeter too, and no pixels measured
     const sizeAlone = results.every((r) => !isPresent(r.mean) && !isPresent(r.value) && !isPresent(r.first));
     if (sizeAlone) size("Perimeter", "perimeter");
-    function figure(label: string, key: Key, fmt: (v: Maybe<number>) => string, diffFmt: (v: number) => string) {
-        const vs = results.map((r) => r[key]);
+    function figure(label: string, key: Key, fmt: (v: Maybe<number>) => string, diffFmt: (v: number) => string,
+                    of: (r: Result) => boolean = () => true) {
+        const vs = results.map((r) => of(r) ? r[key] : null);
         if (vs.every((v) => v === null || v === undefined)) return;
         const row: Row = {label, values: vs.map(fmt)};
         if (results.length === 2 && isPresent(vs[0]) && isPresent(vs[1])) row.difference = diffFmt(diff(vs[0], vs[1]));
@@ -190,7 +191,8 @@ export function resultRows(results: Result[], unit: unknown, pixels?: boolean, m
     }
     figure("Std dev", "std", (v) => delta(v, unit), d);
     // ΔT is a Delta T's alone (one saved before 2026-11-11 may keep its ΔT with the surroundings, no longer shown)
-    if (results.some((r) => "first" in r || "second" in r)) figure("ΔT", "delta_t", d, d);
+    const isDeltaT = (r: Result) => "first" in r || "second" in r;
+    if (results.some(isDeltaT)) figure("ΔT", "delta_t", d, d, isDeltaT);
     const share = results.map((r) => r.isotherm ? r.isotherm.share : null);
     if (share.some(isPresent)) {
         rows.push({label: "In the isotherm", values: share.map(percent),

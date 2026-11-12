@@ -15,6 +15,7 @@ import {DISTANCE_MODES, defaultName, type Diff, differences, formProblem, formVa
         MEASUREMENTS, type Meta, planSettings, readValues, recorded, resetSetting, type Settings, settingsIn, SIDES,
         UNIT_LABELS, VISUAL_HEIGHT_CELL, VISUAL_ONLY_KEYS, visualSettings} from "./settings";
 import type {Fix} from "./problems";
+import type {Measurement} from "../measure/measure";
 import {CELL_RANGE} from "./webodm";
 import {ImportDialog} from "./webodm-import";
 import {WebODMPanel, WebODMTasks} from "./webodm-panel";
@@ -558,11 +559,28 @@ export function ConvertTab({api, publicUrl, dataset, onChange, planRequest, fixR
             if (!n) return;
             r = await readJson(await sendJson(base + c.id, "PATCH", {name: n}));
         } else if (what === "delete") {
-            if (!await ask("Delete dataset", "Delete " + c.name + " and its files? This cannot be undone.", "Delete", "danger")) return;
+            if (!await ask("Delete dataset", "Delete " + c.name + " and its files?" + await acrossNote(base + c.id) +
+                           " This cannot be undone.", "Delete", "danger")) return;
             r = await readJson(await sendJson(base + c.id, "DELETE"));
         }
         if (r && !r.ok) say(errorText(r.data, "Could not " + (what === "mosaics" ? "build the mosaics" : what + " the dataset") + "."),
                             "text-danger");
         onChange();
+    }
+}
+
+// What deleting a dataset (url: its address in the API) takes from the others too: its Delta Ts across it and another
+// dataset, saved on both and kept only while both are; nothing where it has none or its list can't be read
+export async function acrossNote(url: string): Promise<string> {
+    try {
+        const r = await readJson<{measurements?: Measurement[]}>(await fetch(url + "/measurements"));
+        const id = parseInt(url.split("/").pop() || "", 10);
+        const across = (r.ok && r.data.measurements || []).filter((m) => m.other && m.other.id !== id);
+        if (!across.length) return "";
+        const others = [...new Set(across.map((m) => m.other!.dataset_name + " · " + m.other!.name))];
+        return " " + (across.length === 1 ? "Its Delta T across it and " : "Its " + across.length + " Delta Ts across it and ") +
+            others.join(", ") + " will be deleted from " + (others.length === 1 ? "that dataset" : "those datasets") + " too.";
+    } catch {
+        return "";
     }
 }
