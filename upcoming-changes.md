@@ -3444,6 +3444,12 @@ identify and select from, preferably with a preview image" ("map" meaning the or
   tests in `tests/test_basemaps.py` checked the `.env` file's Unix mode (0o600, 0o640 kept), which Windows has not:
   they failed there since the Mapbox token moved to System Settings. They check the mode only where files have one
   (`POSIX`). 348 passed on Windows, 10 skipped.
+- **Release 1.0.0** (2026-11-12): the first on PyPI. Everything since 0.9.0 (P1, D1, D2, the compare page's
+  measuring, Banded, the Surroundings removal, CM2, the bug and release reviews). `release.yml` added, as
+  dji-thermal-cli's: a pushed `v*` tag checks the version, runs CI (now `workflow_call`, no tag trigger of its own),
+  then publishes CI's build to TestPyPI and PyPI with Trusted Publishing. Release checks passed on Linux (ruff, 536
+  pytest, 534 Vitest, ESLint, the page and strict docs builds, check_dist, twine, smoke on 3.12 and 3.14); Windows
+  is CI's, before anything is published.
 - **Release 0.9.0** (2026-10-29): M (the exports, dji-thermal-cli 1.8.0) and S (search), with the fix above (the
   changelog's two Added and two Changed sections made one). Release checks passed on Linux (check_dist, twine, smoke
   on 3.12 and 3.14, ruff, 358 pytest with the flight tests, 360 Vitest, ESLint) and on Windows from WSL (348 pytest

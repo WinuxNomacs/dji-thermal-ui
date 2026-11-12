@@ -1,0 +1,77 @@
+name: Release
+
+# Push a tag vX.Y.Z matching pyproject.toml's version. CI runs first (ci.yml: lint, the tests on Linux and Windows,
+# the pages' and the documentation's build, the wheel and sdist and their smoke test); then the build CI made is
+# published to TestPyPI, then to PyPI. Publishing uses Trusted Publishing (OIDC, no API tokens) and uploads digital
+# attestations (PEP 740).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+env:
+  UV_VERSION: "0.12.5"
+
+jobs:
+  # First, so a mistyped tag costs seconds, not the CI matrix
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+      - name: Tag matches the package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(uv version --short)
+          if [ "$TAG" != "v$version" ]; then
+            echo "tag $TAG does not match version $version"; exit 1
+          fi
+
+  # Its build job uploads the wheel and sdist as the artifact "dist", which the jobs below publish
+  ci:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  testpypi:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/dji-thermal-ui/
+    permissions:
+      id-token: write                      # Trusted Publishing only
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    needs: testpypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi                           # deploys from v* tags only
+      url: https://pypi.org/project/dji-thermal-ui/
+    permissions:
+      id-token: write                      # Trusted Publishing only
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

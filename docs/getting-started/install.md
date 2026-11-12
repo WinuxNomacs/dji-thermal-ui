@@ -1,17 +1,18 @@
 # Install
 
-DJI Thermal Analyzer runs on Linux, macOS and Windows, and needs Python 3.12 or newer. It is not on PyPI yet.
+DJI Thermal Analyzer runs on Linux, macOS and Windows, and needs Python 3.12 or newer.
 
-## From a built wheel
+## From PyPI
 
-The wheel holds everything, the pages and this documentation included, so installing it needs no Node.js:
+The package holds everything, the pages and this documentation included, so installing it needs no Node.js:
 
 ```
-uv tool install dji_thermal_ui-<version>-py3-none-any.whl
+uv tool install dji-thermal-ui
 ```
 
-`pipx install` with the same file works too. Either puts the `dji-thermal-ui` command on your path: see
-[First run](first-run.md).
+`pipx install dji-thermal-ui` works too. Either puts the `dji-thermal-ui` command on your path: see
+[First run](first-run.md). `uv tool upgrade dji-thermal-ui` (or `pipx upgrade dji-thermal-ui`) installs a newer
+release.
 
 ## From a clone
 

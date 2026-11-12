@@ -1,12 +1,12 @@
 name: CI
 
-# Tests only: nothing here publishes anything. Run on a release tag, or by hand (Actions › CI › Run workflow).
+# Tests only: nothing here publishes anything. Run by a release (release.yml, on a pushed v* tag, which publishes the
+# wheel and sdist this builds once it passes), or by hand (Actions › CI › Run workflow).
 # The macOS job runs only while the repository variable MACOS_CI is "true" (Settings › Secrets and variables ›
 # Actions › Variables), so it is turned on and off in the settings, with no commit.
 
 on:
-  push:
-    tags: ['v*']
+  workflow_call:
   workflow_dispatch:
 
 permissions:

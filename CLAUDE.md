@@ -22,12 +22,12 @@ machine. Keep it short; edit in place.
 
 ## Rules for this repository
 
-- **Never push and never tag.** A `v*` tag runs CI (`.github/workflows/ci.yml`: lint, tests on Linux and Windows,
-  the build checks and a smoke check of the wheel; a macOS job too while the repository variable `MACOS_CI` is
-  `true`, off for now), as does running it by hand; a push to a branch runs nothing.
-  Neither publishes anything. No workflow publishes yet; when a release
-  workflow is added, this line says what a push or a `v*` tag publishes. A push of the clone of the public
-  `dji-thermal-ui-docs` repository publishes the documentation site (GitHub Pages, from its `main`).
+- **Never push and never tag.** A pushed `v*` tag **publishes the release to PyPI**: `.github/workflows/release.yml`
+  checks the tag matches `pyproject.toml`'s version, runs CI (`ci.yml`: lint, tests on Linux and Windows, the build
+  checks and a smoke check of the wheel; a macOS job too while the repository variable `MACOS_CI` is `true`, off for
+  now), then uploads CI's wheel and sdist to TestPyPI, then PyPI (Trusted Publishing, no token; the GitHub
+  environments `testpypi` and `pypi`). CI also runs by hand; a push to a branch runs nothing. A push of the clone of
+  the public `dji-thermal-ui-docs` repository publishes the documentation site (GitHub Pages, from its `main`).
 - **Licence: AGPL-3.0-only.** The code comes from LuxODM/WebODM (AGPL-3.0) and uses dji-thermal-cli (AGPL-3.0). A
   file copied from WebODM keeps its copyright notice, and its header says where it came from.
 - Work is planned in `upcoming-changes.md`. New requests arrive in `new.md` (untracked).
