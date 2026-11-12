@@ -11,8 +11,7 @@ its title.
 **Up next**: RR1 (deleting a flight or a project names the Delta Ts across it that go from other flights too), to be
 planned with the user. See "Release review (2026-11-12)".
 
-**Then**: RR2 (the cross-image Delta T's order, as the user saw it reversed: only once reproduced) and RR3 (the outlier
-pixels in a mosaic, in dji-thermal-cli), each only if the user wants them.
+**Then**: RR2 (the cross-image Delta T's order, as the user saw it reversed: only once reproduced).
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
@@ -48,9 +47,9 @@ To plan:
   clicking A then B. Not reproduced (A WebODM, B dataset 1 Harmonized, as in their screenshot: right way round).
   Since then each pane numbers its spot 1 or 2, so a repeat shows which click counted first; planned only once seen
   again, with the steps before it.
-- **RR3, outlier pixels:** dataset 1's mosaic (m4t-test-flight) has about 840 of 2.1 million pixels below 0 °F, down to
-  −49 °F, so the viewer's "This mosaic" line reads −49.2 to 133.6 °F (Auto ignores them). They come from the TIFFs
-  dji-thermal-cli writes: worth finding there (frame edges, sky, a stitching seam) if the user wants it.
+- **RR3, outlier pixels: not a bug, dropped.** Dataset 1's mosaic has about 840 pixels below 0 °F (down to −49 °F),
+  so "This mosaic" reads −49.2 to 133.6 °F. The user says (2026-11-12) they are real readings: reflective surfaces
+  mirroring the empty sky. Showing the full range is right, and Auto already leaves them out.
 
 ## Requests of 2026-11-11 (second batch)
 
