@@ -33,5 +33,7 @@ box is the one in the viewer's and the frame page's Pointer info (see
 
 Each pane draws its flights' [findings](findings.md#on-the-compare-page). The measuring tools on each pane's map (Spot,
 Line, Area, Box, Circle and Delta T) measure a shape on both mosaics at once, with A − B, in a card that saves it on
-both datasets and opens its [source frames](measuring.md#source-frames); an isotherm is shared by both panes. See
+both datasets and opens its [source frames](measuring.md#source-frames); an isotherm is shared by both panes. A
+Delta T's second spot clicked in the other pane measures
+[a Delta T across the two images](measuring.md#a-delta-t-across-the-two-images). See
 [Measuring › On the compare page](measuring.md#on-the-compare-page).
