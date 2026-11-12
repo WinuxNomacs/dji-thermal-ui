@@ -3448,8 +3448,10 @@ identify and select from, preferably with a preview image" ("map" meaning the or
   measuring, Banded, the Surroundings removal, CM2, the bug and release reviews). `release.yml` added, as
   dji-thermal-cli's: a pushed `v*` tag checks the version, runs CI (now `workflow_call`, no tag trigger of its own),
   then publishes CI's build to TestPyPI and PyPI with Trusted Publishing. Release checks passed on Linux (ruff, 536
-  pytest, 534 Vitest, ESLint, the page and strict docs builds, check_dist, twine, smoke on 3.12 and 3.14); Windows
-  is CI's, before anything is published.
+  pytest, 534 Vitest, ESLint, the page and strict docs builds, check_dist, twine, smoke on 3.12 and 3.14). The first
+  tag's CI failed on Windows before publishing: two WebODM tests found "admin" in the runner's path
+  (`C:\Users\runneradmin`); fixed (branch `fix-windows-admin-path`) and the unused tag moved. Published to TestPyPI
+  and PyPI on 2026-11-12; installed from PyPI, it serves its pages (smoke).
 - **Release 0.9.0** (2026-10-29): M (the exports, dji-thermal-cli 1.8.0) and S (search), with the fix above (the
   changelog's two Added and two Changed sections made one). Release checks passed on Linux (check_dist, twine, smoke
   on 3.12 and 3.14, ruff, 358 pytest with the flight tests, 360 Vitest, ESLint) and on Windows from WSL (348 pytest
