@@ -60,7 +60,7 @@ spot decides what it measures. Click the first spot in one pane: it is marked in
 - **A second click in the other pane**, anywhere on its image, measures a **Delta T across** the two: the first spot
   read on its own pane's mosaic, the second on the other's, and ΔT the second's temperature minus the first's (in
   the first spot's dataset's unit where the units differ). Each pane then shows its own spot alone, numbered **1** or
-  **2**, and the card, on the second spot's pane, says which spot is on which dataset. In a dataset's viewer, a saved
+  **2**, joined by a dashed line across the split (while both spots are in view), and the card, on the second spot's pane, says which spot is on which dataset. In a dataset's viewer, a saved
   one shows that dataset's spot alone.
 
 **Esc** lets go of a first spot. **Save measurement** saves a Delta T across on both datasets, each one's viewer

@@ -536,6 +536,23 @@ describe("measuring on the compare page", () => {
             expect(d.some((x) => x.type === "LineString")).toBe(false);
             expect(d.filter((x) => x.text)).toEqual([{type: "Point", text: n, at: at(c as number[])}]);
         });
+        // A line joins the two spots across the split, and goes while either is out of its pane's view
+        const line = $("#across-line")!;
+        const place = (m: OlMap, px: number[]) => {
+            vi.spyOn(m, "getSize").mockReturnValue([400, 300]);
+            vi.spyOn(m, "getPixelFromCoordinate").mockReturnValue(px);
+        };
+        place(maps[0], [120, 80]);
+        place(maps[1], [250, 140]);
+        maps[0].dispatchEvent("postrender");
+        expect(line.hasAttribute("data-shown")).toBe(true);
+        expect(["x1", "y1", "x2", "y2"].map((k) => line.querySelector(".link")!.getAttribute(k))).toEqual(["120", "80", "250", "140"]);
+        expect(vi.mocked(maps[1].getPixelFromCoordinate).mock.calls.at(-1)![0].map(Math.round)).toEqual(at([10.006, 50.006]));
+        place(maps[1], [450, 140]);
+        maps[1].dispatchEvent("postrender");
+        expect(line.hasAttribute("data-shown")).toBe(false);
+        place(maps[1], [250, 140]);
+        maps[1].dispatchEvent("postrender");
         // Saved on both datasets, each with its own end
         const name = $("#pane-b #measure-card [name=name]")!;
         name.value = "Seam";

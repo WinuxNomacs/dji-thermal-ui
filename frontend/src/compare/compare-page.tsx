@@ -175,6 +175,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
 
     const mapEls = {a: useRef<HTMLDivElement>(null), b: useRef<HTMLDivElement>(null)};
     const body = useRef<HTMLDivElement>(null);
+    const acrossLine = useRef<SVGSVGElement>(null);
     const maps = useRef<Partial<Record<PaneName, PaneMap>>>({});
     const infos = useRef<Record<number, Promise<Mosaics>>>({});
     const asking = useRef<Record<string, boolean>>({});
@@ -314,6 +315,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 if (f) openFinding(n, f);
             },
         });
+        m.on("postrender", drawAcross);
         const pm: PaneMap = maps.current[n] = {map: m, legend, drawn: [], top: null, swipe: null, marks: vectorLayer(m, 20),
                                                cursor: null, shape: vectorLayer(m, 9), findings: findingsShown, drawing,
                                                tip: pointerTip(m), pending: null};
@@ -365,6 +367,28 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 pm.pending.setStyle(PENDING);
                 pm.marks.addFeature(pm.pending);
             }
+        });
+    }
+
+    // A Delta T across: a line over both panes from its spot 1 to its spot 2, across the split; hidden while either spot
+    // is out of its own pane's view, where the line would point at the wrong place
+    function drawAcross() {
+        const svg = acrossLine.current, el = body.current, c = now.current.card;
+        if (!svg || !el) return;
+        const g = c?.across && c.geometry?.type === "LineString" ? c.geometry.coordinates : null;
+        const at = g && ([[c!.across!, g[0]], [other(c!.across!), g[1]]] as const).map(([n, coords]) => {
+            const m = maps.current[n]?.map, size = m?.getSize(), px = m?.getPixelFromCoordinate(lonLatToMap(coords));
+            if (!m || !size || !px || px[0] < 0 || px[1] < 0 || px[0] > size[0] || px[1] > size[1]) return null;
+            const r = m.getViewport()!.getBoundingClientRect(), b = el.getBoundingClientRect();
+            return [r.left - b.left + px[0], r.top - b.top + px[1]];
+        });
+        if (!at || !at[0] || !at[1]) return svg.removeAttribute("data-shown");
+        svg.setAttribute("data-shown", "");
+        svg.querySelectorAll("line").forEach((l) => {
+            l.setAttribute("x1", String(at[0]![0]));
+            l.setAttribute("y1", String(at[0]![1]));
+            l.setAttribute("x2", String(at[1]![0]));
+            l.setAttribute("y2", String(at[1]![1]));
         });
     }
 
@@ -668,6 +692,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             const shape = card.across ? {...card.shape!, own: n === card.across ? 0 : 1} : card.shape;
             d.show(card.geometry, x ? card.res![x]!.result : null, x ? panes[x].info.unit : undefined, shape);
         });
+        drawAcross();
     }, [card, mapsMade]);
 
     // A pane's map sized again when the split moves
@@ -1085,6 +1110,10 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                                            title="Beside the pointer once it rests: the temperature under it and ΔT (A − B)"/>
                 </div>}
                 <div class="compare-body" ref={body}>
+                    {/* A Delta T across: its line from one pane to the other (drawAcross) */}
+                    <svg class="compare-across" id="across-line" ref={acrossLine} aria-hidden="true">
+                        <line class="halo"/><line class="link"/>
+                    </svg>
                     {paneView("a")}
                     <div class="compare-split" id="split" role="separator" aria-orientation="vertical" tabIndex={0}
                          aria-label="Move the split between the panes" aria-valuenow={split}
