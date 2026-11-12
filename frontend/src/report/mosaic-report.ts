@@ -2,14 +2,15 @@
 // findings: the view saved with it (the viewer's, else the mosaics' first tab as it opens), how that colours the
 // values, the colour scale, what each close-up is fitted to, and the findings on the mosaic. Plain functions, no DOM.
 import {boundingExtent, buffer, getHeight, getWidth} from "ol/extent";
-import {type Colouring, SEAMS} from "../map/colour";
+import {type Colouring, scaleStops, SEAMS} from "../map/colour";
 import {lonLatToMap} from "../map/map";
 import {type Coords, type Geometry, type Measurement} from "../measure/measure";
 import {type Finding, SEVERITY_COLORS} from "../findings/findings";
 import {centreOf} from "../findings/layer";
 import {type Scale} from "../viewer/canvas";
-import {defaultAdjust, isTemperatureTab, shownRange, type Style, tabLabel, toneShares, valueCaption, valueUnit,
+import {bandsOf, isTemperatureTab, readAdjust, sharesOf, shownRange, type Style, tabLabel, valueCaption, valueUnit,
         type View} from "../viewer/view";
+import {symbol} from "../measure/measure";
 import {defaultStyle, type Mosaics} from "../viewer/viewer-page";
 import {formatNumber} from "../core/format";
 import {type Typed} from "./text";
@@ -28,7 +29,7 @@ export function reportStyle(v: Mosaics, view: View | undefined): {tab: string; s
     if (!view || view.tab !== tab || tab === "source_frame") return {tab, style};
     if (view.palette && (v.palettes || []).some((p) => p.key === view.palette)) style.palette = view.palette;
     if (view.range) style.range = view.range;
-    if (view.adjust) style.adjust = {...defaultAdjust(), ...view.adjust, equalize: !!view.adjust.equalize && isTemperatureTab(tab)};
+    if (view.adjust) style.adjust = readAdjust(view.adjust, isTemperatureTab(tab));
     return {tab, style};
 }
 
@@ -49,20 +50,17 @@ export function underOf(v: Mosaics, tab: string, style: Style): {tab: string; st
 
 const paletteOf = (v: Mosaics, key: string) => (v.palettes || []).find((p) => p.key === key)?.color_map || [];
 
-// The palette's share at values across the range: the equalization's curve (the server's), else the tone curve's
-export function sharesOf(style: Style, curve: number[] | null): number[] | null {
-    if (style.adjust.equalize && curve) return curve;
-    return style.adjust.gamma !== 1 || style.adjust.equalize ? toneShares(style.adjust.gamma) : null;
-}
-
-export function colouringOf(v: Mosaics, tab: string, style: Style, curve: number[] | null): Colouring {
+// How a tab is coloured in a style: its palette, range and gamma, and on a temperature tab its bands
+export function colouringOf(v: Mosaics, tab: string, style: Style): Colouring {
     if (tab === "source_frame") return SEAMS;
-    return {colors: paletteOf(v, style.palette), range: style.range, shares: sharesOf(style, curve), sharpen: style.adjust.sharpen};
+    return {colors: paletteOf(v, style.palette), range: style.range, shares: sharesOf(style.adjust), sharpen: style.adjust.sharpen,
+            bands: isTemperatureTab(tab) ? bandsOf(style.adjust, v.unit) : null};
 }
 
-export function legendOf(v: Mosaics, tab: string, style: Style, curve: number[] | null): Scale | null {
+export function legendOf(v: Mosaics, tab: string, style: Style): Scale | null {
     if (tab === "source_frame") return null;
-    return {colors: paletteOf(v, style.palette), shown: shownRange(tab, style.range, v.unit), shares: sharesOf(style, curve),
+    const c = colouringOf(v, tab, style);
+    return {colors: c.colors, shown: shownRange(tab, style.range, v.unit), shares: c.shares, stops: scaleStops(c),
             caption: valueCaption(tab)};
 }
 
@@ -77,7 +75,9 @@ export function viewText(v: Mosaics, shownTab: string, shownStyle: Style): strin
         const [lo, hi] = shownRange(tab, style.range, v.unit), u = valueUnit(tab);
         parts.push((palette?.label || style.palette) + " palette", formatNumber(lo, 1) + " to " + formatNumber(hi, 1) + u);
         if (style.adjust.gamma !== 1) parts.push("gamma " + style.adjust.gamma);
-        if (style.adjust.equalize) parts.push("equalized");
+        if (style.adjust.bands && isTemperatureTab(tab)) {
+            parts.push(style.adjust.bands + " every " + style.adjust.bandwidth + " " + symbol());
+        }
         if (style.adjust.sharpen) parts.push("sharpened " + style.adjust.sharpen);
     }
     return parts.join(" · ");

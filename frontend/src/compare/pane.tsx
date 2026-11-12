@@ -4,7 +4,7 @@ import {useState} from "preact/hooks";
 import {type Maybe} from "../core/format";
 import {convertTemp, userUnit} from "../core/units";
 import {signed, symbol, temp} from "../measure/measure";
-import {type Palette, type Point} from "../viewer/panel";
+import {BandControls, type Palette, type Point} from "../viewer/panel";
 import {gammaSlider, parseRange, sliderGamma, SLIDERS} from "../viewer/view";
 import {type CompareStyle, type DiffStyle} from "./compare";
 
@@ -62,12 +62,12 @@ export function StyleBar({style, palettes, what, onChange, onAuto}: StyleProps) 
                 <input type="range" name="gamma" {...SLIDERS.gamma} value={gammaSlider((style as CompareStyle).adjust.gamma)}
                        onInput={(e) => adjusted(e, false)} onChange={(e) => adjusted(e, true)}/>
             </label>
-            <label><input type="checkbox" name="equalize" checked={(style as CompareStyle).adjust.equalize}
-                          onChange={(e) => onChange({adjust: {...(style as CompareStyle).adjust, equalize: e.currentTarget.checked}})}/> Equalize</label>
             <label class="slider" title="Brings out edges (an unsharp mask)">Sharpen
                 <input type="range" name="sharpen" {...SLIDERS.sharpen} value={(style as CompareStyle).adjust.sharpen}
                        onInput={(e) => adjusted(e, false)} onChange={(e) => adjusted(e, true)}/>
             </label>
+            <BandControls bands={(style as CompareStyle).adjust.bands} bandwidth={(style as CompareStyle).adjust.bandwidth}
+                          onChange={(bands, bandwidth, done) => onChange({adjust: {...(style as CompareStyle).adjust, bands, bandwidth}}, done)}/>
         </>}
         {error && <span class="text-danger">{error}</span>}
     </div>);

@@ -2,7 +2,7 @@
 // joins. The server keeps two pictures of each: as shown when saved, and the original frame.
 import {formatNumber, type Maybe} from "../core/format";
 import type {IsothermState} from "../measure/result";
-import {type Adjust, defaultAdjust} from "../viewer/view";
+import {type Adjust, defaultAdjust, readAdjust} from "../viewer/view";
 import {LEVELS} from "./video-levels";
 import {formatDuration, VIDEO_PALETTE} from "./videos";
 
@@ -47,7 +47,7 @@ export function lookOf(saved: Maybe<SavedLook>): {look: Look; recoloured: boolea
         palette: typeof s.palette === "string" ? s.palette : START_LOOK.palette,
         range: pair(s.range) ? s.range : START_LOOK.range,
         ref: pair(s.ref) ? s.ref : pair(s.range) ? s.range : START_LOOK.ref,
-        adjust: {...START_LOOK.adjust, ...(s.adjust && typeof s.adjust === "object" ? s.adjust : {})},
+        adjust: s.adjust && typeof s.adjust === "object" ? readAdjust(s.adjust, false) : START_LOOK.adjust,
         isotherm: s.isotherm && typeof s.isotherm === "object" && typeof s.isotherm.mode === "string" ? s.isotherm : START_LOOK.isotherm,
     }};
 }

@@ -2,16 +2,18 @@
 // the view the server colours a PNG or an R-JPEG's picture with, and an export asked for and downloaded
 import {errorText, readJson, sendJson} from "./api";
 import type {Maybe} from "./format";
+import type {Bands} from "../map/colour";
 
 export interface FormatChoice {format: string; label: string; text: string; disabled?: string}
 
 // What a dataset's settings do that only a TIFF can carry: normalizing, and values replaced
 export interface Carried {normalize?: unknown; replace_above?: unknown; replace_below?: unknown}
 
-// The view as the server takes it (exports.check_view): the palette's key, the range, the adjustments and the isotherm
+// The view as the server takes it (exports.check_view): the palette's key, the range, the adjustments (the bands in the
+// values' unit) and the isotherm
 export interface ViewAsked {
-    palette?: string | null; range?: [number, number] | null; gamma?: number; equalize?: boolean; sharpen?: number;
-    isotherm?: string | null;
+    palette?: string | null; range?: [number, number] | null; gamma?: number; sharpen?: number;
+    bands?: string; band_width?: number; band_origin?: number; isotherm?: string | null;
 }
 
 const PRIVATE = "without the location, the serial numbers and the names";
@@ -77,10 +79,11 @@ export function colouredFrame(format: string, picture: string): boolean {
     return format === "png" || ((format === "rjpeg" || format === "rjpeg_private") && picture === "view");
 }
 
-export function viewAsked(palette: Maybe<string>, range: Maybe<[number, number]>,
-                          adjust?: Maybe<{gamma: number; equalize: boolean; sharpen: number}>, isotherm?: Maybe<string>): ViewAsked {
+export function viewAsked(palette: Maybe<string>, range: Maybe<[number, number]>, adjust?: Maybe<{gamma: number; sharpen: number}>,
+                          isotherm?: Maybe<string>, bands?: Maybe<Bands>): ViewAsked {
     const v: ViewAsked = {palette: palette || null, range: range || null};
-    if (adjust) Object.assign(v, {gamma: adjust.gamma, equalize: adjust.equalize, sharpen: adjust.sharpen});
+    if (adjust) Object.assign(v, {gamma: adjust.gamma, sharpen: adjust.sharpen});
+    if (bands) Object.assign(v, {bands: bands.mode, band_width: bands.width, band_origin: bands.origin});
     if (isotherm) v.isotherm = isotherm;
     return v;
 }

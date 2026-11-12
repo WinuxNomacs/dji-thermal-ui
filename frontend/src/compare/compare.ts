@@ -4,7 +4,7 @@
 import {type Maybe} from "../core/format";
 import {convertDelta, convertTemp, userUnit} from "../core/units";
 import {type Profile, type Result, typedTemp} from "../measure/measure";
-import {adjustQuery, type Adjust, defaultRange, type MosaicTab} from "../viewer/view";
+import {type Adjust, defaultRange, type MosaicTab} from "../viewer/view";
 
 export const SPLIT_LIMITS = [20, 80], SPLIT_STEP = 5;
 export const NO_OVERLAP = "These mosaics do not overlap.";
@@ -163,21 +163,9 @@ export function differenceUrl(api: string, a: number, aTab: string, b: number, b
     return api + "conversions/" + a + "/mosaics/" + aTab + "/difference?b=" + b + "&b_tab=" + encodeURIComponent(bTab);
 }
 
-// How a temperature tab is toned with equalization in a style (the range in the user's unit), for a conversion in unit
-export function mosaicCurveUrl(api: string, id: number, tab: string, style: CompareStyle, unit: unknown): string {
-    const range = rangeIn(style.range, unit);
-    return api + "conversions/" + id + "/mosaics/" + tab + "/curve?rescale=" + range[0] + "," + range[1] + adjustQuery(style.adjust);
-}
-
-// A frame's values, and how it is toned with equalization in a style
+// A frame's values
 export function frameDataUrl(api: string, id: number, frame: string): string {
     return api + "conversions/" + id + "/frame/data?frame=" + encodeURIComponent(frame);
-}
-
-export function frameCurveUrl(api: string, id: number, frame: string, style: CompareStyle, unit: unknown): string {
-    const range = rangeIn(style.range, unit);
-    return api + "conversions/" + id + "/frame/curve?frame=" + encodeURIComponent(frame) + "&rescale=" + range[0] + "," +
-        range[1] + adjustQuery(style.adjust);
 }
 
 // A mosaic's measured figures in another unit (B's in A's, so that one card shows both): its temperatures converted,

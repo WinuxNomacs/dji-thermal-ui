@@ -4,6 +4,7 @@ import {type FlightZone, formatNumber, type Maybe, zoneLabel} from "../core/form
 import {convertDelta, convertTemp, formatDelta, formatTemp, userUnit} from "../core/units";
 import {type Measured, type ParamField, symbol, typedTemp} from "../measure/measure";
 import {hiddenText, readHidden} from "../findings/findings";
+import type {Bands} from "../map/colour";
 export {TAB_LABELS, tabLabel} from "./tab-labels";
 
 export const TAB_HINTS: Record<string, string> = {
@@ -49,10 +50,15 @@ const OTHER_VALUES: Record<string, [string, string]> = {view_angle: ["View angle
                                                         video: ["Level (relative)", ""]};
 // The adjustments' limits and the legend's samples, as the server has them (thermal_measure)
 export const GAMMA_LIMITS = [0.2, 5], SHARPEN_MAX = 5, CURVE_SAMPLES = 65;
+// Banded: the bandwidth's limits and first value, in degrees of the user's unit
+export const BANDWIDTH_LIMITS = [1, 10], DEFAULT_BANDWIDTH = 5;
+export const BAND_MODES: [BandMode, string][] = [["", "Off"], ["stepped", "Stepped"], ["banded", "Banded"]];
 
 export interface Stats {percentiles?: number[]; min?: number; max?: number}
 export interface MosaicTab {tab: string; kind?: string; stats?: Stats | null; bounds?: number[]; maxzoom?: number | null}
-export interface Adjust {gamma: number; equalize: boolean; sharpen: number}
+// bands: stepped (each band one colour) or banded (every other band darker), bandwidth degrees of the user's unit wide
+export type BandMode = "" | "stepped" | "banded";
+export interface Adjust {gamma: number; sharpen: number; bands: BandMode; bandwidth: number}
 export interface Style {palette: string; range: [number, number]; adjust: Adjust; whole?: Measured | null}
 // The findings: findings false when they are hidden, hidden those hidden one by one, finding the one open
 export interface View {tab?: string; palette?: string; frame?: string | null; range?: [number, number]; adjust?: Adjust;
@@ -95,16 +101,44 @@ export function parseRange(minText: string, maxText: string, unit?: unknown): {r
     return {range: unit ? [typedTemp(lo, unit), typedTemp(hi, unit)] : [lo, hi]};
 }
 
-export function defaultAdjust(): Adjust { return {gamma: 1, equalize: false, sharpen: 0}; }
+export function defaultAdjust(): Adjust { return {gamma: 1, sharpen: 0, bands: "", bandwidth: DEFAULT_BANDWIDTH}; }
 
-// The adjustments as a query (&gamma=&equalize=1&sharpen=), those not as by default
+// The adjustments as a query (&gamma=&sharpen=&bands=&bandwidth=), those not as by default
 export function adjustQuery(adjust: Maybe<Adjust>): string {
     if (!adjust) return "";
-    return (adjust.gamma && adjust.gamma !== 1 ? "&gamma=" + adjust.gamma : "") + (adjust.equalize ? "&equalize=1" : "") +
-        (adjust.sharpen ? "&sharpen=" + adjust.sharpen : "");
+    return (adjust.gamma && adjust.gamma !== 1 ? "&gamma=" + adjust.gamma : "") +
+        (adjust.sharpen ? "&sharpen=" + adjust.sharpen : "") + (adjust.bands ? "&bands=" + adjust.bands : "") +
+        (adjust.bands && adjust.bandwidth !== DEFAULT_BANDWIDTH ? "&bandwidth=" + adjust.bandwidth : "");
 }
 
-// The view kept in the URL (?tab=&palette=&min=&max=&gamma=&equalize=&sharpen=&frame=): those given, the range only
+// An adjustment kept (a link's, a saved view's) as the page draws with: those it had, the others as by default (an
+// old view's equalize is no longer read); bands only on a temperature tab
+export function readAdjust(a: Maybe<Partial<Adjust>>, temperature = true): Adjust {
+    const out = defaultAdjust();
+    if (!a) return out;
+    if (typeof a.gamma === "number" && a.gamma >= GAMMA_LIMITS[0] && a.gamma <= GAMMA_LIMITS[1]) out.gamma = a.gamma;
+    if (typeof a.sharpen === "number" && a.sharpen >= 0 && a.sharpen <= SHARPEN_MAX) out.sharpen = a.sharpen;
+    if (temperature && (a.bands === "stepped" || a.bands === "banded")) out.bands = a.bands;
+    if (typeof a.bandwidth === "number" && a.bandwidth >= BANDWIDTH_LIMITS[0] && a.bandwidth <= BANDWIDTH_LIMITS[1]) {
+        out.bandwidth = a.bandwidth;
+    }
+    return out;
+}
+
+// The bands a temperature is drawn in, in the values' unit (a band's edge at every bandwidth of the user's unit:
+// 0, 5, 10 °F), or null without
+export function bandsOf(adjust: Maybe<Adjust>, unit: unknown): Bands | null {
+    if (!adjust?.bands) return null;
+    return {mode: adjust.bands, width: convertDelta(adjust.bandwidth, userUnit(), unit) as number,
+            origin: convertTemp(0, userUnit(), unit) as number};
+}
+
+// The palette's share at values evenly across the range, as gamma bends it; null: evenly
+export function sharesOf(adjust: Maybe<Adjust>): number[] | null {
+    return adjust && adjust.gamma !== 1 ? toneShares(adjust.gamma) : null;
+}
+
+// The view kept in the URL (?tab=&palette=&min=&max=&gamma=&sharpen=&bands=&bandwidth=&frame=): those given, the range only
 // when it is one (the conversion's unit), the image's adjustments when any is (the others as by default)
 export function readView(search: string): View {
     const out: View = {}, params: Record<string, string> = {};
@@ -120,10 +154,8 @@ export function readView(search: string): View {
     if (params.frame) out.frame = params.frame;
     const lo = parseFloat(params.min), hi = parseFloat(params.max);
     if (isFinite(lo) && isFinite(hi) && hi > lo) out.range = [lo, hi];
-    const adjust = defaultAdjust(), gamma = parseFloat(params.gamma), sharpen = parseFloat(params.sharpen);
-    if (gamma >= GAMMA_LIMITS[0] && gamma <= GAMMA_LIMITS[1]) adjust.gamma = gamma;
-    if (sharpen >= 0 && sharpen <= SHARPEN_MAX) adjust.sharpen = sharpen;
-    adjust.equalize = params.equalize === "1";
+    const adjust = readAdjust({gamma: parseFloat(params.gamma), sharpen: parseFloat(params.sharpen),
+                               bands: params.bands as BandMode, bandwidth: parseFloat(params.bandwidth)});
     if (adjustQuery(adjust)) out.adjust = adjust;
     if (params.findings === "0") out.findings = false;
     const hidden = readHidden(params.hide), finding = Number(params.finding);
@@ -162,8 +194,7 @@ export function dataUrl(api: string, id: number, tab: string, extra?: Extra, bui
 
 export function builtQuery(built: Maybe<number>): string { return built ? "?built=" + built : ""; }
 
-// The palette's share at CURVE_SAMPLES values evenly across the range, with gamma alone (what the server's curve
-// gives with equalization)
+// The palette's share at CURVE_SAMPLES values evenly across the range, with gamma (as the server's curve_shares)
 export function toneShares(gamma: number): number[] {
     const out: number[] = [];
     for (let i = 0; i < CURVE_SAMPLES; i++) out.push(Math.pow(i / (CURVE_SAMPLES - 1), 1 / (gamma || 1)));

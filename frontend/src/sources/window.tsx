@@ -5,7 +5,6 @@
 import {type ComponentChildren} from "preact";
 import {useEffect, useRef, useState} from "preact/hooks";
 import {ChevronLeft, ChevronRight, Image} from "../components/icons";
-import {readJson} from "../core/api";
 import {formatCapture, type Maybe} from "../core/format";
 import {inField} from "../measure/drawing";
 import {temp} from "../measure/measure";
@@ -20,7 +19,6 @@ export interface SourceGroup {
     error?: string;
     unit: unknown;
     values?: (frame: string) => string;     // a frame's values (none for photos)
-    curve?: (frame: string) => string;      // its tone curve with equalization, "" without
     colouring?: Colouring;
     href?: (frame: string) => string;       // its frame page, where it has one
     visual?: (frame: string) => string;     // a thermal frame's visual pair as an image, where the frames have them
@@ -52,14 +50,11 @@ function startAt(anchor: Maybe<HTMLElement>): {left: number; top: number} {
     return clampAt(r ? r.left + 12 : 16, r ? r.top + 12 : 80, 0);
 }
 
-// A frame's values coloured as the mosaic's are (curve: its tone curve with equalization, else ""), with the spot's
-// pixel marked or the area's outline drawn over it
-export function FrameImage({values, curve, colouring, alt, pixel, outline}: {
-    values: string; curve: string; colouring: Colouring; alt: string; pixel?: Maybe<[number, number]>;
-    outline?: [number, number][][];
+// A frame's values coloured as the mosaic's are, with the spot's pixel marked or the area's outline drawn over it
+export function FrameImage({values, colouring, alt, pixel, outline}: {
+    values: string; colouring: Colouring; alt: string; pixel?: Maybe<[number, number]>; outline?: [number, number][][];
 }) {
     const [drawn, setDrawn] = useState<{values: Float32Array; width: number; height: number} | null>(null);
-    const [shares, setShares] = useState<number[] | null>(null);
     const canvas = useRef<HTMLCanvasElement>(null);
     const size = drawn && drawn.width > 0 && drawn.height > 0 ? [drawn.width, drawn.height] : null;
 
@@ -70,18 +65,11 @@ export function FrameImage({values, curve, colouring, alt, pixel, outline}: {
         return () => { live = false; };
     }, [values]);
     useEffect(() => {
-        let live = true;
-        setShares(null);
-        if (curve) get(curve).then((res) => readJson<{shares?: number[]}>(res))
-            .then((r) => { if (live && r.ok) setShares(r.data.shares || null); }, () => { /* toned by gamma alone then */ });
-        return () => { live = false; };
-    }, [curve]);
-    useEffect(() => {
         const ctx = drawn && canvas.current?.getContext("2d");
         if (!drawn || !ctx) return;
-        const rgba = colourValues(drawn.values, drawn.width, drawn.height, {...colouring, shares: shares || colouring.shares});
+        const rgba = colourValues(drawn.values, drawn.width, drawn.height, colouring);
         ctx.putImageData(new ImageData(rgba as Uint8ClampedArray<ArrayBuffer>, drawn.width, drawn.height), 0, 0);
-    }, [drawn, shares, JSON.stringify(colouring)]);
+    }, [drawn, JSON.stringify(colouring)]);
 
     return (<div class="frame-image">
         <canvas ref={canvas} role="img" aria-label={alt} data-values={values} width={size ? size[0] : 0}
@@ -195,7 +183,7 @@ export function SourcesWindow({groups, name, anchor, about, visual: startVisual 
             {group.photo ?
                 <PhotoImage src={group.photo(f.frame)} alt={f.frame} pixel={pixel} outline={outline} width={f.width} height={f.height}/> :
                 visual && pair ? <VisualImage src={group.visual!(f.frame)} pair={pair} alt={pair.frame} pixel={pixel} outline={outline}/> :
-                group.values && group.colouring && <FrameImage values={group.values(f.frame)} curve={group.curve?.(f.frame) || ""}
+                group.values && group.colouring && <FrameImage values={group.values(f.frame)}
                                             colouring={group.colouring} alt={f.frame} pixel={pixel} outline={outline}/>}
             <div class="sources-nav">
                 <button type="button" class="button default small" name="previous" title="The previous frame (←)"

@@ -20,8 +20,10 @@ export function paletteCss(encoded: number[], t: number): string {
 }
 
 // Colours as the API gives them (0xRRGGBBAA) as CSS colours: sampled at 16 stops, or, with shares (the palette's
-// share at values evenly across the range: how the image is drawn), one per share, between the palette's entries
-export function gradientStops(encoded: number[] | null | undefined, shares?: number[] | null): string[] {
+// share at values evenly across the range: how the image is drawn), one per share, between the palette's entries;
+// stops: the colours themselves (drawn in bands), as they are
+export function gradientStops(encoded: number[] | null | undefined, shares?: number[] | null, given?: string[] | null): string[] {
+    if (given && given.length > 1) return given;
     if (!encoded || !encoded.length) return [];
     if (shares && shares.length > 1) return shares.map((t) => paletteCss(encoded, t));
     const stops: string[] = [];
@@ -30,8 +32,8 @@ export function gradientStops(encoded: number[] | null | undefined, shares?: num
 }
 
 // The same as a CSS gradient
-export function gradientCss(encoded: number[] | null | undefined, shares?: number[] | null): string {
-    const stops = gradientStops(encoded, shares);
+export function gradientCss(encoded: number[] | null | undefined, shares?: number[] | null, given?: string[] | null): string {
+    const stops = gradientStops(encoded, shares, given);
     return stops.length ? "linear-gradient(to right, " + stops.join(", ") + ")" : "";
 }
 
@@ -39,7 +41,8 @@ export interface CanvasShape {type: string; name: string; points: [number, numbe
 // An image drawn where it is on the page (the values as a map drew them)
 export interface Placed {image: CanvasImageSource; rect: DOMRect}
 export interface Pane {el: HTMLElement; images: Placed[]; caption?: string; shapes?: CanvasShape[]}
-export interface Scale {colors: number[]; shown: [number, number]; caption: string; shares?: number[] | null}
+// stops: the colours along it when the values are drawn in bands (scaleStops)
+export interface Scale {colors: number[]; shown: [number, number]; caption: string; shares?: number[] | null; stops?: string[] | null}
 
 // A measurement on the image as it is on the map (the drawing's colours, or its own), its name beside it
 export function drawShape(g: CanvasRenderingContext2D, s: CanvasShape): void {
@@ -134,7 +137,7 @@ export function viewCanvas(o: {title: string; date: string; panes: Pane[]; legen
         g.font = "12px sans-serif";
         g.fillText(o.scale.label, PAD, bottom + 19);
     }
-    const stops = gradientStops(o.legend?.colors, o.legend?.shares);
+    const stops = gradientStops(o.legend?.colors, o.legend?.shares, o.legend?.stops);
     if (o.legend && stops.length) {
         const w = Math.min(240, width / 2 - PAD), left = width - PAD - w;
         const grad = g.createLinearGradient(left, 0, left + w, 0);

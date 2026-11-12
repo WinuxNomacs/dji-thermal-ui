@@ -467,7 +467,7 @@ describe("the frame page", () => {
         await ticks();
         const post = fetchFn.mock.calls.find((c) => c[1]?.method === "POST")!;
         expect(JSON.parse(String(post[1]!.body))).toMatchObject({format: "png", frames: [A], conversion: 9,
-            changes: {emissivity: 0.98}, view: {palette: "dji_ironred", gamma: 1, equalize: false, sharpen: 0}});
+            changes: {emissivity: 0.98}, view: {palette: "dji_ironred", gamma: 1, sharpen: 0}});
         expect(download).toHaveBeenCalledTimes(1);
         expect(byId("export-dialog")).toBeNull();
         download.mockRestore();

@@ -167,6 +167,17 @@ export function colourStyle(c: Colouring, sigma = 1): {color: ExpressionValue; v
     return {color: ["case", ["<", v, NO_DATA], none, color], variables};
 }
 
+// The legend's colours as the values are drawn in bands (stepped or banded: what shares can't say), SCALE_SAMPLES of
+// them evenly across the range, as CSS colours; null without bands
+export const SCALE_SAMPLES = 256;
+export function scaleStops(c: Colouring): string[] | null {
+    if (!c.bands || !c.range) return null;
+    const [low, high] = c.range, n = SCALE_SAMPLES;
+    const values = new Float32Array(n).map((_, i) => low + (high - low) * (i + 0.5) / n);
+    const rgba = colourValues(values, n, 1, {...c, sharpen: 0, isotherm: null});
+    return Array.from({length: n}, (_, i) => "rgb(" + rgba[i * 4] + "," + rgba[i * 4 + 1] + "," + rgba[i * 4 + 2] + ")");
+}
+
 // The values of a response (see decodeValues), its width and height in X-Width and X-Height
 export async function readValues(res: Response): Promise<{values: Float32Array; width: number; height: number}> {
     if (!res.ok) throw new Error("The values could not be loaded");

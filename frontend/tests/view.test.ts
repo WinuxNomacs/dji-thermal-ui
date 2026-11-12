@@ -4,7 +4,7 @@ import {afterEach, describe, expect, it} from "vitest";
 import {setUserUnit} from "../src/core/units";
 import {gradientCss, gradientStops, paletteCss} from "../src/viewer/canvas";
 import {
-    defaultRange, disagreement, fileName, parseRange, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
+    adjustQuery, bandsOf, defaultRange, disagreement, fileName, parseRange, readAdjust, readCorrection, readView, reportRows, scaleBar, scaleTicks, sliderGamma,
     shownRange, sliderPositions, SLIDERS, slidRange, stepRange, styleGroup, takenText, dataUrl, toneShares, valueCaption, valueUnit,
     viewQuery, visualRows,
 } from "../src/viewer/view";
@@ -13,21 +13,35 @@ afterEach(() => setUserUnit("C"));
 
 describe("the view in the URL", () => {
     it("reads the tab, palette, frame, range and adjustments given", () => {
-        expect(readView("?tab=harmonized&palette=inferno&min=10&max=20.5&gamma=1.5&equalize=1&frame=DJI_1.JPG"))
+        expect(readView("?tab=harmonized&palette=inferno&min=10&max=20.5&gamma=1.5&bands=banded&bandwidth=3&frame=DJI_1.JPG"))
             .toEqual({tab: "harmonized", palette: "inferno", frame: "DJI_1.JPG", range: [10, 20.5],
-                      adjust: {gamma: 1.5, equalize: true, sharpen: 0}});
+                      adjust: {gamma: 1.5, sharpen: 0, bands: "banded", bandwidth: 3}});
     });
 
-    it("leaves out a range that is not one and adjustments out of their limits", () => {
-        expect(readView("?min=20&max=10&gamma=9&sharpen=7")).toEqual({});
+    it("leaves out a range that is not one, adjustments out of their limits and an old link's equalize", () => {
+        expect(readView("?min=20&max=10&gamma=9&sharpen=7&equalize=1&bands=equalized&bandwidth=11")).toEqual({});
+        expect(readView("?bands=stepped&bandwidth=11").adjust).toEqual({gamma: 1, sharpen: 0, bands: "stepped", bandwidth: 5});
     });
 
     it("writes the same view back as a query", () => {
-        const view = {tab: "as_converted", range: [1, 2] as [number, number], adjust: {gamma: 2, equalize: false, sharpen: 1},
-                      frame: "a b"};
-        expect(viewQuery(view)).toBe("?tab=as_converted&min=1&max=2&gamma=2&sharpen=1&frame=a%20b");
+        const view = {tab: "as_converted", range: [1, 2] as [number, number],
+                      adjust: {gamma: 2, sharpen: 1, bands: "stepped" as const, bandwidth: 2}, frame: "a b"};
+        expect(viewQuery(view)).toBe("?tab=as_converted&min=1&max=2&gamma=2&sharpen=1&bands=stepped&bandwidth=2&frame=a%20b");
         expect(readView(viewQuery(view))).toEqual(view);
+        // The bandwidth only with bands, and when it is not the first one
+        expect(adjustQuery({gamma: 1, sharpen: 0, bands: "", bandwidth: 3})).toBe("");
+        expect(adjustQuery({gamma: 1, sharpen: 0, bands: "banded", bandwidth: 5})).toBe("&bands=banded");
         expect(viewQuery({})).toBe("");
+    });
+
+    it("give the bands in the values' unit: an edge at every bandwidth of the user's unit, on a temperature tab only", () => {
+        const a = {gamma: 1, sharpen: 0, bands: "banded" as const, bandwidth: 9};
+        expect(bandsOf(a, "C")).toEqual({mode: "banded", width: 9, origin: 0});
+        setUserUnit("F");
+        const f = bandsOf(a, "C")!;
+        expect([f.mode, f.width, Math.round(f.origin * 1000) / 1000]).toEqual(["banded", 5, -17.778]);
+        expect(bandsOf({...a, bands: ""}, "C")).toBeNull();
+        expect(readAdjust({bands: "stepped", gamma: 2}, false)).toEqual({gamma: 2, sharpen: 0, bands: "", bandwidth: 5});
     });
 });
 

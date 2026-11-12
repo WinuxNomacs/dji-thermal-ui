@@ -10,7 +10,8 @@ import {type Measured, symbol, temp} from "../measure/measure";
 import type {Around} from "../map/pointer-delta";
 import {gradientCss, type Scale} from "./canvas";
 import {type Adjust, EMISSIVITY_RANGE, gammaSlider, inTemperatures, type MosaicTab, reflectedRange, scaleTicks,
-        SLIDERS, SPAN_STEPS, type SpanStep, stepRange, tabHint, valueUnit} from "./view";
+        SLIDERS, SPAN_STEPS, type SpanStep, stepRange, tabHint, valueUnit, BAND_MODES, BANDWIDTH_LIMITS,
+        type BandMode} from "./view";
 
 const FOLDED_KEY = "thermal-analyzer.viewer.folded";
 
@@ -56,7 +57,7 @@ export function ScaleView({scale}: {scale: Maybe<Scale>}) {
     if (!scale) return null;
     return (<div class="scale">
         <div class="scale-caption">{scale.caption}</div>
-        <div class="scale-bar" style={{background: gradientCss(scale.colors, scale.shares)}}/>
+        <div class="scale-bar" style={{background: gradientCss(scale.colors, scale.shares, scale.stops)}}/>
         <div class="scale-ticks">
             {scaleTicks(scale.shown[0], scale.shown[1], 5).map((t) =>
                 <span key={t.at} class={t.at < 0.1 ? "start" : t.at > 0.9 ? "end" : undefined} style={{left: t.at * 100 + "%"}}>{t.label}</span>)}
@@ -132,10 +133,11 @@ interface ImageProps {
     adjust: Adjust; brightness: number; contrast: number; temperature: boolean;
     onSlide: (brightness: number, contrast: number, done: boolean) => void;
     onGamma: (slider: string, done: boolean) => void; onSharpen: (v: number, done: boolean) => void;
-    onTone: (equalize: boolean) => void; onReset: () => void;
+    onBands: (bands: BandMode, bandwidth: number, done: boolean) => void; onReset: () => void;
 }
 
-// How the image is drawn: brightness and contrast move the range, gamma and the tone curve share out the colours.
+// How the image is drawn: brightness and contrast move the range, gamma shares out the colours, Banded draws the
+// temperatures in bands (stepped: one colour each; banded: every other one darker) bandwidth degrees wide.
 // While a slider is dragged it reports done false (the image redrawn), and true when it is let go (the change kept).
 export function ImageControls(p: ImageProps) {
     const slide = (e: Event, done: boolean) => {
@@ -163,18 +165,33 @@ export function ImageControls(p: ImageProps) {
                    onChange={(e) => p.onSharpen(parseFloat(e.currentTarget.value) || 0, true)}/>
             <span class="slider-value">{formatNumber(a.sharpen, 1)}</span>
         </label>
+        {p.temperature && <BandControls bands={a.bands} bandwidth={a.bandwidth} onChange={p.onBands}/>}
         <div class="inline">
-            <select aria-label="Tone" value={a.equalize ? "equalize" : "linear"}
-                    title="Equalized spreads the colours over the temperatures the whole image has most of"
-                    onChange={(e) => p.onTone(e.currentTarget.value === "equalize")}>
-                <option value="linear">Linear</option>
-                {p.temperature && <option value="equalize">Equalized</option>}
-            </select>
             <button type="button" class="button default small" id="reset" title="The Auto range, no adjustments"
                     onClick={p.onReset}>Reset</button>
         </div>
         <p class="message">Adjustments change how the image is drawn: {p.temperature ? "temperatures" : "values"} remain unchanged.</p>
     </>);
+}
+
+// Banded: Off, Stepped or Banded, and while it is on the bandwidth slider, in degrees of the user's unit (done false
+// while it is dragged)
+export function BandControls({bands, bandwidth, onChange}: {bands: BandMode; bandwidth: number;
+                                                           onChange: (bands: BandMode, bandwidth: number, done: boolean) => void}) {
+    const width = (e: Event, done: boolean) => onChange(bands, parseFloat((e.currentTarget as HTMLInputElement).value), done);
+    return (<div class="bands">
+        <label class="bands-mode" title="Stepped: each band one colour. Banded: every other band darker.">Banded
+            <select name="bands" value={bands}
+                    onChange={(e) => onChange(e.currentTarget.value as BandMode, bandwidth, true)}>
+                {BAND_MODES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+            </select>
+        </label>
+        {bands && <label class="slider" title="How many degrees each band spans">Bandwidth
+            <input type="range" name="bandwidth" min={BANDWIDTH_LIMITS[0]} max={BANDWIDTH_LIMITS[1]} step={1} value={bandwidth}
+                   onInput={(e) => width(e, false)} onChange={(e) => width(e, true)}/>
+            <span class="slider-value">{bandwidth} {symbol()}</span>
+        </label>}
+    </div>);
 }
 
 export interface Point {
