@@ -601,8 +601,7 @@ def test_the_dsm_is_shown_on_a_heights_tab_and_gives_the_grounds_height_to_the_r
     tab = viewer['tabs'][-1]
     assert tab['tab'] == 'heights' and tab['stats']['max'] == pytest.approx(6.3, abs=1e-4)
     assert 'raster' not in viewer['kinds']['dsm']
-    # Not a temperature tab: no curve, nothing to compare, no measurement, no finding
-    assert api.get("%s/%d/mosaics/heights/curve?low=0&high=6" % (CONVERSIONS, c.id)).status_code == 404
+    # Not a temperature tab: nothing to compare, no measurement, no finding
     assert 'heights' not in api.get("%s/%d/comparable" % (CONVERSIONS, c.id)).data[0]['tabs']
     area = mosaic_square(30, 8, 34, 12)
     assert api.post("%s/%d/measure" % (CONVERSIONS, c.id), {'target': 'heights', 'geometry': area},

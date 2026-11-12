@@ -92,13 +92,16 @@ const patches = (fetchFn: ReturnType<typeof server>, url: string) => fetchFn.moc
 describe("the mosaic report's figures", () => {
     it("show the view saved with the report, else the first tab as it opens", () => {
         expect(reportStyle(MOSAICS, undefined)).toEqual({tab: "as_converted",
-            style: {palette: "ironred", range: [20, 30], adjust: {gamma: 1, equalize: false, sharpen: 0}}});
+            style: {palette: "ironred", range: [20, 30], adjust: {gamma: 1, sharpen: 0, bands: "", bandwidth: 5}}});
         const saved = reportStyle(MOSAICS, {tab: "harmonized", palette: "viridis", range: [18, 32],
-                                            adjust: {gamma: 1.5, equalize: true, sharpen: 1}});
+                                            adjust: {gamma: 1.5, sharpen: 1, bands: "stepped", bandwidth: 2}});
         expect(saved).toEqual({tab: "harmonized", style: {palette: "viridis", range: [18, 32],
-                                                          adjust: {gamma: 1.5, equalize: true, sharpen: 1}}});
+                                                          adjust: {gamma: 1.5, sharpen: 1, bands: "stepped", bandwidth: 2}}});
         expect(viewText(MOSAICS, saved.tab, saved.style)).toBe("Harmonized · Viridis palette · 18.0 to 32.0 °C · gamma 1.5 · " +
-                                                              "equalized · sharpened 1");
+                                                              "stepped every 2 °C · sharpened 1");
+        // A view saved before the bands: its equalize is no longer read
+        expect(reportStyle(MOSAICS, {tab: "harmonized", adjust: {gamma: 1, equalize: true, sharpen: 0} as never}).style.adjust)
+            .toEqual({gamma: 1, sharpen: 0, bands: "", bandwidth: 5});
         // A tab or palette the mosaics no longer have is not shown
         expect(reportStyle(MOSAICS, {tab: "view_angle", palette: "x"}).tab).toBe("as_converted");
         expect(reportStyle(MOSAICS, {tab: "harmonized", palette: "x"}).style.palette).toBe("ironred");
@@ -180,16 +183,15 @@ describe("the mosaic report", () => {
         expect(text(".report-measurements-table")).toContain("Damp");
     });
 
-    it("shows the view saved with it, and asks for the equalization's curve", async () => {
-        const view = {tab: "harmonized", palette: "viridis", range: [18, 32], adjust: {gamma: 1, equalize: true, sharpen: 0}};
-        const {fetchFn} = await page({[BASE]: {...DETAIL, report: {title: "Roof survey", view}},
-                                      [BASE + "/mosaics/harmonized/curve?rescale=18,32&equalize=1"]: {shares: [0, 0.2, 1]}});
+    it("shows the view saved with it, drawn in its bands with its legend's", async () => {
+        const view = {tab: "harmonized", palette: "viridis", range: [18, 32], adjust: {gamma: 1, sharpen: 0, bands: "banded", bandwidth: 2}};
+        await page({[BASE]: {...DETAIL, report: {title: "Roof survey", view}}});
         expect(($("#report-title") as HTMLInputElement).value).toBe("Roof survey");
-        expect(text("#report-mosaic .report-caption")).toContain("Harmonized · Viridis palette · 18.0 to 32.0 °C · equalized");
-        expect(fetchFn.mock.calls.map((c) => c[0])).toContain(BASE + "/mosaics/harmonized/curve?rescale=18,32&equalize=1");
+        expect(text("#report-mosaic .report-caption")).toContain("Harmonized · Viridis palette · 18.0 to 32.0 °C · banded every 2 °C");
         const main = vi.mocked(drawFigures).mock.calls.find((c) => c[1][0].key === "main")!;
-        expect(main[0].colouring!.shares).toEqual([0, 0.2, 1]);
-        expect($(".report-bar a")!.getAttribute("href")).toBe("/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&equalize=1");
+        expect(main[0].colouring!.bands).toEqual({mode: "banded", width: 2, origin: 0});
+        expect(main[0].legend!.stops!.length).toBe(256);
+        expect($(".report-bar a")!.getAttribute("href")).toBe("/conversion/9?tab=harmonized&palette=viridis&min=18&max=32&bands=banded&bandwidth=2");
     });
 
     it("draws the Source frame tab as the mosaic with the seams between its frames over it", async () => {
@@ -239,7 +241,7 @@ describe("the mosaic report of a visual mosaic of its own", () => {
         const crack = {...finding(8, 10.0005), tab: "visual", temperatures: {area: 3.2, perimeter: 7.4, valid_pixels: 9, unit: "C"}};
         const visual = {bounds: BOUNDS, minzoom: 18, maxzoom: 23, frames: 2, gsd_m: 0.006,
                         report: {laid_out: "by the visual frames' own overlaps", frames_used: 2, frames_contributing: 2}};
-        const {fetchFn} = await page({
+        await page({
             [BASE]: {...DETAIL, settings: {visual_only: true}}, [BASE + "/mosaics"]: {name: "RGB", status: "ready", mosaic_status: "ready",
                                                                                      tabs: [], visual_only: true, visual},
             [BASE + "/measurements"]: {measurements: [area]}, [API + "datasets/5/findings"]: {findings: [crack]},
@@ -254,7 +256,6 @@ describe("the mosaic report of a visual mosaic of its own", () => {
         expect(text("[data-measurement='7']")).toContain("Perimeter14.20 m");
         expect(text("#report-findings")).toContain("3.20 m², perimeter 7.40 m");
         expect(text(".report-mosaic-rows")).toContain("2 laid out by their own overlaps");
-        expect(fetchFn.mock.calls.some((c) => String(c[0]).includes("/curve"))).toBe(false);
         expect(document.body.textContent).not.toContain("°C");
     });
 });

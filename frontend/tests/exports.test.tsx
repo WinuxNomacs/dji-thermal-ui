@@ -69,8 +69,9 @@ describe("the formats offered", () => {
     });
 
     it("sends the view as the server takes it, the isotherm only when there is one", () => {
-        expect(viewAsked("magma", [18, 32], {gamma: 1.5, equalize: true, sharpen: 0.5}, "between:20,30"))
-            .toEqual({palette: "magma", range: [18, 32], gamma: 1.5, equalize: true, sharpen: 0.5, isotherm: "between:20,30"});
+        expect(viewAsked("magma", [18, 32], {gamma: 1.5, sharpen: 0.5}, "between:20,30", {mode: "stepped", width: 2.5, origin: -17.5}))
+            .toEqual({palette: "magma", range: [18, 32], gamma: 1.5, sharpen: 0.5, bands: "stepped", band_width: 2.5, band_origin: -17.5,
+                      isotherm: "between:20,30"});
         expect(viewAsked("", null, null, "")).toEqual({palette: null, range: null});
     });
 });
@@ -195,7 +196,7 @@ describe("the Files tab's export", () => {
 });
 
 describe("the frame explorer's export", () => {
-    const VIEW = viewAsked("magma", [18, 32], {gamma: 1, equalize: false, sharpen: 0}, "");
+    const VIEW = viewAsked("magma", [18, 32], {gamma: 1, sharpen: 0}, "");
     const props = {api: API, datasetId: 5, conversion: 9, frame: A, settings: null, view: VIEW, hasVisual: true,
                    asShown: async () => "", onClose: () => undefined};
 
@@ -266,7 +267,7 @@ describe("the frame explorer's export", () => {
 });
 
 describe("the viewer's export", () => {
-    const VIEW = viewAsked("magma", [18, 32], {gamma: 1, equalize: false, sharpen: 0}, "between:20,30");
+    const VIEW = viewAsked("magma", [18, 32], {gamma: 1, sharpen: 0}, "between:20,30");
 
     it("sends the view and the correction on a temperature tab, nothing more on the visual one", () => {
         const p = {base: "/api/conversions/9", tab: "harmonized", label: "Harmonized", view: VIEW, correction: {emissivity: 0.9},

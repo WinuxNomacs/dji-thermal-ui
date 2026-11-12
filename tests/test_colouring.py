@@ -21,7 +21,8 @@ def coloured(case, first=0, stop=None):
     top = max(0, first - colouring.MARGIN)
     window = values[top:stop + colouring.MARGIN]
     return colouring.colour(window, c['colors'], c.get('range'), c.get('shares'), c.get('sharpen') or 0,
-                            c.get('isotherm'), bool(c.get('index')), case['sigma'], (first - top, stop - top))
+                            c.get('isotherm'), bool(c.get('index')), case['sigma'], (first - top, stop - top),
+                            bands=(lambda b: b and (b['mode'], b['width'], b['origin']))(c.get('bands')))
 
 
 @pytest.mark.parametrize('case', FIXTURE['cases'], ids=lambda c: c['name'])

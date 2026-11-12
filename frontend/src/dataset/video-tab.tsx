@@ -479,7 +479,7 @@ function Player({url, video, files, basemaps, palettes, look, setLook, recoloure
                                    onSlide={(b, c) => setLook({...look, range: slidRange(look.ref, b, c)})}
                                    onGamma={(slider) => setLook({...look, adjust: {...look.adjust, gamma: sliderGamma(slider)}})}
                                    onSharpen={(sharpen) => setLook({...look, adjust: {...look.adjust, sharpen}})}
-                                   onTone={() => undefined}
+                                   onBands={() => undefined}
                                    onReset={() => { const r = auto(); setLook({...look, range: r, ref: r, adjust: defaultAdjust()}); }}/>
                     <h5>Isotherm</h5>
                     <Isotherm state={look.isotherm} error={isoError} what="Level" unit=""

@@ -423,7 +423,7 @@ describe("the viewer page", () => {
         await ticks();
         const post = fetchFn.mock.calls.find((c) => String(c[0]).endsWith("/exports"))!;
         expect(JSON.parse(String(post[1]!.body))).toEqual({format: "png", correction: {},
-            view: {palette: "viridis", range: [18, 32], gamma: 1.5, equalize: false, sharpen: 0}});
+            view: {palette: "viridis", range: [18, 32], gamma: 1.5, sharpen: 0}});
         expect(download).toHaveBeenCalledTimes(1);
         expect(byId("export-dialog")).toBeNull();
     });
@@ -438,7 +438,7 @@ describe("the viewer page", () => {
         click(byId("report"));
         await ticks();
         expect(sent(fetchFn, "PATCH")).toEqual({report: {view: {tab: "harmonized", palette: "viridis", range: [18, 32],
-            adjust: {gamma: 1.5, equalize: false, sharpen: 0}, findings: true, hidden: []}}});
+            adjust: {gamma: 1.5, sharpen: 0, bands: "", bandwidth: 5}, findings: true, hidden: []}}});
         expect(nav).toHaveBeenCalledWith("/conversion/9/report");
     });
 
@@ -470,10 +470,10 @@ describe("the viewer page", () => {
         expect((byId("palette") as HTMLSelectElement).value).toBe("viridis");
         expect([(byId("range-min") as HTMLInputElement).value, (byId("range-max") as HTMLInputElement).value]).toEqual(["0.4", "9.9"]);
         const panel = $(".viewer-panel")!.textContent;
+        expect($("select[name=bands]")).toBeNull();        // heights are not drawn in bands
         expect(panel).toContain("WebODM's DSM");
         expect(panel).toContain("This mosaic: 0.0 to 12.3 m");
         expect($("[data-section=measure]")).toBeNull();
-        expect(calls(fetchFn).some((c) => c.includes("/heights/curve"))).toBe(false);
     });
 
     it("refuses a range whose maximum is not above its minimum, and Auto takes the whole mosaic's percentiles", async () => {
@@ -530,6 +530,30 @@ describe("the viewer page", () => {
         await ticks();
         expect((restyled.mock.lastCall![0] as {variables: Record<string, number>}).variables.sharpen).toBeCloseTo(1.36, 2);
         expect([...document.querySelectorAll(".slider-value")].at(-1)!.textContent).toBe("1.4");
+        vi.restoreAllMocks();
+    });
+
+    it("draws the temperatures in bands as Banded is chosen, its bandwidth drawn as dragged and kept in the URL", async () => {
+        const restyled = vi.spyOn(WebGLTileLayer.prototype, "setStyle");
+        await open(server(routes()));
+        const styled = () => (restyled.mock.lastCall![0] as {variables: Record<string, number>}).variables;
+        expect($("input[name=bandwidth]")).toBeNull();
+        change($("select[name=bands]")!, "stepped");
+        await ticks();
+        expect(location.search).toContain("bands=stepped");
+        expect([styled().bandWidth, styled().bandOrigin]).toEqual([5, 0]);
+        change($("input[name=bandwidth]")!, "3", "input");
+        await ticks();
+        expect(styled().bandWidth).toBe(3);
+        expect(location.search).not.toContain("bandwidth");
+        change($("input[name=bandwidth]")!, "3");
+        await ticks();
+        expect(location.search).toContain("bands=stepped&bandwidth=3");
+        // Off again: no bands, nor a bandwidth in the URL
+        change($("select[name=bands]")!, "");
+        await ticks();
+        expect(styled().bandWidth).toBeUndefined();
+        expect(location.search).not.toContain("band");
         vi.restoreAllMocks();
     });
 

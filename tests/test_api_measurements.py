@@ -6,7 +6,6 @@ the app's unit)"""
 import csv
 import io
 import json
-import os
 from types import SimpleNamespace
 from unittest import mock
 
@@ -14,7 +13,6 @@ import numpy as np
 import pytest
 
 from dji_thermal_ui.analyzer import thermal_measure as measuring
-from dji_thermal_ui.analyzer import thermal_mosaics as mosaics
 from dji_thermal_ui.analyzer.models import ThermalConversion, ThermalDataset, ThermalMeasurement
 from dji_thermal_ui.analyzer.raster.thermal_correction import corrected_array
 from tests.fakes import (CONVERSIONS, DATASETS, PREFERENCES, analysed, converted, dataset, fake_measure, fake_process,
@@ -166,76 +164,22 @@ def test_the_point_requests_answer_delta_t_around_the_point_when_asked(api):
         assert api.get(frame + "/point", {'frame': rel, 'x': '3.5', 'y': '2.5', 'around': '51'}).status_code == 400
 
 
-def test_the_palettes_shares_are_bent_by_gamma_and_equalization_without_changing_the_temperatures():
-    assert measuring.parse_adjust({}) == {'gamma': 1.0, 'equalize': False, 'sharpen': 0.0}
-    assert measuring.parse_adjust({'gamma': '2', 'equalize': '1', 'sharpen': '1.5'}) == \
-        {'gamma': 2.0, 'equalize': True, 'sharpen': 1.5}
-    for bad in ({'gamma': '0.1'}, {'gamma': 'bright'}, {'sharpen': '6'}, {'equalize': 'yes'}):
+def test_the_palettes_shares_are_bent_by_gamma_and_drawn_in_bands_without_changing_the_temperatures():
+    assert measuring.parse_adjust({}) == {'gamma': 1.0, 'bands': None, 'sharpen': 0.0}
+    assert measuring.parse_adjust({'gamma': '2', 'sharpen': '1.5', 'bands': 'stepped', 'band_width': '2.5',
+                                   'band_origin': '-17.5'}) == {'gamma': 2.0, 'bands': ('stepped', 2.5, -17.5), 'sharpen': 1.5}
+    assert measuring.parse_adjust({'bands': 'banded', 'band_width': '5'})['bands'] == ('banded', 5.0, 0.0)
+    # An old view's equalize is no longer read
+    assert measuring.parse_adjust({'equalize': '1'}) == {'gamma': 1.0, 'bands': None, 'sharpen': 0.0}
+    for bad in ({'gamma': '0.1'}, {'gamma': 'bright'}, {'sharpen': '6'}, {'bands': 'equalized', 'band_width': '5'},
+                {'bands': 'stepped'}, {'bands': 'stepped', 'band_width': '0'}, {'bands': 'banded', 'band_width': '101'},
+                {'bands': 'banded', 'band_width': '5', 'band_origin': 'x'}):
         with pytest.raises(measuring.MeasureError):
             measuring.parse_adjust(bad)
 
     # Gamma bends the palette's shares; the range's ends stay where they are
     assert float(measuring.tone(np.array([15.0]), 10, 20, {'gamma': 2.0})[0]) == pytest.approx(0.5 ** 0.5)
     assert measuring.curve_shares(10, 20, {'gamma': 2.0})[0::64] == [0.0, 1.0]
-
-    # Equalized, most of the palette goes to where most of the values are, within the range only
-    values = np.concatenate([np.full(900, 10.0), np.linspace(10, 30, 100), [np.nan]])
-    curve = measuring.equalization(measuring.value_histogram(values), 10, 30)
-    assert float(measuring.tone(np.array([11.0]), 10, 30, None, curve)[0]) > 0.9
-    upper = measuring.equalization(measuring.value_histogram(values), 20, 30)
-    assert float(measuring.tone(np.array([25.0]), 20, 30, None, upper)[0]) == pytest.approx(0.5, abs=0.1)
-    assert measuring.equalization(measuring.value_histogram(values), 40, 50) is None
-    assert measuring.value_histogram(np.array([np.nan])) is None
-    # A stray value far off (no data, the sun's reflection) leaves the others spread over the bins still
-    stray = measuring.equalization(measuring.value_histogram(np.append(values, -9999.0)), 20, 30)
-    assert float(measuring.tone(np.array([25.0]), 20, 30, None, stray)[0]) == pytest.approx(0.5, abs=0.1)
-    assert measuring.value_histogram(values, (10, 12))[1][[0, -1]].tolist() == [10, 12]
-
-
-def test_mosaics_and_frames_have_a_curve_the_browser_colours_them_and_their_legend_with(api):
-    c = analysed(converted(api)[0])
-    # The mosaic's histogram is kept beside it, and read again rather than the mosaic
-    curve = "{}/{}/mosaics/as_converted/curve".format(CONVERSIONS, c.id)
-    assert api.get(curve, {'rescale': '0,40', 'equalize': '1'}).status_code == 200
-    kept = os.path.join(c.data_dir(), mosaics.VIEWER_DIR, 'histogram-as_converted.json')
-    assert os.path.isfile(kept)
-    measuring.kept_histogram.cache_clear()
-    with mock.patch.object(measuring, 'read_mosaic', wraps=measuring.read_mosaic) as read:
-        assert api.get(curve, {'rescale': '5,35', 'equalize': '1'}).status_code == 200
-    assert read.call_count == 0
-    # One that can't be replaced (Windows, while another request reads it) is drawn all the same, and kept next time
-    os.remove(kept)
-    measuring.kept_histogram.cache_clear()
-    with mock.patch.object(measuring.os, 'replace', side_effect=PermissionError):
-        assert api.get(curve, {'rescale': '0,40', 'equalize': '1'}).status_code == 200
-    assert not os.path.exists(kept)
-    assert not [f for f in os.listdir(os.path.dirname(kept)) if f.endswith('.tmp')]
-
-    # Linear, bent by gamma, or equalized (the fake mosaic's 10 to 30 °C, evenly)
-    shares = api.get(curve, {'rescale': '0,40'}).data['shares']
-    assert len(shares) == measuring.CURVE_SAMPLES
-    assert shares[16] == pytest.approx(0.25)
-    assert api.get(curve, {'rescale': '0,40', 'gamma': '2'}).data['shares'][16] == pytest.approx(0.5)
-    equalized = api.get(curve, {'rescale': '0,40', 'equalize': '1'}).data['shares']
-    assert equalized[15] < 0.05
-    assert equalized[49] > 0.95
-    assert equalized[32] == pytest.approx(0.5, abs=0.1)
-    # Corrected as the data tiles are: warmer, so less of the range is below 10 °C still
-    warmer = api.get(curve, {'rescale': '0,40', 'equalize': '1', 'emissivity': '0.8'}).data['shares']
-    assert warmer != equalized
-    assert api.get("{}/{}/mosaics/source_frame/curve".format(CONVERSIONS, c.id)).status_code == 404
-    for bad in ({'gamma': '0'}, {'gamma': '9'}, {'equalize': '2'}, {'sharpen': '-1'}):
-        assert api.get(curve, dict(bad, rescale='0,40')).status_code == 400, bad
-
-    # A frame's, equalized from its own temperatures (20 to 29 °C, evenly)
-    rel = '100MEDIA/DJI_0002_T.JPG'
-    with mock.patch('dji_thermal_cli.api.measure', side_effect=fake_measure):
-        frame_curve = "{}/{}/frame/curve".format(CONVERSIONS, c.id)
-        shares = api.get(frame_curve, {'frame': rel, 'rescale': '10,40', 'equalize': '1'}).data['shares']
-        assert (shares[0], shares[-1]) == (0.0, 1.0)
-        assert shares[20] < 0.05       # 19.4 °C: below the frame's coldest
-        assert shares[42] > 0.95       # 29.7 °C: above its warmest
-        assert api.get(frame_curve, {'frame': rel, 'rescale': '10,40', 'sharpen': 'x'}).status_code == 400
 
 
 def test_measurements_are_saved_listed_exported_renamed_and_deleted(api):

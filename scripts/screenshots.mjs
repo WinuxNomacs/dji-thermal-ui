@@ -274,6 +274,13 @@ async function explore(page, project, flight, conversion) {
     await page.click('.dialog button[type="submit"]');
     await settled(page, 2000);
     await shot(page, "viewer-finding");
+    // Banded, stepped every 5 degrees, the Image section opened to show it (and folded again after)
+    await open(page, `conversion/${conversion}?bands=stepped&bandwidth=5`);
+    await settled(page, 4000);
+    await page.click('[data-section="image"] > summary');
+    await settled(page, 1500);
+    await shot(page, "viewer-banded");
+    await page.click('[data-section="image"] > summary');
 
     await open(page, `conversion/${conversion}?tab=harmonized`);
     await settled(page, 4000);

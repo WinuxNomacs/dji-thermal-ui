@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {describe, expect, it} from "vitest";
-import {type Colouring, colourStyle, colourValues, decodeValues, isothermRange, readValues, sharpenSigma, TONE_STEPS, toned,
+import {BAND_DARKEN, type Colouring, colourStyle, colourValues, decodeValues, isothermRange, readValues, SCALE_SAMPLES, scaleStops, sharpenSigma, TONE_STEPS, toned,
         tonedPalette} from "../src/map/colour";
 
 const BLACK_WHITE = [0x000000ff, 0xffffffff];
@@ -119,6 +119,31 @@ describe("the colouring without WebGL", () => {
         expect(pixel(rgba, 2)).toEqual([255, 255, 255, 255]);
         expect(pixel(rgba, 3)).toEqual([255, 255, 255, 255]);
         expect(pixel(rgba, 4)).toEqual([0, 0, 0, 0]);
+    });
+
+    it("draws stepped bands each in the colour of its middle, and banded ones with every other band darker", () => {
+        const values = new Float32Array([10.5, 14.9, 15.1, 19.9, 20.1]);
+        const shade = (b: Colouring["bands"]) => [...colourValues(values, 5, 1, {colors: GREYS, range: [10, 30], bands: b})]
+            .filter((_, i) => i % 4 === 0);
+        // 5 wide, from 0: 10–15 (its middle 12.5), 15–20 (17.5), 20–25 (22.5); a middle below the range, at its end
+        const at = (v: number) => colourValues(new Float32Array([v]), 1, 1, {colors: GREYS, range: [10, 30]})[0];
+        expect(shade({mode: "stepped", width: 5, origin: 0})).toEqual([at(12.5), at(12.5), at(17.5), at(17.5), at(22.5)]);
+        const flat = shade(null), banded = shade({mode: "banded", width: 5, origin: 0});
+        // 10–15 is band 2 (even), 15–20 band 3 (odd: darker), 20–25 band 4
+        expect(banded).toEqual([flat[0], flat[1], Math.round(flat[2] * BAND_DARKEN), Math.round(flat[3] * BAND_DARKEN), flat[4]]);
+        // Beyond the range, a value is in its own temperature's band: 31 in 30–35 (even), 36 in 35–40 (odd: darker)
+        const above = [...colourValues(new Float32Array([31, 36]), 2, 1, {colors: GREYS, range: [10, 30],
+                                                                         bands: {mode: "banded", width: 5, origin: 0}})];
+        expect([above[0], above[4]]).toEqual([255, Math.round(255 * BAND_DARKEN)]);
+        // A band's edge moved by the origin
+        expect(shade({mode: "stepped", width: 5, origin: 1}).slice(0, 2)).toEqual([at(10), at(13.5)]);
+    });
+
+    it("gives the legend's colours in bands, none without", () => {
+        const stops = scaleStops({colors: GREYS, range: [0, 10], bands: {mode: "stepped", width: 5, origin: 0}})!;
+        expect(stops.length).toBe(SCALE_SAMPLES);
+        expect(new Set(stops).size).toBe(2);
+        expect(scaleStops({colors: GREYS, range: [0, 10]})).toBeNull();
     });
 
     it("draws outside the isotherm in grey", () => {

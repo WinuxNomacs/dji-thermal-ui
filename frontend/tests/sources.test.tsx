@@ -18,7 +18,7 @@ const FRAMES: SourceFrame[] = [
 ];
 
 function group(res: Sources | null | undefined, extra: Partial<SourceGroup> = {}): SourceGroup {
-    return {title: "", res, unit: "C", colouring: {colors: []}, values: (f) => "/values?frame=" + f, curve: () => "",
+    return {title: "", res, unit: "C", colouring: {colors: []}, values: (f) => "/values?frame=" + f,
             href: (f) => "/conversion/9/frame?frame=" + f, ...extra};
 }
 

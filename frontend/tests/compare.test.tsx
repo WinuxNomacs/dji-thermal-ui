@@ -7,7 +7,7 @@ import {fromLonLat} from "ol/proj";
 import {render} from "preact";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
-import {autoRange, autoReach, type Comparable, comparedTabs, compareQuery, dataTab, differenceDataUrl, firstTab, frameCurveUrl,
+import {autoRange, autoReach, type Comparable, comparedTabs, compareQuery, dataTab, differenceDataUrl, firstTab,
         frameDataUrl, mosaicGroups, profileAt, reachIn, readCompare, resultIn} from "../src/compare/compare";
 import {ComparePage} from "../src/compare/compare-page";
 import {compareTipText, DifferenceReadout} from "../src/compare/pane";
@@ -176,11 +176,8 @@ describe("the compare helpers", () => {
             API + "conversions/9/mosaics/as_converted/difference/data/{z}/{x}/{y}?b=12&b_tab=as_converted");
     });
 
-    it("ask a frame's values, and its tone curve in the range shown in its conversion's unit", () => {
-        setUserUnit("F");
+    it("ask a frame's values", () => {
         expect(frameDataUrl(API, 9, "a b.JPG")).toBe(API + "conversions/9/frame/data?frame=a%20b.JPG");
-        expect(frameCurveUrl(API, 9, "a.JPG", {palette: "magma", range: [32, 212], adjust: {gamma: 2, equalize: true, sharpen: 0}}, "C"))
-            .toBe(API + "conversions/9/frame/curve?frame=a.JPG&rescale=0,100&gamma=2&equalize=1");
     });
 });
 
@@ -331,26 +328,25 @@ describe("the compare page", () => {
         expect(byId("pane-a").querySelector(".text-danger")!.textContent).toBe("The difference shown must be above 0");
     });
 
-    it("draws both panes as the gamma slider is dragged, asking for the equalized curves once it is let go", async () => {
+    it("draws both panes as the gamma slider is dragged, and in bands each in its conversion's unit once Banded is on", async () => {
         const fetchFn = server(routes());
         await open(fetchFn, 12);
-        const equalize = $("#shared input[name=equalize]")!;
-        equalize.checked = true;
-        equalize.dispatchEvent(new Event("change", {bubbles: true}));
-        await ticks(20);
-        const curves = () => calls(fetchFn).filter((c) => c.includes("/curve")).length;
-        const asked = curves(), restyled = vi.spyOn(WebGLTileLayer.prototype, "setStyle");
+        const asked = calls(fetchFn).length, restyled = vi.spyOn(WebGLTileLayer.prototype, "setStyle");
         const gamma = $("#shared input[name=gamma]")!;
         gamma.value = "1";
         gamma.dispatchEvent(new Event("input", {bubbles: true}));
         await ticks(20);
         expect(restyled).toHaveBeenCalledTimes(2);
         expect(gamma.value).toBe("1");
-        expect(curves()).toBe(asked);
-        gamma.dispatchEvent(new Event("change", {bubbles: true}));
+        expect($("#shared input[name=bandwidth]")).toBeNull();
+        // Banded: 5 °C wide bands, Other's in its own °F
+        choose($("#shared select[name=bands]")!, "banded");
         await ticks(20);
-        expect(calls(fetchFn).filter((c) => c.includes("/curve")).slice(asked).every((c) => c.includes("gamma=2"))).toBe(true);
-        expect(curves()).toBe(asked + 2);
+        const widths = restyled.mock.calls.slice(-2).map((c) => (c[0] as {variables: Record<string, number>}).variables.bandWidth);
+        expect(widths.sort()).toEqual([5, 9]);
+        const bandwidth = $("#shared input[name=bandwidth]")!;
+        expect([bandwidth.value, bandwidth.closest("label")!.textContent]).toEqual(["5", "Bandwidth5 °C"]);
+        expect(calls(fetchFn).length).toBe(asked);      // nothing asked of the server
         vi.restoreAllMocks();
     });
 

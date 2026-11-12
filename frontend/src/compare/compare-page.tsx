@@ -33,16 +33,16 @@ import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, type Measured, type Measurement, nearestIndex, type Shape, symbol, TOOLS,
         type Tool} from "../measure/measure";
 import {type IsothermState, Isotherm, MeasureCard, type Measuring, Toolbar} from "../measure/result";
-import {type Colouring, isothermRange} from "../map/colour";
+import {type Colouring, isothermRange, scaleStops} from "../map/colour";
 import {type Basemap, clipLeft, DATA_GUTTER, fitBounds, lonLatToMap, MAX_ZOOM, mapToLonLat, mosaicMap, pointFeature,
         rasterPixel, ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {type Scale} from "../viewer/canvas";
 import {type Point, Readout, ScaleView} from "../viewer/panel";
-import {type Adjust, dataUrl, defaultAdjust, type MosaicTab, tabLabel, toneShares} from "../viewer/view";
+import {bandsOf, dataUrl, defaultAdjust, type MosaicTab, sharesOf, tabLabel} from "../viewer/view";
 import {type Mosaics, SOURCES_SHAPE, WINDOW_VISUAL_PX} from "../viewer/viewer-page";
 import {autoRange, autoReach, clampShare, clampSplit, type Comparable, comparedTabs, type CompareStyle, compareQuery,
-        dataTab, type DiffInfo, differenceDataUrl, differenceUrl, type DiffStyle, firstTab, frameCurveUrl, frameDataUrl,
-        mosaicCurveUrl, mosaicGroups, NO_OVERLAP, OPACITY_STEP, type PaneName, profileAt, rangeIn, reachIn, readCompare,
+        dataTab, type DiffInfo, differenceDataUrl, differenceUrl, type DiffStyle, firstTab, frameDataUrl,
+        mosaicGroups, NO_OVERLAP, OPACITY_STEP, type PaneName, profileAt, rangeIn, reachIn, readCompare,
         resultIn, SPLIT_LIMITS, SPLIT_STEP, SWIPE_LIMITS, VISUAL} from "./compare";
 import {hasSources, type Sources, sourcesUrl} from "../sources/sources";
 import {type SourceGroup, SourcesWindow} from "../sources/window";
@@ -165,7 +165,6 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const [iso, setIso] = useState<IsothermState>({mode: ""});
     const [isoError, setIsoError] = useState("");
     const [mapsMade, setMapsMade] = useState(false);
-    const [curves, setCurves] = useState<Record<string, number[] | null>>({});      // null: it could not be loaded
     const [live, setLive] = useState<{where: PaneName | "shared"; changes: Partial<CompareStyle>} | null>(null);
 
     const mapEls = {a: useRef<HTMLDivElement>(null), b: useRef<HTMLDivElement>(null)};
@@ -694,29 +693,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     // The temperature mosaics drawn in either pane
     const thermalDrawn = panes ? NAMES.filter((x) => !isVisual(panes[x]) && NAMES.some((n) => drawsOf(n, panes[n]).includes(x))) : [];
 
-    // The tone curves with equalization of the mosaics shown (from their whole histograms), each asked once
-    const curveUrls = panes && shared ? thermalDrawn.filter((n) => styleOf(n).adjust.equalize)
-        .map((n) => mosaicCurveUrl(api, panes[n].conv, panes[n].tab, styleOf(n), panes[n].info.unit)) : [];
-    useEffect(() => {
-        curveUrls.forEach((url) => {
-            if (url in curves || asking.current[url]) return;
-            asking.current[url] = true;
-            get<{shares?: number[]}>(url).then((r) => r.ok ? r.data.shares || null : null, () => null)
-                .then((shares) => { delete asking.current[url]; setCurves((s) => ({...s, [url]: shares})); });
-        });
-    }, [curveUrls.join(" ")]);
-
-    // The palette's share at values evenly across the range, as a style tones them (curve: the equalization's)
-    function sharesOf(a: Adjust, curve: Maybe<number[]>): number[] | null {
-        if (a.equalize && curve) return curve;
-        return a.gamma !== 1 || a.equalize ? toneShares(a.gamma) : null;
+    // How a pane's mosaic is coloured as drawn (a slider's style while it is dragged), without its isotherm
+    function mosaicColouring(x: PaneName): Colouring {
+        const p = panes![x], s = drawnStyle(x);
+        return {colors: palettes.find((c) => c.key === s.palette)?.color_map || [], range: rangeIn(s.range, p.info.unit),
+                shares: sharesOf(s.adjust), sharpen: s.adjust.sharpen, bands: bandsOf(s.adjust, p.info.unit)};
     }
-
-    // (the curve the style kept asked for, while a slider is dragged)
-    const mosaicShares = (n: PaneName) => {
-        const p = panes![n], s = drawnStyle(n);
-        return sharesOf(s.adjust, s.adjust.equalize ? curves[mosaicCurveUrl(api, p.conv, p.tab, styleOf(n), p.info.unit)] : null);
-    };
 
     // A pane's mosaic as drawn: its values in its style, or the visual mosaic's tiles
     function mosaicSpec(x: PaneName): LayerSpec | null {
@@ -726,13 +708,12 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             return v?.bounds ? {key: x + ":" + p.conv + ":" + VISUAL, visual: {url: api + "conversions/" + p.conv +
                 "/mosaics/visual/tiles/{z}/{x}/{y}.png", bounds: v.bounds, maxZoom: (v.maxzoom || 20) + 1}} : null;
         }
-        const t = tabEntry(p), s = drawnStyle(x);
+        const t = tabEntry(p);
         if (!t?.bounds) return null;
         return {key: x + ":" + p.conv + ":" + p.tab,
                 values: {kind: "tiles", url: dataUrl(api, p.conv, p.tab), bounds: t.bounds, maxZoom: (t.maxzoom || 20) + 1,
                          gutter: DATA_GUTTER, pixel: rasterPixel(t.bounds, p.info.kinds?.[t.kind || ""]?.width)},
-                colouring: {colors: palettes.find((c) => c.key === s.palette)?.color_map || [], range: rangeIn(s.range, p.info.unit),
-                            shares: mosaicShares(x), sharpen: s.adjust.sharpen, isotherm: isothermRange(isoFor(p))}};
+                colouring: {...mosaicColouring(x), isotherm: isothermRange(isoFor(p))}};
     }
 
     // What each pane's map shows, bottom first: its mosaic, B's and A's for the overlay, or the difference's values
@@ -754,9 +735,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         if (!p.diff) {
             const x = drawsOf(n, p).reverse().find((y) => !isVisual(panes![y]));
             if (!x) return null;
-            const s = drawnStyle(x);
-            return {colors: palettes.find((c) => c.key === s.palette)?.color_map || [], shown: s.range,
-                    shares: mosaicShares(x), caption: (p.overlay ? x.toUpperCase() + " · " : "") + tabLabel(panes![x].tab) + ", " + symbol()};
+            const s = drawnStyle(x), c = mosaicColouring(x);
+            return {colors: c.colors, shown: s.range, shares: c.shares, stops: scaleStops(c), caption: (p.overlay ? x.toUpperCase() + " · " : "") + tabLabel(panes![x].tab) + ", " + symbol()};
         }
         const d = diffs[key];
         if (!d || !d.range || !d.bounds || !p.diffStyle) return null;
@@ -912,9 +892,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     values: (f) => frameDataUrl(api, m.conv, f),
                     visual: panes![m.pane].info.visual ? (f) => api + "conversions/" + m.conv + "/frame/visual?frame=" +
                         encodeURIComponent(f) + "&size=" + WINDOW_VISUAL_PX : undefined,
-                    curve: (f) => s.adjust.equalize ? frameCurveUrl(api, m.conv, f, s, m.unit) : "",
                     colouring: {colors: palettes.find((x) => x.key === s.palette)?.color_map || [], range: rangeIn(s.range, m.unit),
-                                shares: sharesOf(s.adjust, null), sharpen: s.adjust.sharpen}};
+                                shares: sharesOf(s.adjust), sharpen: s.adjust.sharpen, bands: bandsOf(s.adjust, m.unit)}};
         });
     }
 

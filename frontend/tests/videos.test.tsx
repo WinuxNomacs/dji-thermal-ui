@@ -370,10 +370,11 @@ describe("a flight's videos", () => {
         expect(keyAction({key: "s", ctrlKey: true})).toBeNull();
         expect(frameName(371, 12.333)).toBe("Frame 371 (0:12.33)");
         expect(lookOf(undefined)).toEqual({look: START_LOOK, recoloured: false});
-        const kept = lookOf({recoloured: true, palette: "gray", range: [20, 80], adjust: {gamma: 2, equalize: false, sharpen: 1},
+        // (a look saved before the bands kept equalize, no longer read)
+        const kept = lookOf({recoloured: true, palette: "gray", range: [20, 80], adjust: {gamma: 2, equalize: false, sharpen: 1} as never,
                              isotherm: {mode: "above", a: "180"}});
         expect(kept.recoloured).toBe(true);
-        expect(kept.look).toEqual({palette: "gray", range: [20, 80], ref: [20, 80], adjust: {gamma: 2, equalize: false, sharpen: 1},
+        expect(kept.look).toEqual({palette: "gray", range: [20, 80], ref: [20, 80], adjust: {gamma: 2, sharpen: 1, bands: "", bandwidth: 5},
                                    isotherm: {mode: "above", a: "180"}});
         // What isn't a look is left as it starts
         expect(lookOf({range: "wide" as never, isotherm: 3 as never}).look).toEqual(START_LOOK);

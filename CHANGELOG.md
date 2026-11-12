@@ -6,6 +6,13 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Banded replaces Equalized**: the Image panel's Tone list (viewer and frame page) and the compare page's
+  Equalize box give way to **Banded**: **Stepped** (each band one colour) or **Banded** (every other band darker),
+  with a **Bandwidth** of 1 to 10 degrees of your unit (5 at first). The colour scale, links, PNG exports and the
+  mosaic report draw them too. A link or report view saved with Equalized opens without it.
+
 ### Removed
 
 - **Surroundings** and the **ΔT** against them are no longer measured for a spot, a line, an area, a box or a circle:

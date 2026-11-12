@@ -8,12 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: B1 (Banded in place of Equalized). See "Requests of 2026-11-11 (second batch)".
+**Up next**: nothing planned yet. See "Requests of 2026-11-11 (second batch)".
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-C1 (ΔT under the pointers on the compare page, and its tip), S1 (Surroundings out of the measurement data), CM1 (measuring on the compare page), D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+B1 (Banded in place of Equalized), C1 (ΔT under the pointers on the compare page, and its tip), S1 (Surroundings out of the measurement data), CM1 (measuring on the compare page), D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
@@ -79,7 +79,20 @@ pane (`compare/compare-page.tsx`: `showTip`, `hideTips`, `underDelta`). Tests: `
 under the pointers on the compare page", and the overlay's tip). Checked live on 8081 (conversion 1 against 2 and
 against 2's Harmonized: the readouts, the tips of a mosaic pane, the difference and the overlay; light and dark).
 
-### B1: Banded in place of Equalized
+### B1: Banded in place of Equalized (built)
+
+Built: the server's `thermal_measure.parse_adjust` (bands, band_width and band_origin in the values' unit, in place of
+equalize; the equalization, its histogram file and the curve endpoints removed) and `colouring.colour(bands=)`; the front
+end's `map/colour.ts` (`Bands`, `banded`, `scaleStops`, on the GPU and on canvas), `viewer/view.ts` (`Adjust` with
+bands and bandwidth, `readAdjust`, `bandsOf`, `sharesOf`), `viewer/panel.tsx`'s `BandControls` (the viewer's and the frame
+page's Image panel, the compare page's palette bar), the exports' view and the report. A band is a pixel's own
+temperature's (beyond the range too: above the top, a darkened top band had turned the palette's end grey); its edges at
+every bandwidth of the user's unit; Banded darkens by 0.7. Tests: the shared `tests/fixtures/colouring.json` (four
+cases), `tests/test_colouring.py`, `test_api_measurements.py`, `test_api_exports.py`; `frontend/tests/colour.test.ts`,
+`view.test.ts`, `viewer.test.tsx`, `compare.test.tsx`, `mosaic-report.test.tsx`. Checked live on 8081: the viewer
+(banded 3 °F), an old `equalize=1` link, the frame page (stepped), and the server's frame PNG exports against the
+browser's darkening. Screenshot `viewer-banded` added; compare-overlay and compare-measure remade.
+
 
 Equalized removed everywhere it is (the panels, the URL, exports, reports, the server's curve and histogram file; an
 old `equalize=1` is ignored). Banded: off, Stepped or Banded, and the bandwidth slider (1–10 degrees, 5 at first),

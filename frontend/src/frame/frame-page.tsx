@@ -25,7 +25,7 @@ import {Drawing, drawingKey, inField} from "../measure/drawing";
 import {type Coords, type Geometry, isothermParam, type Measured, type Measurement, nearestIndex,
         type Shape, symbol, toggleCompared, typedTemp} from "../measure/measure";
 import {type IsothermState, Isotherm, MeasureCard, Measurements, Toolbar} from "../measure/result";
-import {type Colouring, isothermRange, readValues} from "../map/colour";
+import {type Colouring, isothermRange, readValues, scaleStops} from "../map/colour";
 import {fitBounds, frameImage, frameImageLayer, frameMap, frameView, hoverTips, lonLatToMap, pointFeature,
         pointsMap, snapshot, ThermalLayer, vectorLayer} from "../map/map";
 import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
@@ -33,8 +33,8 @@ import {type AroundOutline, aroundOutline, aroundQuery, DeltaControls, DeltaFigu
 import {fromVisual, toVisual, type VisualPair} from "../sources/sources";
 import {saveCanvas, type Scale, shapeOnMap, viewCanvas} from "../viewer/canvas";
 import {Controls, ImageControls, type Palette, PanelGroup, Section} from "../viewer/panel";
-import {adjustQuery, defaultAdjust, defaultRange, fileName, parseRange, readView, shownRange, slidRange, sliderGamma,
-        sliderPositions, type Style, takenText, toneShares, viewQuery} from "../viewer/view";
+import {adjustQuery, type BandMode, bandsOf, defaultAdjust, defaultRange, fileName, parseRange, readAdjust, readView,
+        sharesOf, shownRange, slidRange, sliderGamma, sliderPositions, type Style, takenText, viewQuery} from "../viewer/view";
 import {captureOrder, type Changes, changeStarts, changesIn, changesQuery, FRAME_LISTS, type FrameEntry, type FrameInfo,
         inMosaics, listFrames, listTitle, newConversionUrl, PARAM_FIELDS, readChanges, valuesUrl} from "./frame";
 import {FrameExport} from "./export";
@@ -134,7 +134,6 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     const [live, setLive] = useState<Partial<Style> | null>(null);
     const [rangeText, setRangeText] = useState<[string, string] | null>(null);
     const [rangeError, setRangeError] = useState("");
-    const [curve, setCurve] = useState<number[] | null>(null);
     const [point, setPoint] = useState<Maybe<FramePoint>>(undefined);
     const [tipOn, setTipOn] = usePointerTemperature();
     const delta = usePointerDelta("frame");
@@ -192,7 +191,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // The panes fit the frame when the next image is drawn (a new frame, or one of another size)
     const fit = useRef(true);
     // Counters: only the answer to the latest question is shown
-    const asked = useRef({point: 0, frame: 0, curve: 0, measure: 0, saved: 0, values: [0, 0]});
+    const asked = useRef({point: 0, frame: 0, measure: 0, saved: 0, values: [0, 0]});
 
     const unit = meta?.unit;
     const changed = Object.keys(changes).length > 0;
@@ -320,7 +319,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     function wantedStyle(i: FrameInfo): Style {
         const known = (meta?.palettes || []).some((p) => p.key === wanted.palette);
         return {palette: known ? wanted.palette! : meta?.default_palette || "",
-                range: wanted.range || defaultRange({tab: "frame", stats: i.stats}, unit), adjust: wanted.adjust || defaultAdjust()};
+                range: wanted.range || defaultRange({tab: "frame", stats: i.stats}, unit), adjust: readAdjust(wanted.adjust)};
     }
 
     // The measurements saved on the frame
@@ -421,7 +420,8 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // How the frame is coloured, as the palette, range, adjustments and isotherm are (a slider's as it is dragged)
     const colouring: Colouring | null = shown && meta ? {
         colors: (meta.palettes || []).find((p) => p.key === shown.palette)?.color_map || [], range: shown.range,
-        shares: shares(shown.adjust), sharpen: shown.adjust.sharpen, isotherm: isothermRange(isoValue)} : null;
+        shares: sharesOf(shown.adjust), sharpen: shown.adjust.sharpen, isotherm: isothermRange(isoValue),
+        bands: bandsOf(shown.adjust, unit)} : null;
 
     // The panes drawn as the frame, palette, range, adjustments, isotherm and parameters now are: the second pane with
     // the parameters changed
@@ -523,18 +523,6 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     }
     useEffect(markLocator, [frame]);
 
-    // The legend's curve with equalization: the server's (from the whole frame's histogram, as converted)
-    useEffect(() => {
-        const n = ++asked.current.curve;
-        setCurve(null);
-        if (!frame || !style || !style.adjust.equalize) return;
-        fetch(base + "/frame/curve?frame=" + encodeURIComponent(frame) + "&rescale=" + style.range[0] + "," + style.range[1] +
-              adjustQuery(style.adjust), {credentials: "same-origin"})
-            .then((res) => readJson<{shares?: number[]}>(res))
-            .then((r) => { if (n === asked.current.curve && r.ok) setCurve(r.data.shares || null); })
-            .catch(() => { /* the legend stays as gamma alone draws it */ });
-    }, [frame, style && style.range.join(), style && adjustQuery(style.adjust)]);
-
     // The shape drawn measured on the frame, with the isotherm and the parameters changed
     useEffect(() => {
         if (!current || current.res !== undefined || current.error || !frame) return;
@@ -605,16 +593,12 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
     // The range Auto gives: the frame's 2nd to 98th percentile
     function autoRange(): [number, number] { return defaultRange({tab: "frame", stats: info?.stats}, unit); }
 
-    // The palette's share at values evenly across the range, as the image is drawn; null: evenly
-    function shares(a: Style["adjust"]): number[] | null {
-        if (a.equalize && curve) return curve;
-        return a.gamma !== 1 || a.equalize ? toneShares(a.gamma) : null;
-    }
-
     function scaleShown(): Scale | null {
         if (!shown || !meta) return null;
         const colors = (meta.palettes || []).find((p) => p.key === shown.palette)?.color_map || [];
-        return {colors, shown: shownRange("frame", shown.range, unit), shares: shares(shown.adjust), caption: "Temperature, " + symbol()};
+        const shares = sharesOf(shown.adjust);
+        return {colors, shown: shownRange("frame", shown.range, unit), shares, caption: "Temperature, " + symbol(),
+                stops: scaleStops({colors, range: shown.range, shares, bands: bandsOf(shown.adjust, unit)})};
     }
 
     // The range the fields show: in the user's unit
@@ -659,6 +643,10 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
 
     function gamma(slider: string, done: boolean) {
         dragged({adjust: {...style!.adjust, gamma: sliderGamma(slider)}}, done);
+    }
+
+    function bands(mode: BandMode, bandwidth: number, done: boolean) {
+        dragged({adjust: {...style!.adjust, bands: mode, bandwidth}}, done);
     }
 
     function changeIsotherm(s: IsothermState, field: string) {
@@ -826,7 +814,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
 
             {exporting && frame && shown && <FrameExport api={api} datasetId={datasetId} conversion={id} frame={frame}
                 settings={{...meta.settings, normalize: meta.normalized}} changes={changesIn(changes, unit)} hasVisual={!!pair} asShown={exportShown}
-                view={viewAsked(shown.palette, shown.range, shown.adjust, isoValue)} onClose={() => setExporting(false)}/>}
+                view={viewAsked(shown.palette, shown.range, shown.adjust, isoValue, bandsOf(shown.adjust, unit))} onClose={() => setExporting(false)}/>}
             {notice && <div class="notice error" role="alert">{notice}</div>}
             {status.text && <div class={"status " + (status.error ? "text-danger" : "text-muted")} id="status">{status.text}</div>}
 
@@ -891,7 +879,7 @@ export function FramePage({api, publicUrl, id, datasetId, datasetName}: Props) {
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
                                            temperature={true} onSlide={slide} onGamma={gamma}
                                            onSharpen={sharpen}
-                                           onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
+                                           onBands={bands}
                                            onReset={() => auto(true)}/>
                         </Section>
                         <Section name="isotherm" title="Isotherm" store={FOLDED_KEY}>

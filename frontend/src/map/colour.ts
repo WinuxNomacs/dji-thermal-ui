@@ -1,7 +1,7 @@
 // How the browser colours the values the server sends (data tiles and frames: float32, NO_DATA where there are none),
-// as the server drew its images (thermal_measure.colorize): over a range, toned by the image's curve (gamma, or the
-// equalization's), sharpened with an unsharp mask, an isotherm's pixels in the palette and the rest in grey, or each
-// source frame in its own colour, or the seams between the source frames as lines. Plain functions, no DOM: the style a WebGL tile layer is drawn with.
+// as the server colours the images it exports (colouring.py): over a range, toned by gamma's curve, sharpened with an
+// unsharp mask, in bands (stepped: each band one colour; banded: every other band darkened), an isotherm's pixels in the
+// palette and the rest in grey, or each source frame in its own colour, or the seams between the source frames as lines. Plain functions, no DOM: the style a WebGL tile layer is drawn with.
 import type {ExpressionValue} from "ol/expr/expression";
 
 // Below this is no data (the server's NO_DATA is -1e30: WebGL cannot test for NaN)
@@ -10,6 +10,8 @@ export const NO_DATA_BELOW = -1e29;
 export const TONE_STEPS = 1024;
 // The server's 256 levels of a palette
 const LEVELS = 255;
+// Banded: every other band's colours this much darker
+export const BAND_DARKEN = 0.7;
 // The unsharp mask's sigma, in the pixels of the values drawn: as the server clamps it, and within a mosaic tile's
 // gutter (its 5 × 5 taps reach two sigmas)
 export const SIGMA_LIMITS = [0.5, 4];
@@ -25,7 +27,12 @@ export interface Colouring {
     isotherm?: [number, number] | null;     // the values drawn in the palette, the rest in grey
     index?: boolean;                        // each value its own colour (the source frames): colors[value mod length]
     seams?: boolean;                        // only the seams, where the value (a source frame) changes; the rest clear
+    bands?: Bands | null;                   // the values in bands
 }
+
+// The values in bands width wide, one's edge at origin (the values' unit): stepped, each band the colour of its middle;
+// banded, every other band darkened
+export interface Bands {mode: "stepped" | "banded"; width: number; origin: number}
 
 // The source frame index drawn as the seams between the frames, to lay over a mosaic
 export const SEAMS: Colouring = {colors: [], seams: true};
@@ -50,13 +57,23 @@ export function toned(u: number, shares?: number[] | null): number {
 
 // The palette as drawn along the range: TONE_STEPS entries, each the server's level (0 to 255) of its toned share in
 // the palette, or in grey
-export function tonedPalette(colors: number[], shares?: number[] | null, grey = false): Rgba[] {
+export function tonedPalette(colors: number[], shares?: number[] | null, grey = false, dark = false): Rgba[] {
     const out: Rgba[] = [];
     for (let i = 0; i < TONE_STEPS; i++) {
         const level = Math.round(toned(i / (TONE_STEPS - 1), shares) * LEVELS);
-        out.push(grey ? [level, level, level, 1] : rgba(colors[Math.round(level * (colors.length - 1) / LEVELS)] ?? 0));
+        const c: Rgba = grey ? [level, level, level, 1] : rgba(colors[Math.round(level * (colors.length - 1) / LEVELS)] ?? 0);
+        out.push(dark ? darker(c) : c);
     }
     return out;
+}
+
+const darker = (c: Rgba): Rgba => [Math.round(c[0] * BAND_DARKEN), Math.round(c[1] * BAND_DARKEN), Math.round(c[2] * BAND_DARKEN), c[3]];
+
+// The band a value is in (its own temperature, beyond the range too), and with stepped bands the share of the range
+// (low, span) of its middle, else u as it is
+export function banded(v: number, u: number, low: number, span: number, b: Bands): {u: number; band: number} {
+    const band = Math.floor((v - b.origin) / b.width);
+    return {band, u: b.mode === "stepped" ? Math.max(0, Math.min(1, (b.origin + (band + 0.5) * b.width - low) / span)) : u};
 }
 
 // The isotherm as the server takes it ("above,T", "below,T", "between,A,B") as the values inside it, or null
@@ -128,14 +145,38 @@ export function colourStyle(c: Colouring, sigma = 1): {color: ExpressionValue; v
         u = sharpened();
         Object.assign(variables, {sharpen, sigma: Math.max(SIGMA_LIMITS[0], Math.min(SIGMA_LIMITS[1], sigma))});
     }
-    const step: ExpressionValue = ["round", ["*", u, TONE_STEPS - 1]];
-    let color: ExpressionValue = ["palette", step, tonedPalette(c.colors, c.shares)];
-    if (c.isotherm) {
-        Object.assign(variables, {isoLow: c.isotherm[0], isoHigh: c.isotherm[1]});
-        color = ["case", ["all", [">=", v, ["var", "isoLow"]], ["<=", v, ["var", "isoHigh"]]], color,
-                 ["palette", step, tonedPalette(c.colors, c.shares, true)]];
+    let band: ExpressionValue | null = null;
+    if (c.bands) {
+        Object.assign(variables, {bandWidth: c.bands.width, bandOrigin: c.bands.origin});
+        band = ["floor", ["/", ["-", v, ["var", "bandOrigin"]], ["var", "bandWidth"]]];
+        if (c.bands.mode === "stepped") {
+            u = ["clamp", ["/", ["-", ["+", ["var", "bandOrigin"], ["*", ["+", band, 0.5], ["var", "bandWidth"]]], ["var", "low"]],
+                          ["var", "span"]], 0, 1];
+        }
     }
+    const step: ExpressionValue = ["round", ["*", u, TONE_STEPS - 1]];
+    const coloured = (dark: boolean): ExpressionValue => {
+        const color: ExpressionValue = ["palette", step, tonedPalette(c.colors, c.shares, false, dark)];
+        if (!c.isotherm) return color;
+        return ["case", ["all", [">=", v, ["var", "isoLow"]], ["<=", v, ["var", "isoHigh"]]], color,
+                ["palette", step, tonedPalette(c.colors, c.shares, true, dark)]];
+    };
+    if (c.isotherm) Object.assign(variables, {isoLow: c.isotherm[0], isoHigh: c.isotherm[1]});
+    // Banded: the odd bands darker
+    const color = band && c.bands?.mode === "banded" ?
+        ["case", [">", ["%", band, 2], 0.5], coloured(true), coloured(false)] as ExpressionValue : coloured(false);
     return {color: ["case", ["<", v, NO_DATA], none, color], variables};
+}
+
+// The legend's colours as the values are drawn in bands (stepped or banded: what shares can't say), SCALE_SAMPLES of
+// them evenly across the range, as CSS colours; null without bands
+export const SCALE_SAMPLES = 256;
+export function scaleStops(c: Colouring): string[] | null {
+    if (!c.bands || !c.range) return null;
+    const [low, high] = c.range, n = SCALE_SAMPLES;
+    const values = new Float32Array(n).map((_, i) => low + (high - low) * (i + 0.5) / n);
+    const rgba = colourValues(values, n, 1, {...c, sharpen: 0, isotherm: null});
+    return Array.from({length: n}, (_, i) => "rgb(" + rgba[i * 4] + "," + rgba[i * 4 + 1] + "," + rgba[i * 4 + 2] + ")");
 }
 
 // The values of a response (see decodeValues), its width and height in X-Width and X-Height
@@ -195,8 +236,15 @@ export function colourValues(values: Float32Array, width: number, height: number
                 }
                 u = Math.max(0, Math.min(1, u + sharpen * (u - sum / weight)));
             }
+            let odd = false;
+            if (c.bands) {
+                const b = banded(v, u, range[0], span, c.bands);
+                u = b.u;
+                odd = c.bands.mode === "banded" && ((b.band % 2) + 2) % 2 === 1;
+            }
             const step = Math.round(u * (TONE_STEPS - 1)), inside = !c.isotherm || (v >= c.isotherm[0] && v <= c.isotherm[1]);
-            put(y * width + x, (inside ? palette : grey)[step]);
+            const rgb = (inside ? palette : grey)[step];
+            put(y * width + x, odd ? darker(rgb) : rgb);
         }
     }
     return out;

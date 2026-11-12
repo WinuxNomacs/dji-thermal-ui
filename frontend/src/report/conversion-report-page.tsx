@@ -16,7 +16,7 @@ import {DATA_GUTTER, rasterPixel, type Values} from "../map/map";
 import {type Measured, type Measurement, measurementFigure, shapeLabel, targetLabel} from "../measure/measure";
 import {ResultView} from "../measure/result";
 import {valuesUrl} from "../frame/frame";
-import {adjustQuery, dataUrl, reportRows, type Style, tabHint, tabLabel, takenText, TEMPERATURE_TABS,
+import {dataUrl, reportRows, type Style, tabHint, tabLabel, takenText, TEMPERATURE_TABS,
         viewQuery, visualRows} from "../viewer/view";
 import {type Mosaics} from "../viewer/viewer-page";
 import {type Ask, drawFigures, type Mark, type Source, type VisualTiles} from "./figures";
@@ -62,7 +62,6 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     const [items, setItems] = useState<Measurement[]>([]);
     const [findings, setFindings] = useState<Finding[]>([]);
     const [videoFrames, setVideoFrames] = useState<SavedFrame[]>([]);
-    const [curve, setCurve] = useState<number[] | null | undefined>(undefined);
     const [images, setImages] = useState<Record<string, string | null>>({});
     const [drawing, setDrawing] = useState(0);              // the figures being drawn
     const [loaded, setLoaded] = useState(false);            // the dataset and its findings too
@@ -109,18 +108,6 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     const visualTiles = (): VisualTiles => ({kind: "visual", url: base + "/mosaics/visual/tiles/{z}/{x}/{y}.png",
                                              bounds: v!.visual!.bounds!, maxZoom: (v!.visual!.maxzoom || 20) + 1});
 
-    // The equalization's curve, asked of the server as the viewer asks it (none needed without)
-    useEffect(() => {
-        if (ready && alone) return setCurve(null);
-        if (!ready || !style) return;
-        if (!style.adjust.equalize) return setCurve(null);
-        (async () => {
-            const r = await get<{shares?: number[]}>(base + "/mosaics/" + tab + "/curve?rescale=" + style.range[0] + "," +
-                                                      style.range[1] + adjustQuery(style.adjust));
-            setCurve(r.ok ? r.data.shares || null : null);
-        })().catch(() => setCurve(null));
-    }, [ready]);
-
     const shownItems = text ? included(items, text.left_out) : [];
     const numberOf = (m: Measurement) => shownItems.indexOf(m) + 1;
     const found = numbered(onMosaic(findings, alone ? v?.visual?.bounds || undefined : t?.bounds));
@@ -147,20 +134,20 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
     // The mosaic with what is on it, drawn again when a measurement is left out or put back
     const marksKey = JSON.stringify([text?.left_out, found.map((f) => f.id)]);
     useEffect(() => {
-        if (!ready || curve === undefined || !text) return;
+        if (!ready || !text) return;
         const marks = [...shownItems.filter((m) => m.target !== "frame" && m.geometry).map(mark), ...found.map(findingMark)];
         if (alone) return void figures({values: visualTiles(), legend: null}, [{key: "main", title: aloneText, marks}], MAIN);
         if (!style) return;
-        const under = underOf(v!, tab, style), shares = under.style === style ? curve : null;
-        figures({values: tiles(under.tab)!, colouring: colouringOf(v!, under.tab, under.style, shares),
-                 legend: legendOf(v!, under.tab, under.style, shares),
+        const under = underOf(v!, tab, style);
+        figures({values: tiles(under.tab)!, colouring: colouringOf(v!, under.tab, under.style),
+                 legend: legendOf(v!, under.tab, under.style),
                  over: under.seams ? {values: tiles(tab)!, colouring: SEAMS} : undefined},
                 [{key: "main", title: viewText(v!, tab, style), marks}], MAIN);
-    }, [ready, curve, marksKey]);
+    }, [ready, marksKey]);
 
     // Each measurement's close-up, once: on its own mosaic, or its frame, coloured as the temperatures are shown
     useEffect(() => {
-        if (!ready || curve === undefined || !items.length) return;
+        if (!ready || !items.length) return;
         const named = (m: Measurement): Mark => ({geometry: m.geometry!, name: m.name});
         if (alone) {
             const on = items.filter((m) => m.target === VISUAL && m.geometry);
@@ -169,8 +156,8 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
                                                 marks: [named(m)]})), CLOSE_UP);
         }
         if (!style) return;
-        const temps = temperatureStyle(v!, tab, style), shares = temps === style ? curve : null;
-        const colouring = colouringOf(v!, "as_converted", temps, shares), legend = legendOf(v!, "as_converted", temps, shares);
+        const temps = temperatureStyle(v!, tab, style);
+        const colouring = colouringOf(v!, "as_converted", temps), legend = legendOf(v!, "as_converted", temps);
         for (const target of TEMPERATURE_TABS) {
             const on = items.filter((m) => m.target === target && m.geometry);
             figures(tiles(target) && {values: tiles(target)!, colouring, legend},
@@ -183,10 +170,10 @@ export function ConversionReportPage({api, publicUrl, id, datasetId, datasetName
             if (!res.ok) return;
             const {values, width, height} = await readValues(res);
             const on = items.filter((m) => m.target === "frame" && m.frame === frame && m.geometry);
-            figures({values: {kind: "frame", key: frame, values, width, height}, colouring: {...colouring, shares: null}, legend},
+            figures({values: {kind: "frame", key: frame, values, width, height}, colouring, legend},
                     on.map((m) => ({key: "m" + m.id, title: m.name + " · " + targetLabel(m), marks: [named(m)]})), CLOSE_UP);
         });
-    }, [ready, curve, items.length]);
+    }, [ready, items.length]);
 
     function leaveOut(m: Measurement, out: boolean) {
         const ids = text!.left_out.filter((x) => x !== m.id).concat(out ? [m.id] : []);

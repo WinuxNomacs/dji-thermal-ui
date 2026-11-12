@@ -33,7 +33,7 @@ import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, fin
         findingsUrl} from "../findings/findings";
 import {centreOf, drawFindings, findingAt} from "../findings/layer";
 import {FindingAbout, FindingForm, Findings, SaveFinding} from "../findings/panel";
-import {type Colouring, isothermRange, SEAMS} from "../map/colour";
+import {type Colouring, isothermRange, scaleStops, SEAMS} from "../map/colour";
 import {type Basemap, DATA_GUTTER, fitBounds, lonLatToMap, mapToLonLat, metresPerPixel, mosaicMap, rasterPixel, snapshot,
         ThermalLayer, type Values, vectorLayer, visualLayer} from "../map/map";
 import {PointerHead, type PointerTip, pointerText, pointerTip, usePointerTemperature} from "../map/pointer-temperature";
@@ -43,10 +43,10 @@ import {MosaicExport} from "./export";
 import {VisualViewer} from "./visual-viewer";
 import {type Baseline, Controls, Correction, correctionStarts, ImageControls, MosaicStatus, type Palette, type Point,
         PanelGroup, Readout, Report, Section, Whole} from "./panel";
-import {adjustQuery, builtQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
+import {adjustQuery, type BandMode, bandsOf, builtQuery, type Correction as CorrectionValue, correctionParams, dataUrl, defaultAdjust, defaultRange,
         disagreement, type Extra, extraQuery, fileName, isTemperatureTab, type Kind, type MosaicTab, PARAM_FIELDS, parseRange, readCorrection,
-        readView, reportRows, scaleBar, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
-        TAB_HINTS, TAB_TIPS, takenText, toneShares, valueCaption, viewQuery, type VisualMosaic, visualRows} from "./view";
+        readAdjust, readView, reportRows, scaleBar, sharesOf, shownRange, slidRange, sliderGamma, sliderPositions, type Style, styleGroup, tabLabel,
+        TAB_HINTS, TAB_TIPS, takenText, valueCaption, viewQuery, type VisualMosaic, visualRows} from "./view";
 
 const POLL_MS = 2000;
 const HOVER_MS = 120;
@@ -162,7 +162,6 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const [live, setLive] = useState<Partial<Style> | null>(null);
     const [rangeText, setRangeText] = useState<[string, string] | null>(null);
     const [rangeError, setRangeError] = useState("");
-    const [curve, setCurve] = useState<number[] | null>(null);
     const [point, setPoint] = useState<Maybe<Point>>(undefined);
     const [pinned, setPinned] = useState(false);
     const [tipOn, setTipOn] = usePointerTemperature();
@@ -209,7 +208,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     const readAt = useRef<Coordinate | null>(null);
     const radiusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     // Counters: only the answer to the latest question is shown
-    const asked = useRef({point: 0, outline: 0, curve: 0, whole: 0, measure: 0, sources: 0, tip: 0});
+    const asked = useRef({point: 0, outline: 0, whole: 0, measure: 0, sources: 0, tip: 0});
     const readyShown = useRef(false);
     const builtShown = useRef<Maybe<number>>(undefined);
 
@@ -275,7 +274,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const s = defaultStyle(data, first);
         if (wanted.palette && (data.palettes || []).some((p) => p.key === wanted.palette)) s.palette = wanted.palette;
         if (wanted.range) s.range = wanted.range;
-        if (wanted.adjust) s.adjust = {...wanted.adjust, equalize: wanted.adjust.equalize && isTemperatureTab(first)};
+        if (wanted.adjust) s.adjust = readAdjust(wanted.adjust, isTemperatureTab(first));
         setStyles({[styleGroup(first)]: s});
     }
 
@@ -447,18 +446,6 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             seams.current = new ThermalLayer(m, seamValues, SEAMS, false);
         }
     }, [JSON.stringify(seamValues), ready]);
-
-    // The legend's curve with equalization: the server's (from the whole mosaic's histogram)
-    useEffect(() => {
-        const n = ++asked.current.curve;
-        setCurve(null);
-        if (!ready || !style || !temperature || !style.adjust.equalize) return;
-        fetch(base + "/mosaics/" + tab + "/curve?rescale=" + style.range[0] + "," + style.range[1] + adjustQuery(style.adjust) +
-              extraQuery(params), {credentials: "same-origin"})
-            .then((res) => readJson<{shares?: number[]}>(res))
-            .then((r) => { if (n === asked.current.curve && r.ok) setCurve(r.data.shares || null); })
-            .catch(() => { /* the legend stays as gamma alone draws it */ });
-    }, [ready, tab, style && style.range.join(), style && adjustQuery(style.adjust), paramsKey]);
 
     // The whole mosaic: its histogram, percentiles and the isotherm's share, with the correction
     useEffect(() => {
@@ -751,19 +738,14 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             defaultRange(t, temperature ? unit : undefined);
     }
 
-    // The palette's share at values evenly across the range, as the image is drawn; null: evenly
-    function shares(a: Style["adjust"]): number[] | null {
-        if (a.equalize && curve) return curve;
-        return a.gamma !== 1 || a.equalize ? toneShares(a.gamma) : null;
-    }
-
     // How the mosaic's values are coloured, as the tab's palette, range, adjustments and isotherm are (a slider's as
     // it is dragged)
     function colouringOf(s: Style | null): Colouring | null {
         if (!s || !v || !tab) return null;
         if (onSeams) return frameColouring();
         return {colors: (v.palettes || []).find((p) => p.key === s.palette)?.color_map || [], range: s.range,
-                shares: shares(s.adjust), sharpen: s.adjust.sharpen, isotherm: temperature ? isothermRange(isoValue) : null};
+                shares: sharesOf(s.adjust), sharpen: s.adjust.sharpen, isotherm: temperature ? isothermRange(isoValue) : null,
+                bands: temperature ? bandsOf(s.adjust, unit) : null};
     }
 
     // How the source frames are coloured: as the temperature mosaics are (without the isotherm), whichever tab is shown
@@ -774,13 +756,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
     function frameColouring(): Colouring {
         const s = frameStyle();
         return s ? {colors: (v?.palettes || []).find((p) => p.key === s.palette)?.color_map || [], range: s.range,
-                    shares: shares(s.adjust), sharpen: s.adjust.sharpen} : {colors: []};
-    }
-
-    function frameCurve(frame: string): string {
-        const s = frameStyle();
-        return s && s.adjust.equalize ? base + "/frame/curve?frame=" + encodeURIComponent(frame) + "&rescale=" + s.range[0] +
-            "," + s.range[1] + adjustQuery(s.adjust) : "";
+                    shares: sharesOf(s.adjust), sharpen: s.adjust.sharpen, bands: bandsOf(s.adjust, unit)} : {colors: []};
     }
 
     // The colour scale as the tab's palette and range now are, or null on a tab without one
@@ -788,8 +764,9 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
         const s = onSeams ? frameStyle() : shown;
         if (!s || !v || !drawnTab || visual) return null;
         const colors = (v.palettes || []).find((p) => p.key === s.palette)?.color_map || [];
-        return {colors, shown: shownRange(drawnTab, s.range, unit), shares: shares(s.adjust),
-                caption: valueCaption(drawnTab)};
+        const bands = onSeams || isTemperatureTab(drawnTab) ? bandsOf(s.adjust, unit) : null;
+        return {colors, shown: shownRange(drawnTab, s.range, unit), shares: sharesOf(s.adjust),
+                stops: scaleStops({colors, range: s.range, shares: sharesOf(s.adjust), bands}), caption: valueCaption(drawnTab)};
     }
 
     function chooseTab(chosen: string) {
@@ -855,6 +832,10 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
     function gamma(slider: string, done: boolean) {
         dragged({adjust: {...style!.adjust, gamma: sliderGamma(slider)}}, done);
+    }
+
+    function bands(mode: BandMode, bandwidth: number, done: boolean) {
+        dragged({adjust: {...style!.adjust, bands: mode, bandwidth}}, done);
     }
 
     function changeIsotherm(s: IsothermState, field: string) {
@@ -1065,7 +1046,8 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
 
             {exporting && tab && (visual || shown) && <MosaicExport base={base} tab={visual ? VISUAL : tab}
                 label={tabLabel(visual ? VISUAL : tab)} correction={params} asShown={exportShown} onClose={() => setExporting(false)}
-                view={visual || !shown ? null : viewAsked(shown.palette, shown.range, shown.adjust, temperature ? isoValue : null)}/>}
+                view={visual || !shown ? null : viewAsked(shown.palette, shown.range, shown.adjust, temperature ? isoValue : null,
+                                                       temperature ? bandsOf(shown.adjust, unit) : null)}/>}
             {notice && <div class="notice error" role="alert">{notice}</div>}
             <MosaicStatus v={{...v, label: mosaicLabel(v)}}/>
 
@@ -1111,7 +1093,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
                             <ImageControls adjust={shown.adjust} brightness={auto_.brightness} contrast={auto_.contrast}
                                            temperature={temperature} onSlide={slide} onGamma={gamma}
                                            onSharpen={sharpen}
-                                           onTone={(equalize) => setStyle({adjust: {...style!.adjust, equalize}})}
+                                           onBands={bands}
                                            onReset={() => auto(true)}/>
                         </Section>}
                         {measuring && <Section name="isotherm" title="Isotherm">
@@ -1166,7 +1148,7 @@ export function ViewerPage({api, publicUrl, id, datasetId, datasetName, basemaps
             {sources && <SourcesWindow name="viewer" anchor={mapEl.current} onClose={closeSources} about={sourcesAbout()} groups={[{
                 title: "", res: sources.res, error: sources.error, unit, colouring: frameColouring(),
                 values: (f) => base + "/frame/data?frame=" + encodeURIComponent(f),
-                curve: (f) => frameCurve(f), href: v.imported ? undefined : (f) => frameUrl + encodeURIComponent(f),
+                href: v.imported ? undefined : (f) => frameUrl + encodeURIComponent(f),
                 visual: v.visual ? (f) => base + "/frame/visual?frame=" + encodeURIComponent(f) + "&size=" + WINDOW_VISUAL_PX : undefined,
             }]} visual={visual}/>}
             {draft && <FindingForm title={draft.title} fields={draft.fields} error={draft.error} onSave={saveFinding}

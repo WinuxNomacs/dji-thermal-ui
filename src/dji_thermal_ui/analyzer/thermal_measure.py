@@ -12,7 +12,6 @@ All temperatures are in the conversion's unit. Used by the API, in the web proce
 import json
 import math
 import os
-import tempfile
 from functools import lru_cache
 
 import numpy as np
@@ -38,11 +37,11 @@ FRAME_SHAPES = {'point_radius': 1.5, 'line_half_width': 1.0}
 AROUND_MAX = {'mosaic': 10.0, 'frame': 50.0}
 FRAME_CACHE = 16            # frames measured kept in memory (about 1.3 MB each for the M4T's 640 × 512)
 # How temperatures are drawn (display only, in the browser): gamma on the palette's shares, an unsharp mask's amount,
-# the histogram equalization reads and the legend's samples
+# the bands (stepped or banded: their width in the values' unit, a band's edge at origin) and the legend's samples
 GAMMA_LIMITS = (0.2, 5.0)
 SHARPEN_LIMITS = (0.0, 5.0)
-EQUALIZE_BINS = 1024
-EQUALIZE_SPAN = (0.1, 99.9)     # the percentiles a mosaic's histogram spans: its outliers would empty all its bins but one
+BAND_MODES = ('stepped', 'banded')
+BAND_WIDTH_MAX = 100.0
 CURVE_SAMPLES = 65
 
 
@@ -307,8 +306,9 @@ def no_data(values, unit):
 
 def parse_adjust(params):
     """
-    The display adjustments the browser draws a mosaic or frame with (gamma, equalize=1, sharpen), checked:
-    {gamma, equalize, sharpen}, none by default. They change how temperatures are drawn, never the temperatures.
+    The display adjustments the browser draws a mosaic or frame with (gamma, sharpen, and bands=stepped or banded
+    with band_width and band_origin in the values' unit), checked: {gamma, sharpen, bands: (mode, width, origin) or
+    None}, none by default. They change how temperatures are drawn, never the temperatures.
     """
     def ranged(name, label, limits, default):
         raw = params.get(name)
@@ -319,61 +319,30 @@ def parse_adjust(params):
             raise MeasureError("{} is from {:g} to {:g}".format(label, *limits))
         return v
 
-    equalize = params.get('equalize') or '0'
-    if equalize not in ('0', '1'):
-        raise MeasureError("equalize is 1 or 0")
-    return {'gamma': ranged('gamma', "Gamma", GAMMA_LIMITS, 1.0), 'equalize': equalize == '1',
+    mode = params.get('bands') or ''
+    if mode and mode not in BAND_MODES:
+        raise MeasureError("bands is stepped or banded")
+    bands = None
+    if mode:
+        width = number(params.get('band_width'), "The bandwidth")
+        if not 0 < width <= BAND_WIDTH_MAX:
+            raise MeasureError("The bandwidth is above 0 and up to {:g}".format(BAND_WIDTH_MAX))
+        origin = params.get('band_origin')
+        bands = (mode, width, 0.0 if origin is None or origin == '' else number(origin, "The bands' origin"))
+    return {'gamma': ranged('gamma', "Gamma", GAMMA_LIMITS, 1.0), 'bands': bands,
             'sharpen': ranged('sharpen', "Sharpening", SHARPEN_LIMITS, 0.0)}
 
 
-def value_histogram(values, span=None):
-    """
-    The EQUALIZE_BINS histogram ((counts, edges)) of an array's finite values within span (low, high; by default its
-    EQUALIZE_SPAN percentiles), or None when there are none
-    """
-    v = values[np.isfinite(values)]
-    if span is None and v.size:
-        span = tuple(float(p) for p in np.percentile(v, EQUALIZE_SPAN))
-    if not v.size or span[1] < span[0]:
-        return None
-    counts, edges = np.histogram(v, bins=EQUALIZE_BINS, range=span)
-    return (counts, edges) if counts.any() else None
-
-
-def equalization(histogram, low, high):
-    """
-    Histogram equalization over low..high: (temperatures, shares) to interpolate a temperature's share of the palette
-    from (the share of the histogram's values within the range below it), or None when none of them are in it
-    """
-    if histogram is None:
-        return None
-    counts, edges = np.asarray(histogram[0], dtype=np.float64), np.asarray(histogram[1], dtype=np.float64)
-    left, right = np.clip(edges[:-1], low, high), np.clip(edges[1:], low, high)
-    width = edges[1:] - edges[:-1]
-    # a bin's values taken as spread evenly over it: the part of it within the range counts
-    inside = counts * np.where(width > 0, (right - left) / np.where(width > 0, width, 1), 0)
-    total = inside.sum()
-    if not total > 0:
-        return None
-    temperatures = np.concatenate([[low], right, [high]])
-    shares = np.concatenate([[0.0], np.cumsum(inside) / total, [1.0]])
-    return temperatures, shares
-
-
-def tone(values, low, high, adjust=None, curve=None):
-    """Values' shares of the palette (0..1) over low..high: linear, or along curve (equalization), then gamma"""
-    if curve is not None:
-        t = np.interp(values, curve[0], curve[1])
-    else:
-        t = (np.asarray(values, dtype=np.float64) - low) / (high - low)
-    t = np.clip(t, 0.0, 1.0)
+def tone(values, low, high, adjust=None):
+    """Values' shares of the palette (0..1) over low..high, with gamma"""
+    t = np.clip((np.asarray(values, dtype=np.float64) - low) / (high - low), 0.0, 1.0)
     gamma = (adjust or {}).get('gamma', 1.0)
     return t ** (1.0 / gamma) if gamma != 1.0 else t
 
 
-def curve_shares(low, high, adjust=None, curve=None):
-    """The palette's share at CURVE_SAMPLES temperatures evenly across low..high, for the legend's gradient"""
-    return [float(t) for t in tone(np.linspace(low, high, CURVE_SAMPLES), low, high, adjust, curve)]
+def curve_shares(low, high, adjust=None):
+    """The palette's share at CURVE_SAMPLES temperatures evenly across low..high (gamma's tone curve)"""
+    return [float(t) for t in tone(np.linspace(low, high, CURVE_SAMPLES), low, high, adjust)]
 
 
 # --- the mosaics ---------------------------------------------------------------------------------------------------
@@ -459,45 +428,6 @@ def read_mosaic(path, unit, bounds=None):
                 return None
         values = ds.read(1, window=window).astype(np.float64)
         return no_data(values, unit), ds.window_transform(window), ds.crs
-
-
-def mosaic_histogram(path, unit, kept):
-    """
-    A mosaic's EQUALIZE_BINS histogram of its temperatures as measured (see value_histogram), kept in the file kept
-    for the raster's version (it is read whole once)
-    """
-    st = os.stat(path)
-    return kept_histogram(path, unit, kept, (st.st_ino, st.st_size, st.st_mtime_ns))
-
-
-@lru_cache(maxsize=16)
-def kept_histogram(path, unit, kept, version):
-    key = [list(version), unit, EQUALIZE_BINS, list(EQUALIZE_SPAN)]
-    try:
-        with open(kept) as f:
-            found = json.load(f)
-        if found.get('key') == key:
-            return (np.array(found['counts']), np.array(found['edges'])) if found.get('counts') is not None else None
-    except (OSError, ValueError, AttributeError):
-        pass
-    histogram = value_histogram(read_mosaic(path, unit)[0])
-    os.makedirs(os.path.dirname(kept), exist_ok=True)
-    fd, temporary = tempfile.mkstemp(dir=os.path.dirname(kept), suffix='.tmp')
-    with os.fdopen(fd, 'w') as f:
-        json.dump({'key': key, 'counts': histogram[0].tolist() if histogram else None,
-                   'edges': histogram[1].tolist() if histogram else None}, f)
-    try:
-        os.replace(temporary, kept)
-    except OSError:                                # Windows: another request is reading the one kept; it is kept next time
-        os.remove(temporary)
-    return histogram
-
-
-def corrected_histogram(histogram, unit, correction):
-    """A histogram of temperatures as measured, of the corrected ones (the correction keeps their order)"""
-    if histogram is None or correction is None:
-        return histogram
-    return histogram[0], corrected(np.asarray(histogram[1], dtype=np.float64), unit, correction)
 
 
 def mosaic_measure(path, unit, geometry, correction=None, isotherm=None, frames=None):
