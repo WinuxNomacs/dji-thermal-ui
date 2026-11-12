@@ -25,7 +25,7 @@ VISUAL_COVER_PX = 1024      # a visual mosaic's coverage of a shape: its mask re
 MAX_SAMPLES = 1000          # a line's profile: sampled at the grid's pixel spacing, at most this many times
 # How a shape was drawn: areas by dragging (box, circle), measured as their polygon; a Delta T (delta): a 2-point line
 # whose two ends are each measured as a spot
-SHAPE_KINDS = ('box', 'circle', 'delta')
+SHAPE_KINDS = ('box', 'circle', 'delta', 'across')
 ISOTHERM_MODES = ('above', 'below', 'between')
 # The measurement parameters a frame can be measured again with (Settings fields: temperatures in the unit)
 CHANGES = ('distance', 'humidity', 'emissivity', 'reflected_temp', 'ambient_temp')
@@ -144,12 +144,23 @@ def check_shape(shape, geometry, lonlat=True):
     """
     How a shape was drawn when it was not clicked point by point: {kind: box} or {kind: circle, center, radius} (the
     radius in metres on a mosaic, in pixels on a frame), an area; {kind: delta}, a Delta T, a line of 2 points;
-    checked; None for none
+    {kind: across, own, other, other_target}, a Delta T across two conversions' mosaics (the compare page's): a line of
+    2 points, the end own (0 or 1) on this conversion's, the other on conversion other's tab other_target; checked;
+    None for none
     """
     if shape is None or shape == "":
         return None
     if not isinstance(shape, dict) or shape.get('kind') not in SHAPE_KINDS:
         raise MeasureError("The shape is a box, a circle or a Delta T")
+    if shape['kind'] == 'across':
+        if geometry is None or geometry['type'] != 'LineString' or len(geometry['coordinates']) != 2:
+            raise MeasureError("A Delta T across two datasets is a line of 2 points")
+        own, other, tab = shape.get('own'), shape.get('other'), shape.get('other_target')
+        if own not in (0, 1) or isinstance(own, bool):
+            raise MeasureError("A Delta T across two datasets has one end (0 or 1) on this one")
+        if not isinstance(other, int) or isinstance(other, bool) or other < 1 or not isinstance(tab, str) or not tab:
+            raise MeasureError("A Delta T across two datasets names the other dataset and its mosaic")
+        return {'kind': 'across', 'own': own, 'other': other, 'other_target': tab}
     if shape['kind'] == 'delta':
         if geometry is None or geometry['type'] != 'LineString' or len(geometry['coordinates']) != 2:
             raise MeasureError("A Delta T is a line of 2 points")

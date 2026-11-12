@@ -331,3 +331,27 @@ def test_an_archive_that_fills_the_disk_says_so():
     reader.out.write.side_effect = OSError(errno.ENOSPC, "No space left on device")
     with pytest.raises(restore.RestoreError, match="The disk is full"):
         reader.data(b'x')
+
+
+def test_a_delta_t_across_two_datasets_comes_back_between_their_new_ones_and_not_without_the_other(api):
+    first, _ = converted(api)
+    second, _ = converted(api)
+    elsewhere, _ = converted(api)
+    ThermalDataset.objects.filter(pk=elsewhere.dataset_id).update(project=Project.objects.create(name="Barns"))
+    line = {'type': 'LineString', 'coordinates': [[0, 0], [1, 1]]}
+    across = ThermalMeasurement.objects.create(conversion=first, other=second, name="Across", target='as_converted',
+                                               geometry=line)
+    ThermalMeasurement.objects.create(conversion=second, other=first, name="Across", target='harmonized', geometry=line)
+    ThermalMeasurement.objects.create(conversion=first, other=elsewhere, name="To the barns", target='as_converted',
+                                      geometry=line)
+    first.report = {'left_out': [across.id]}
+    first.save(update_fields=['report'])
+    project = Project.objects.get(pk=first.dataset.project_id)
+    import_id, _res = send(api, exported(api, project.id))
+    res = api.post("{}/{}".format(IMPORTS, import_id), {'name': project.name + " (2)"}, format='json')
+    assert res.status_code == 201, res.data
+    a, b = ThermalConversion.objects.filter(dataset__project_id=res.data['id']).order_by('created_at', 'id')
+    # Each with the other's new id; the one to a dataset not in the project is left out
+    assert [(m.name, m.other_id) for m in a.measurements.all()] == [("Across", b.id)]
+    assert [(m.name, m.other_id) for m in b.measurements.all()] == [("Across", a.id)]
+    assert a.report == {'left_out': [a.measurements.get().id]}

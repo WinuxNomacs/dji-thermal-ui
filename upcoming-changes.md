@@ -8,12 +8,12 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: CM2 (a Delta T across the two images on the compare page). See "Measuring on the compare page". See "Requests of 2026-11-11 (second batch)".
+**Up next**: nothing planned yet.
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
 
-B1 (Banded in place of Equalized), C1 (ΔT under the pointers on the compare page, and its tip), S1 (Surroundings out of the measurement data), CM1 (measuring on the compare page), D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
+CM2 (a Delta T across the compare page's two images), B1 (Banded in place of Equalized), C1 (ΔT under the pointers on the compare page, and its tip), S1 (Surroundings out of the measurement data), CM1 (measuring on the compare page), D2 (the Delta T measuring tool), D1b (Delta T Around Pointer's 0.25 m radius and ΔT tip), D1 (Delta T Around Pointer), J3 (WebODM datasets: the source frames of WebODM's orthophoto, from its cameras), J2 (WebODM datasets: an imported
 dataset in the viewer, compare and report), J1 (WebODM datasets: Import from WebODM, with the browser), G2 (RGB-only flights: measuring, compare, frames, the report, the Problems tab), Z1 (the panels' headings, the Image line, the mosaics called a preview), G1 (RGB-only flights: the dataset and the viewer), Q1 (the range's D-pad, This mosaic under the colour scale), Y2 (Frames in the navigation pane), the tab strip's scrollbar (a fix), Y1 (Export PNG into Export…, the buttons' wording), R1 (the range's span buttons), O1 (creating the WebODM account), T1 (spelling), N1 (the name and banner), X1 (platforms) and W1–W3 (the
 documentation) are built.
 
@@ -203,7 +203,7 @@ The user's decisions (2026-11-11):
 - **The isotherm, shared by both panes:** one Isotherm control on the compare page, applied to both panes' temperature
   mosaics (not the difference or a visual mosaic), and measured in the card ("In the isotherm") for both.
 
-### CM2: a Delta T across the two images
+### CM2: a Delta T across the two images (built)
 
 Asked in chat on 2026-11-11: let the Delta T tool pick a spot on one compare image and the second spot on the other,
 for the ΔT between two spots on two separate images.
@@ -222,7 +222,7 @@ The user's decisions (2026-11-11):
   dataset's spot and ΔT (listed, exported in its CSV); when either dataset (or its flight or project) is deleted, the
   measurements between the two go too.
 
-Proposed design (to confirm while building):
+Proposed design (as planned; see "As built" below):
 
 - Model: `ThermalMeasurement.other` (nullable, a conversion, `on_delete=CASCADE`, a migration), with `values` holding
   both spots (`first`, `second`, each with its conversion and tab) and `delta_t`. The server measures each spot on its
@@ -233,6 +233,19 @@ Proposed design (to confirm while building):
 - The viewer's saved measurements list such a measurement with the other dataset named; the CSV gives both spots.
 - A project's export keeps one whose other dataset is in the export; restoring one whose other dataset is not there
   leaves it out (it would not be kept with one dataset).
+
+As built (branch `cross-delta`):
+
+- Server: `ThermalMeasurement.other` (CASCADE, migration 0013); the shape `{kind: "across", own: 0|1, other, other_target}`
+  checked in `thermal_measure.check_shape`; `api.across_measure` reads each end's pixel on its own conversion's mosaic
+  (as D2 does), in the measuring conversion's unit, with no parameters, isotherm or source frames. The CSV's
+  **Across to** column; `measurement_json`'s `other`; `restore.py` brings one back between the new datasets, or
+  leaves it out when the other isn't in the export. Tests: `test_api_measurements.py`, `test_api_import.py`.
+- Compare page (`compare/compare-page.tsx`): with both panes on a temperature mosaic, Delta T's first spot is marked
+  in the other pane (yellow); a click there finishes it as an across card on the second spot's pane, measured once
+  from the first spot's dataset and saved on both (each with its own end). The viewer's list says "across to" the
+  other (`measure/measure.ts`); no "Measure again" for one (`measure/result.tsx`). Tests: `compare.test.tsx`,
+  `panel.test.tsx`. Docs: Measuring › A Delta T across the two images.
 
 ### CM1: measuring on the compare page (built)
 

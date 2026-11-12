@@ -3,7 +3,7 @@
 import {render} from "preact";
 import {beforeEach, describe, expect, it, vi} from "vitest";
 import {setUserUnit} from "../src/core/units";
-import {geometryOf, type Measurement, measurementFigure, resultRows} from "../src/measure/measure";
+import {geometryOf, type Measurement, measurementFigure, resultRows, shapeLabel} from "../src/measure/measure";
 import {Controls, correctionStarts, Readout, Report, Section, Whole} from "../src/viewer/panel";
 import {click, ticks} from "./helpers";
 
@@ -188,6 +188,14 @@ describe("a Delta T", () => {
         const m: Measurement = {id: 1, name: "Joint", target: "as_converted", values: {result: RESULT, shape: {kind: "delta"}}};
         expect(measurementFigure(m, "C")).toBe("ΔT +1.5 °C (20.0 °C → 21.5 °C)");
         expect(measurementFigure({...m, values: {result: {...RESULT, delta_t: null}, shape: {kind: "delta"}}}, "C")).toBe("ΔT no data");
+    });
+
+    it("across two datasets is listed with the other dataset named, and labelled as such", () => {
+        const m: Measurement = {id: 2, name: "Seam", target: "as_converted",
+                                values: {result: RESULT, shape: {kind: "across", own: 0, other: 12, other_target: "harmonized"}},
+                                other: {id: 12, name: "Default settings", dataset: 6, dataset_name: "Roof, May"}};
+        expect(measurementFigure(m, "C")).toBe("ΔT +1.5 °C (20.0 °C → 21.5 °C) · across to Roof, May · Default settings");
+        expect(shapeLabel(RESULT, m.values!.shape)).toBe("Delta T across");
     });
 });
 

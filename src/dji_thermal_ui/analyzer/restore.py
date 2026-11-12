@@ -382,6 +382,8 @@ def make_project(m, folder, name, keep_folders=False):
             p = m['project']
             project = made(Project, {k: p[k] for k in ('description', 'location_lon', 'location_lat',
                                                        'location_label') if k in p}, name=name)
+            # A Delta T across two datasets is kept only when both are in the project made
+            all_conversions, across = {}, []
             for f in m['flights']:
                 in_place = keep_folders and f.get('source') == 'folder' and f.get('folder')
                 d = made(ThermalDataset, f, project_id=project.id, source='folder' if in_place else 'upload',
@@ -400,10 +402,15 @@ def make_project(m, folder, name, keep_folders=False):
                                 orthophoto=dict(c['orthophoto'], task=None) if c.get('orthophoto') else {},
                                 dsm=dict(c['dsm'], task=None) if c.get('dsm') else {})
                     conversions[c['id']] = conv
+                    all_conversions[c['id']] = conv
                     old = os.path.join(d.data_dir(), 'conversions', str(c['id']))
                     if os.path.isdir(old):
                         rename(old, old + '.import')
                     for mm in c.get('measurements', []):
+                        # A Delta T across two datasets, once all of them are made (the other may be in a later flight)
+                        if mm.get('other_id') is not None:
+                            across.append((mm, conv, (c.get('report') or {}).get('left_out') or []))
+                            continue
                         measurements[mm['id']] = made(ThermalMeasurement, mm, conversion_id=conv.id).id
                 # The conversions' folders renamed in two steps: an old id may be another's new one
                 for old_id, conv in conversions.items():
@@ -431,6 +438,14 @@ def make_project(m, folder, name, keep_folders=False):
                     conv.save(update_fields=['report', 'file_count', 'size'])
                 d.update_size()
                 d.save(update_fields=['file_count', 'size'])
+            for mm, conv, left_out in across:
+                other = all_conversions.get(mm['other_id'])
+                if other is None:
+                    continue
+                made_id = made(ThermalMeasurement, mm, conversion_id=conv.id, other_id=other.id).id
+                if mm['id'] in left_out:
+                    conv.report = dict(conv.report, left_out=sorted(conv.report.get('left_out', []) + [made_id]))
+                    conv.save(update_fields=['report'])
     except (ModelValidationError, IntegrityError, TypeError, ValueError, KeyError, AttributeError):
         undo()
         raise RestoreError("The archive's manifest is damaged") from None

@@ -22,6 +22,12 @@ All notable changes are recorded here. The format follows
 
 ### Added
 
+- **A Delta T across the compare page's two images**: with both panes on a temperature mosaic, Delta T's first spot
+  clicked in one pane and its second in the other measures the ΔT between the two spots, each read on its own
+  dataset's mosaic. **Save measurement** saves it on both datasets, each one's Saved measurements and CSV naming the
+  other; removing either dataset removes it from both. A second click in the same pane measures on both mosaics as
+  before.
+
 - **ΔT under the cursor on the compare page**: the readout under a pane of a mosaic gives **ΔT** just below the
   temperature, that pane's minus the other's (A − B under pane A, B − A under pane B), and **Temperature On
   Pointer** (at the right of the Isotherm row) shows a tip beside the cursor with the pane's temperature and ΔT, A − B

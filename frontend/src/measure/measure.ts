@@ -12,7 +12,7 @@ export const TOOLS: [Tool, string][] = [["point", "Spot"], ["line", "Line"], ["a
 export const ISOTHERM_MODES: [string, string][] = [["", "None"], ["above", "Above"], ["below", "Below"], ["between", "Between"]];
 const SHAPE_LABELS: Record<string, string> = {Point: "Spot", LineString: "Line", Polygon: "Area"};
 // How a shape was drawn (values.shape.kind): an area by dragging, or a Delta T's two spots
-const DRAWN_LABELS: Record<string, string> = {box: "Box", circle: "Circle", delta: "Delta T"};
+const DRAWN_LABELS: Record<string, string> = {box: "Box", circle: "Circle", delta: "Delta T", across: "Delta T across"};
 const TARGET_LABELS: Record<string, string> = {as_converted: "Mosaic", harmonized: "Harmonized", webodm: "WebODM",
                                                frame: "Frame", visual: "Visual"};
 export const HINTS: Record<Tool, string> = {
@@ -28,11 +28,14 @@ const CIRCLE_VERTICES = 64;
 export type Geometry =
     {type: "Point"; coordinates: Coords} | {type: "LineString"; coordinates: Coords[]} | {type: "Polygon"; coordinates: Coords[][]};
 
-// How a box, a circle or a Delta T was drawn
-export interface Shape {kind: string; center?: Coords; radius?: number}
+// How a box, a circle or a Delta T was drawn; a Delta T across two datasets (the compare page's): own, its end (0 or
+// 1) on the dataset it is saved with, the other on dataset other's mosaic other_target
+export interface Shape {kind: string; center?: Coords; radius?: number; own?: number; other?: number; other_target?: string}
 
 // Whether a shape is a Delta T: a line of two spots, ΔT the second's temperature minus the first's
 export const isDelta = (shape: Maybe<Shape>): boolean => shape?.kind === "delta";
+// Whether it is a Delta T across two datasets: the same, each spot on its own dataset's mosaic
+export const isAcross = (shape: Maybe<Shape>): boolean => shape?.kind === "across";
 
 // A line's profile: evenly spaced samples, null where there is no data; on a mosaic, the frame each was read from
 export interface Profile {distance: number[]; values: Maybe<number>[]; points?: Coords[]; frames?: Maybe<string>[]}
@@ -75,6 +78,7 @@ export interface Measurement {
     target: string;
     frame?: string | null;
     geometry?: Geometry | null;
+    other?: {id: number; name: string; dataset: number; dataset_name: string} | null;   // a Delta T across: the other dataset
     parameters?: Record<string, number | null> | null;
     values?: Measured | null;
     comment?: string;
@@ -255,6 +259,9 @@ export function measurementFigure(m: Measurement, unit: unknown): string {
     const r = m.values?.changed || m.values?.result || {};
     if (m.target === "visual") return sizeText(r);
     if (isDelta(m.values?.shape)) return deltaFigure(r, unit);
+    if (isAcross(m.values?.shape)) {
+        return deltaFigure(r, unit) + (m.other ? " · across to " + m.other.dataset_name + " · " + m.other.name : "");
+    }
     if (r.kind === "Point") return temp(isPresent(r.value) ? r.value : r.mean, unit, 1);
     return temp(r.mean, unit, 1);
 }

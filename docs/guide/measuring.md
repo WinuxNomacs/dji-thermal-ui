@@ -51,6 +51,21 @@ readout is.
 - **Source frames**, for a spot, an area or a Delta T, opens the frames that saw it in each mosaic, each with
   **Save as finding**: see [Findings](findings.md#on-the-compare-page).
 
+### A Delta T across the two images
+
+With both panes on a temperature mosaic (not the difference, the overlay or a visual mosaic), **Delta T**'s second
+spot decides what it measures. Click the first spot in one pane: it is marked in yellow in the other pane too. Then:
+
+- **A second click in the same pane** measures a Delta T on both mosaics, as the other tools do.
+- **A second click in the other pane**, anywhere on its image, measures a **Delta T across** the two: the first spot
+  read on its own pane's mosaic, the second on the other's, and ΔT the second's temperature minus the first's (in
+  the first spot's dataset's unit where the units differ). Its card, on the second spot's pane, says which spot is on which dataset.
+
+**Esc** lets go of a first spot. **Save measurement** saves a Delta T across on both datasets, each one's viewer
+listing it in its Saved measurements as "across to" the other dataset, and its CSV naming that dataset in
+**Across to**. It is kept only while both datasets are: removing either one removes it from the other too. It has no
+source frames, and isn't measured again with other parameters.
+
 The **Isotherm**, under the panes' palette, is shared by both panes: typed in your unit, it greys the pixels outside
 it in both temperature mosaics (not the difference or a visual mosaic), and the card gives the share inside it for
 both.

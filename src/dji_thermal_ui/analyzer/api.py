@@ -2399,13 +2399,62 @@ def checked_shape(data, target, geometry):
         shape = thermal_measure.check_shape(data.get('shape'), geometry, lonlat=target != 'frame')
     except thermal_measure.MeasureError as e:
         raise ValidationError({'error': str(e)}) from None
-    if is_delta(shape) and target == thermal_mosaics.VISUAL:
+    if (is_delta(shape) or is_across(shape)) and target == thermal_mosaics.VISUAL:
         raise ValidationError({'error': "A Delta T is measured on temperatures, not on a visual mosaic"})
+    if is_across(shape):
+        if target == 'frame':
+            raise ValidationError({'error': "A Delta T across two datasets is measured on their mosaics"})
+        across_ends(get_conversion_or_none(shape['other']) or refuse_other(), shape['other_target'])
     return shape
 
 
 def is_delta(shape):
     return isinstance(shape, dict) and shape.get('kind') == 'delta'
+
+
+def is_across(shape):
+    """A Delta T across two conversions' mosaics (the compare page's)"""
+    return isinstance(shape, dict) and shape.get('kind') == 'across'
+
+
+def get_conversion_or_none(pk):
+    return ThermalConversion.objects.filter(pk=pk).first()
+
+
+def refuse_other():
+    raise ValidationError({'error': "The other dataset is not there any more"})
+
+
+def across_ends(other, tab):
+    """The other conversion's temperature mosaic a Delta T across two reads: (path, its unit), checked"""
+    try:
+        path, band = mosaic_raster(other, tab)
+    except NotFound:
+        raise ValidationError({'error': "The other dataset has no mosaic " + tab}) from None
+    if not thermal_mosaics.temperatures(tab, band):
+        raise ValidationError({'error': "A Delta T is measured on temperatures"})
+    return path
+
+
+def across_measure(conversion, target, geometry, shape, unit):
+    """
+    A Delta T across two conversions' mosaics: the end shape['own'] read on this conversion's target, the other on
+    the other conversion's tab, each as the pixel under it (thermal_measure.delta_measure), in this conversion's unit;
+    its length on this one's mosaic
+    """
+    other = get_conversion_or_none(shape['other']) or refuse_other()
+    own_path, _band = mosaic_raster(conversion, target)
+    reads = []
+    for i, coords in enumerate(geometry['coordinates']):
+        conv = conversion if i == shape['own'] else other
+        path = own_path if i == shape['own'] else across_ends(other, shape['other_target'])
+        u = (conv.options or {}).get('unit') or 'C'
+        r = thermal_measure.mosaic_measure(path, u, {'type': 'Point', 'coordinates': coords})
+        if r.get('value') is not None:
+            r['value'] = thermal_measure.from_celsius(thermal_measure.to_celsius(r['value'], u), unit)
+        reads.append(r)
+    ends = iter(reads)
+    return thermal_measure.delta_measure(lambda _g: next(ends), geometry, thermal_measure.mosaic_length(own_path, geometry))
 
 
 def analysis(conversion, target, frame, geometry, parameters, isotherm, shape=None):
@@ -2417,6 +2466,11 @@ def analysis(conversion, target, frame, geometry, parameters, isotherm, shape=No
     from .thermal_analysis import clean
     unit = (conversion.options or {}).get('unit') or 'C'
     out = {'unit': unit, 'approximate': False}
+    if is_across(shape):
+        if parameters:
+            raise ValidationError({'error': "A Delta T across two datasets is measured as they were converted"})
+        out['result'] = across_measure(conversion, target, geometry, shape, unit)
+        return clean(out)
     delta = is_delta(shape)
     if target == thermal_mosaics.VISUAL:
         out['result'] = thermal_measure.visual_measure(visual_alone_raster(conversion), geometry)
@@ -2460,8 +2514,11 @@ def profile_frames(conversion, geometry):
 
 
 def measurement_json(m):
+    other = m.other and {'id': m.other_id, 'name': m.other.name, 'dataset': m.other.dataset_id,
+                         'dataset_name': m.other.dataset.name}
     return {'id': m.id, 'name': m.name, 'target': m.target, 'frame': m.frame, 'geometry': m.geometry,
-            'parameters': m.parameters, 'values': m.values, 'comment': m.comment, 'created_at': m.created_at}
+            'parameters': m.parameters, 'values': m.values, 'comment': m.comment, 'created_at': m.created_at,
+            'other': other}
 
 
 class MeasureView(DatasetView):
@@ -2500,12 +2557,14 @@ class MeasurementsView(DatasetView):
             raise ValidationError({'error': "Draw a spot, a line or an area to save"})
         shape = checked_shape(request.data, target, geometry)
         values = analysis(conversion, target, frame, geometry, parameters, isotherm, shape)
-        if isotherm is not None and not is_delta(shape):
+        if isotherm is not None and not is_delta(shape) and not is_across(shape):
             values['isotherm'] = request.data.get('isotherm')
         if shape is not None:
             values['shape'] = shape
+        # A Delta T across two datasets goes with either of them
         m = ThermalMeasurement.objects.create(conversion=conversion, name=name, target=target, frame=frame,
-                                              geometry=geometry, parameters=parameters, values=values)
+                                              geometry=geometry, parameters=parameters, values=values,
+                                              other_id=shape['other'] if is_across(shape) else None)
         return Response(measurement_json(m), status=status.HTTP_201_CREATED)
 
 
@@ -2851,6 +2910,7 @@ class VideoFramePictureView(DatasetView):
 
 
 CSV_COLUMNS = (('name', "Name"), ('target', "Measured on"), ('frame', "Frame"), ('kind', "Shape"),
+               ('other', "Across to"),
                ('min', "Min"), ('max', "Max"), ('mean', "Mean"), ('median', "Median"), ('std', "Std dev"),
                ('first', "First spot"), ('second', "Second spot"), ('delta_t', "ΔT"), ('unit', "Unit"), ('isotherm', "Isotherm"),
                ('isotherm_share', "Isotherm share"), ('length', "Length"), ('area', "Area"), ('perimeter', "Perimeter"),
@@ -2890,7 +2950,7 @@ def csv_rows(m, unit='C', profile=True):
     t = lambda key: csv_number(temperature(r.get(key)), 3)
     d = lambda key: csv_number(difference(r.get(key)), 3)
     # ΔT is a Delta T's alone (one saved before 2026-11-11 may keep its ΔT with the surroundings, no longer shown)
-    delta = (v.get('shape') or {}).get('kind') == 'delta'
+    delta = (v.get('shape') or {}).get('kind') in ('delta', 'across')
     rows = []
     for which in ('result', 'changed'):
         r = v.get(which)
@@ -2912,6 +2972,8 @@ def csv_rows(m, unit='C', profile=True):
             'parameters': json.dumps(parameters(m.parameters)) if m.parameters and (which == 'changed' or m.target != 'frame') else "",
             'approximate': "yes" if v.get('approximate') else "",
             'comment': m.comment if which == 'result' else "",
+            # A Delta T across two datasets: the other one (its flight · its name)
+            'other': "{} · {}".format(m.other.dataset.name, m.other.name) if m.other_id else "",
             'geometry': json.dumps(m.geometry),
             'created_at': m.created_at.isoformat(),
         })
