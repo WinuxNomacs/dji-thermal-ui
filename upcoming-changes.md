@@ -8,7 +8,7 @@ The order of work, top first. Each phase is planned with the user before it is b
 sections below. New requests arrive in `new.md`: they are turned into phases here, and `new.md` is cleared back to
 its title.
 
-**Up next**: nothing planned yet. See "Requests of 2026-11-11 (second batch)".
+**Up next**: CM2 (a Delta T across the two images on the compare page). See "Measuring on the compare page". See "Requests of 2026-11-11 (second batch)".
 
 P1 (Temperature On Pointer) is built; the bug review (requested in `new.md`, 2026-11-09), with its list BR1–BR9, is
 built.
@@ -202,6 +202,37 @@ The user's decisions (2026-11-11):
   each viewer's Saved measurements list and CSV carry it.
 - **The isotherm, shared by both panes:** one Isotherm control on the compare page, applied to both panes' temperature
   mosaics (not the difference or a visual mosaic), and measured in the card ("In the isotherm") for both.
+
+### CM2: a Delta T across the two images
+
+Asked in chat on 2026-11-11: let the Delta T tool pick a spot on one compare image and the second spot on the other,
+for the ΔT between two spots on two separate images.
+
+Builds on CM1 (the compare page's Delta T: both clicks in one pane, both spots measured on both mosaics, a card with A,
+B and A − B, saved on both datasets) and D2 (`thermal_measure`'s delta: each end the pixel under it).
+
+The user's decisions (2026-11-11):
+
+- **The second spot is anywhere on the other image**: first click in one pane, second in the other; a line joins them
+  across the maps (each pane shows its own spot, and the other's as a mark). ΔT = the second spot's temperature (on its
+  image) minus the first's (on its image), in the user's unit.
+- **The second click decides**: in the same pane, Delta T works as in CM1; in the other pane, it is the cross-image ΔT.
+  No new button.
+- **Saved on both datasets, kept only while both exist**: each dataset gets a measurement with its own spot, the other
+  dataset's spot and ΔT (listed, exported in its CSV); when either dataset (or its flight or project) is deleted, the
+  measurements between the two go too.
+
+Proposed design (to confirm while building):
+
+- Model: `ThermalMeasurement.other` (nullable, a conversion, `on_delete=CASCADE`, a migration), with `values` holding
+  both spots (`first`, `second`, each with its conversion and tab) and `delta_t`. The server measures each spot on its
+  own conversion's mosaic (the D2 point read) through a new `shape.kind: "delta_across"`, or the page measures the two
+  spots with each conversion's `/measure` and saves both rows with the result.
+- The card: First spot (A · its mosaic), Second spot (B · its mosaic), ΔT and the distance between them; Save
+  measurement and Escape as in CM1; no Source frames (two images).
+- The viewer's saved measurements list such a measurement with the other dataset named; the CSV gives both spots.
+- A project's export keeps one whose other dataset is in the export; restoring one whose other dataset is not there
+  leaves it out (it would not be kept with one dataset).
 
 ### CM1: measuring on the compare page (built)
 
