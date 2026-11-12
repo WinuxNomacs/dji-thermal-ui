@@ -581,6 +581,24 @@ describe("measuring on the compare page", () => {
         expect($("#measure-card")).toBeNull();
     });
 
+    it("lets go of a Delta T's first spot waiting in the other pane when that pane turns to the overlay", async () => {
+        const fetchFn = server(routes());
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        click($("#pane-a [data-tool=delta]")!);
+        await ticks();
+        clickMap(maps[0], [10.003, 50.003]);
+        await ticks();
+        const show = document.querySelector<HTMLSelectElement>("#pane-b select[name=show]")!;
+        show.value = "overlay";
+        show.dispatchEvent(new Event("change", {bubbles: true}));
+        await ticks(20);
+        clickMap(maps[1], [10.006, 50.006]);
+        await ticks(40);
+        expect(sent(fetchFn, "POST", API + "conversions/9/measure").filter((b) => b.shape?.kind === "across")).toEqual([]);
+        expect($("#measure-card")).toBeNull();
+    });
+
     it("saves once on a dataset whose mosaic both panes show", async () => {
         const fetchFn = server(routes({["POST " + API + "conversions/9/measurements"]: {id: 3, name: "Vent", target: "as_converted",
                                                                                       values: SPOT_9}}));
