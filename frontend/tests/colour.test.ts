@@ -131,6 +131,10 @@ describe("the colouring without WebGL", () => {
         const flat = shade(null), banded = shade({mode: "banded", width: 5, origin: 0});
         // 10–15 is band 2 (even), 15–20 band 3 (odd: darker), 20–25 band 4
         expect(banded).toEqual([flat[0], flat[1], Math.round(flat[2] * BAND_DARKEN), Math.round(flat[3] * BAND_DARKEN), flat[4]]);
+        // Beyond the range, a value is in its own temperature's band: 31 in 30–35 (even), 36 in 35–40 (odd: darker)
+        const above = [...colourValues(new Float32Array([31, 36]), 2, 1, {colors: GREYS, range: [10, 30],
+                                                                         bands: {mode: "banded", width: 5, origin: 0}})];
+        expect([above[0], above[4]]).toEqual([255, Math.round(255 * BAND_DARKEN)]);
         // A band's edge moved by the origin
         expect(shade({mode: "stepped", width: 5, origin: 1}).slice(0, 2)).toEqual([at(10), at(13.5)]);
     });

@@ -125,7 +125,8 @@ def colour(values, colors, value_range=None, shares=None, sharpen=0.0, isotherm=
     odd = None
     if bands:
         mode, width, origin = bands
-        band = np.floor((low + u * span - origin) / width)
+        with np.errstate(invalid='ignore'):
+            band = np.floor((np.where(here, v[first:stop], low) - origin) / width)     # its own temperature's band
         if mode == 'stepped':
             u = np.clip((origin + (band + 0.5) * width - low) / span, 0.0, 1.0)
         else:

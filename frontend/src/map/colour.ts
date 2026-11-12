@@ -69,9 +69,10 @@ export function tonedPalette(colors: number[], shares?: number[] | null, grey = 
 
 const darker = (c: Rgba): Rgba => [Math.round(c[0] * BAND_DARKEN), Math.round(c[1] * BAND_DARKEN), Math.round(c[2] * BAND_DARKEN), c[3]];
 
-// The band a share of the range is in (low, span: the range's), and with stepped bands the share of its middle
-export function banded(u: number, low: number, span: number, b: Bands): {u: number; band: number} {
-    const band = Math.floor((low + u * span - b.origin) / b.width);
+// The band a value is in (its own temperature, beyond the range too), and with stepped bands the share of the range
+// (low, span) of its middle, else u as it is
+export function banded(v: number, u: number, low: number, span: number, b: Bands): {u: number; band: number} {
+    const band = Math.floor((v - b.origin) / b.width);
     return {band, u: b.mode === "stepped" ? Math.max(0, Math.min(1, (b.origin + (band + 0.5) * b.width - low) / span)) : u};
 }
 
@@ -147,7 +148,7 @@ export function colourStyle(c: Colouring, sigma = 1): {color: ExpressionValue; v
     let band: ExpressionValue | null = null;
     if (c.bands) {
         Object.assign(variables, {bandWidth: c.bands.width, bandOrigin: c.bands.origin});
-        band = ["floor", ["/", ["-", ["+", ["var", "low"], ["*", u, ["var", "span"]]], ["var", "bandOrigin"]], ["var", "bandWidth"]]];
+        band = ["floor", ["/", ["-", v, ["var", "bandOrigin"]], ["var", "bandWidth"]]];
         if (c.bands.mode === "stepped") {
             u = ["clamp", ["/", ["-", ["+", ["var", "bandOrigin"], ["*", ["+", band, 0.5], ["var", "bandWidth"]]], ["var", "low"]],
                           ["var", "span"]], 0, 1];
@@ -237,7 +238,7 @@ export function colourValues(values: Float32Array, width: number, height: number
             }
             let odd = false;
             if (c.bands) {
-                const b = banded(u, range[0], span, c.bands);
+                const b = banded(v, u, range[0], span, c.bands);
                 u = b.u;
                 odd = c.bands.mode === "banded" && ((b.band % 2) + 2) % 2 === 1;
             }
