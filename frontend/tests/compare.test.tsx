@@ -493,6 +493,62 @@ describe("measuring on the compare page", () => {
         expect($("#pane-a #measure-card #save")).toBeNull();
     });
 
+    it("measures a Delta T across the two images: the first spot in one pane, the second clicked in the other", async () => {
+        const ACROSS = {result: {kind: "LineString", first: 31.5, second: 33.25, delta_t: 1.75, length: 4.2, valid_pixels: 2}, unit: "C"};
+        const saved = (id: number) => ({id, name: "Seam", target: "as_converted", values: ACROSS});
+        const fetchFn = server(routes({[MEASURE(9)]: ACROSS, ["POST " + API + "conversions/9/measurements"]: saved(3),
+                                       ["POST " + API + "conversions/12/measurements"]: saved(4)}));
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        click($("#pane-a [data-tool=delta]")!);
+        await ticks();
+        expect($("#pane-a .tool-hint")!.getAttribute("title")).toContain("in the other pane, ΔT across the two images");
+        clickMap(maps[0], [10.003, 50.003]);
+        await ticks();
+        // The first spot marked in the other pane, where the second is clicked
+        const marks = (m: OlMap) => m.getAllLayers().flatMap((l) => (l.getSource() as {getFeatures?: () => unknown[]})?.getFeatures?.() || []);
+        expect(marks(maps[1]).length).toBeGreaterThan(0);
+        clickMap(maps[1], [10.006, 50.006]);
+        await ticks(40);
+        // Measured once, from the first spot's dataset: its end first, the other on B's mosaic
+        const asked = sent(fetchFn, "POST", API + "conversions/9/measure");
+        expect(asked.length).toBe(1);
+        expect(asked[0].shape).toEqual({kind: "across", own: 0, other: 12, other_target: "as_converted"});
+        expect((asked[0].geometry.coordinates as number[][]).flat().map((x) => Math.round(x * 1e6) / 1e6))
+            .toEqual([10.003, 50.003, 10.006, 50.006]);
+        expect(sent(fetchFn, "POST", API + "conversions/12/measure")).toEqual([]);
+        expect($("#pane-a #measure-card")).toBeNull();
+        expect($("#pane-b #measure-card .measure-note")!.textContent).toBe("First spot on A Nadir · Mosaic, second on B Other · Mosaic");
+        expect(rows("b")).toEqual(["Length | 4.20 m", "First spot | 31.50 °C", "Second spot | 33.25 °C", "ΔT | +1.75 °C"]);
+        expect($("#pane-b #measure-card [name=sources]")).toBeNull();
+        // Saved on both datasets, each with its own end
+        const name = $("#pane-b #measure-card [name=name]")!;
+        name.value = "Seam";
+        name.dispatchEvent(new Event("input", {bubbles: true}));
+        await ticks();
+        click($("#pane-b #measure-card [name=save]")!);
+        await ticks(40);
+        expect([9, 12].map((c) => sent(fetchFn, "POST", API + "conversions/" + c + "/measurements")[0].shape)).toEqual([
+            {kind: "across", own: 0, other: 12, other_target: "as_converted"},
+            {kind: "across", own: 1, other: 9, other_target: "as_converted"}]);
+    });
+
+    it("keeps a Delta T in one pane when its second spot is clicked there, and lets go of the first with Esc", async () => {
+        const fetchFn = server(routes());
+        const maps = panesMaps();
+        await open(fetchFn, 12);
+        click($("#pane-a [data-tool=delta]")!);
+        await ticks();
+        clickMap(maps[0], [10.003, 50.003]);
+        key(document.body, "Escape");
+        await ticks();
+        // The second pane's click is a click again, not a second spot
+        clickMap(maps[1], [10.006, 50.006]);
+        await ticks(40);
+        expect(sent(fetchFn, "POST", API + "conversions/9/measure")).toEqual([]);
+        expect($("#measure-card")).toBeNull();
+    });
+
     it("saves once on a dataset whose mosaic both panes show", async () => {
         const fetchFn = server(routes({["POST " + API + "conversions/9/measurements"]: {id: 3, name: "Vent", target: "as_converted",
                                                                                       values: SPOT_9}}));

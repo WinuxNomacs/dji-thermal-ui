@@ -3,7 +3,7 @@
 import {useState} from "preact/hooks";
 import {Circle, Crosshairs, DeltaT, Flag, Images, Info, Minus, Pencil, Polygon, Save, Sliders, Square, Trash} from "../components/icons";
 import {Histogram, Profile} from "./charts";
-import {HINTS, isDelta, ISOTHERM_MODES, isothermText, type Measured, type Measurement, measurementFigure, type ParamField, paramsText,
+import {HINTS, isAcross, isDelta, ISOTHERM_MODES, isothermText, type Measured, type Measurement, measurementFigure, type ParamField, paramsText,
         type Result, resultRows, shapeLabel, shownTemp, symbol, targetLabel, type Tool, TOOLS} from "./measure";
 
 const TOOL_ICONS: Record<Tool, typeof Crosshairs> = {point: Crosshairs, line: Minus, area: Polygon, box: Square, circle: Circle,
@@ -246,7 +246,7 @@ export function Measurements(props: MeasurementsProps) {
                 <div class="measurement-figure">{measurementFigure(m, unit)}</div>
                 {params && <div class="measurement-params text-muted">Measured with {params}</div>}
                 {m.comment && <div class="measurement-comment text-muted">{m.comment}</div>}
-                {fields.length > 0 && <button type="button" class="icon-button" title="Measure again with other parameters"
+                {fields.length > 0 && !isAcross(m.values?.shape) && <button type="button" class="icon-button" title="Measure again with other parameters"
                                               onClick={() => props.onEdit(editing === m.id ? null : m.id)}><Sliders/></button>}
                 {props.onFinding && m.target !== "frame" &&
                     (m.geometry?.type === "Point" || m.geometry?.type === "Polygon" || isDelta(m.values?.shape)) &&

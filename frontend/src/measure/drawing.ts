@@ -16,7 +16,7 @@ import Fill from "ol/style/Fill";
 import Stroke from "ol/style/Stroke";
 import Style from "ol/style/Style";
 import {fixedTip, hoverTips, vectorLayer} from "../map/map";
-import {boxCoords, circleCoords, type Coords, type Geometry, geometryOf, isDelta, lengthText, type Result, type Shape,
+import {boxCoords, circleCoords, type Coords, type Geometry, geometryOf, isAcross, isDelta, lengthText, type Result, type Shape,
         temp, type Tool} from "./measure";
 
 // A click this soon after a drag ends is the drag's own, not a click
@@ -119,6 +119,9 @@ export class Drawing {
 
     count(): number { return this.points.length; }
 
+    // The points clicked so far of the shape being drawn
+    vertices(): Coords[] { return [...this.points]; }
+
     start(t: Tool) {
         this.tool_ = t;
         this.points = [];
@@ -158,7 +161,7 @@ export class Drawing {
         if (geometry.type === "Point") {
             f = new Feature({geometry: new Point(fromCoords(geometry.coordinates))});
             f.setStyle(SPOT);
-        } else if (isDelta(shape) && geometry.type === "LineString") {
+        } else if ((isDelta(shape) || isAcross(shape)) && geometry.type === "LineString") {
             // No profile to follow along it
             f = new Feature({geometry: new LineString(this.mapped(geometry.coordinates))});
             f.setStyle(STYLE);

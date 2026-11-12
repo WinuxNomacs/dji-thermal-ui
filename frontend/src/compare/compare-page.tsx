@@ -30,8 +30,8 @@ import {blankFields, type Finding, type FindingFields, fieldsBody, fieldsOf, fin
 import {centreOf, drawFindings, findingAt} from "../findings/layer";
 import {FindingAbout, FindingForm, SaveFinding} from "../findings/panel";
 import {Drawing, drawingKey, inField} from "../measure/drawing";
-import {type Coords, type Geometry, isothermParam, type Measured, type Measurement, nearestIndex, type Shape, symbol, TOOLS,
-        type Tool} from "../measure/measure";
+import {type Coords, type Geometry, HINTS, isothermParam, type Measured, type Measurement, nearestIndex, type Shape,
+        symbol, TOOLS, type Tool} from "../measure/measure";
 import {type IsothermState, Isotherm, MeasureCard, type Measuring, Toolbar} from "../measure/result";
 import {type Colouring, isothermRange, scaleStops} from "../map/colour";
 import {type Basemap, clipLeft, DATA_GUTTER, fitBounds, lonLatToMap, MAX_ZOOM, mapToLonLat, mosaicMap, pointFeature,
@@ -56,6 +56,11 @@ const PICKED = new Style({image: new CircleStyle({radius: 6, stroke: new Stroke(
 const NAMES: PaneName[] = ["a", "b"];
 // Without temperatures (two visual mosaics of their own) there is no Delta T to measure
 const SIZE_TOOLS = TOOLS.filter(([x]) => x !== "delta");
+// Delta T's second click: in the same pane, or in the other for a ΔT across the two images
+const COMPARE_HINTS = {...HINTS, delta: "Click the first spot, then the second: in this pane, both spots measured on both " +
+    "mosaics; in the other pane, ΔT across the two images (the second spot's temperature on its image minus the first's)."};
+const PENDING = new Style({image: new CircleStyle({radius: 5, fill: new Fill({color: "#ffd600"}),
+                                                   stroke: new Stroke({color: "#000", width: 1})})});
 const toCoords = (at: Coordinate): Coords => mapToLonLat(at) as Coords;
 
 // What a pane shows: a conversion's temperature tab or visual mosaic (its mosaics' info), the difference, or A over B
@@ -71,8 +76,9 @@ interface Pick {geometry: Geometry; shape?: Maybe<Shape>; mosaics: PickMosaic[];
 
 // A shape drawn in a pane with the measuring tools, measured on A's and B's mosaics (res: each pane's, null where it is
 // not measured; undefined while they are asked), and the first of its measurements once saved
+// across: a Delta T across the two images, its first spot on that pane's mosaic and its second on the other's
 interface Card {pane: PaneName; geometry: Geometry; shape?: Maybe<Shape>; res?: Record<PaneName, Measured | null>; error?: string;
-                saved?: Measurement | null}
+                saved?: Measurement | null; across?: PaneName}
 
 // The finding form open: a new one from a mosaic of what a pane's window shows (its index in the pick), or one changed
 interface Draft {title: string; fields: FindingFields; pane: PaneName; mosaic: number; edit?: Finding; error?: string}
@@ -85,7 +91,7 @@ interface Drawn {key: string; thermal?: ThermalLayer; tiles?: TileLayer<XYZ>; un
 interface PaneMap {
     map: OlMap; legend: HTMLDivElement; drawn: Drawn[]; top: string | null; swipe: number | null;
     marks: VectorSource; cursor: Feature | null; shape: VectorSource; findings: VectorSource; drawing: Drawing;
-    tip: PointerTip;
+    tip: PointerTip; pending: Feature | null;
 }
 
 // What a pane's map draws: its values (key: which mosaic or difference) and how they are coloured, or the visual tiles
@@ -177,6 +183,8 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const swiping = useRef<PaneName | null>(null);
     // Counters: only the answer to the latest question is shown
     const asked = useRef({point: 0, a: 0, b: 0, measure: 0});
+    // A Delta T begun in one pane, whose second spot may be clicked in the other
+    const pending = useRef<{from: PaneName; first: Coords} | null>(null);
 
     // The findings a link asked to open, once their datasets' are in
     const toOpen = useRef<Record<PaneName, Maybe<number>>>({a: wanted.a_finding, b: wanted.b_finding});
@@ -297,8 +305,10 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                 const points = profilePoints(now.current.card);
                 showIndex(coords && points ? nearestIndex(points, coords) : null, points);
             },
-            // A click with no tool on opens the finding there
+            // A click with no tool on: a Delta T's second spot, begun in the other pane, else the finding there
             onClick: (at) => {
+                const q = pending.current;
+                if (q && q.from !== n) return finishAcross(q, n, at);
                 const hit = findingAt(m, m.getPixelFromCoordinate(at), findingsShown);
                 const f = hit !== null && paneFindings(n).find((x) => x.id === hit);
                 if (f) openFinding(n, f);
@@ -306,7 +316,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         });
         const pm: PaneMap = maps.current[n] = {map: m, legend, drawn: [], top: null, swipe: null, marks: vectorLayer(m, 20),
                                                cursor: null, shape: vectorLayer(m, 9), findings: findingsShown, drawing,
-                                               tip: pointerTip(m)};
+                                               tip: pointerTip(m), pending: null};
         // The cursor marked in the other pane
         m.on("pointermove", (e) => {
             const o = maps.current[other(n)];
@@ -340,6 +350,39 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             return {tool: d ? d.tool() : null, count: d ? d.count() : 0};
         };
         setTools({a: of("a"), b: of("b")});
+        // A Delta T's first spot clicked, where both panes show a temperature mosaic: its second may be in the other pane,
+        // where the first is marked
+        const p = now.current.panes, d = (n: PaneName) => maps.current[n]?.drawing;
+        const from = p && NAMES.every((x) => !p[x].diff && !p[x].overlay && !isAlone(p[x])) ?
+            NAMES.find((n) => d(n)?.tool() === "delta" && d(n)!.count() === 1) : undefined;
+        pending.current = from ? {from, first: d(from)!.vertices()[0]} : null;
+        NAMES.forEach((n) => {
+            const pm = maps.current[n];
+            if (!pm) return;
+            if (pm.pending) { pm.marks.removeFeature(pm.pending); pm.pending = null; }
+            if (from && n !== from) {
+                pm.pending = pointFeature(lonLatToMap(pending.current!.first));
+                pm.pending.setStyle(PENDING);
+                pm.marks.addFeature(pm.pending);
+            }
+        });
+    }
+
+    // A Delta T's second spot clicked in the other pane than its first: a Delta T across the two images, its card there
+    function finishAcross(q: {from: PaneName; first: Coords}, n: PaneName, at: Coordinate) {
+        maps.current[q.from]?.drawing.stop();
+        syncTools();
+        setCard({pane: n, geometry: {type: "LineString", coordinates: [q.first, toCoords(at)]}, shape: {kind: "across"},
+                 across: q.from});
+        setMeasureError("");
+        showIndex(null);
+    }
+
+    // A Delta T across: how its saved row (on pane x's dataset) reads it: the end own on x's mosaic, the other on the
+    // other pane's
+    function acrossShape(c: Card, x: PaneName): Shape {
+        const p = panes!, y = other(x);
+        return {kind: "across", own: x === c.across ? 0 : 1, other: p[y].conv, other_target: readTab(p[y])};
     }
 
     // A drawing tool put on in a pane (or away): the other pane's put away
@@ -389,12 +432,14 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         const name = saveName.trim(), c = card, p = panes;
         if (!c || !p) return;
         if (!name) return setMeasureError("Name the measurement to save it");
-        const which = measuredPanes(p).filter((x, i, all) =>
+        // A Delta T across: on both datasets, each with its own end (twice on one dataset whose two tabs it spans)
+        const which = c.across ? NAMES : measuredPanes(p).filter((x, i, all) =>
             all.findIndex((y) => p[y].conv === p[x].conv && readTab(p[y]) === readTab(p[x])) === i);
         const saved: Measurement[] = [];
         for (const x of which) {
             const r = await readJson<Measurement>(await sendJson(api + "conversions/" + p[x].conv + "/measurements", "POST",
-                {name, target: readTab(p[x]), geometry: c.geometry, shape: c.shape ?? undefined, isotherm: isoFor(p[x])}));
+                c.across ? {name, target: readTab(p[x]), geometry: c.geometry, shape: acrossShape(c, x)} :
+                    {name, target: readTab(p[x]), geometry: c.geometry, shape: c.shape ?? undefined, isotherm: isoFor(p[x])}));
             if (!r.ok) {
                 if (saved.length) setCard({...c, saved: saved[0]});
                 return setMeasureError((saved.length ? "Saved on " + which[0].toUpperCase() + "'s dataset only. " : "") +
@@ -416,6 +461,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
         };
         const base = {error: c.error, saved: c.saved, shape: c.shape};
         if (!c.res) return {m: {...base, res: c.res}, unit: p.a.info.unit, compared: false};
+        if (c.across) {
+            const x = c.across;
+            return {m: {...base, res: c.res[x] && {...c.res[x]!, shape: c.shape}}, unit: p[x].info.unit, compared: false,
+                    note: "First spot on " + named(x) + ", second on " + named(other(x))};
+        }
         const got = NAMES.filter((x) => c.res![x]?.result), valid = got.filter((x) => c.res![x]!.result!.valid_pixels);
         const shown = valid.length ? valid : got.slice(0, 1);
         if (!shown.length) return {m: {...base, res: null}, unit: p.a.info.unit, compared: false};
@@ -578,9 +628,11 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     // The shape drawn measured on both mosaics, with the isotherm
     useEffect(() => {
         if (!card || card.res !== undefined || card.error || !panes) return;
-        const n = ++asked.current.measure, c = card, p = panes, which = measuredPanes(p);
+        const n = ++asked.current.measure, c = card, p = panes, which = c.across ? [c.across] : measuredPanes(p);
+        // (a Delta T across: measured once, from its first spot's dataset)
         const measure = (x: PaneName): Promise<Measured | null> => !which.includes(x) ? Promise.resolve(null) :
-            sendJson(api + "conversions/" + p[x].conv + "/measure", "POST",
+            sendJson(api + "conversions/" + p[x].conv + "/measure", "POST", c.across ?
+                     {target: readTab(p[x]), geometry: c.geometry, shape: acrossShape(c, x)} :
                      {target: readTab(p[x]), geometry: c.geometry, shape: c.shape ?? undefined, isotherm: isoFor(p[x])})
                 .then((res) => readJson<Measured>(res))
                 .then((r) => {
@@ -599,7 +651,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
     const firstMeasured = useRef(true);
     useEffect(() => {
         if (firstMeasured.current) { firstMeasured.current = false; return; }
-        setCard((c) => c && {pane: c.pane, geometry: c.geometry, shape: c.shape});
+        setCard((c) => c && {pane: c.pane, geometry: c.geometry, shape: c.shape, across: c.across});
         showIndex(null);
     }, [key, isoKey]);
 
@@ -959,7 +1011,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
             <div class="compare-stage" key="map">
                 <div class="compare-map" id={"map-" + n} ref={mapEls[n]}/>
                 {p && <Toolbar tool={tools[n].tool} count={tools[n].count} compact
-                               tools={NAMES.some((x) => !isAlone(panes![x])) ? TOOLS : SIZE_TOOLS}
+                               tools={NAMES.some((x) => !isAlone(panes![x])) ? TOOLS : SIZE_TOOLS} hints={COMPARE_HINTS}
                                label={"Drawing tools: measure a spot, a line, an area or a Delta T on both mosaics, from pane " + n.toUpperCase()}
                                onTool={(x) => pickTool(n, x)} onFinish={() => { maps.current[n]?.drawing.finish(); syncTools(); }}/>}
                 {p && card && card.pane === n && (() => {
@@ -967,7 +1019,7 @@ export function ComparePage({api, publicUrl, id, otherId, name, datasetName, bas
                     return <MeasureCard m={c.m} unit={c.unit} compared={c.compared} labels={c.compared ? ["A", "B"] : undefined}
                                         note={c.note} index={index} onIndex={(i) => showIndex(i, points)}
                                         name={saveName} error={measureError} onName={setSaveName} onSave={save} onClose={closeCard}
-                                        onSources={hasSources(card.geometry, card.shape) ?
+                                        onSources={!card.across && hasSources(card.geometry, card.shape) ?
                                             () => openSources(n, card.geometry, card.shape) : undefined}/>;
                 })()}
                 {p?.overlay && <div class="compare-swipe" id={"swipe-" + n} role="separator" aria-orientation="vertical"
