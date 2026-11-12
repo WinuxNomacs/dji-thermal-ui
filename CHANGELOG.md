@@ -236,7 +236,6 @@ All notable changes are recorded here. The format follows
   **Temperature On Pointer** box says its ΔT is that pane's minus the other's.
 - A Delta T's first spot on the compare page lets go when a pane turns to the difference, the overlay or a visual
   mosaic, instead of waiting for a second spot there.
-- Deleting a dataset names the Delta Ts across it and another dataset that go from that one too.
 - Two saved measurements compared give ΔT for a Delta T alone, not the surroundings' ΔT a measurement saved before
   kept.
 - **OpenStreetMap** follows its tile usage policy: the pages let the browser send the Referer the tile server requires
