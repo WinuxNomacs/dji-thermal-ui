@@ -6,7 +6,13 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-26
+
 ### Changed
+
+- **dji-thermal-cli 1.15.0** (from 1.13.1). It measures with the embedded object distance by default, as below.
+  Its 1.14.0 adds ODM's `texturing-skip-global-seam-leveling` to the WebODM plan: with the leveling, a few
+  orthophoto pixels read far colder than any frame.
 
 - **Object distance starts on Embedded in each image**: the New dataset form, "Reset to defaults" and a setting
   left empty measure with the distance the drone's thermal camera was set to for the flight, as DJI intends and as
