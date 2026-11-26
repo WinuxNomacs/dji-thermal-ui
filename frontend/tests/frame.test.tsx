@@ -25,7 +25,7 @@ const FRAMES: Frames = {
                {key: "magma", label: "Magma", color_map: [0x000004, 0xfcfdbf]}],
     flight_zone: {offset: -300},
     frames: [{path: A, pitch: -90, time: "2026:10:12 18:29:50", converted: true, mosaic: 0,
-              recorded: {emissivity: 0.91, humidity: 50, lrf: 21.4, reflection: 27.6, ambient: 27.6}},
+              recorded: {emissivity: 0.91, humidity: 50, distance: 5, lrf: 21.4, reflection: 27.6, ambient: 27.6}},
              {path: B, pitch: -45, time: "2026:10:12 18:30:10", converted: false, mosaic: null, recorded: {}}],
 };
 const INFO: FrameInfo = {
@@ -188,6 +188,10 @@ describe("the frame page", () => {
         expect(byId("changed-pane").hidden).toBe(true);
         expect($("[data-section=info]")!.textContent).toContain("640 × 512 px");
         expect($("[data-section=parameters]")!.textContent).toContain("The distance is the rangefinder.");
+        // Recorded: the distance the thermal camera was set to, not the rangefinder's
+        const distanceRow = Array.from(document.querySelectorAll("table.params tbody tr"))
+            .find((tr) => tr.querySelector("th")!.textContent === "Distance (m)")!;
+        expect(distanceRow.querySelectorAll("td")[0].textContent).toBe("5.0");
         expect(($("input[name=emissivity]") as HTMLInputElement).value).toBe("0.91");
         expect($(".map-legend")).toBeNull();
         expect($(".viewer-panel .scale, .frame-panel .scale")!.textContent).toContain("Temperature, °C");

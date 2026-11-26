@@ -8,7 +8,7 @@ import {type VisualPair} from "../sources/sources";
 // The parameters a frame can be measured again with: [field, label, step, in the temperature unit, what the SDK reports
 // it as (info.params), the analysis' recorded value]
 export const CHANGES: [string, string, string, boolean, string, string][] = [
-    ["distance", "Distance (m)", "0.1", false, "distance", "lrf"],
+    ["distance", "Distance (m)", "0.1", false, "distance", "distance"],
     ["humidity", "Humidity (%)", "1", false, "humidity", "humidity"],
     ["emissivity", "Emissivity", "0.01", false, "emissivity", "emissivity"],
     ["reflected_temp", "Reflected temperature", "0.1", true, "reflection", "reflection"],
