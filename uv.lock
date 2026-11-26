@@ -322,20 +322,20 @@ wheels = [
 
 [[package]]
 name = "dji-thermal-cli"
-version = "1.13.1"
+version = "1.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "pillow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f5/63/1fc249089f7855ca525b2c0c89b243b48a2c094dbe87e6c5058d604e22b7/dji_thermal_cli-1.13.1.tar.gz", hash = "sha256:7ccb9d77773eabf542225a2f0903029e3bf926e6bb4daa1b0e4fa5215488e8a6", size = 344835, upload-time = "2026-11-04T16:36:12.606Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/b9/c0e5cfa9495ed8514b4681328d451eb4e6df4905ccbea3493cd14af7e079/dji_thermal_cli-1.15.0.tar.gz", hash = "sha256:518e4978ad593cf5d014147f9deab14f2120440d530af106c2e2b934c30177bb", size = 345777, upload-time = "2026-11-26T19:37:04.372Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/64/a8/ff4085374bba576986dfa6cb21e5015863434098959950cdaeb7861d8a48/dji_thermal_cli-1.13.1-py3-none-any.whl", hash = "sha256:cca90c25107b0dd9f77fd02813a0af9c840695ee0da40fdf1640c067740ac5f2", size = 351005, upload-time = "2026-11-04T16:36:11.019Z" },
+    { url = "https://files.pythonhosted.org/packages/38/53/5cc46db27c3a7faf66e983af25afde2004b64c2659ceff47e616ec1a983e/dji_thermal_cli-1.15.0-py3-none-any.whl", hash = "sha256:05db8a13b000fa6d62787f8f9794c2f687731b005f486b869f84506b149d050b", size = 351755, upload-time = "2026-11-26T19:37:02.867Z" },
 ]
 
 [[package]]
 name = "dji-thermal-ui"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "affine" },
@@ -370,7 +370,7 @@ requires-dist = [
     { name = "cryptography", specifier = "==50.0.2" },
     { name = "django", specifier = "==6.1.2" },
     { name = "djangorestframework", specifier = "==3.18.3" },
-    { name = "dji-thermal-cli", specifier = "==1.13.1" },
+    { name = "dji-thermal-cli", specifier = "==1.15.0" },
     { name = "numpy", specifier = "==2.5.4" },
     { name = "pillow", specifier = "==13.0.0" },
     { name = "platformdirs", specifier = "==4.13.5" },
