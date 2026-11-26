@@ -15,6 +15,10 @@ from tests.fakes import CONVERSIONS, DATASETS, PREFERENCES, converted, dataset, 
 
 def test_settings_are_checked_and_completed_from_dji_thermal_clis_defaults():
     assert conversion.parse_settings({}) == (conversion.DEFAULTS, {})
+    # The embedded distance by default, as the drone's thermal camera was set; the rangefinder's when chosen
+    assert conversion.DEFAULTS['distance'] == 'embedded'
+    assert conversion.parse_settings({'distance': ''})[0]['distance'] == 'embedded'
+    assert conversion.parse_settings({'distance': 'lrf'})[0]['distance'] == 'lrf'
 
     s, errors = conversion.parse_settings({'distance': '12.5', 'emissivity': '0.95', 'humidity': '', 'unit': 'f',
                                            'range_min': 50, 'range_max': 120, 'palette': 'ironred',

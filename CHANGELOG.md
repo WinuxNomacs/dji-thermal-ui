@@ -6,6 +6,17 @@ All notable changes are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Object distance starts on Embedded in each image**: the New dataset form, "Reset to defaults" and a setting
+  left empty measure with the distance the drone's thermal camera was set to for the flight, as DJI intends and as
+  DJI's own tools measure. The rangefinder's distance, the default until now, is listed second and marked
+  Experimental: DJI's correction for the air grows with distance, and at flight heights can make temperatures differ
+  greatly from the images as their camera recorded them. Settings already saved keep their choice.
+- The Problems tab's rangefinder problems say they only matter with the rangefinder's distance, and no longer offer
+  a button that sets the distance.
+- The frame page's Recorded column shows the distance the thermal camera recorded, not the rangefinder's.
+
 ## [1.0.0] - 2026-11-12
 
 The first release on PyPI: `uv tool install dji-thermal-ui`.

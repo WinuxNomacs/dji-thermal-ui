@@ -67,11 +67,22 @@ interface FormProps {
 }
 
 // The settings form, its fields marked where they differ from the defaults (or the plan), each with a link back
-// The flight's median distances, those it recorded (none before the analysis)
-function distances(rec: {distance: Maybe<number>; lrf: Maybe<number>}): string | undefined {
+// What each distance choice measures with: the embedded one as the drone's thermal camera was set, as DJI intends
+export const DISTANCE_HELP: Record<string, string> = {
+    embedded: "The distance the drone's thermal camera was set to for the flight, as DJI intends and as DJI's own " +
+        "tools measure. It may be a setting of the thermal camera's own, apart from the laser rangefinder and the " +
+        "flight height: verify it on your drone.",
+    lrf: "Experimental: each image's laser rangefinder distance where it has a valid one, else the embedded one, given " +
+        "to DJI's automatic correction for the air. That correction grows with distance: at flight heights it can make " +
+        "temperatures differ greatly from the image as its camera recorded them.",
+};
+
+// The flight's median distances, those it recorded (none before the analysis), and what the choice measures with
+function distances(rec: {distance: Maybe<number>; lrf: Maybe<number>}, mode: string): string | undefined {
     const known = ([["embedded", rec.distance], ["rangefinder", rec.lrf]] as const).filter(([, v]) => v !== null && v !== undefined)
         .map(([what, v]) => what + " " + formatNumber(v, 1, " m"));
-    return known.length ? known.join(", ").replace(/^e/, "E") + " (medians)" : undefined;
+    const parts = [known.length ? known.join(", ").replace(/^e/, "E") + " (medians)." : "", DISTANCE_HELP[mode] || ""];
+    return parts.filter(Boolean).join(" ") || undefined;
 }
 
 function SettingsForm({meta, form, setForm, diffs, reset, analysis, visualOnly: only}: FormProps) {
@@ -147,7 +158,7 @@ function SettingsForm({meta, form, setForm, diffs, reset, analysis, visualOnly: 
         </fieldset>
         <details open><summary>Measurement</summary>
             <p class="text-muted">Empty keeps each image's own value.</p>
-            <Field ctx={ctx} name="distance_mode" label="Object distance" help={distances(rec)}>
+            <Field ctx={ctx} name="distance_mode" label="Object distance" help={distances(rec, value("distance_mode"))}>
                 <select name="distance_mode" value={value("distance_mode")}
                         onChange={(e) => setValue("distance_mode", e.currentTarget.value)}>
                     {DISTANCE_MODES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>

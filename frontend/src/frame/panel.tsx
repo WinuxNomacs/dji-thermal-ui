@@ -28,7 +28,7 @@ export function Params(p: ParamsProps) {
     const params = p.info?.params || {}, any = Object.keys(p.changes).length > 0;
     return (<>
         <table class="table values params">
-            <thead><tr><th/><th title="As the camera recorded it (the distance: the rangefinder's)">Recorded</th>
+            <thead><tr><th/><th title="As the drone's thermal camera recorded it">Recorded</th>
                 <th>Measured with</th><th>Change to</th></tr></thead>
             <tbody>{CHANGES.map(([key, label, step, isTemp, sdkKey, recordedKey]) => {
                 const digits = key === "emissivity" ? 2 : 1, range = limits(key);

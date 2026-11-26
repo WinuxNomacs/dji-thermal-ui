@@ -33,8 +33,8 @@ unit chosen under User Preferences, and its files listed with their values (each
 problem's code is the badge's tooltip.
 
 A problem a setting fixes has a button that opens the Datasets tab with that setting changed in the New dataset form,
-converting nothing: normalizing the frames, one emissivity or humidity, the embedded or one fixed distance, or the
-oblique frames included when too few nadir frames are left.
+converting nothing: normalizing the frames, one emissivity or humidity, or the oblique frames included when too few
+nadir frames are left.
 
 ## Files
 

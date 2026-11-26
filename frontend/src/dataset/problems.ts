@@ -38,10 +38,6 @@ function sentence(t: string | null | undefined): string {
     return s ? s[0].toUpperCase() + s.slice(1) + (/[.!?]$/.test(s) ? "" : ".") : "";
 }
 
-const fixedDistance = (d: number): Fix => ({label: "Use one distance (" + metres(d) + ")",
-    values: {distance_mode: "fixed", distance: plain(Number(d.toFixed(1)))},
-    done: "Object distance is fixed at " + metres(d) + "."});
-
 // A problem's name where there is room for a word or two (the Files tab's Problems column); a code the app doesn't
 // know shows as it is
 const SHORT_NAMES: Record<string, string> = {
@@ -99,30 +95,27 @@ export function describeProblem(p: Problem, rows: FileRow[]): ProblemText {
     }
     case "distance_differs":
         return {message: "The object distance embedded in the frames differs between " + frames(n) + " and the rest.",
-                advice: "Object distance: the rangefinder's (the default) measures each frame at its own distance; a Fixed " +
-                    "distance under Measurement uses one for every frame.",
+                advice: "Object distance: “Embedded in each image” (the default) measures each frame with its own; a " +
+                    "Fixed distance under Measurement uses one for every frame.",
                 values: valuesOf("distance", metres)};
     case "rangefinder_distance": {
         const emb = median(thermal.map((r) => r.distance)), lrf = median(thermal.map((r) => r.lrf));
         if (emb === null || lrf === null) return fallback;
         return {message: "The object distance embedded in the frames is " + metres(emb) + ", but the rangefinder reads " +
-                    metres(lrf) + " (median). The rangefinder's is used by default.",
-                advice: "Choose “Embedded in each image” as the Object distance under Measurement to keep the embedded one.",
-                values: {},
-                fix: {label: "Use the embedded distance", values: {distance_mode: "embedded", distance: ""},
-                      done: "Object distance is the one embedded in each image."}};
+                    metres(lrf) + " (median). The embedded one is used by default, as the drone's thermal camera was set.",
+                advice: "The rangefinder's (Experimental) gives its distance to DJI's correction for the air, which at " +
+                    "flight heights can make temperatures differ greatly from the images as their camera recorded them.",
+                values: {}};
     }
     case "rangefinder_invalid":
     case "rangefinder_outlier": {
         const invalid = p.code === "rangefinder_invalid";
-        const bad = new Set(invalid ? p.files || [] : []);
-        const good = median(thermal.filter((r) => !bad.has(r.path)).map((r) => r.lrf));
         return {message: invalid ? frames(n) + " have no valid rangefinder reading: their embedded distance is used instead." :
                     frames(n) + " with an unusual rangefinder distance: the laser hit something nearer or farther " +
                     "(a roof, a tree, the horizon).",
-                advice: "A Fixed object distance under Measurement uses one distance for every frame.",
-                values: invalid ? {} : valuesOf("lrf", metres),
-                fix: good === null ? undefined : fixedDistance(good)};
+                advice: "Only matters with the rangefinder's Object distance (Experimental); “Embedded in each image”, " +
+                    "the default, isn't affected.",
+                values: invalid ? {} : valuesOf("lrf", metres)};
     }
     case "temperature_max_outlier":
     case "temperature_min_outlier":

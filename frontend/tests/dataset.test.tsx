@@ -44,7 +44,7 @@ const ANALYSIS: Analysis = {
     },
 };
 const DEFAULTS: Settings = {
-    distance: "lrf", humidity: null, emissivity: null, reflected_temp: null, ambient_temp: null, unit: "C", range_min: null,
+    distance: "embedded", humidity: null, emissivity: null, reflected_temp: null, ambient_temp: null, unit: "C", range_min: null,
     range_max: null, palette: null, gimbal_yaw: null, gimbal_pitch: null, gimbal_roll: null, replace_above: null,
     replace_above_value: null, replace_below: null, replace_below_value: null, strip_location: false, normalize: false,
     max_pitch: null, outputs: ["temp_c:tiff", "pseudo:png"], compression: "deflate", rjpeg_picture: "palette",
@@ -1033,7 +1033,24 @@ describe("the Datasets tab", () => {
         page(routes({...DATASET, status: "new", analyzed: false, analysis: null, conversions: []}));
         await ticks();
         await openSettings();
-        expect($(".field[data-field=distance_mode] .help")).toBeNull();
+        expect($(".field[data-field=distance_mode] .help")!.textContent).not.toContain("medians");
+    });
+
+    it("starts the object distance on the embedded one, as the thermal camera was set, the rangefinder's experimental", async () => {
+        page(routes({...DETAIL, conversions: []}));
+        await ticks();
+        await openSettings();
+        const mode = $<HTMLSelectElement>("select[name=distance_mode]")!;
+        expect(Array.from(mode.options).map((o) => o.textContent)).toEqual(
+            ["Embedded in each image", "The rangefinder's, where it measured, else embedded (Experimental)", "Fixed"]);
+        expect(mode.value).toBe("embedded");
+        const help = () => $(".field[data-field=distance_mode] .help")!.textContent;
+        expect(help()).toContain("(medians). The distance the drone's thermal camera was set to for the flight, as DJI intends");
+        expect(help()).toContain("verify it on your drone");
+        change(mode, "lrf");
+        await ticks();
+        expect(help()).toContain("Experimental: each image's laser rangefinder distance");
+        expect(help()).toContain("can make temperatures differ greatly from the image as its camera recorded them");
     });
 
     it("marks a changed setting and puts it back at its default", async () => {

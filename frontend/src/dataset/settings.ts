@@ -25,7 +25,8 @@ export interface Product {product: string; formats: string[]; description: strin
 export interface Meta {settings: Settings; saved: boolean; defaults: Settings; products: Product[]; palettes: string[]}
 
 export const DISTANCE_MODES: [string, string][] = [
-    ["lrf", "The rangefinder's, where it measured (else embedded)"], ["embedded", "Embedded in each image"], ["fixed", "Fixed"],
+    ["embedded", "Embedded in each image"], ["lrf", "The rangefinder's, where it measured, else embedded (Experimental)"],
+    ["fixed", "Fixed"],
 ];
 export const UNIT_LABELS: Record<Unit, string> = {C: "°C", F: "°F", K: "K"};
 

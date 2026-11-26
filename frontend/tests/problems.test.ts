@@ -37,19 +37,22 @@ describe("a problem's text", () => {
         expect(t.fix).toMatchObject({label: "Use one emissivity (0.95)", values: {emissivity: "0.95"}});
     });
 
-    it("keeps the embedded distance as the fix for a rangefinder that reads another", () => {
+    it("says the embedded distance is the default when the rangefinder reads another, with no button", () => {
         const rows = [row("a", {distance: 5, lrf: 20.9}), row("b", {distance: 5, lrf: 21.1})];
         const t = describeProblem(problem("rangefinder_distance"), rows);
         expect(t.message).toBe("The object distance embedded in the frames is 5.0 m, but the rangefinder reads 21.0 m (median). " +
-            "The rangefinder's is used by default.");
-        expect(t.fix).toMatchObject({label: "Use the embedded distance", values: {distance_mode: "embedded"}});
+            "The embedded one is used by default, as the drone's thermal camera was set.");
+        expect(t.advice).toContain("The rangefinder's (Experimental)");
+        expect(t.fix).toBeUndefined();
     });
 
-    it("fixes one distance at the median of the valid rangefinder readings", () => {
+    it("says a rangefinder without a reading only matters with the rangefinder's distance, with no button", () => {
         const rows = [row("a", {lrf: 20}), row("b", {lrf: 22}), row("c", {lrf: null}), row("d", {lrf: 0})];
         const t = describeProblem(problem("rangefinder_invalid", ["c", "d"]), rows);
         expect(t.message).toBe("2 frames have no valid rangefinder reading: their embedded distance is used instead.");
-        expect(t.fix).toMatchObject({label: "Use one distance (21.0 m)", values: {distance_mode: "fixed", distance: "21"}});
+        expect(t.advice).toBe("Only matters with the rangefinder's Object distance (Experimental); “Embedded in each image”, " +
+            "the default, isn't affected.");
+        expect(t.fix).toBeUndefined();
     });
 
     it("lists a temperature outlier's values once, beside the files, with no button", () => {

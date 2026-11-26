@@ -16,6 +16,23 @@ normalized", else "Default settings"), as the name field shows before converting
 
 You can keep several datasets side by side, cancel one while it converts, or download it.
 
+### Object distance
+
+Under Measurement, **Object distance** sets the distance DJI's SDK corrects for the air between the camera and the
+surface. It doesn't change the images' raw data, only how their temperatures are computed.
+
+- **Embedded in each image** (the default): the distance the drone's thermal camera was set to for the flight, as
+  DJI intends and as DJI's own tools measure. DJI's Thermal Analysis Tool guide (v1.2): "The camera's default
+  calibration distance is generally fixed during production. This is the distance at which temperature
+  measurements are the most accurate." It may be a setting of the thermal camera's own, apart from the laser
+  rangefinder and the flight height: verify it on your drone.
+- **The rangefinder's, where it measured, else embedded (Experimental)**: each image's laser rangefinder distance,
+  given to DJI's automatic correction for the air. That correction grows with distance: at flight heights it pushes
+  every temperature away from the ambient temperature, and can make temperatures differ greatly from the images as
+  their camera recorded them. The laser hits one point, and the whole frame is measured with it. Check a longer
+  distance against something of known temperature in the scene (melting ice is 0 °C).
+- **Fixed**: one distance for every frame.
+
 ## The outputs
 
 - **Temperatures** as TIFFs, which [WebODM](webodm.md) can process.
